@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Paper } from '@mui/material';
-import { fetchCoursesByInstitute, fetchInstitutes } from '../../api/lookupApi';
-import { createStudentWithPaymentSchedule, derivePaymentStatus } from '../../api/studentsApi';
+import { fetchEnrolmentRows, fetchStudentById, updateStudentEnrolment } from '../../api/studentsApi';
 import {
   FormActions,
   FormPageLayout,
@@ -11,12 +10,11 @@ import {
 } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
 
-export default function NewStudentPage({ basePath }) {
+export default function NewEnrolmentPage({ basePath }) {
   const navigate = useNavigate();
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(() => getEmptyForm(basePath));
-  const [institutes, setInstitutes] = useState([]);
-  const [courses, setCourses] = useState([]);
+  const [students, setStudents] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
@@ -25,12 +23,12 @@ export default function NewStudentPage({ basePath }) {
   useEffect(() => {
     let active = true;
 
-    fetchInstitutes()
+    fetchEnrolmentRows()
       .then((data) => {
-        if (active) setInstitutes(data);
+        if (active) setStudents(data);
       })
       .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load institutes.');
+        if (active) setLoadError(err.message || 'Failed to load students.');
       });
 
     return () => {
@@ -41,58 +39,47 @@ export default function NewStudentPage({ basePath }) {
   useEffect(() => {
     let active = true;
 
-    if (!form.instituteId) {
-      setCourses([]);
-      return undefined;
-    }
+    if (!form.studentId) return undefined;
 
-    fetchCoursesByInstitute(form.instituteId)
-      .then((data) => {
-        if (active) setCourses(data);
+    fetchStudentById(form.studentId)
+      .then((student) => {
+        if (!active) return;
+        setForm((prev) => ({
+          ...prev,
+          fullName: student.fullName,
+          email: student.email,
+          phone: student.phone,
+          enrolmentStatus: student.enrolmentStatus || prev.enrolmentStatus,
+        }));
       })
       .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load courses.');
+        if (active) setLoadError(err.message || 'Failed to load student details.');
       });
 
     return () => {
       active = false;
     };
-  }, [form.instituteId]);
+  }, [form.studentId]);
 
   const selectOptions = useMemo(
     () => ({
-      instituteId: institutes.map((item) => ({
-        value: item.instituteId,
-        label: item.instituteName,
-      })),
-      courseId: courses.map((item) => ({
-        value: item.courseId,
-        label: item.courseName,
+      studentId: students.map((item) => ({
+        value: item.studentId,
+        label: item.fullName,
       })),
     }),
-    [institutes, courses],
+    [students],
   );
 
   if (!resource) return null;
 
   const updateField = (field, value) => {
-    setForm((prev) => {
-      const next = { ...prev, [field]: value };
-      if (field === 'instituteId' && value !== prev.instituteId) {
-        next.courseId = '';
-      }
-      if (field === 'amountDue' || field === 'amountPaid') {
-        const due = field === 'amountDue' ? value : prev.amountDue;
-        const paid = field === 'amountPaid' ? value : prev.amountPaid;
-        next.paymentStatus = derivePaymentStatus(due, paid);
-      }
-      return next;
-    });
+    setForm((prev) => ({ ...prev, [field]: value }));
     if (error) setError('');
     if (loadError) setLoadError('');
   };
 
-  const handleCreate = async () => {
+  const handleUpdate = async () => {
     if (submittingRef.current) return;
 
     submittingRef.current = true;
@@ -100,10 +87,10 @@ export default function NewStudentPage({ basePath }) {
     setError('');
 
     try {
-      await createStudentWithPaymentSchedule(form);
+      await updateStudentEnrolment(form.studentId, form);
       navigate(basePath);
     } catch (err) {
-      setError(err.message || 'Failed to create student.');
+      setError(err.message || 'Failed to update student enrolment.');
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -112,12 +99,11 @@ export default function NewStudentPage({ basePath }) {
 
   return (
     <FormPageLayout
-      title={`Add new ${resource.singular.toLowerCase()}`}
-      subtitle="Select institute and course from the list. Student and payment schedule are saved to AvecADeskApi."
+      title="Update student enrolment"
+      subtitle="Select a student and update their enrolment stage and contact details via AvecADeskApi."
       metaItems={[
         { label: 'Module', value: resource.plural },
-        { label: 'API', value: 'AvecADeskApi' },
-        { label: 'Tables', value: 'Students + PaymentSchedules' },
+        { label: 'Action', value: 'Update student' },
       ]}
     >
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
@@ -134,8 +120,8 @@ export default function NewStudentPage({ basePath }) {
         />
         <FormActions
           onCancel={() => navigate(basePath)}
-          onSubmit={handleCreate}
-          submitLabel={submitting ? 'Saving...' : resource.actionLabel}
+          onSubmit={handleUpdate}
+          submitLabel={submitting ? 'Updating...' : resource.actionLabel}
           submitDisabled={!isFormValid(resource, form) || submitting}
         />
       </Paper>

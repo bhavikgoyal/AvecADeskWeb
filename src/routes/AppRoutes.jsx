@@ -15,6 +15,13 @@ const StudentDash = lazy(() => import('../pages/Dashboards/StudentDash'));
 const ResourceListPage = lazy(() => import('../pages/resources/ResourceListPage'));
 const NewResourcePage = lazy(() => import('../pages/resources/NewResourcePage'));
 const NewStudentPage = lazy(() => import('../pages/resources/NewStudentPage'));
+const NewInstitutePage = lazy(() => import('../pages/resources/NewInstitutePage'));
+const InstituteDetailPage = lazy(() => import('../pages/resources/InstituteDetailPage'));
+const NewVendorPage = lazy(() => import('../pages/resources/NewVendorPage'));
+const VendorDetailPage = lazy(() => import('../pages/resources/VendorDetailPage'));
+const NewEnrolmentPage = lazy(() => import('../pages/resources/NewEnrolmentPage'));
+const EnrolmentDetailPage = lazy(() => import('../pages/resources/EnrolmentDetailPage'));
+const StudentDetailPage = lazy(() => import('../pages/resources/StudentDetailPage'));
 const ResourceDetailPage = lazy(() => import('../pages/resources/ResourceDetailPage'));
 
 function RoleRedirect() {
@@ -38,15 +45,78 @@ function GuardedResourceList({ path }) {
 }
 
 function GuardedNewResource({ path }) {
-  const isStudents = path === '/students';
+  if (path === '/students') {
+    return (
+      <RequireRole path={path}>
+        <NewStudentPage basePath={path} />
+      </RequireRole>
+    );
+  }
+
+  if (path === '/institutes') {
+    return (
+      <RequireRole path={path}>
+        <NewInstitutePage basePath={path} />
+      </RequireRole>
+    );
+  }
+
+  if (path === '/vendors') {
+    return (
+      <RequireRole path={path}>
+        <NewVendorPage basePath={path} />
+      </RequireRole>
+    );
+  }
+
+  if (path === '/status/students') {
+    return (
+      <RequireRole path={path}>
+        <NewEnrolmentPage basePath={path} />
+      </RequireRole>
+    );
+  }
+
   return (
     <RequireRole path={path}>
-      {isStudents ? <NewStudentPage basePath={path} /> : <NewResourcePage basePath={path} />}
+      <NewResourcePage basePath={path} />
     </RequireRole>
   );
 }
 
 function GuardedResourceDetail({ path }) {
+  if (path === '/students') {
+    return (
+      <RequireRole path={path}>
+        <StudentDetailPage basePath={path} />
+      </RequireRole>
+    );
+  }
+
+  if (path === '/institutes') {
+    return (
+      <RequireRole path={path}>
+        <InstituteDetailPage basePath={path} />
+      </RequireRole>
+    );
+  }
+
+  if (path === '/vendors') {
+    return (
+      <RequireRole path={path}>
+        <VendorDetailPage basePath={path} />
+      </RequireRole>
+    );
+  }
+
+  if (path === '/status/students') {
+    return (
+      <RequireRole path={path}>
+        <EnrolmentDetailPage basePath={path} />
+      </RequireRole>
+    );
+  }
+
   return (
     <RequireRole path={path}>
       <ResourceDetailPage basePath={path} />

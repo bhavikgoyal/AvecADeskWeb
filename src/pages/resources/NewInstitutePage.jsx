@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Paper } from '@mui/material';
-import { fetchCoursesByInstitute, fetchInstitutes } from '../../api/lookupApi';
-import { createStudentWithPaymentSchedule, derivePaymentStatus } from '../../api/studentsApi';
+import { createInstitute } from '../../api/institutesApi';
+import { fetchVendors } from '../../api/lookupApi';
 import {
   FormActions,
   FormPageLayout,
@@ -11,12 +11,11 @@ import {
 } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
 
-export default function NewStudentPage({ basePath }) {
+export default function NewInstitutePage({ basePath }) {
   const navigate = useNavigate();
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(() => getEmptyForm(basePath));
-  const [institutes, setInstitutes] = useState([]);
-  const [courses, setCourses] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
@@ -25,12 +24,12 @@ export default function NewStudentPage({ basePath }) {
   useEffect(() => {
     let active = true;
 
-    fetchInstitutes()
+    fetchVendors()
       .then((data) => {
-        if (active) setInstitutes(data);
+        if (active) setVendors(data);
       })
       .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load institutes.');
+        if (active) setLoadError(err.message || 'Failed to load vendors.');
       });
 
     return () => {
@@ -38,56 +37,20 @@ export default function NewStudentPage({ basePath }) {
     };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-
-    if (!form.instituteId) {
-      setCourses([]);
-      return undefined;
-    }
-
-    fetchCoursesByInstitute(form.instituteId)
-      .then((data) => {
-        if (active) setCourses(data);
-      })
-      .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load courses.');
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [form.instituteId]);
-
   const selectOptions = useMemo(
     () => ({
-      instituteId: institutes.map((item) => ({
-        value: item.instituteId,
-        label: item.instituteName,
-      })),
-      courseId: courses.map((item) => ({
-        value: item.courseId,
-        label: item.courseName,
+      vendorId: vendors.map((item) => ({
+        value: item.vendorId,
+        label: item.businessName || item.BusinessName || `Vendor ${item.vendorId}`,
       })),
     }),
-    [institutes, courses],
+    [vendors],
   );
 
   if (!resource) return null;
 
   const updateField = (field, value) => {
-    setForm((prev) => {
-      const next = { ...prev, [field]: value };
-      if (field === 'instituteId' && value !== prev.instituteId) {
-        next.courseId = '';
-      }
-      if (field === 'amountDue' || field === 'amountPaid') {
-        const due = field === 'amountDue' ? value : prev.amountDue;
-        const paid = field === 'amountPaid' ? value : prev.amountPaid;
-        next.paymentStatus = derivePaymentStatus(due, paid);
-      }
-      return next;
-    });
+    setForm((prev) => ({ ...prev, [field]: value }));
     if (error) setError('');
     if (loadError) setLoadError('');
   };
@@ -100,10 +63,10 @@ export default function NewStudentPage({ basePath }) {
     setError('');
 
     try {
-      await createStudentWithPaymentSchedule(form);
+      await createInstitute(form);
       navigate(basePath);
     } catch (err) {
-      setError(err.message || 'Failed to create student.');
+      setError(err.message || 'Failed to create institute.');
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -113,11 +76,11 @@ export default function NewStudentPage({ basePath }) {
   return (
     <FormPageLayout
       title={`Add new ${resource.singular.toLowerCase()}`}
-      subtitle="Select institute and course from the list. Student and payment schedule are saved to AvecADeskApi."
+      subtitle="Institute is saved to AvecADeskApi with primary and secondary brand colours."
       metaItems={[
         { label: 'Module', value: resource.plural },
         { label: 'API', value: 'AvecADeskApi' },
-        { label: 'Tables', value: 'Students + PaymentSchedules' },
+        { label: 'Table', value: 'Institutes' },
       ]}
     >
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
