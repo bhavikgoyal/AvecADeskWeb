@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -13,10 +13,10 @@ import {
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 const LOGIN_LOGO = '/images/login/global_logo.png';
 const LOGIN_HERO = '/images/login/login_groupImg.png';
-import { authenticateUser } from '../../constants/auth';
+import { loginWithApi } from '../../api/authApi';
 import { useAuth } from '../../hooks/useAuth';
 import { getDefaultRoute } from '../../utils/rbac';
 import '../../styles/LoginForm.css';
@@ -65,21 +65,36 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const foundUser = authenticateUser(email, password);
-
-    if (foundUser) {
-      setError('');
-      login(foundUser);
-      navigate(getDefaultRoute(foundUser.role), { replace: true });
-      return;
+  const sessionMessage = useMemo(() => {
+    if (searchParams.get('session') === 'expired') {
+      return 'Your session expired. Please sign in again with your AvecADeskApi account.';
     }
+    return '';
+  }, [searchParams]);
 
-    setError('Invalid email or password');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+
+    try {
+      const apiUser = await loginWithApi(email, password);
+      login(apiUser);
+      navigate(getDefaultRoute(apiUser.role), { replace: true });
+    } catch (err) {
+      setError(
+        err.message === 'Request failed'
+          ? 'Cannot reach AvecADeskApi. Make sure the API is running on https://localhost:7099 and try again.'
+          : err.message || 'Invalid email or password. Use your database user credentials.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -116,6 +131,12 @@ export default function LoginForm() {
           <Typography sx={{ color: '#64748b', fontSize: '0.9375rem', mb: 4.5 }}>
             Enter your details to manage your dashboard.
           </Typography>
+
+          {sessionMessage && (
+            <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+              {sessionMessage}
+            </Alert>
+          )}
 
           {error && (
             <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
@@ -207,6 +228,7 @@ export default function LoginForm() {
             <Button
               type="submit"
               fullWidth
+              disabled={submitting}
               sx={{
                 height: 52,
                 borderRadius: '10px',

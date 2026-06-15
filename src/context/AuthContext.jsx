@@ -1,20 +1,33 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { clearAuthSession, getAuthToken } from '../api/axiosClient';
 import { STORAGE_KEY } from '../constants/auth';
 import { AuthContext } from './auth-context';
 
 function readStoredUser() {
   try {
     const savedUser = localStorage.getItem(STORAGE_KEY);
+    const token = getAuthToken();
+    if (savedUser && !token) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
     return savedUser ? JSON.parse(savedUser) : null;
   } catch (error) {
     console.error('Failed to parse saved user:', error);
-    localStorage.removeItem(STORAGE_KEY);
+    clearAuthSession();
     return null;
   }
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser);
+
+  useEffect(() => {
+    if (user && !getAuthToken()) {
+      setUser(null);
+      clearAuthSession();
+    }
+  }, [user]);
 
   const login = (userData) => {
     const safeUser = { ...userData };
@@ -25,7 +38,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem(STORAGE_KEY);
+    clearAuthSession();
   };
 
   const value = useMemo(() => ({ user, login, logout }), [user]);
