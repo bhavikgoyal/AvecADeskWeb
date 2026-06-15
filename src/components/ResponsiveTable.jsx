@@ -13,12 +13,35 @@ import {
   useTheme,
 } from '@mui/material';
 import {
+  LIST_PRIMARY_COLUMN_COLOR,
   resourceTableBodyCellSx,
   resourceTableBodyRowSx,
   resourceTableHeadCellSx,
   resourceTableHeadRowSx,
   resourceTableSx,
 } from './resourceTableStyles';
+
+function renderTextCell(value, column, columnIndex, onRowClick) {
+  const isPrimaryLink = onRowClick && columnIndex === 0;
+  if (typeof value === 'string' || typeof value === 'number') {
+    return (
+      <Typography
+        variant="body2"
+        component="span"
+        sx={{
+          color: isPrimaryLink ? LIST_PRIMARY_COLUMN_COLOR : 'var(--text)',
+          fontWeight: isPrimaryLink ? 600 : 400,
+          wordBreak: 'break-word',
+          fontSize: 'inherit',
+          ...column.cellSx,
+        }}
+      >
+        {value}
+      </Typography>
+    );
+  }
+  return value;
+}
 
 export default function ResponsiveTable({ columns, rows, getRowKey, sx, onRowClick, alwaysTable = false, variant = 'default' }) {
   const theme = useTheme();
@@ -52,7 +75,7 @@ export default function ResponsiveTable({ columns, rows, getRowKey, sx, onRowCli
             }}
           >
             <Stack spacing={0.75}>
-              {mobileColumns.map((column) => (
+              {mobileColumns.map((column, columnIndex) => (
                 <Box
                   key={column.id}
                   sx={{
@@ -79,17 +102,7 @@ export default function ResponsiveTable({ columns, rows, getRowKey, sx, onRowCli
                       flexWrap: 'wrap',
                     }}
                   >
-                    {(() => {
-                      const value = renderCellValue(row, column);
-                      if (typeof value === 'string' || typeof value === 'number') {
-                        return (
-                          <Typography variant="body2" sx={{ color: 'var(--text)', wordBreak: 'break-word', ...column.cellSx }}>
-                            {value}
-                          </Typography>
-                        );
-                      }
-                      return value;
-                    })()}
+                    {renderTextCell(renderCellValue(row, column), column, columnIndex, onRowClick)}
                   </Box>
                 </Box>
               ))}
@@ -145,9 +158,17 @@ export default function ResponsiveTable({ columns, rows, getRowKey, sx, onRowCli
               sx={{
                 cursor: onRowClick ? 'pointer' : 'default',
                 ...(isResource ? resourceTableBodyRowSx : {}),
+                ...(onRowClick
+                  ? {
+                      '& td:first-of-type': {
+                        color: LIST_PRIMARY_COLUMN_COLOR,
+                        fontWeight: 600,
+                      },
+                    }
+                  : {}),
               }}
             >
-              {columns.map((column) => (
+              {columns.map((column, columnIndex) => (
                 <TableCell
                   key={column.id}
                   align={column.align || 'left'}
@@ -165,7 +186,7 @@ export default function ResponsiveTable({ columns, rows, getRowKey, sx, onRowCli
                     ...column.cellSx,
                   }}
                 >
-                  {renderCellValue(row, column)}
+                  {renderTextCell(renderCellValue(row, column), column, columnIndex, onRowClick)}
                 </TableCell>
               ))}
             </TableRow>

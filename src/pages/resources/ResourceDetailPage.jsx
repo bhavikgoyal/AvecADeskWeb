@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import {
-  FormBackButton,
+  FormActions,
   FormPageLayout,
-  FormSaveButton,
   FormSectionsLayout,
   formPaperSx,
 } from '../../components/forms';
@@ -67,12 +66,6 @@ export default function ResourceDetailPage({ basePath }) {
         },
         { label: 'Mode', value: editMode ? 'Editing' : 'View' },
       ]}
-      actions={
-        <>
-          <FormBackButton onClick={() => navigate(basePath)} />
-          <FormSaveButton editMode={editMode} onClick={handleSave} />
-        </>
-      }
     >
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
         <FormSectionsLayout
@@ -80,6 +73,12 @@ export default function ResourceDetailPage({ basePath }) {
           form={form}
           onChange={updateField}
           disabled={!editMode}
+        />
+        <FormActions
+          onCancel={() => navigate(basePath)}
+          cancelLabel="Back"
+          onSubmit={handleSave}
+          submitLabel={editMode ? 'Save' : 'Edit'}
         />
       </Paper>
     </FormPageLayout>

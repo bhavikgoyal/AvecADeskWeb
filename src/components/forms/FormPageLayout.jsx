@@ -1,16 +1,10 @@
 import { Box, Chip, Stack, Typography } from '@mui/material';
 import { FORM_PAGE_MAX_WIDTH } from './formStyles';
 
-export default function FormPageLayout({ title, subtitle, actions, metaItems = [], children, maxWidth = FORM_PAGE_MAX_WIDTH }) {
+export default function FormPageLayout({ title, subtitle, metaItems = [], children, maxWidth = FORM_PAGE_MAX_WIDTH }) {
   return (
     <Box className="form-page" sx={{ width: '100%', maxWidth, mx: 'auto', pb: 2 }}>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
-        spacing={1.25}
-        sx={{ mb: 1.5 }}
-      >
+      <Box sx={{ mb: 1.5 }}>
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase' }}>
             Form
@@ -43,12 +37,7 @@ export default function FormPageLayout({ title, subtitle, actions, metaItems = [
             </Stack>
           )}
         </Box>
-        {actions && (
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}>
-            {actions}
-          </Stack>
-        )}
-      </Stack>
+      </Box>
       {children}
     </Box>
   );

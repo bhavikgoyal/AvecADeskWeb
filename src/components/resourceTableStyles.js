@@ -1,3 +1,6 @@
+/** Primary link color for first column in clickable list rows. */
+export const LIST_PRIMARY_COLUMN_COLOR = 'rgb(51, 133, 198)';
+
 /** Shared dense list table styling for vendor / institute commission pages. */
 export const resourceTableSx = {
   borderTop: '1px solid #e8ecf1',
