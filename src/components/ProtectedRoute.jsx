@@ -1,12 +1,14 @@
 import { Navigate, useLocation } from 'react-router-dom';
+import { getAuthToken } from '../api/axiosClient';
 import { useAuth } from '../hooks/useAuth';
 import { canAccessPath, getDefaultRoute } from '../utils/rbac';
 
 export function RequireAuth({ children }) {
   const { user } = useAuth();
   const location = useLocation();
+  const token = getAuthToken();
 
-  if (!user) {
+  if (!user || !token) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 

@@ -29,8 +29,8 @@ export const DOMAIN_FIELD_DEFS = {
 
   fullName: { label: 'Full name', type: 'text', required: true, grid: grid.half },
   enrollmentNumber: { label: 'Enrolment number', type: 'text', grid: grid.half },
-  instituteNameRef: { label: 'Institute', type: 'text', grid: grid.half },
-  courseName: { label: 'Course', type: 'text', grid: grid.half },
+  instituteId: { label: 'Institute', type: 'api-select', required: true, grid: grid.half },
+  courseId: { label: 'Course', type: 'api-select', required: true, grid: grid.half },
   enrolmentStatus: {
     label: 'Enrolment status',
     type: 'select',
@@ -142,14 +142,14 @@ export const DOMAIN_FIELD_DEFS = {
   effectiveFrom: { label: 'Effective from', type: 'date', grid: grid.quarter },
   effectiveTo: { label: 'Effective to', type: 'date', grid: grid.quarter },
   earnedAmount: { label: 'Earned amount', type: 'number', grid: grid.quarter },
-  amountDue: { label: 'Amount due', type: 'number', grid: grid.quarter },
+  amountDue: { label: 'Amount due', type: 'number', required: true, grid: grid.quarter },
   amountPaid: { label: 'Amount paid', type: 'number', grid: grid.quarter },
 
   scheduledAt: { label: 'Scheduled at', type: 'date', grid: grid.half },
   errorMessage: { label: 'Error message', type: 'textarea', grid: grid.wide },
 
   email: { label: 'Email', type: 'email', grid: grid.half },
-  phone: { label: 'Phone', type: 'text', grid: grid.half },
+  phone: { label: 'Phone', type: 'text', required: true, grid: grid.half },
   notes: { label: 'Notes', type: 'textarea', grid: grid.wide },
   description: { label: 'Description', type: 'textarea', grid: grid.wide },
 };
@@ -204,10 +204,10 @@ export const DOMAIN_RESOURCES = {
     plural: 'Students',
     actionLabel: 'Add Student',
     primaryField: 'fullName',
-    requiredFields: ['fullName'],
+    requiredFields: ['fullName', 'phone', 'instituteId', 'courseId', 'amountDue', 'dueDate'],
     sections: [
       { title: 'Student profile', description: 'Registered student after AIH interest.', fields: ['fullName', 'enrollmentNumber', 'enrolmentStatus', 'email'] },
-      { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteNameRef', 'courseName', 'phone'] },
+      { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
       { title: 'Payment schedule', description: 'Outstanding balance tracking.', fields: ['amountDue', 'amountPaid', 'paymentStatus', 'dueDate'] },
       { title: 'Notes', description: 'Internal follow-up notes.', fields: ['notes'] },
     ],
@@ -219,7 +219,7 @@ export const DOMAIN_RESOURCES = {
     ],
     emptyForm: () => ({
       fullName: '', enrollmentNumber: '', enrolmentStatus: 'Interested', email: '',
-      instituteNameRef: '', courseName: '', phone: '',
+      instituteId: '', courseId: '', phone: '',
       amountDue: '', amountPaid: '', paymentStatus: 'Pending', dueDate: '', notes: '',
     }),
   },

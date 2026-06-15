@@ -35,6 +35,6 @@ export const USERS_DB = [
   },
 ];
 
-export function authenticateUser(email, password) {
+export function authenticateUser(email='admin@gmail.com', password='123') {
   return USERS_DB.find((user) => user.email === email && user.password === password) || null;
 }

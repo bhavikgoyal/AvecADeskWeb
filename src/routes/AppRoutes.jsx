@@ -14,6 +14,7 @@ const VendorDash = lazy(() => import('../pages/Dashboards/VendorDash'));
 const StudentDash = lazy(() => import('../pages/Dashboards/StudentDash'));
 const ResourceListPage = lazy(() => import('../pages/resources/ResourceListPage'));
 const NewResourcePage = lazy(() => import('../pages/resources/NewResourcePage'));
+const NewStudentPage = lazy(() => import('../pages/resources/NewStudentPage'));
 const ResourceDetailPage = lazy(() => import('../pages/resources/ResourceDetailPage'));
 
 function RoleRedirect() {
@@ -37,9 +38,10 @@ function GuardedResourceList({ path }) {
 }
 
 function GuardedNewResource({ path }) {
+  const isStudents = path === '/students';
   return (
     <RequireRole path={path}>
-      <NewResourcePage basePath={path} />
+      {isStudents ? <NewStudentPage basePath={path} /> : <NewResourcePage basePath={path} />}
     </RequireRole>
   );
 }

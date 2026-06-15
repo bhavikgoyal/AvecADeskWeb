@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
+import { Box, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { FIELD_DEFS } from '../../config/resourceConfig';
 import { FormGridItem } from './FormSection';
 import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
@@ -30,6 +30,7 @@ export default function ResourceFormFields({
   disabled = false,
   compact = false,
   stretch = false,
+  selectOptions = {},
 }) {
   const handleChange = (field) => (event) => {
     onChange(field, event.target.value);
@@ -42,14 +43,46 @@ export default function ResourceFormFields({
     if (!def) return null;
     const isDate = def.type === 'date';
 
-    if (def.type === 'select') {
+    if (def.type === 'select' || def.type === 'api-select') {
+      const options = def.type === 'api-select' ? selectOptions[fieldName] || [] : def.options.map((option) => ({ value: option, label: option }));
+      const labelId = `${fieldName}-label`;
+      const currentValue = form[fieldName] || '';
+      const selectedLabel = options.find((option) => String(option.value) === String(currentValue))?.label;
+
       return (
         <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
-          <FormControl {...fieldProps} disabled={disabled}>
-            <InputLabel>{def.label}</InputLabel>
-            <Select label={def.label} value={form[fieldName] || ''} onChange={handleChange(fieldName)}>
-              {def.options.map((option) => (
-                <MenuItem key={option} value={option}>{option}</MenuItem>
+          <FormControl {...fieldProps} disabled={disabled || (def.type === 'api-select' && options.length === 0)}>
+            <InputLabel id={labelId} shrink required={def.required}>
+              {def.label}
+            </InputLabel>
+            <Select
+              labelId={labelId}
+              label={def.label}
+              value={currentValue}
+              onChange={handleChange(fieldName)}
+              displayEmpty={def.type === 'api-select'}
+              renderValue={
+                def.type === 'api-select'
+                  ? (selected) => {
+                      if (!selected) {
+                        const placeholder = options.length === 0
+                          ? `Loading ${def.label.toLowerCase()}...`
+                          : `Select ${def.label.toLowerCase()}`;
+                        return (
+                          <Box component="span" sx={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
+                            {placeholder}
+                          </Box>
+                        );
+                      }
+                      return selectedLabel || selected;
+                    }
+                  : undefined
+              }
+            >
+              {options.map((option) => (
+                <MenuItem key={option.value} value={String(option.value)}>
+                  {option.label}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
