@@ -1,0 +1,27 @@
+/* Login page only — remove MUI default end-adornment padding on password field */
+.login-page .MuiInputBase-root.MuiInputBase-adornedEnd {
+  padding-right: 0;
+}
+
+/* Override browser autofill yellow/blue background on saved credentials */
+.login-page .MuiOutlinedInput-input:-webkit-autofill,
+.login-page .MuiOutlinedInput-input:-webkit-autofill:hover,
+.login-page .MuiOutlinedInput-input:-webkit-autofill:focus,
+.login-page .MuiOutlinedInput-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+  border-radius: 10px;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.login-page input:-webkit-autofill,
+.login-page input:-webkit-autofill:hover,
+.login-page input:-webkit-autofill:focus,
+.login-page input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+}

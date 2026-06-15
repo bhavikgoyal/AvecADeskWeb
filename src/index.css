@@ -1,0 +1,170 @@
+:root {
+  --bg: #f5f7fb;
+  --card-bg: #ffffff;
+  --primary: #3385c6;
+  --primary-dark: #2a6ba8;
+  --primary-light: #59a8e0;
+  --primary-soft: rgba(51, 133, 198, 0.1);
+  --accent: #1a4d7a;
+  --teal: #20c997;
+  --success: #2fb344;
+  --danger: #d63939;
+  --warning: #f59f00;
+  --muted: #657792;
+  --muted-light: #9aa8b8;
+  --text: #1a2b3d;
+  --muted-border: rgba(101, 119, 146, 0.1);
+  --card-border: rgba(218, 225, 236, 0.95);
+  --muted-bg: #f0f3f9;
+  --sidebar-active: rgba(51, 133, 198, 0.1);
+  --sidebar-active-text: #2a6ba8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  font-family: Inter, Roboto, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dashboard-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 1px 3px rgba(26, 43, 61, 0.04), 0 6px 20px rgba(26, 43, 61, 0.04);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.dashboard-card:hover {
+  box-shadow: 0 4px 12px rgba(51, 133, 198, 0.08), 0 12px 32px rgba(26, 43, 61, 0.06);
+}
+
+.dashboard-card--fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-card--fill .chart-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-card--fill .chart-body > * {
+  flex: 1 1 auto;
+  min-height: 280px;
+}
+
+@media (min-width: 1200px) {
+  .dashboard-card--fill .chart-body > * {
+    min-height: 320px;
+  }
+}
+
+.welcome-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.form-page {
+  width: 100%;
+  max-width: 100%;
+}
+
+.form-page .MuiGrid-container {
+  width: 100%;
+}
+
+.form-page .MuiGrid-root.MuiGrid-item,
+.form-page .MuiGrid-root[class*='MuiGrid-grid'] {
+  min-width: 0;
+}
+
+.form-page .MuiFormControl-root,
+.form-page .MuiTextField-root {
+  width: 100%;
+  min-width: 0;
+}
+
+.form-page .MuiInputLabel-root {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.form-page input[type='date'] {
+  appearance: auto;
+}
+
+.form-page input[type='date']::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+.form-page .MuiTextField-root input[type='date'] {
+  padding-top: 8.5px;
+  padding-bottom: 8.5px;
+}
+
+.form-page .MuiSelect-select,
+.form-page .MuiOutlinedInput-input {
+  min-width: 0;
+}
+
+.app-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(26, 43, 61, 0.05);
+}
+
+main .MuiTableContainer-root {
+  overflow-x: hidden;
+}
+
+main .MuiTableCell-root {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.stat-card {
+  align-self: flex-start;
+  width: 100%;
+}
+
+main .MuiTableCell-root.MuiTableCell-sizeMedium {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+@media (max-width: 1024px) {
+  .app-card,
+  .dashboard-card {
+    border-radius: 10px;
+  }
+}
+
+@media (max-width: 720px) {
+  main .MuiButton-root:not(.MuiIconButton-root):not(.form-page .MuiButton-root),
+  main .MuiTextField-root:not(.form-page .MuiTextField-root) {
+    width: 100%;
+  }
+}
+
+.force-scroll,
+html.force-scroll {
+  overflow: auto !important;
+}
