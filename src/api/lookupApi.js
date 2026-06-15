@@ -11,3 +11,8 @@ export async function fetchCoursesByInstitute(instituteId) {
   const { data } = await axiosClient.get('/api/courses', { params: { instituteId } });
   return data;
 }
+
+export async function fetchVendors() {
+  const { data } = await axiosClient.get('/api/vendors');
+  return data;
+}

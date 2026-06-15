@@ -1,22 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Alert, Paper } from '@mui/material';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Alert, Box, Button, Paper, Typography } from '@mui/material';
 import { fetchCoursesByInstitute, fetchInstitutes } from '../../api/lookupApi';
-import { createStudentWithPaymentSchedule, derivePaymentStatus } from '../../api/studentsApi';
+import {
+  derivePaymentStatus,
+  fetchStudentWithSchedule,
+  updateStudentWithPaymentSchedule,
+} from '../../api/studentsApi';
 import {
   FormActions,
   FormPageLayout,
   FormSectionsLayout,
   formPaperSx,
 } from '../../components/forms';
-import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
+import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
 
-export default function NewStudentPage({ basePath }) {
+export default function StudentDetailPage({ basePath }) {
   const navigate = useNavigate();
+  const { id } = useParams();
   const resource = getResourceConfig(basePath);
-  const [form, setForm] = useState(() => getEmptyForm(basePath));
+  const [form, setForm] = useState(null);
   const [institutes, setInstitutes] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
@@ -40,8 +46,30 @@ export default function NewStudentPage({ basePath }) {
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError('');
+    setLoadError('');
 
-    if (!form.instituteId) {
+    fetchStudentWithSchedule(id)
+      .then(({ form: loadedForm }) => {
+        if (active) setForm(loadedForm);
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Student not found.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!form?.instituteId) {
       setCourses([]);
       return undefined;
     }
@@ -57,7 +85,7 @@ export default function NewStudentPage({ basePath }) {
     return () => {
       active = false;
     };
-  }, [form.instituteId]);
+  }, [form?.instituteId]);
 
   const selectOptions = useMemo(
     () => ({
@@ -77,6 +105,7 @@ export default function NewStudentPage({ basePath }) {
 
   const updateField = (field, value) => {
     setForm((prev) => {
+      if (!prev) return prev;
       const next = { ...prev, [field]: value };
       if (field === 'instituteId' && value !== prev.instituteId) {
         next.courseId = '';
@@ -92,32 +121,51 @@ export default function NewStudentPage({ basePath }) {
     if (loadError) setLoadError('');
   };
 
-  const handleCreate = async () => {
-    if (submittingRef.current) return;
+  const handleUpdate = async () => {
+    if (submittingRef.current || !form) return;
 
     submittingRef.current = true;
     setSubmitting(true);
     setError('');
 
     try {
-      await createStudentWithPaymentSchedule(form);
+      await updateStudentWithPaymentSchedule(id, form);
       navigate(basePath);
     } catch (err) {
-      setError(err.message || 'Failed to create student.');
+      setError(err.message || 'Failed to update student.');
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <Box sx={{ py: 4 }}>
+        <Typography sx={{ color: 'var(--muted)' }}>Loading student...</Typography>
+      </Box>
+    );
+  }
+
+  if (!form) {
+    return (
+      <Box>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Student not found</Typography>
+        <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate(basePath)}>
+          Back to list
+        </Button>
+      </Box>
+    );
+  }
+
   return (
     <FormPageLayout
-      title={`Add new ${resource.singular.toLowerCase()}`}
-      subtitle="Select institute and course from the list. Student and payment schedule are saved to AvecADeskApi."
+      title={`Edit ${resource.singular.toLowerCase()}`}
+      subtitle={`${form.fullName} • ${form.paymentStatus} • ${form.enrolmentStatus}`}
       metaItems={[
-        { label: 'Module', value: resource.plural },
+        { label: 'Student ID', value: id },
+        { label: 'Schedule ID', value: form.scheduleId || '—' },
         { label: 'API', value: 'AvecADeskApi' },
-        { label: 'Tables', value: 'Students + PaymentSchedules' },
       ]}
     >
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
@@ -134,8 +182,8 @@ export default function NewStudentPage({ basePath }) {
         />
         <FormActions
           onCancel={() => navigate(basePath)}
-          onSubmit={handleCreate}
-          submitLabel={submitting ? 'Saving...' : resource.actionLabel}
+          onSubmit={handleUpdate}
+          submitLabel={submitting ? 'Updating...' : 'Update Student'}
           submitDisabled={!isFormValid(resource, form) || submitting}
         />
       </Paper>
