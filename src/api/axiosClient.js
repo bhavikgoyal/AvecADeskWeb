@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_BASE_URL, TOKEN_STORAGE_KEY } from '../constants/api';
+import { API_BASE_URL, TOKEN_STORAGE_KEY } from './api';
 import { STORAGE_KEY } from '../constants/auth';
 
 export function getAuthToken() {
