@@ -89,7 +89,7 @@ export default function LoginForm() {
     } catch (err) {
       setError(
         err.message === 'Request failed'
-          ? 'Cannot reach AvecADeskApi. Make sure the API is running on https://localhost:7099 and try again.'
+          ? 'Cannot reach AvecADeskApi. Make sure the API is running on and try again.'
           : err.message || 'Invalid email or password. Use your database user credentials.',
       );
     } finally {
