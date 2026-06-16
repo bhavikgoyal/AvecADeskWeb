@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Paper } from '@mui/material';
+import { Alert, Box, Paper, Tab, Tabs } from '@mui/material';
 import { createVendor } from '../../api/vendorsApi';
+import VendorCommissionRatesPanel from '../../components/vendors/VendorCommissionRatesPanel';
 import {
   FormActions,
   FormPageLayout,
@@ -16,6 +17,8 @@ export default function NewVendorPage({ basePath }) {
   const [form, setForm] = useState(() => getEmptyForm(basePath));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState(0);
+  const [createdVendorId, setCreatedVendorId] = useState(null);
   const submittingRef = useRef(false);
 
   if (!resource) return null;
@@ -33,8 +36,9 @@ export default function NewVendorPage({ basePath }) {
     setError('');
 
     try {
-      await createVendor(form);
-      navigate(basePath);
+      const vendor = await createVendor(form);
+      setCreatedVendorId(vendor.vendorId);
+      setActiveTab(1);
     } catch (err) {
       setError(err.message || 'Failed to create vendor.');
     } finally {
@@ -53,23 +57,50 @@ export default function NewVendorPage({ basePath }) {
         { label: 'Table', value: 'Vendors' },
       ]}
     >
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
+        <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
+          <Tab label="Vendor details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
+        </Tabs>
+      </Box>
+
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
         {error && (
           <Alert severity="error" sx={{ mb: 1.5 }}>
             {error}
           </Alert>
         )}
-        <FormSectionsLayout
-          sections={resource.sections}
-          form={form}
-          onChange={updateField}
-        />
-        <FormActions
-          onCancel={() => navigate(basePath)}
-          onSubmit={handleCreate}
-          submitLabel={submitting ? 'Saving...' : resource.actionLabel}
-          submitDisabled={!isFormValid(resource, form) || submitting}
-        />
+
+        {activeTab === 0 && (
+          <>
+            {createdVendorId && (
+              <Alert severity="success" sx={{ mb: 1.5 }}>
+                Vendor saved. Switch to the Commission rates tab to add rates, or update details below.
+              </Alert>
+            )}
+            <FormSectionsLayout
+              sections={resource.sections}
+              form={form}
+              onChange={updateField}
+            />
+            <FormActions
+              onCancel={() => navigate(basePath)}
+              onSubmit={createdVendorId ? () => navigate(`${basePath}/${createdVendorId}`) : handleCreate}
+              submitLabel={
+                createdVendorId
+                  ? 'Open vendor'
+                  : submitting
+                    ? 'Saving...'
+                    : resource.actionLabel
+              }
+              submitDisabled={createdVendorId ? false : !isFormValid(resource, form) || submitting}
+            />
+          </>
+        )}
+
+        {activeTab === 1 && (
+          <VendorCommissionRatesPanel defaultVendorId={createdVendorId} />
+        )}
       </Paper>
     </FormPageLayout>
   );

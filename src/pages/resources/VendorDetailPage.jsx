@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Box, Button, Paper, Typography } from '@mui/material';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Alert, Box, Button, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { fetchVendorForm, updateVendor } from '../../api/vendorsApi';
+import VendorCommissionRatesPanel from '../../components/vendors/VendorCommissionRatesPanel';
 import {
   FormActions,
   FormPageLayout,
@@ -12,12 +13,14 @@ import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
 
 export default function VendorDetailPage({ basePath }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState(location.state?.tab ?? 0);
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -95,23 +98,37 @@ export default function VendorDetailPage({ basePath }) {
         { label: 'API', value: 'AvecADeskApi' },
       ]}
     >
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
+        <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
+          <Tab label="Vendor details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
+        </Tabs>
+      </Box>
+
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
         {error && (
           <Alert severity="error" sx={{ mb: 1.5 }}>
             {error}
           </Alert>
         )}
-        <FormSectionsLayout
-          sections={resource.sections}
-          form={form}
-          onChange={updateField}
-        />
-        <FormActions
-          onCancel={() => navigate(basePath)}
-          onSubmit={handleUpdate}
-          submitLabel={submitting ? 'Updating...' : 'Update Vendor'}
-          submitDisabled={!isFormValid(resource, form) || submitting}
-        />
+
+        {activeTab === 0 && (
+          <>
+            <FormSectionsLayout
+              sections={resource.sections}
+              form={form}
+              onChange={updateField}
+            />
+            <FormActions
+              onCancel={() => navigate(basePath)}
+              onSubmit={handleUpdate}
+              submitLabel={submitting ? 'Updating...' : 'Update Vendor'}
+              submitDisabled={!isFormValid(resource, form) || submitting}
+            />
+          </>
+        )}
+
+        {activeTab === 1 && <VendorCommissionRatesPanel defaultVendorId={Number(id)} />}
       </Paper>
     </FormPageLayout>
   );

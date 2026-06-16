@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -13,15 +13,15 @@ import {
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { useNavigate } from 'react-router-dom';
-import { authenticateUser } from '../../constants/auth';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+const LOGIN_LOGO = '/images/login/global_logo.png';
+const LOGIN_HERO = '/images/login/login_groupImg.png';
+import { loginWithApi } from '../../api/authApi';
 import { useAuth } from '../../hooks/useAuth';
 import { getDefaultRoute } from '../../utils/rbac';
 import '../../styles/LoginForm.css';
 
-const LOGIN_LOGO = '/images/login/global_logo.png';
-const LOGIN_HERO = '/images/login/login_groupImg.png';
-const LOGIN_COPYRIGHT = 'Copyright © 2026 Abroad Visa & Education Consultants. All Rights Reserved.';
+const COPYRIGHT = 'Copyright © 2026 Abroad Visa & Education Consultants. All Rights Reserved.';
 
 const autofillInputSx = {
   WebkitBoxShadow: '0 0 0 1000px #fff inset',
@@ -31,7 +31,7 @@ const autofillInputSx = {
   transition: 'background-color 5000s ease-in-out 0s',
 };
 
-const loginFieldSx = {
+const fieldSx = {
   '& .MuiOutlinedInput-root': {
     height: 50,
     borderRadius: '10px',
@@ -47,29 +47,16 @@ const loginFieldSx = {
     '&:-webkit-autofill:focus': autofillInputSx,
     '&:-webkit-autofill:active': autofillInputSx,
   },
-};
-
-const loginLabelSx = {
-  display: 'block',
-  fontSize: '0.8125rem',
-  fontWeight: 600,
-  color: '#334155',
-  mb: 0.75,
-};
-
-const loginButtonSx = {
-  height: 52,
-  borderRadius: '10px',
-  background: 'linear-gradient(135deg, #5aa9e6, #2f80c9)',
-  color: '#fff',
-  fontWeight: 600,
-  fontSize: '1rem',
-  textTransform: 'none',
-  boxShadow: 'none',
-  '&:hover': {
-    background: 'linear-gradient(135deg, #4f9fd9, #2874b8)',
-    boxShadow: '0 8px 20px rgba(47, 128, 201, 0.35)',
+  '& .MuiInputLabel-root': {
+    fontSize: '0.8125rem',
+    fontWeight: 600,
+    color: '#334155',
+    mb: 0.75,
+    position: 'static',
+    transform: 'none',
+    '&.Mui-focused': { color: '#334155' },
   },
+  '& .MuiFormLabel-asterisk': { color: '#ef4444' },
 };
 
 export default function LoginForm() {
@@ -78,21 +65,36 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const foundUser = authenticateUser(email, password);
-
-    if (foundUser) {
-      setError('');
-      login(foundUser);
-      navigate(getDefaultRoute(foundUser.role), { replace: true });
-      return;
+  const sessionMessage = useMemo(() => {
+    if (searchParams.get('session') === 'expired') {
+      return 'Your session expired. Please sign in again with your AvecADeskApi account.';
     }
+    return '';
+  }, [searchParams]);
 
-    setError('Invalid email or password');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+
+    try {
+      const apiUser = await loginWithApi(email, password);
+      login(apiUser);
+      navigate(getDefaultRoute(apiUser.role), { replace: true });
+    } catch (err) {
+      setError(
+        err.message === 'Request failed'
+          ? 'Cannot reach AvecADeskApi. Make sure the API is running on https://localhost:7099 and try again.'
+          : err.message || 'Invalid email or password. Use your database user credentials.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -107,6 +109,7 @@ export default function LoginForm() {
         overflow: { xs: 'auto', md: 'hidden' },
       }}
     >
+      {/* Left — form */}
       <Box
         sx={{
           width: { xs: '100%', lg: '55%' },
@@ -121,24 +124,19 @@ export default function LoginForm() {
           <Box component="img" src={LOGIN_LOGO} alt="AVEC GLOBAL" sx={{ height: 35, width: 'auto', objectFit: 'contain' }} />
         </Box>
 
-        <Box
-          sx={{
-            maxWidth: 420,
-            width: '100%',
-            mx: 'auto',
-            my: 'auto',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-          }}
-        >
+        <Box sx={{ maxWidth: 420, width: '100%', mx: 'auto', my: 'auto', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <Typography sx={{ fontSize: { xs: '1.75rem', sm: '3rem' }, fontWeight: 700, color: '#0f172a', mb: 1.5, lineHeight: 1.15 }}>
             Welcome Back
           </Typography>
           <Typography sx={{ color: '#64748b', fontSize: '0.9375rem', mb: 4.5 }}>
             Enter your details to manage your dashboard.
           </Typography>
+
+          {sessionMessage && (
+            <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+              {sessionMessage}
+            </Alert>
+          )}
 
           {error && (
             <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
@@ -148,7 +146,7 @@ export default function LoginForm() {
 
           <Box component="form" onSubmit={handleSubmit} noValidate>
             <Box sx={{ mb: 3 }}>
-              <Typography component="label" htmlFor="login-email" sx={loginLabelSx}>
+              <Typography component="label" htmlFor="login-email" sx={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', mb: 0.75 }}>
                 Email Address
               </Typography>
               <TextField
@@ -161,13 +159,18 @@ export default function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                sx={loginFieldSx}
-                slotProps={{ input: { sx: { px: 1.875 }, autoComplete: 'email' } }}
+                sx={fieldSx}
+                slotProps={{
+                  input: {
+                    sx: { px: 1.875 },
+                    autoComplete: 'email',
+                  },
+                }}
               />
             </Box>
 
             <Box sx={{ mb: 2 }}>
-              <Typography component="label" htmlFor="login-password" sx={loginLabelSx}>
+              <Typography component="label" htmlFor="login-password" sx={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', mb: 0.75 }}>
                 Password
               </Typography>
               <TextField
@@ -181,8 +184,10 @@ export default function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 sx={{
-                  ...loginFieldSx,
-                  '& .MuiOutlinedInput-root.MuiInputBase-adornedEnd': { paddingRight: 0 },
+                  ...fieldSx,
+                  '& .MuiOutlinedInput-root.MuiInputBase-adornedEnd': {
+                    paddingRight: 0,
+                  },
                 }}
                 slotProps={{
                   input: {
@@ -210,15 +215,36 @@ export default function LoginForm() {
                 <Checkbox
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  sx={{ color: '#cbd5e1', '&.Mui-checked': { color: '#2f80c9' } }}
+                  sx={{
+                    color: '#cbd5e1',
+                    '&.Mui-checked': { color: '#2f80c9' },
+                  }}
                 />
               }
               label={<Typography sx={{ fontSize: '0.8125rem', color: '#334155' }}>Remember Me</Typography>}
               sx={{ mb: 2, ml: 0 }}
             />
 
-            <Button type="submit" fullWidth sx={loginButtonSx}>
-              Log In
+            <Button
+              type="submit"
+              fullWidth
+              disabled={submitting}
+              sx={{
+                height: 52,
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #5aa9e6, #2f80c9)',
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: '1rem',
+                textTransform: 'none',
+                boxShadow: 'none',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #4f9fd9, #2874b8)',
+                  boxShadow: '0 8px 20px rgba(47, 128, 201, 0.35)',
+                },
+              }}
+            >
+              {submitting ? 'Signing in…' : 'Log In'}
             </Button>
           </Box>
 
@@ -229,7 +255,9 @@ export default function LoginForm() {
           </Box>
 
           <Box sx={{ display: { xs: 'block', lg: 'none' }, textAlign: 'center', mt: 3 }}>
-            <Typography sx={{ fontSize: '0.875rem', color: '#64748b' }}>Business Management Platform</Typography>
+            <Typography sx={{ fontSize: '0.875rem', color: '#64748b' }}>
+              Business Management Platform
+            </Typography>
           </Box>
         </Box>
 
@@ -242,11 +270,18 @@ export default function LoginForm() {
             color: '#94a3b8',
           }}
         >
-          {LOGIN_COPYRIGHT}
+          {COPYRIGHT}
         </Typography>
       </Box>
 
-      <Box sx={{ display: { xs: 'none', lg: 'flex' }, width: '45%', p: 2.5 }}>
+      {/* Right — hero card */}
+      <Box
+        sx={{
+          display: { xs: 'none', lg: 'flex' },
+          width: '45%',
+          p: 2.5,
+        }}
+      >
         <Box
           sx={{
             width: '100%',
@@ -284,11 +319,21 @@ export default function LoginForm() {
             component="img"
             src={LOGIN_HERO}
             alt="Team collaboration"
-            sx={{ width: '80%', maxWidth: 480, filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.15))' }}
+            sx={{
+              width: '80%',
+              maxWidth: 480,
+              filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.15))',
+            }}
           />
 
           <Box sx={{ mt: 3.75, maxWidth: 450 }}>
-            <Typography sx={{ fontSize: { lg: '2rem', xl: '2rem' }, fontWeight: 700, lineHeight: 1.2 }}>
+            <Typography
+              sx={{
+                fontSize: { lg: '2rem', xl: '2rem' },
+                fontWeight: 700,
+                lineHeight: 1.2,
+              }}
+            >
               Elevate Your Team&apos;s
               <br />
               Productivity &amp; Workflow.
@@ -310,7 +355,7 @@ export default function LoginForm() {
               fontWeight: 500,
             }}
           >
-            {LOGIN_COPYRIGHT}
+            {COPYRIGHT}
           </Typography>
         </Box>
       </Box>

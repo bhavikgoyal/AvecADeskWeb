@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Box, Button, Paper, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { fetchInstituteForm, updateInstitute } from '../../api/institutesApi';
 import { fetchVendors } from '../../api/lookupApi';
+import VendorCommissionRatesPanel from '../../components/vendors/VendorCommissionRatesPanel';
 import {
   FormActions,
   FormPageLayout,
@@ -21,6 +22,7 @@ export default function InstituteDetailPage({ basePath }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [activeTab, setActiveTab] = useState(0);
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -125,24 +127,39 @@ export default function InstituteDetailPage({ basePath }) {
         { label: 'API', value: 'AvecADeskApi' },
       ]}
     >
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
+        <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
+          <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
+        </Tabs>
+      </Box>
+
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
         {(error || loadError) && (
           <Alert severity="error" sx={{ mb: 1.5 }}>
             {error || loadError}
           </Alert>
         )}
-        <FormSectionsLayout
-          sections={resource.sections}
-          form={form}
-          onChange={updateField}
-          selectOptions={selectOptions}
-        />
-        <FormActions
-          onCancel={() => navigate(basePath)}
-          onSubmit={handleUpdate}
-          submitLabel={submitting ? 'Updating...' : 'Update Institute'}
-          submitDisabled={!isFormValid(resource, form) || submitting}
-        />
+        {activeTab === 0 && (
+          <>
+            <FormSectionsLayout
+              sections={resource.sections}
+              form={form}
+              onChange={updateField}
+              selectOptions={selectOptions}
+            />
+            <FormActions
+              onCancel={() => navigate(basePath)}
+              onSubmit={handleUpdate}
+              submitLabel={submitting ? 'Updating...' : 'Update Institute'}
+              submitDisabled={!isFormValid(resource, form) || submitting}
+            />
+          </>
+        )}
+
+        {activeTab === 1 && (
+          <VendorCommissionRatesPanel defaultVendorId={form.vendorId ? Number(form.vendorId) : null} />
+        )}
       </Paper>
     </FormPageLayout>
   );
