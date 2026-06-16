@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Paper } from '@mui/material';
+import { Alert, Box, Paper, Tab, Tabs } from '@mui/material';
 import { createInstitute } from '../../api/institutesApi';
 import { fetchVendors } from '../../api/lookupApi';
+import VendorCommissionRatesPanel from '../../components/vendors/VendorCommissionRatesPanel';
 import {
   FormActions,
   FormPageLayout,
@@ -19,6 +20,8 @@ export default function NewInstitutePage({ basePath }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [activeTab, setActiveTab] = useState(0);
+  const [createdInstituteId, setCreatedInstituteId] = useState(null);
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -63,8 +66,9 @@ export default function NewInstitutePage({ basePath }) {
     setError('');
 
     try {
-      await createInstitute(form);
-      navigate(basePath);
+      const institute = await createInstitute(form);
+      setCreatedInstituteId(institute.instituteId);
+      setActiveTab(1);
     } catch (err) {
       setError(err.message || 'Failed to create institute.');
     } finally {
@@ -83,24 +87,51 @@ export default function NewInstitutePage({ basePath }) {
         { label: 'Table', value: 'Institutes' },
       ]}
     >
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
+        <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
+          <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
+        </Tabs>
+      </Box>
+
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
         {(error || loadError) && (
           <Alert severity="error" sx={{ mb: 1.5 }}>
             {error || loadError}
           </Alert>
         )}
-        <FormSectionsLayout
-          sections={resource.sections}
-          form={form}
-          onChange={updateField}
-          selectOptions={selectOptions}
-        />
-        <FormActions
-          onCancel={() => navigate(basePath)}
-          onSubmit={handleCreate}
-          submitLabel={submitting ? 'Saving...' : resource.actionLabel}
-          submitDisabled={!isFormValid(resource, form) || submitting}
-        />
+
+        {activeTab === 0 && (
+          <>
+            {createdInstituteId && (
+              <Alert severity="success" sx={{ mb: 1.5 }}>
+                Institute saved. Switch to the Commission rates tab to add rates.
+              </Alert>
+            )}
+            <FormSectionsLayout
+              sections={resource.sections}
+              form={form}
+              onChange={updateField}
+              selectOptions={selectOptions}
+            />
+            <FormActions
+              onCancel={() => navigate(basePath)}
+              onSubmit={createdInstituteId ? () => navigate(`${basePath}/${createdInstituteId}`) : handleCreate}
+              submitLabel={
+                createdInstituteId
+                  ? 'Open institute'
+                  : submitting
+                    ? 'Saving...'
+                    : resource.actionLabel
+              }
+              submitDisabled={createdInstituteId ? false : !isFormValid(resource, form) || submitting}
+            />
+          </>
+        )}
+
+        {activeTab === 1 && (
+          <VendorCommissionRatesPanel defaultVendorId={form.vendorId ? Number(form.vendorId) : null} />
+        )}
       </Paper>
     </FormPageLayout>
   );
