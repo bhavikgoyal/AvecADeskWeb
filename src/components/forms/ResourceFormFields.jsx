@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Box, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
+import { Box, Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { FIELD_DEFS } from '../../config/resourceConfig';
 import { FormGridItem } from './FormSection';
 import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
@@ -7,6 +7,9 @@ import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
 const fieldProps = { size: 'small', fullWidth: true, sx: formFieldSx };
 
 function resolveFieldGrid(def, compact) {
+  if (def.type === 'textarea' || def.type === 'checkbox') {
+    return compact ? { xs: 12 } : (def.grid || { xs: 12 });
+  }
   if (compact) {
     if (def.type === 'textarea') return { xs: 12 };
     if (def.grid?.xs === 12 && !def.grid?.md) return { xs: 12 };
@@ -86,6 +89,26 @@ export default function ResourceFormFields({
               ))}
             </Select>
           </FormControl>
+        </FormGridItem>
+      );
+    }
+
+    if (def.type === 'checkbox') {
+      const checked = form[fieldName] === true || form[fieldName] === 'Yes';
+      return (
+        <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={checked}
+                onChange={(event) => onChange(fieldName, event.target.checked ? 'Yes' : 'No')}
+                disabled={disabled}
+                sx={{ color: 'var(--primary)', '&.Mui-checked': { color: 'var(--primary)' } }}
+              />
+            }
+            label={def.label}
+            sx={{ ml: 0, '& .MuiFormControlLabel-label': { fontWeight: 600, fontSize: '0.875rem' } }}
+          />
         </FormGridItem>
       );
     }

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert } from '@mui/material';
-import { fetchInstituteRows } from '../../api/institutesApi';
+import { deleteInstitute, fetchInstituteRows } from '../../api/institutesApi';
 import { fetchPaymentSummary, formatCurrency } from '../../api/schedulesApi';
-import { fetchEnrolmentRows, fetchStudentRows } from '../../api/studentsApi';
-import { fetchVendorRows } from '../../api/vendorsApi';
+import { deleteStudent, fetchEnrolmentRows, fetchStudentRows } from '../../api/studentsApi';
+import { deleteVendor, fetchVendorRows } from '../../api/vendorsApi';
 import PageShell from '../../components/PageShell';
 import { PAGE_CONFIG } from '../../config/pageConfig';
 import { getResourceConfig } from '../../config/resourceConfig';
-import { loadRecords } from '../../utils/resourceStorage';
+import { deleteRecord, loadRecords } from '../../utils/resourceStorage';
 
 function applyStudentSummary(baseStats, summary) {
   if (!baseStats?.length || !summary) return baseStats;
@@ -134,6 +134,30 @@ export default function ResourceListPage({ basePath }) {
     loadRows();
   }, [loadRows]);
 
+  const handleDelete = useCallback(async (row) => {
+    const label = row.fullName || row.businessName || row.instituteName || row.name || row.id;
+    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return;
+
+    setError('');
+    try {
+      if (isStudents || isEnrolment) {
+        await deleteStudent(row.id);
+        await loadRows();
+      } else if (isVendors) {
+        await deleteVendor(row.id);
+        await loadRows();
+      } else if (isInstitutes) {
+        await deleteInstitute(row.id);
+        await loadRows();
+      } else {
+        deleteRecord(basePath, row.id);
+        setRows((prev) => prev.filter((r) => String(r.id) !== String(row.id)));
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to delete record.');
+    }
+  }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, loadRows]);
+
   if (!resource || !page) return null;
 
   return (
@@ -153,6 +177,7 @@ export default function ResourceListPage({ basePath }) {
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
         onAdd={() => navigate(`${basePath}/new`)}
         onRowClick={(row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })}
+        onDelete={handleDelete}
       />
     </>
   );

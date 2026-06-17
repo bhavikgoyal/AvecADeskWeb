@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { Box, Button, CircularProgress, Grid, InputAdornment, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Grid, IconButton, InputAdornment, Paper, Stack, TextField, Typography } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import StatCard from './StatCard';
 import ResponsiveTable from './ResponsiveTable';
 import { buildSparkline } from '../constants/chartData';
@@ -18,6 +19,7 @@ export default function PageShell({
   showCharts = true,
   onAdd,
   onRowClick,
+  onDelete,
 }) {
   const [query, setQuery] = useState('');
 
@@ -35,6 +37,33 @@ export default function PageShell({
     sparklineData:
       stat.sparklineData ?? (stat.donutValue === undefined ? buildSparkline(index + 1) : undefined),
   }));
+
+  const tableColumns = useMemo(() => {
+    if (!onDelete) return columns;
+    return [
+      ...columns,
+      {
+        id: '__delete__',
+        label: '',
+        align: 'right',
+        headerSx: { width: 48, px: 0.5 },
+        cellSx: { px: 0.5 },
+        render: (row) => (
+          <IconButton
+            size="small"
+            onClick={(e) => { e.stopPropagation(); onDelete(row); }}
+            sx={{
+              color: 'var(--danger)',
+              opacity: 0.55,
+              '&:hover': { opacity: 1, bgcolor: 'rgba(214, 57, 57, 0.08)' },
+            }}
+          >
+            <DeleteOutlinedIcon fontSize="small" />
+          </IconButton>
+        ),
+      },
+    ];
+  }, [columns, onDelete]);
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100%' }}>
@@ -121,9 +150,9 @@ export default function PageShell({
           )}
         </Box>
 
-        {columns.length > 0 && rows.length > 0 ? (
+        {tableColumns.length > 0 && rows.length > 0 ? (
           filteredRows.length > 0 ? (
-            <ResponsiveTable columns={columns} rows={filteredRows} getRowKey={(row) => row.id} alwaysTable onRowClick={onRowClick} />
+            <ResponsiveTable columns={tableColumns} rows={filteredRows} getRowKey={(row) => row.id} variant="resource" alwaysTable onRowClick={onRowClick} />
           ) : (
             <Box sx={{ px: { xs: 1.25, md: 1.5 }, py: 2.5 }}>
               <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
