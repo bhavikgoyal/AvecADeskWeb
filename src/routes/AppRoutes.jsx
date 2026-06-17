@@ -7,6 +7,8 @@ import { useAuth } from '../hooks/useAuth';
 import { getDefaultRoute } from '../utils/rbac';
 
 const LoginForm = lazy(() => import('../pages/Login/LoginForm'));
+const OtpLoginForm = lazy(() => import('../pages/Login/OtpLoginForm'));
+const UserPortal = lazy(() => import('../pages/UserPortal/UserPortal'));
 const DashboardLayout = lazy(() => import('../layouts/DashboardLayout'));
 const AdminDash = lazy(() => import('../pages/Dashboards/AdminDash'));
 const AccDash = lazy(() => import('../pages/Dashboards/AccDash'));
@@ -134,6 +136,10 @@ export default function AppRoutes() {
           path="/login"
           element={user ? <Navigate to={getDefaultRoute(user.role)} replace /> : <LoginForm />}
         />
+
+        <Route path="/user-portal" element={<UserPortal />} />
+
+        <Route path="/phone-verified" element={<OtpLoginForm />} />
 
         <Route
           path="/"

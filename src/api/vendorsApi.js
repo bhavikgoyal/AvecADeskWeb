@@ -36,28 +36,89 @@ function normalizeVendor(vendor) {
   };
 }
 
+function deriveUsername(email) {
+  if (!email) return '—';
+  const local = String(email).split('@')[0];
+  return local || '—';
+}
+
+function deriveReferral(vendor) {
+  if (vendor.commissionPreference?.startsWith('REF-')) {
+    return vendor.commissionPreference;
+  }
+  if (vendor.vendorCode) {
+    const suffix = vendor.vendorCode.replace(/^VEN-/i, 'AU-');
+    return `REF-${suffix}`;
+  }
+  return '—';
+}
+
+function resolveBusinessName(form) {
+  return (form.vendorRef || form.businessName || '').trim();
+}
+
+function mapVendorRow(vendor) {
+  return {
+    id: String(vendor.vendorId),
+    vendorId: vendor.vendorId,
+    businessName: vendor.businessName,
+    vendorCode: vendor.vendorCode || '—',
+    username: deriveUsername(vendor.email),
+    vendorStatus: vendor.status,
+    email: vendor.email || '—',
+    phone: vendor.phone || '—',
+    contactPerson: vendor.contactPerson || '—',
+    referral: deriveReferral(vendor),
+    updated: formatDate(vendor.createdAt),
+    name: vendor.businessName,
+  };
+}
+
+async function fetchLinkedInstituteFields(vendorId) {
+  try {
+    const { data } = await axiosClient.get('/api/institutes/admin');
+    const linked = data.find((item) => String(item.vendorId ?? item.VendorId) === String(vendorId));
+    if (!linked) return {};
+    const institute = normalizeInstituteFromRaw(linked);
+    return {
+      instituteName: institute.instituteName,
+      websiteUrl: institute.websiteUrl,
+      logoUrl: institute.logoUrl,
+      primaryColor: institute.primaryColour || '#3385c6',
+      secondaryColor: institute.secondaryColour || '#1a2b3d',
+      address: institute.address,
+      city: institute.city,
+      state: institute.state,
+      serviceType: institute.serviceTypes,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function normalizeInstituteFromRaw(institute) {
+  return {
+    instituteName: institute.instituteName ?? institute.InstituteName ?? '',
+    websiteUrl: institute.websiteUrl ?? institute.WebsiteUrl ?? '',
+    logoUrl: institute.logoUrl ?? institute.LogoUrl ?? '',
+    primaryColour: institute.primaryColour ?? institute.PrimaryColour ?? '',
+    secondaryColour: institute.secondaryColour ?? institute.SecondaryColour ?? '',
+    address: institute.address ?? institute.Address ?? '',
+    city: institute.city ?? institute.City ?? '',
+    state: institute.state ?? institute.State ?? '',
+    serviceTypes: institute.serviceTypes ?? institute.ServiceTypes ?? '',
+  };
+}
+
 export async function fetchVendorRows() {
   const { data } = await axiosClient.get('/api/vendors');
-  return data.map((raw) => {
-    const vendor = normalizeVendor(raw);
-    return {
-      id: String(vendor.vendorId),
-      vendorId: vendor.vendorId,
-      businessName: vendor.businessName,
-      vendorCode: vendor.vendorCode || '—',
-      vendorStatus: vendor.status,
-      email: vendor.email,
-      phone: vendor.phone,
-      contactPerson: vendor.contactPerson,
-      updated: formatDate(vendor.createdAt),
-      name: vendor.businessName,
-    };
-  });
+  return data.map((raw) => mapVendorRow(normalizeVendor(raw)));
 }
 
 export async function createVendor(form) {
-  if (!form.businessName?.trim()) {
-    throw new Error('Business name is required');
+  const businessName = resolveBusinessName(form);
+  if (!businessName) {
+    throw new Error('Vendor name is required');
   }
 
   if (!form.phone?.trim()) {
@@ -71,12 +132,12 @@ export async function createVendor(form) {
 
   const { data } = await axiosClient.post('/api/vendors/register', {
     userId,
-    businessName: form.businessName.trim(),
-    contactPerson: form.contactPerson?.trim() || '',
+    businessName,
+    contactPerson: (form.contactPerson || form.contact)?.trim() || '',
     phone: form.phone.trim(),
     email: form.email?.trim() || '',
     bankDetails: form.bankDetails?.trim() || null,
-    commissionPreference: form.commissionPreference?.trim() || null,
+    commissionPreference: form.referral?.trim() || form.commissionPreference?.trim() || null,
   });
 
   const vendor = normalizeVendor(data);
@@ -90,16 +151,30 @@ export async function createVendor(form) {
   return vendor;
 }
 
-function buildVendorForm(vendor) {
+function buildVendorForm(vendor, instituteFields = {}) {
   return {
     vendorCode: vendor.vendorCode || '',
+    username: deriveUsername(vendor.email),
     businessName: vendor.businessName,
+    vendorRef: vendor.businessName,
     contactPerson: vendor.contactPerson || '',
+    contact: vendor.contactPerson || '',
+    referral: deriveReferral(vendor),
     vendorStatus: vendor.status || 'Pending',
     email: vendor.email || '',
     phone: vendor.phone || '',
     commissionPreference: vendor.commissionPreference || '',
     bankDetails: vendor.bankDetails || '',
+    instituteName: instituteFields.instituteName || '',
+    websiteUrl: instituteFields.websiteUrl || '',
+    logoUrl: instituteFields.logoUrl || '',
+    primaryColor: instituteFields.primaryColor || '#3385c6',
+    secondaryColor: instituteFields.secondaryColor || '#1a2b3d',
+    address: instituteFields.address || '',
+    city: instituteFields.city || '',
+    state: instituteFields.state || '',
+    serviceType: instituteFields.serviceType || '',
+    isPublic: 'No',
     notes: '',
   };
 }
@@ -111,15 +186,21 @@ export async function fetchVendorById(vendorId) {
 
 export async function fetchVendorForm(vendorId) {
   const vendor = await fetchVendorById(vendorId);
+  const instituteFields = await fetchLinkedInstituteFields(vendorId);
   return {
     vendor,
-    form: buildVendorForm(vendor),
+    form: buildVendorForm(vendor, instituteFields),
   };
 }
 
+export async function deleteVendor(vendorId) {
+  await axiosClient.delete(`/api/vendors/${vendorId}`);
+}
+
 export async function updateVendor(vendorId, form) {
-  if (!form.businessName?.trim()) {
-    throw new Error('Business name is required');
+  const businessName = resolveBusinessName(form);
+  if (!businessName) {
+    throw new Error('Vendor name is required');
   }
 
   if (!form.phone?.trim()) {
@@ -129,12 +210,12 @@ export async function updateVendor(vendorId, form) {
   const existing = await fetchVendorById(vendorId);
 
   const { data } = await axiosClient.put(`/api/vendors/${vendorId}`, {
-    businessName: form.businessName.trim(),
-    contactPerson: form.contactPerson?.trim() || '',
+    businessName,
+    contactPerson: (form.contactPerson || form.contact)?.trim() || '',
     phone: form.phone.trim(),
     email: form.email?.trim() || '',
     bankDetails: form.bankDetails?.trim() || null,
-    commissionPreference: form.commissionPreference?.trim() || null,
+    commissionPreference: form.referral?.trim() || form.commissionPreference?.trim() || null,
   });
 
   let vendor = normalizeVendor(data);

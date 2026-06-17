@@ -120,11 +120,12 @@ export default function InstituteDetailPage({ basePath }) {
   return (
     <FormPageLayout
       title={`Edit ${resource.singular.toLowerCase()}`}
-      subtitle={`${form.instituteName} • ${form.instituteStatus} • ${form.isPublished === 'Yes' ? 'Published' : 'Not published'}`}
+      subtitle={`${form.instituteName} • — • Unassigned`}
       metaItems={[
-        { label: 'Institute ID', value: id },
+        { label: 'ID', value: `institutes-${id}` },
         { label: 'Module', value: resource.plural },
-        { label: 'API', value: 'AvecADeskApi' },
+        { label: 'Status', value: form.instituteStatus || 'Active' },
+        { label: 'Mode', value: 'Editing' },
       ]}
     >
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
@@ -151,7 +152,7 @@ export default function InstituteDetailPage({ basePath }) {
             <FormActions
               onCancel={() => navigate(basePath)}
               onSubmit={handleUpdate}
-              submitLabel={submitting ? 'Updating...' : 'Update Institute'}
+              submitLabel={submitting ? 'Saving...' : 'Save'}
               submitDisabled={!isFormValid(resource, form) || submitting}
             />
           </>

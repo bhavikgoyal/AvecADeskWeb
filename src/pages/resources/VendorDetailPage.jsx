@@ -91,11 +91,12 @@ export default function VendorDetailPage({ basePath }) {
   return (
     <FormPageLayout
       title={`Edit ${resource.singular.toLowerCase()}`}
-      subtitle={`${form.businessName} • ${form.vendorStatus}`}
+      subtitle={`${form.businessName} • ${form.vendorStatus} • ${form.contact || form.contactPerson || 'Unassigned'}`}
       metaItems={[
-        { label: 'Vendor ID', value: id },
-        { label: 'Vendor code', value: form.vendorCode || '—' },
-        { label: 'API', value: 'AvecADeskApi' },
+        { label: 'ID', value: `vendors-${id}` },
+        { label: 'Module', value: resource.plural },
+        { label: 'Status', value: form.vendorStatus || 'Active' },
+        { label: 'Mode', value: 'Editing' },
       ]}
     >
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
@@ -122,7 +123,7 @@ export default function VendorDetailPage({ basePath }) {
             <FormActions
               onCancel={() => navigate(basePath)}
               onSubmit={handleUpdate}
-              submitLabel={submitting ? 'Updating...' : 'Update Vendor'}
+              submitLabel={submitting ? 'Saving...' : 'Save'}
               submitDisabled={!isFormValid(resource, form) || submitting}
             />
           </>

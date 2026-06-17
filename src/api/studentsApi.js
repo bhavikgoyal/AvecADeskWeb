@@ -200,6 +200,10 @@ export async function createStudentWithPaymentSchedule(form) {
   return mapStudentRow(student, schedule);
 }
 
+export async function deleteStudent(studentId) {
+  await axiosClient.delete(`/api/students/${studentId}`);
+}
+
 export async function fetchStudentById(studentId) {
   const { data } = await axiosClient.get(`/api/students/${studentId}`);
   return normalizeStudent(data);

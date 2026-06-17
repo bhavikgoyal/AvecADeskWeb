@@ -1,4 +1,25 @@
 import axiosClient from './axiosClient';
+import { fetchVendors } from './lookupApi';
+
+function formatInstituteAddress(institute) {
+  const cityState = [institute.city, institute.state].filter(Boolean).join(' ');
+  const parts = [institute.address, cityState].filter(Boolean);
+  return parts.join(', ') || '—';
+}
+
+async function buildVendorNameMap() {
+  try {
+    const vendors = await fetchVendors();
+    return Object.fromEntries(
+      vendors.map((vendor) => [
+        String(vendor.vendorId ?? vendor.VendorId),
+        vendor.businessName ?? vendor.BusinessName ?? `Vendor ${vendor.vendorId ?? vendor.VendorId}`,
+      ]),
+    );
+  } catch {
+    return {};
+  }
+}
 
 function normalizeInstitute(institute) {
   return {
@@ -22,17 +43,22 @@ function normalizeInstitute(institute) {
 }
 
 export async function fetchInstituteRows() {
-  const { data } = await axiosClient.get('/api/institutes/admin');
+  const [{ data }, vendorMap] = await Promise.all([
+    axiosClient.get('/api/institutes/admin'),
+    buildVendorNameMap(),
+  ]);
+
   return data.map((raw) => {
     const institute = normalizeInstitute(raw);
     return {
       id: String(institute.instituteId),
       instituteId: institute.instituteId,
+      vendorName: vendorMap[String(institute.vendorId)] || '—',
       instituteName: institute.instituteName,
+      address: formatInstituteAddress(institute),
+      serviceType: institute.serviceTypes || '—',
       city: institute.city,
       instituteStatus: institute.status,
-      primaryColour: institute.primaryColour,
-      secondaryColour: institute.secondaryColour,
       websiteUrl: institute.websiteUrl,
       contactEmail: institute.contactEmail,
       contactPhone: institute.contactPhone,
@@ -62,7 +88,7 @@ export async function createInstitute(form) {
     address: form.address?.trim() || null,
     city: form.city?.trim() || null,
     state: form.state?.trim() || null,
-    serviceTypes: form.serviceTypes?.trim() || null,
+    serviceTypes: form.serviceType?.trim() || form.serviceTypes?.trim() || null,
     contactEmail: form.contactEmail?.trim() || null,
     contactPhone: form.contactPhone?.trim() || null,
   });
@@ -87,19 +113,20 @@ function buildInstituteForm(institute) {
     vendorId: institute.vendorId ? String(institute.vendorId) : '',
     instituteName: institute.instituteName,
     websiteUrl: institute.websiteUrl || '',
-    logoUrl: institute.logoUrl || '',
-    primaryColour: institute.primaryColour || '',
-    secondaryColour: institute.secondaryColour || '',
     instituteStatus: institute.status || 'Active',
     isPublished: institute.isPublished ? 'Yes' : 'No',
     address: institute.address || '',
     city: institute.city || '',
     state: institute.state || '',
-    serviceTypes: institute.serviceTypes || '',
+    serviceType: institute.serviceTypes || '',
     contactEmail: institute.contactEmail || '',
     contactPhone: institute.contactPhone || '',
     notes: '',
   };
+}
+
+export async function deleteInstitute(instituteId) {
+  await axiosClient.delete(`/api/institutes/${instituteId}`);
 }
 
 export async function fetchInstituteById(instituteId) {
@@ -137,7 +164,7 @@ export async function updateInstitute(instituteId, form) {
     address: form.address?.trim() || null,
     city: form.city?.trim() || null,
     state: form.state?.trim() || null,
-    serviceTypes: form.serviceTypes?.trim() || null,
+    serviceTypes: form.serviceType?.trim() || form.serviceTypes?.trim() || null,
     contactEmail: form.contactEmail?.trim() || null,
     contactPhone: form.contactPhone?.trim() || null,
   });
