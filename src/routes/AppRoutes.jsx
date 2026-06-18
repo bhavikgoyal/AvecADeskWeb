@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes ,useLocation} from 'react-router-dom';
 import RouteFallback from '../components/RouteFallback';
 import { RequireAuth, RequireRole } from '../components/ProtectedRoute';
 import { RESOURCE_PATHS } from '../config/resourceConfig';
@@ -21,11 +21,12 @@ function RoleRedirect() {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  return <Navigate to={getDefaultRoute(user.role)} replace />;
+  return <Navigate to={getDefaultRoute(user.role)|| '/login'} replace/>;
 }
 
-function GuardedDashboard({ path, element }) {
-  return <RequireRole path={path}>{element}</RequireRole>;
+function GuardedDashboard({ element }) {
+  const location = useLocation();
+  return <RequireRole path={location.pathname}>{element}</RequireRole>;
 }
 
 function GuardedResourceList({ path }) {
@@ -54,7 +55,8 @@ function GuardedResourceDetail({ path }) {
 
 export default function AppRoutes() {
   const { user } = useAuth();
-
+console.log("AppRoutes - User State:", user);
+if (user === undefined) return <div>Loading Application...</div>;
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>

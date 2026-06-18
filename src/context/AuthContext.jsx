@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, } from 'react';
 import { STORAGE_KEY } from '../constants/auth';
 import { AuthContext } from './auth-context';
 
@@ -17,7 +17,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser);
 
   const login = (userData) => {
-    const safeUser = { ...userData };
+    const roleValue = userData.role || userData.userRoleId;
+    const safeUser = { ...userData,
+      role: roleValue };
     delete safeUser.password;
     setUser(safeUser);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(safeUser));
@@ -32,3 +34,4 @@ export function AuthProvider({ children }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+

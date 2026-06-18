@@ -28,12 +28,15 @@ export function pathToKey(path) {
   return path.replace(/^\//, '').replace(/\//g, '_');
 }
 
+
 function buildResource(pathKey, path) {
   const domain = DOMAIN_RESOURCES[pathKey];
   if (!domain) return null;
   return {
     path: path.startsWith('/') ? path : `/${path}`,
     ...domain,
+
+    apiMethod: domain.apiMethod || null, 
   };
 }
 

@@ -79,7 +79,7 @@ export const DOMAIN_FIELD_DEFS = {
 
   taskTitle: { label: 'Task title', type: 'text', required: true, grid: grid.half },
   taskDescription: { label: 'Description', type: 'textarea', grid: grid.full },
-  dueDate: { label: 'Due date', type: 'date', grid: grid.quarter },
+ 
   priority: {
     label: 'Priority',
     type: 'select',

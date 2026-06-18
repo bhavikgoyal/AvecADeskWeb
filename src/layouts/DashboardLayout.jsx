@@ -5,9 +5,11 @@ import Sidebar from '../components/Sidebar';
 import Topbar from '../components/Topbar';
 import { DRAWER_WIDTH } from '../constants/layout';
 import { useAuth } from '../hooks/useAuth';
+import { resolveRole } from '../utils/rbac';
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
+  
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -24,12 +26,12 @@ export default function DashboardLayout() {
     logout();
     navigate('/login', { replace: true });
   };
-
+if (!user) return null;
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <CssBaseline />
       <Sidebar
-        role={user.role}
+        role={resolveRole(user.role)}
         mobileOpen={mobileOpen}
         onDrawerToggle={() => setMobileOpen((prev) => !prev)}
         drawerWidth={DRAWER_WIDTH}

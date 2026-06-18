@@ -15,10 +15,8 @@ export function RequireAuth({ children }) {
 
 export function RequireRole({ path, children }) {
   const { user } = useAuth();
-
-  if (!canAccessPath(user.role, path)) {
-    return <Navigate to={getDefaultRoute(user.role)} replace />;
-  }
-
+  const allowed = canAccessPath(user.role, path);
+  console.log("Access Check:", { path, role: user.role, allowed }); // Ye check karein
+  if (!allowed) return <Navigate to={getDefaultRoute(user.role)} replace />;
   return children;
 }

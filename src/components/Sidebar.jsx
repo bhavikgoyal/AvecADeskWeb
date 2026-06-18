@@ -18,7 +18,7 @@ import { MOBILE_DRAWER_WIDTH } from '../constants/layout';
 import BrandLogo from './BrandLogo';
 
 export default function Sidebar({ role, mobileOpen, onDrawerToggle, drawerWidth, onLogout }) {
-  const menuGroups = useMemo(() => GET_MENU(role), [role]);
+  const menuGroups = useMemo(() => GET_MENU(role)|| [], [role]);
 
   const closeMobileDrawer = () => {
     if (mobileOpen) {
