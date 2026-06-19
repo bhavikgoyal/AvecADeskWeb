@@ -25,6 +25,9 @@ const NewEnrolmentPage = lazy(() => import('../pages/resources/NewEnrolmentPage'
 const EnrolmentDetailPage = lazy(() => import('../pages/resources/EnrolmentDetailPage'));
 const StudentDetailPage = lazy(() => import('../pages/resources/StudentDetailPage'));
 const ResourceDetailPage = lazy(() => import('../pages/resources/ResourceDetailPage'));
+const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
+
+const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 function RoleRedirect() {
   const { user } = useAuth();
@@ -156,13 +159,22 @@ export default function AppRoutes() {
           <Route path="dashboard/vendor" element={<GuardedDashboard path="/dashboard/vendor" element={<VendorDash />} />} />
           <Route path="dashboard/student" element={<GuardedDashboard path="/dashboard/student" element={<StudentDash />} />} />
 
-          {RESOURCE_PATHS.map((path) => (
+          <Route
+            path="institutes-scrapping"
+            element={
+              <RequireRole path="/institutes-scrapping">
+                <InstituteScrappingPage />
+              </RequireRole>
+            }
+          />
+
+          {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />} />
           ))}
-          {RESOURCE_PATHS.map((path) => (
+          {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-detail`} path={`${path}/:id`} element={<GuardedResourceDetail path={`/${path}`} />} />
           ))}
-          {RESOURCE_PATHS.map((path) => (
+          {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={path} path={path} element={<GuardedResourceList path={`/${path}`} />} />
           ))}
 

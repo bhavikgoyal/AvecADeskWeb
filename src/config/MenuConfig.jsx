@@ -14,6 +14,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import SearchIcon from '@mui/icons-material/Search';
 import ContactPageIcon from '@mui/icons-material/ContactPage';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 
 export const GET_MENU = (role) => {
   const menus = {
@@ -32,6 +33,7 @@ export const GET_MENU = (role) => {
         items: [
           { title: 'Vendor Commission', path: '/vendors', Icon: StoreIcon },
           { title: 'Institute Commission', path: '/institutes', Icon: AccountBalanceIcon },
+          { title: 'Institutes Scrapping', path: '/institutes-scrapping', Icon: TravelExploreIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
           { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },

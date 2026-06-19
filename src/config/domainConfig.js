@@ -613,4 +613,26 @@ export const DOMAIN_RESOURCES = {
       commissionPreference: '', bankDetails: '', phone: '', notes: '',
     }),
   },
+  'institutes-scrapping': {
+    singular: 'Institute scrapping record',
+    plural: 'Institutes scrapping',
+    actionLabel: 'Start Scraping',
+    primaryField: 'instituteName',
+    requiredFields: ['instituteName', 'websiteUrl'],
+    sections: [
+      {
+        title: 'Institute details',
+        description: 'Institute name and main website homepage URL. Programs pages are discovered automatically.',
+        fields: ['instituteName', 'websiteUrl'],
+      },
+    ],
+    columns: [
+      { id: 'instituteName', label: 'Institute name', field: 'instituteName' },
+      { id: 'websiteUrl', label: 'Website URL', field: 'websiteUrl' },
+    ],
+    emptyForm: () => ({
+      instituteName: '',
+      websiteUrl: '',
+    }),
+  },
 };
