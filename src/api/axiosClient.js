@@ -44,13 +44,23 @@ axiosClient.interceptors.response.use(
     }
 
     const message =
-      error.response?.data?.message ||
-      error.response?.data?.title ||
-      (typeof error.response?.data === 'string' ? error.response.data : null) ||
+      extractApiErrorMessage(error.response?.data) ||
       error.message ||
       'Request failed';
     return Promise.reject(new Error(message));
   },
 );
+
+function extractApiErrorMessage(data) {
+  if (!data) return null;
+  if (typeof data === 'string') return data;
+  if (data.message) return data.message;
+  if (data.title && data.errors) {
+    const details = Object.values(data.errors).flat().join(' ');
+    return details ? `${data.title} ${details}` : data.title;
+  }
+  if (data.title) return data.title;
+  return null;
+}
 
 export default axiosClient;
