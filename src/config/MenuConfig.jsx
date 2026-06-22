@@ -41,6 +41,7 @@ export const GET_MENU = (role) => {
           { title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
           { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
           { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
+          { title: 'Members', path: '/Members', Icon: PeopleIcon },
         ],
       },
       {

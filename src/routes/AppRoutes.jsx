@@ -25,6 +25,9 @@ const NewEnrolmentPage = lazy(() => import('../pages/resources/NewEnrolmentPage'
 const EnrolmentDetailPage = lazy(() => import('../pages/resources/EnrolmentDetailPage'));
 const StudentDetailPage = lazy(() => import('../pages/resources/StudentDetailPage'));
 const ResourceDetailPage = lazy(() => import('../pages/resources/ResourceDetailPage'));
+const MembersContent = lazy(() => import('../components/Member/MembersContent'));
+const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
+const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));
 const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
@@ -178,6 +181,9 @@ export default function AppRoutes() {
             <Route key={path} path={path} element={<GuardedResourceList path={`/${path}`} />} />
           ))}
 
+<Route path="Members" element={<MembersContent />} />
+<Route path="Members/Create" element={<MembersCreate />} />
+<Route path="Members/Edit/:id" element={<MembersEdit />} />
           <Route path="*" element={<RoleRedirect />} />
         </Route>
 

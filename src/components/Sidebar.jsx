@@ -9,6 +9,8 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -17,17 +19,36 @@ import { GET_MENU } from '../config/MenuConfig';
 import { MOBILE_DRAWER_WIDTH } from '../constants/layout';
 import BrandLogo from './BrandLogo';
 
-export default function Sidebar({ role, mobileOpen, onDrawerToggle, drawerWidth, onLogout }) {
+export default function Sidebar({
+  role,
+  mobileOpen,
+  onDrawerToggle,
+  drawerWidth,
+  onLogout,
+}) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const menuGroups = useMemo(() => GET_MENU(role), [role]);
 
   const closeMobileDrawer = () => {
-    if (mobileOpen) {
+    if (isMobile && mobileOpen) {
       onDrawerToggle();
     }
   };
 
-  const drawer = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#fff', color: '#1f325d' }}>
+  const drawerContent = (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        width: isMobile ? MOBILE_DRAWER_WIDTH : drawerWidth,
+        backgroundColor: '#fff',
+        color: '#1f325d',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header */}
       <Box
         sx={{
           px: 1.5,
@@ -40,23 +61,36 @@ export default function Sidebar({ role, mobileOpen, onDrawerToggle, drawerWidth,
         }}
       >
         <BrandLogo size="md" />
-        <IconButton
-          onClick={onDrawerToggle}
-          sx={{
-            display: { xs: 'inline-flex', md: 'none' },
-            color: '#4f5f82',
-            p: 0.5,
-            '&:hover': { bgcolor: 'rgba(15, 76, 187, 0.04)' },
-          }}
-        >
-          <CloseIcon sx={{ fontSize: '1.25rem' }} />
-        </IconButton>
+        {isMobile && (
+          <IconButton
+            onClick={onDrawerToggle}
+            sx={{
+              color: '#4f5f82',
+              p: 0.5,
+              '&:hover': { bgcolor: 'rgba(15, 76, 187, 0.04)' },
+            }}
+          >
+            <CloseIcon sx={{ fontSize: '1.25rem' }} />
+          </IconButton>
+        )}
       </Box>
+
       <Divider sx={{ borderColor: '#e7eaf3' }} />
+
+      {/* Menu */}
       <Box sx={{ px: 1, py: 1, overflowY: 'auto', flexGrow: 1 }}>
         {menuGroups.map((group) => (
           <Box key={group.category} sx={{ mb: 2 }}>
-            <Typography sx={{ px: 2, mb: 0.5, fontSize: 10, fontWeight: 700, color: '#9da7bf', letterSpacing: 0.5 }}>
+            <Typography
+              sx={{
+                px: 2,
+                mb: 0.5,
+                fontSize: 10,
+                fontWeight: 700,
+                color: '#9da7bf',
+                letterSpacing: 0.5,
+              }}
+            >
               {group.category}
             </Typography>
             <List disablePadding>
@@ -82,12 +116,20 @@ export default function Sidebar({ role, mobileOpen, onDrawerToggle, drawerWidth,
                     },
                   }}
                 >
-                  <ListItemIcon sx={{ color: 'inherit', minWidth: 32, '& .MuiSvgIcon-root': { fontSize: '1rem' } }}>
+                  <ListItemIcon
+                    sx={{
+                      color: 'inherit',
+                      minWidth: 32,
+                      '& .MuiSvgIcon-root': { fontSize: '1rem' },
+                    }}
+                  >
                     {item.Icon ? <item.Icon fontSize="small" /> : null}
                   </ListItemIcon>
                   <ListItemText
                     primary={item.title}
-                    slotProps={{ primary: { sx: { fontSize: '0.8rem', fontWeight: 600 } } }}
+                    slotProps={{
+                      primary: { sx: { fontSize: '0.8rem', fontWeight: 600 } },
+                    }}
                   />
                 </ListItemButton>
               ))}
@@ -95,7 +137,10 @@ export default function Sidebar({ role, mobileOpen, onDrawerToggle, drawerWidth,
           </Box>
         ))}
       </Box>
+
       <Divider sx={{ borderColor: '#e7eaf3' }} />
+
+      {/* Logout */}
       <Box sx={{ p: 2, flexShrink: 0 }}>
         <ListItemButton
           onClick={() => {
@@ -115,12 +160,20 @@ export default function Sidebar({ role, mobileOpen, onDrawerToggle, drawerWidth,
             },
           }}
         >
-          <ListItemIcon sx={{ color: 'inherit', minWidth: 32, '& .MuiSvgIcon-root': { fontSize: '1.1rem' } }}>
+          <ListItemIcon
+            sx={{
+              color: 'inherit',
+              minWidth: 32,
+              '& .MuiSvgIcon-root': { fontSize: '1.1rem' },
+            }}
+          >
             <LogoutIcon />
           </ListItemIcon>
           <ListItemText
             primary="Logout"
-            slotProps={{ primary: { sx: { fontSize: '0.85rem', fontWeight: 700 } } }}
+            slotProps={{
+              primary: { sx: { fontSize: '0.85rem', fontWeight: 700 } },
+            }}
           />
         </ListItemButton>
       </Box>
@@ -128,40 +181,32 @@ export default function Sidebar({ role, mobileOpen, onDrawerToggle, drawerWidth,
   );
 
   return (
-    <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
+    <Box
+      component="nav"
+      sx={{
+        width: { md: drawerWidth },
+        flexShrink: { md: 0 },
+      }}
+    >
+      {/* ✅ SINGLE Drawer — switches temporary/permanent by screen size */}
       <Drawer
-        variant="temporary"
-        open={mobileOpen}
+        variant={isMobile ? 'temporary' : 'permanent'}
+        open={isMobile ? mobileOpen : true}
         onClose={onDrawerToggle}
         ModalProps={{ keepMounted: true }}
         sx={{
-          display: { xs: 'block', md: 'none' },
-          zIndex: (theme) => theme.zIndex.drawer + 5,
           '& .MuiDrawer-paper': {
             boxSizing: 'border-box',
-            width: MOBILE_DRAWER_WIDTH,
-            maxWidth: '85vw',
+            width: isMobile ? MOBILE_DRAWER_WIDTH : drawerWidth,
+            maxWidth: isMobile ? '85vw' : drawerWidth,
             backgroundColor: '#fff',
-            boxShadow: '4px 0 24px rgba(31, 50, 93, 0.12)',
+            borderRight: isMobile ? 'none' : '1px solid rgba(229, 232, 240, 0.9)',
+            boxShadow: isMobile ? '4px 0 24px rgba(31, 50, 93, 0.12)' : 'none',
+            overflowX: 'hidden',
           },
         }}
       >
-        {drawer}
-      </Drawer>
-      <Drawer
-        variant="permanent"
-        open
-        sx={{
-          display: { xs: 'none', md: 'block' },
-          '& .MuiDrawer-paper': {
-            boxSizing: 'border-box',
-            width: drawerWidth,
-            backgroundColor: '#fff',
-            borderRight: '1px solid rgba(229, 232, 240, 0.9)',
-          },
-        }}
-      >
-        {drawer}
+        {drawerContent}
       </Drawer>
     </Box>
   );
