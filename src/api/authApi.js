@@ -7,9 +7,19 @@ const ROLE_BY_ID = {
   4: 'Vendor',
 };
 
-export async function loginWithApi(email, password) {
-  const { data } = await axiosClient.post('/api/auth/login', { email, password });
+function mapApiUser(apiUser, fallbackEmail = '') {
+  const roleId = apiUser?.userRoleId ?? apiUser?.UserRoleId;
 
+  return {
+    id: String(apiUser?.userId ?? apiUser?.UserId ?? 'api-user'),
+    email: apiUser?.email ?? apiUser?.Email ?? fallbackEmail,
+    role: ROLE_BY_ID[roleId] ?? 'Vendor',
+    name: apiUser?.userName ?? apiUser?.UserName ?? fallbackEmail,
+    avatar: '',
+  };
+}
+
+function applyAuthResponse(data, fallbackEmail = '') {
   const token = data?.token || data?.Token;
   if (!token) {
     throw new Error('Login succeeded but no token was returned.');
@@ -17,14 +27,26 @@ export async function loginWithApi(email, password) {
 
   setAuthToken(token);
 
-  const apiUser = data?.user || data?.User;
-  const roleId = apiUser?.userRoleId ?? apiUser?.UserRoleId;
+  const apiUser = data?.user || data?.User || data;
+  return mapApiUser(apiUser, fallbackEmail);
+}
 
-  return {
-    id: String(apiUser?.userId ?? apiUser?.UserId ?? 'api-user'),
-    email: apiUser?.email ?? apiUser?.Email ?? email,
-    role: ROLE_BY_ID[roleId] ?? 'Admin',
-    name: apiUser?.userName ?? apiUser?.UserName ?? email,
-    avatar: '',
-  };
+export async function loginWithApi(email, password) {
+  const { data } = await axiosClient.post('/api/auth/login', { email, password });
+  return applyAuthResponse(data, email);
+}
+
+export async function sendOtp(phone) {
+  const { data } = await axiosClient.post('/api/auth/send-otp', { phone });
+  return data;
+}
+
+export async function verifyOtpWithApi(phone, otp) {
+  const { data } = await axiosClient.post('/api/auth/verify-otp', { phone, otp });
+  return applyAuthResponse(data, '');
+}
+
+export async function vendorLoginWithApi(vendorCode) {
+  const { data } = await axiosClient.post('/api/auth/vendor-login', { vendorCode });
+  return applyAuthResponse(data, '');
 }
