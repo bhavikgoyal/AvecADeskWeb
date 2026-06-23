@@ -15,6 +15,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ContactPageIcon from '@mui/icons-material/ContactPage';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 export const GET_MENU = (role) => {
   const menus = {
@@ -42,6 +43,7 @@ export const GET_MENU = (role) => {
           { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
           { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
           { title: 'Members', path: '/Members', Icon: PeopleIcon },
+          { title: "Start Stop", path: "/startstop", Icon: AccessTimeIcon },
           { title: 'Start/Stop Activity', path: '/task-reports', Icon: AssignmentIcon },
         ],
       },
