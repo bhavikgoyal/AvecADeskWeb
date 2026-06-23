@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMembers, deleteMember,resignMember } from "../../api/membersApi";
+import { getMembers, deleteMember, resignMember } from "../../api/membersApi";
 import { Session } from "../../utils/session";
 
 export default function MembersTable({ searchQuery = '' }) {
@@ -10,9 +10,6 @@ export default function MembersTable({ searchQuery = '' }) {
 
   const navigate = useNavigate();
 
-console.log("Session Object:", Session);
-console.log("User:", localStorage.getItem("user"));
-
   const role = Session.getRole();
   const isTeamLeader = role === "Team Leader";
 
@@ -21,7 +18,7 @@ console.log("User:", localStorage.getItem("user"));
       try {
         setLoading(true);
         setError(null);
-     const data = await getMembers();
+        const data = await getMembers();
         const normalized = Array.isArray(data)
           ? data.map((u) => ({
               ...u,
@@ -47,40 +44,38 @@ console.log("User:", localStorage.getItem("user"));
     loadData();
   }, []);
 
-const handleDelete = async (userId) => {
-  if (!window.confirm('Are you sure you want to delete this user?')) {
-    return;
-  }
+  const handleDelete = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
 
-  try {
-    const response = await deleteMember(userId);
+    try {
+      const result = await deleteMember(userId);
 
-    if (!response.ok) {
-      throw new Error(`Delete failed: ${response.status}`);
+      if (result.success) {
+        setRows(prev => prev.filter(u => String(u.UserId) !== String(userId)));
+        alert('Member deleted successfully');
+      } else {
+        alert(result.message || 'Delete failed');
+      }
+    } catch (err) {
+      alert(err.message || 'Delete failed');
     }
-
-    setRows(prev =>
-      prev.filter(u => String(u.UserId) !== String(userId))
-    );
-
-    alert('Member deleted successfully');
-
-  } catch (err) {
-    alert(err.message || 'Delete failed');
-  }
-};
+  };
 
   const handleResign = async (userId) => {
     if (!window.confirm('Are you sure this member is resigning?')) return;
+
     try {
-     const response = await resignMember(userId);
-     
-      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
-      const resignDate = new Date().toISOString();
-      setRows(prev =>
-        prev.map(u => u.UserId === userId ? { ...u, MemberResignedOn: resignDate } : u)
-      );
-      alert('Member marked as resigned');
+      const result = await resignMember(userId);
+
+      if (result.success) {
+        const resignDate = new Date().toISOString();
+        setRows(prev =>
+          prev.map(u => u.UserId === userId ? { ...u, MemberResignedOn: resignDate } : u)
+        );
+        alert('Member marked as resigned');
+      } else {
+        alert(result.message || 'Failed to mark member as resigned');
+      }
     } catch (err) {
       alert(err.message || 'Failed to mark member as resigned');
     }
@@ -112,7 +107,6 @@ const handleDelete = async (userId) => {
 
   return (
     <div style={{ overflowX: 'auto', width: '100%' }}>
-
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
         <thead>
           <tr style={{ background: '#f8f9fb', borderBottom: '1px solid #eef0f3' }}>
@@ -136,9 +130,7 @@ const handleDelete = async (userId) => {
           )}
           {filteredRows.map((r, index) => (
             <tr key={r.UserId} style={{ borderBottom: '1px solid #f1f3f5' }}>
-
               <td style={tdStyle}>{index + 1}</td>
-
               <td style={tdStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
                   <img
@@ -155,13 +147,11 @@ const handleDelete = async (userId) => {
                   </span>
                 </div>
               </td>
-
               <td style={tdStyle}>{`${r.FirstName || ''} ${r.LastName || ''}`.trim()}</td>
               <td style={tdStyle}>{r.Email}</td>
               <td style={tdStyle}>{r.PhoneNo || ''}</td>
               <td style={tdStyle}>{r.roleName}</td>
               <td style={tdStyle}>{(r.IsActive ?? r.Active) ? 'Yes' : 'No'}</td>
-
               {!isTeamLeader && (
                 <td style={tdStyle}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
@@ -180,7 +170,6 @@ const handleDelete = async (userId) => {
                   </div>
                 </td>
               )}
-
             </tr>
           ))}
         </tbody>

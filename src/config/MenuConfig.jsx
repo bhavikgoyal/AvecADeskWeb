@@ -44,6 +44,7 @@ export const GET_MENU = (role) => {
           { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
           { title: 'Members', path: '/Members', Icon: PeopleIcon },
           { title: "Start Stop", path: "/startstop", Icon: AccessTimeIcon },
+          { title: 'Start/Stop Activity', path: '/task-reports', Icon: AssignmentIcon },
         ],
       },
       {
