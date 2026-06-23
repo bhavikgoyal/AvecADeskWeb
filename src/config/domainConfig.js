@@ -92,7 +92,6 @@ export const DOMAIN_FIELD_DEFS = {
 
   taskTitle: { label: 'Task title', type: 'text', required: true, grid: grid.half },
   taskDescription: { label: 'Description', type: 'textarea', grid: grid.full },
-  dueDate: { label: 'Due date', type: 'date', grid: grid.quarter },
   priority: {
     label: 'Priority',
     type: 'select',
@@ -163,8 +162,8 @@ export const DOMAIN_FIELD_DEFS = {
 
   email: { label: 'Email', type: 'email', grid: grid.half },
   phone: { label: 'Phone', type: 'text', required: true, grid: grid.half },
-  notes: { label: 'Notes', type: 'textarea', grid: grid.wide },
-  description: { label: 'Description', type: 'textarea', grid: grid.wide },
+  notes: { label: 'Notes', type: 'textarea', grid: grid.full },
+  description: { label: 'Description', type: 'textarea', grid: grid.full },
 };
 
 export const DOMAIN_RESOURCES = {

@@ -1,10 +1,13 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import RouteFallback from '../components/RouteFallback';
 import { RequireAuth, RequireRole } from '../components/ProtectedRoute';
 import { RESOURCE_PATHS } from '../config/resourceConfig';
 import { useAuth } from '../hooks/useAuth';
 import { getDefaultRoute } from '../utils/rbac';
+import { isSeedRecordId } from '../utils/recordId';
+
+const API_DETAIL_PATHS = new Set(['/students', '/institutes', '/vendors']);
 
 const LoginForm = lazy(() => import('../pages/Login/LoginForm'));
 const OtpLoginForm = lazy(() => import('../pages/Login/OtpLoginForm'));
@@ -93,6 +96,16 @@ function GuardedNewResource({ path }) {
 }
 
 function GuardedResourceDetail({ path }) {
+  const { id } = useParams();
+
+  if (API_DETAIL_PATHS.has(path) && isSeedRecordId(id)) {
+    return (
+      <RequireRole path={path}>
+        <ResourceDetailPage basePath={path} />
+      </RequireRole>
+    );
+  }
+
   if (path === '/students') {
     return (
       <RequireRole path={path}>

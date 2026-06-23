@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMembers, deleteMember,resignMember } from "../../api/membersApi";
 import { Session } from "../../utils/session";
@@ -9,9 +9,6 @@ export default function MembersTable({ searchQuery = '' }) {
   const [error, setError] = useState(null);
 
   const navigate = useNavigate();
-
-console.log("Session Object:", Session);
-console.log("User:", localStorage.getItem("user"));
 
   const role = Session.getRole();
   const isTeamLeader = role === "Team Leader";
@@ -188,7 +185,6 @@ const handleDelete = async (userId) => {
     </div>
   );
 }
-
 const thStyle = {
   padding: '14px 20px',
   textAlign: 'left',
