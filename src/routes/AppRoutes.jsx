@@ -29,7 +29,6 @@ const MembersContent = lazy(() => import('../components/Member/MembersContent'))
 const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
 const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));
 const StartStopActivity = lazy(() => import('../components/StartStopActivity/StartStopActivity'));
-const StartStopActivity = lazy(() => import('../components/StartStop/StartStopActivity'));
 const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
