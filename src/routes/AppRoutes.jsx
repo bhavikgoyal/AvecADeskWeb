@@ -187,7 +187,6 @@ export default function AppRoutes() {
 <Route path="Members/Edit/:id" element={<MembersEdit />} />
           <Route path="*" element={<RoleRedirect />} />
          <Route path="startstop" element={<StartStopActivity />} />
-          <Route path="task-reports" element={<StartStopActivity />} />
         </Route>
 
         <Route path="*" element={<Navigate to={user ? getDefaultRoute(user.role) : '/login'} replace />} />
