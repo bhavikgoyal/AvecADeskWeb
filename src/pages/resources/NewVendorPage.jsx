@@ -19,6 +19,7 @@ export default function NewVendorPage({ basePath }) {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [createdVendorId, setCreatedVendorId] = useState(null);
+  const [showSaveFirst, setShowSaveFirst] = useState(false);
   const submittingRef = useRef(false);
 
   if (!resource) return null;
@@ -26,6 +27,16 @@ export default function NewVendorPage({ basePath }) {
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (error) setError('');
+  };
+
+  const handleTabChange = (_, value) => {
+    if (value === 1 && !createdVendorId) {
+     
+      setShowSaveFirst(true);
+      return; 
+    }
+    setShowSaveFirst(false);
+    setActiveTab(value);
   };
 
   const handleCreate = async () => {
@@ -38,6 +49,7 @@ export default function NewVendorPage({ basePath }) {
     try {
       const vendor = await createVendor(form);
       setCreatedVendorId(vendor.vendorId);
+      setShowSaveFirst(false);
       setActiveTab(1);
     } catch (err) {
       setError(err.message || 'Failed to create vendor.');
@@ -58,7 +70,7 @@ export default function NewVendorPage({ basePath }) {
       ]}
     >
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
-        <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
+        <Tabs value={activeTab} onChange={handleTabChange}>
           <Tab label="Vendor details" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
@@ -73,11 +85,19 @@ export default function NewVendorPage({ basePath }) {
 
         {activeTab === 0 && (
           <>
-            {createdVendorId && (
-              <Alert severity="success" sx={{ mb: 1.5 }}>
-                Vendor saved. Switch to the Commission rates tab to add rates, or update details below.
+            {showSaveFirst && !createdVendorId && (
+              <Alert severity="warning" sx={{ mb: 1.5 }} onClose={() => setShowSaveFirst(false)}>
+                Please save vendor details first before adding commission rates.
               </Alert>
             )}
+
+            {/* Vendor save */}
+            {createdVendorId && (
+              <Alert severity="success" sx={{ mb: 1.5 }}>
+                Vendor saved successfully! You can now add commission rates from the Commission rates tab.
+              </Alert>
+            )}
+
             <FormSectionsLayout
               sections={resource.sections}
               form={form}
