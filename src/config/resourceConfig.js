@@ -20,7 +20,6 @@ export const RESOURCE_PATHS = [
   'reports/receivables',
   'reports/received',
   'reports/dues',
-  'reports/work-hours',
   'ai-tool',
   'vendor-portal',
 ];

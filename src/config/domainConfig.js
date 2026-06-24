@@ -88,7 +88,6 @@ export const DOMAIN_FIELD_DEFS = {
   workDate: { label: 'Work date', type: 'date', grid: grid.quarter },
   checkIn: { label: 'Check-in', type: 'text', grid: grid.quarter },
   checkOut: { label: 'Check-out', type: 'text', grid: grid.quarter },
-  hoursWorked: { label: 'Hours worked', type: 'number', grid: grid.quarter },
 
   taskTitle: { label: 'Task title', type: 'text', required: true, grid: grid.half },
   taskDescription: { label: 'Description', type: 'textarea', grid: grid.full },
@@ -367,20 +366,23 @@ export const DOMAIN_RESOURCES = {
     plural: 'Work history',
     actionLabel: 'Log Hours',
     primaryField: 'fullName',
+    hideDelete: true,
     requiredFields: ['fullName', 'workDate'],
     sections: [
       { title: 'Employee', description: 'Staff member and work date.', fields: ['fullName', 'designation', 'department', 'workDate'] },
       { title: 'Time log', description: 'Check-in, check-out, and calculated hours.', fields: ['checkIn', 'checkOut', 'hoursWorked', 'notes'] },
     ],
     columns: [
-      { id: 'fullName', label: 'Employee', field: 'fullName' },
       { id: 'workDate', label: 'Date', field: 'workDate' },
-      { id: 'hoursWorked', label: 'Hours', field: 'hoursWorked' },
-      { id: 'updated', label: 'Updated', field: 'updated' },
+      { id: 'fullName', label: 'Member', field: 'fullName' },
+      { id: 'workspaces', label: 'Workspaces', field: 'workspaces' },
+      { id: 'hoursWorked', label: 'Total time', field: 'hoursWorked' },
+      { id: 'productive', label: 'Productive', field: 'productive' },
+      { id: 'neutral', label: 'Neutral', field: 'neutral' },
     ],
     emptyForm: () => ({
       fullName: '', designation: '', department: '', workDate: '',
-      checkIn: '09:00', checkOut: '17:30', hoursWorked: '8', notes: '',
+      checkIn: '', checkOut: '', hoursWorked: '', notes: '',
     }),
   },
   tasks: {
@@ -549,27 +551,6 @@ export const DOMAIN_RESOURCES = {
     emptyForm: () => ({
       fullName: '', instituteNameRef: '', amountDue: '', paymentStatus: 'Pending',
       dueDate: '', assignedTo: '', notes: '',
-    }),
-  },
-  'reports_work-hours': {
-    singular: 'Hours entry',
-    plural: 'Work hours',
-    actionLabel: 'Log Hours',
-    primaryField: 'fullName',
-    requiredFields: ['fullName', 'workDate'],
-    sections: [
-      { title: 'Employee hours', description: 'Working hours report entry.', fields: ['fullName', 'department', 'workDate', 'hoursWorked'] },
-      { title: 'Time log', description: 'Check-in and check-out times.', fields: ['checkIn', 'checkOut', 'notes'] },
-    ],
-    columns: [
-      { id: 'fullName', label: 'Employee', field: 'fullName' },
-      { id: 'workDate', label: 'Date', field: 'workDate' },
-      { id: 'hoursWorked', label: 'Hours', field: 'hoursWorked' },
-      { id: 'department', label: 'Dept', field: 'department' },
-    ],
-    emptyForm: () => ({
-      fullName: '', department: '', workDate: '', hoursWorked: '',
-      checkIn: '', checkOut: '', notes: '',
     }),
   },
   'ai-tool': {

@@ -29,8 +29,15 @@ const MembersContent = lazy(() => import('../components/Member/MembersContent'))
 const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
 const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));
 const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
+const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
+const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
 
-const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
+// const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
+
+const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
+  path !== 'institutes-scrapping' &&
+  path !== 'work-history'
+);
 
 function RoleRedirect() {
   const { user } = useAuth();
@@ -161,7 +168,10 @@ export default function AppRoutes() {
           <Route path="dashboard/accounting" element={<GuardedDashboard path="/dashboard/accounting" element={<AccDash />} />} />
           <Route path="dashboard/vendor" element={<GuardedDashboard path="/dashboard/vendor" element={<VendorDash />} />} />
           <Route path="dashboard/student" element={<GuardedDashboard path="/dashboard/student" element={<StudentDash />} />} />
-
+          <Route path="work-history" element={<RequireRole path="/work-history"> <WorkHistoryPage /> </RequireRole>} />
+          <Route path="work-history/:id" element={<RequireRole path="/work-history"> <WorkHistoryDetailPage /> </RequireRole>
+          }
+          />
           <Route
             path="institutes-scrapping"
             element={
@@ -181,9 +191,9 @@ export default function AppRoutes() {
             <Route key={path} path={path} element={<GuardedResourceList path={`/${path}`} />} />
           ))}
 
-<Route path="Members" element={<MembersContent />} />
-<Route path="Members/Create" element={<MembersCreate />} />
-<Route path="Members/Edit/:id" element={<MembersEdit />} />
+          <Route path="Members" element={<MembersContent />} />
+          <Route path="Members/Create" element={<MembersCreate />} />
+          <Route path="Members/Edit/:id" element={<MembersEdit />} />
           <Route path="*" element={<RoleRedirect />} />
         </Route>
 

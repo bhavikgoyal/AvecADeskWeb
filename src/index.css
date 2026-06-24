@@ -65,13 +65,13 @@ body {
   flex-direction: column;
 }
 
-.dashboard-card--fill .chart-body > * {
+.dashboard-card--fill .chart-body>* {
   flex: 1 1 auto;
   min-height: 280px;
 }
 
 @media (min-width: 1200px) {
-  .dashboard-card--fill .chart-body > * {
+  .dashboard-card--fill .chart-body>* {
     min-height: 320px;
   }
 }
@@ -132,7 +132,7 @@ body {
 }
 
 main .MuiTableContainer-root {
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 main .MuiTableCell-root {
@@ -151,6 +151,7 @@ main .MuiTableCell-root.MuiTableCell-sizeMedium {
 }
 
 @media (max-width: 1024px) {
+
   .app-card,
   .dashboard-card {
     border-radius: 10px;
@@ -158,6 +159,7 @@ main .MuiTableCell-root.MuiTableCell-sizeMedium {
 }
 
 @media (max-width: 720px) {
+
   main .MuiButton-root:not(.MuiIconButton-root):not(.form-page .MuiButton-root),
   main .MuiTextField-root:not(.form-page .MuiTextField-root) {
     width: 100%;
