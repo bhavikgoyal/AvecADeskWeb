@@ -26,6 +26,13 @@ const EnrolmentDetailPage = lazy(() => import('../pages/resources/EnrolmentDetai
 const StudentDetailPage = lazy(() => import('../pages/resources/StudentDetailPage'));
 const ResourceDetailPage = lazy(() => import('../pages/resources/ResourceDetailPage'));
 const BoardPage = lazy(() => import('../pages/BoardPage'));
+const MembersContent = lazy(() => import('../components/Member/MembersContent'));
+const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
+const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));
+const StartStopActivity = lazy(() => import('../components/StartStopActivity/StartStopActivity'));
+const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
+
+const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 function RoleRedirect() {
   const { user } = useAuth();
@@ -163,21 +170,32 @@ export default function AppRoutes() {
             element={
               <RequireRole path="/tasks">
                 <BoardPage />
+          <Route
+            path="institutes-scrapping"
+            element={
+              <RequireRole path="/institutes-scrapping">
+                <InstituteScrappingPage />
               </RequireRole>
             }
           />
 
           {RESOURCE_PATHS.map((path) => (
+          {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />} />
           ))}
-          {RESOURCE_PATHS.map((path) => (
+          {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-detail`} path={`${path}/:id`} element={<GuardedResourceDetail path={`/${path}`} />} />
           ))}
-          {RESOURCE_PATHS.map((path) => (
+          {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={path} path={path} element={<GuardedResourceList path={`/${path}`} />} />
           ))}
 
+<Route path="Members" element={<MembersContent />} />
+<Route path="Members/Create" element={<MembersCreate />} />
+<Route path="Members/Edit/:id" element={<MembersEdit />} />
           <Route path="*" element={<RoleRedirect />} />
+         <Route path="startstop" element={<StartStopActivity />} />
+          <Route path="task-reports" element={<StartStopActivity />} />
         </Route>
 
         <Route path="*" element={<Navigate to={user ? getDefaultRoute(user.role) : '/login'} replace />} />

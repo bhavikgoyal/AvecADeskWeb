@@ -14,6 +14,8 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import SearchIcon from '@mui/icons-material/Search';
 import ContactPageIcon from '@mui/icons-material/ContactPage';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 export const GET_MENU = (role) => {
   const menus = {
@@ -32,6 +34,7 @@ export const GET_MENU = (role) => {
         items: [
           { title: 'Vendor Commission', path: '/vendors', Icon: StoreIcon },
           { title: 'Institute Commission', path: '/institutes', Icon: AccountBalanceIcon },
+          { title: 'Institutes Scrapping', path: '/institutes-scrapping', Icon: TravelExploreIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
           { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
@@ -39,6 +42,9 @@ export const GET_MENU = (role) => {
           { title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
           { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
           { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
+          { title: 'Members', path: '/Members', Icon: PeopleIcon },
+          { title: "Start Stop", path: "/startstop", Icon: AccessTimeIcon },
+          { title: 'Start/Stop Activity', path: '/task-reports', Icon: AssignmentIcon },
         ],
       },
       {

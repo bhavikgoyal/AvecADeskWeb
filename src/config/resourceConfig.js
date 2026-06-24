@@ -5,6 +5,7 @@ export const FIELD_DEFS = DOMAIN_FIELD_DEFS;
 export const RESOURCE_PATHS = [
   'vendors',
   'institutes',
+  'institutes-scrapping',
   'students',
   'invoices',
   'reminders',
