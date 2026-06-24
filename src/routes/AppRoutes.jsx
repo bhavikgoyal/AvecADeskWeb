@@ -25,6 +25,7 @@ const NewEnrolmentPage = lazy(() => import('../pages/resources/NewEnrolmentPage'
 const EnrolmentDetailPage = lazy(() => import('../pages/resources/EnrolmentDetailPage'));
 const StudentDetailPage = lazy(() => import('../pages/resources/StudentDetailPage'));
 const ResourceDetailPage = lazy(() => import('../pages/resources/ResourceDetailPage'));
+const BoardPage = lazy(() => import('../pages/BoardPage'));
 
 function RoleRedirect() {
   const { user } = useAuth();
@@ -155,6 +156,16 @@ export default function AppRoutes() {
           <Route path="dashboard/accounting" element={<GuardedDashboard path="/dashboard/accounting" element={<AccDash />} />} />
           <Route path="dashboard/vendor" element={<GuardedDashboard path="/dashboard/vendor" element={<VendorDash />} />} />
           <Route path="dashboard/student" element={<GuardedDashboard path="/dashboard/student" element={<StudentDash />} />} />
+
+          
+          <Route
+            path="tasks"
+            element={
+              <RequireRole path="/tasks">
+                <BoardPage />
+              </RequireRole>
+            }
+          />
 
           {RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />} />

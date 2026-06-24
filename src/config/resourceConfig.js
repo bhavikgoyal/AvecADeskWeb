@@ -11,7 +11,7 @@ export const RESOURCE_PATHS = [
   'templates',
   'users',
   'work-history',
-  'tasks',
+  // 'tasks',
   'status/students',
   'status/vendors',
   'status/institutes',
