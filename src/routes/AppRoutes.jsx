@@ -174,13 +174,14 @@ export default function AppRoutes() {
           <Route path="work-history/:id" element={<RequireRole path="/work-history"> <WorkHistoryDetailPage /> </RequireRole>
           }
           />
-
-          
           <Route
             path="tasks"
             element={
               <RequireRole path="/tasks">
                 <BoardPage />
+              </RequireRole>
+            }
+          />
           <Route
             path="institutes-scrapping"
             element={
@@ -189,13 +190,13 @@ export default function AppRoutes() {
               </RequireRole>
             }
           />
-
-          {RESOURCE_PATHS.map((path) => (
           {LIST_RESOURCE_PATHS.map((path) => (
-            <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />} />
+            <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />}
+            />
           ))}
           {LIST_RESOURCE_PATHS.map((path) => (
-            <Route key={`${path}-detail`} path={`${path}/:id`} element={<GuardedResourceDetail path={`/${path}`} />} />
+            <Route key={`${path}-detail`} path={`${path}/:id`} element={<GuardedResourceDetail path={`/${path}`} />}
+            />
           ))}
           {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={path} path={path} element={<GuardedResourceList path={`/${path}`} />} />
@@ -205,7 +206,7 @@ export default function AppRoutes() {
           <Route path="Members/Create" element={<MembersCreate />} />
           <Route path="Members/Edit/:id" element={<MembersEdit />} />
           <Route path="*" element={<RoleRedirect />} />
-         <Route path="startstop" element={<StartStopActivity />} />
+          <Route path="startstop" element={<StartStopActivity />} />
           <Route path="task-reports" element={<StartStopActivity />} />
         </Route>
 
