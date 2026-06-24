@@ -141,6 +141,107 @@ function buildMappedEntries(entries) {
   };
 }
 
+const contentInset = { xs: 1.5, sm: 2 };
+
+const sectionCardSx = {
+  width: '100%',
+  minWidth: 0,
+  border: '1px solid var(--card-border)',
+  bgcolor: 'var(--card-bg)',
+  borderRadius: 2,
+  boxShadow: '0 4px 16px rgba(26, 43, 61, 0.05)',
+};
+
+function ActivityThumbCard({ thumb, selected, onClick }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageSrc = thumb.thumb || thumb.full || '';
+  const showPlaceholder = !imageSrc || imageFailed;
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+      <Box
+        onClick={onClick}
+        sx={{
+          width: '100%',
+          borderRadius: 1,
+          overflow: 'hidden',
+          border: '1px solid #dce3ec',
+          bgcolor: '#fff',
+          cursor: 'pointer',
+          outline: selected ? '2px solid var(--primary)' : 'none',
+          outlineOffset: 1,
+        }}
+      >
+        {showPlaceholder ? (
+          <Box sx={{ width: '100%', height: { xs: 68, md: 64 }, bgcolor: '#1f325d' }} />
+        ) : (
+          <Box
+            component="img"
+            src={imageSrc}
+            alt={thumb.time}
+            onError={() => setImageFailed(true)}
+            sx={{
+              width: '100%',
+              height: { xs: 68, md: 64 },
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
+        )}
+      </Box>
+
+      <Box
+        sx={{
+          mt: 0.5,
+          height: 8,
+          width: '100%',
+          bgcolor: '#e9ecef',
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            width: `${thumb.pct || 0}%`,
+            height: '100%',
+            bgcolor: (thumb.pct || 0) > 0 ? '#22a06b' : '#cfd8dc',
+            transition: 'width 0.25s ease',
+          }}
+        />
+      </Box>
+
+      <Box sx={{ mt: 0.75, width: '100%', px: 0.25 }}>
+        <Typography
+          title={thumb.taskName || ''}
+          sx={{
+            fontSize: { xs: '0.65rem', sm: '0.68rem' },
+            fontWeight: 700,
+            color: 'var(--text)',
+            lineHeight: 1.25,
+            textTransform: 'uppercase',
+            textAlign: 'center',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {thumb.taskName || '—'}
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: { xs: '0.65rem', sm: '0.68rem' },
+            color: 'var(--muted)',
+            textAlign: 'center',
+            mt: 0.25,
+            lineHeight: 1.2,
+          }}
+        >
+          {thumb.time || ''}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
 function ActivityThumbGrid({ entry, onOpenImage }) {
   const [selected, setSelected] = useState(0);
   const images = (entry.thumbs || []).map((thumb) => thumb.full || thumb.thumb || '');
@@ -155,80 +256,22 @@ function ActivityThumbGrid({ entry, onOpenImage }) {
       sx={{
         display: 'grid',
         gridTemplateColumns: {
-          xs: 'repeat(auto-fill, minmax(108px, 1fr))',
-          sm: 'repeat(auto-fill, minmax(118px, 1fr))',
-          lg: 'repeat(9, minmax(0, 1fr))',
+          xs: 'repeat(auto-fill, minmax(96px, 1fr))',
+          sm: 'repeat(auto-fill, minmax(104px, 1fr))',
+          md: 'repeat(8, minmax(0, 1fr))',
+          lg: 'repeat(11, minmax(0, 1fr))',
         },
-        gap: { xs: 1.25, md: 1.5 },
+        gap: { xs: 1, sm: 1.25 },
         width: '100%',
       }}
     >
       {entry.thumbs.map((thumb, index) => (
-        <Box key={thumb.id ?? index} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-          <Box
-            onClick={() => handleThumbClick(index)}
-            sx={{
-              width: '100%',
-              borderRadius: 1.5,
-              overflow: 'hidden',
-              border: '1px solid var(--card-border)',
-              bgcolor: 'var(--muted-bg)',
-              cursor: 'pointer',
-              outline: index === selected ? '2px solid var(--primary)' : 'none',
-              outlineOffset: 1,
-            }}
-          >
-            <Box
-              component="img"
-              src={thumb.thumb || thumb.full}
-              alt={thumb.time}
-              sx={{ width: '100%', height: { xs: 70, md: 60 }, objectFit: 'cover', display: 'block' }}
-            />
-          </Box>
-
-          <Box sx={{ mt: 0.75, width: '100%', maxWidth: 120 }}>
-            <Box
-              sx={{
-                height: 8,
-                width: '100%',
-                bgcolor: '#e9ecef',
-                borderRadius: 1,
-                overflow: 'hidden',
-                mb: 0.75,
-              }}
-            >
-              <Box
-                sx={{
-                  width: `${thumb.pct || 0}%`,
-                  height: '100%',
-                  bgcolor: (thumb.pct || 0) > 0 ? 'var(--success)' : '#cfd8dc',
-                  transition: 'width 0.25s ease',
-                }}
-              />
-            </Box>
-
-            <Typography
-              title={thumb.taskName || ''}
-              sx={{
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'var(--text)',
-                lineHeight: 1.3,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                textAlign: 'center',
-              }}
-            >
-              {thumb.taskName || '—'}
-            </Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'center', mt: 0.25 }}>
-              {thumb.time || ''}
-            </Typography>
-          </Box>
-        </Box>
+        <ActivityThumbCard
+          key={thumb.id ?? index}
+          thumb={thumb}
+          selected={index === selected}
+          onClick={() => handleThumbClick(index)}
+        />
       ))}
     </Box>
   );
@@ -239,6 +282,7 @@ export default function ViewActivityHistoryPage() {
   const { id } = useParams();
   const { state } = useLocation();
 
+  const userName = state?.memberName;
   const incomingWorkDate = state?.workDate || new Date().toISOString().split('T')[0];
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -321,39 +365,81 @@ export default function ViewActivityHistoryPage() {
   }, [fetchActivityHistory]);
 
   return (
-    <Box sx={{ width: '100%', maxWidth: '100%' }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-        <IconButton
-          size="small"
+    <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, px: contentInset }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={{ xs: 1.5, sm: 2 }}
+        sx={{ mb: 2, flexWrap: 'wrap' }}
+      >
+        <Box
+          component="button"
+          type="button"
           onClick={() => navigate(-1)}
-          sx={{ color: 'var(--muted)', border: '1px solid var(--card-border)', bgcolor: '#fff' }}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.5,
+            border: 'none',
+            bgcolor: 'transparent',
+            color: '#8b95a5',
+            cursor: 'pointer',
+            p: 0,
+            fontFamily: 'inherit',
+            fontSize: { xs: '0.9375rem', sm: '1rem' },
+            fontWeight: 500,
+            lineHeight: 1.2,
+            flexShrink: 0,
+            '&:hover': { color: 'var(--text)' },
+          }}
         >
-          <ArrowBackIosNewIcon sx={{ fontSize: 14 }} />
-        </IconButton>
-        <Typography sx={{ fontWeight: 700, color: 'var(--text)', fontSize: '1rem' }}>
+          <ArrowBackIosNewIcon sx={{ fontSize: { xs: 12, sm: 14 } }} />
+          Back
+        </Box>
+        <Typography
+          sx={{
+            fontWeight: 700,
+            color: 'var(--text)',
+            fontSize: { xs: '1.25rem', sm: '1.5rem' },
+            lineHeight: 1.2,
+          }}
+        >
           {formatFullDate(workDate)}
         </Typography>
-        {id && (
-          <Typography sx={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-            User ID: {id}
-          </Typography>
-        )}
       </Stack>
 
       <Paper
         elevation={0}
-        className="dashboard-card"
-        sx={{ borderRadius: 3, p: { xs: 1.5, md: 2 }, mb: 2 }}
+        sx={{
+          borderRadius: 2,
+          border: '1px solid var(--card-border)',
+          bgcolor: 'var(--card-bg)',
+          boxShadow: '0 4px 16px rgba(26, 43, 61, 0.05)',
+          p: { xs: 2, sm: 2.25 },
+          mb: 2,
+        }}
       >
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          justifyContent="space-between"
-          alignItems={{ xs: 'flex-start', md: 'center' }}
-          spacing={2}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', sm: 'flex-start' },
+            width: '100%',
+            gap: { xs: 1.5, sm: 2 },
+          }}
         >
-          <Box>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography sx={{ fontSize: { xs: '1.5rem', md: '1.75rem' }, fontWeight: 700, color: 'var(--text)' }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
+              <Typography
+                component="span"
+                sx={{
+                  fontSize: { xs: '24px', sm: '28px' },
+                  fontWeight: 700,
+                  color: 'var(--text)',
+                  lineHeight: 1.15,
+                }}
+              >
                 Total: {mappedEntries.totalTimeStr}
               </Typography>
               <IconButton
@@ -361,26 +447,60 @@ export default function ViewActivityHistoryPage() {
                 onClick={handleRefresh}
                 disabled={loading}
                 aria-label="Refresh activity"
-                sx={{ color: 'var(--muted)' }}
+                sx={{
+                  color: '#8b95a5',
+                  p: 0.5,
+                  ml: 0.25,
+                  '&:hover': { bgcolor: 'transparent', color: 'var(--text)' },
+                }}
               >
-                {loading ? <CircularProgress size={18} /> : <RefreshIcon fontSize="small" />}
+                {loading ? <CircularProgress size={18} /> : <RefreshIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />}
               </IconButton>
             </Stack>
-            <Typography sx={{ fontSize: '0.82rem', color: 'var(--muted)', mt: 0.5 }}>
+            <Typography
+              sx={{
+                fontSize: { xs: '0.9375rem', sm: '1rem' },
+                color: '#8b95a5',
+                mt: 0.75,
+                lineHeight: 1.4,
+              }}
+            >
               Detailed tracked time for the selected day
             </Typography>
           </Box>
 
-          <Box sx={{ textAlign: 'center' }}>
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.75}>
-              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'var(--success)' }} />
-              <Typography sx={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Tracked</Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              flexShrink: 0,
+              pt: { xs: 0, sm: 0.25 },
+              ml: 'auto',
+              textAlign: 'right',
+              width: { xs: '100%', sm: 'auto' },
+            }}
+          >
+            <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.75}>
+              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#22a06b' }} />
+              <Typography sx={{ fontSize: { xs: '0.9375rem', sm: '1rem' }, color: '#8b95a5', fontWeight: 500 }}>
+                Tracked
+              </Typography>
             </Stack>
-            <Typography sx={{ fontWeight: 700, color: 'var(--text)', mt: 0.25 }}>
+            <Typography
+              sx={{
+                fontWeight: 700,
+                color: 'var(--text)',
+                mt: 0.5,
+                fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                lineHeight: 1.1,
+                textAlign: 'right',
+              }}
+            >
               {mappedEntries.totalTimeStr}
             </Typography>
           </Box>
-        </Stack>
+        </Box>
       </Paper>
 
       {loading ? (
@@ -392,29 +512,34 @@ export default function ViewActivityHistoryPage() {
           {error}
         </Alert>
       ) : mappedEntries.mapped.length === 0 ? (
-        <Paper
-          elevation={0}
-          className="dashboard-card"
-          sx={{ borderRadius: 3, p: 4, mb: 2, textAlign: 'center' }}
-        >
+        <Paper elevation={0} sx={{ ...sectionCardSx, p: 4, mb: 2, textAlign: 'center' }}>
           <Typography color="text.secondary">
             No activity history found for this user on the selected date.
           </Typography>
         </Paper>
       ) : (
         mappedEntries.mapped.map((entry, entryIndex) => (
-          <Paper
-            key={entry.raw.userTrackingId || entryIndex}
-            elevation={0}
-            className="dashboard-card"
-            sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 }, mb: 2 }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.25 }}>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'var(--success)', flexShrink: 0 }} />
-                <Typography sx={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{entry.range}</Typography>
+          <Box key={entry.raw.userTrackingId || entryIndex} sx={{ mb: 2 }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mb: 1.25 }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#22a06b', flexShrink: 0 }} />
+                <Typography
+                  sx={{
+                    fontSize: { xs: '0.8rem', sm: '0.84rem' },
+                    color: 'var(--text)',
+                    fontWeight: 500,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {entry.range}
+                </Typography>
               </Stack>
-              <IconButton size="small" sx={{ color: 'var(--muted)' }}>
+              <IconButton size="small" sx={{ color: '#8b95a5', flexShrink: 0 }} aria-label="More options">
                 <MoreHorizIcon fontSize="small" />
               </IconButton>
             </Stack>
@@ -422,17 +547,26 @@ export default function ViewActivityHistoryPage() {
             <Typography
               sx={{
                 fontWeight: 700,
-                fontSize: '0.95rem',
+                fontSize: { xs: '0.88rem', sm: '0.92rem' },
                 color: 'var(--text)',
                 mb: 1.5,
                 textTransform: 'uppercase',
+                letterSpacing: '0.03em',
               }}
             >
-              {entry.title}
+              {userName}
             </Typography>
 
-            <ActivityThumbGrid entry={entry} onOpenImage={openImage} />
-          </Paper>
+            <Paper
+              elevation={0}
+              sx={{
+                ...sectionCardSx,
+                p: { xs: 1.25, sm: 1.5 },
+              }}
+            >
+              <ActivityThumbGrid entry={entry} onOpenImage={openImage} />
+            </Paper>
+          </Box>
         ))
       )}
 

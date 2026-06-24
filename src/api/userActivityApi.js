@@ -55,6 +55,7 @@ function normalizeWorkReport(report) {
     productive: report.productive ?? "00:00:00",
     neutral: report.neutral ?? "00:00:00",
     workspaces: report.workspaces ?? "",
+    avatar: report.avatar ?? "",
   };
 }
 
@@ -71,11 +72,12 @@ export function mapWorkHistoryRow(report) {
     neutralTime: report.neutral,
     checkIn: formatTime(report.checkIn),
     checkOut: formatTime(report.checkOut),
+    avatar: report.avatar,
   };
 }
 
-export async function getDailyWorkReport({ employeeName, fromDate, toDate, }) {
-  const query = buildQuery({ employeeName, fromDate, toDate, });
+export async function getDailyWorkReport({ userName, fromDate, toDate, }) {
+  const query = buildQuery({ employeeName: userName, fromDate, toDate, });
   const response = await fetch(`/api/UserActivity/daily?${query}`,
     {
       headers: authHeaders(),
@@ -88,11 +90,11 @@ export async function getDailyWorkReport({ employeeName, fromDate, toDate, }) {
   return (result.data ?? []).map(normalizeWorkReport);
 }
 
-export async function getWeeklyWorkReport({ employeeName, fromDate, toDate }) {
+export async function getWeeklyWorkReport({ userName, fromDate, toDate }) {
   const response = await axiosClient.get("/api/UserActivity/weekly",
     {
       params: {
-        employeeName, fromDate, toDate,
+        employeeName: userName, fromDate, toDate,
       },
     }
   );
@@ -100,11 +102,11 @@ export async function getWeeklyWorkReport({ employeeName, fromDate, toDate }) {
   return (response.data?.data ?? []).map(normalizeWorkReport);
 }
 
-export async function getMonthlyWorkReport({ employeeName, fromDate, toDate }) {
+export async function getMonthlyWorkReport({ userName, fromDate, toDate }) {
   const response = await axiosClient.get("/api/UserActivity/monthly",
     {
       params: {
-        employeeName, fromDate, toDate,
+        employeeName: userName, fromDate, toDate,
       },
     }
   );
