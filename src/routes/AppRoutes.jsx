@@ -25,6 +25,7 @@ const NewEnrolmentPage = lazy(() => import('../pages/resources/NewEnrolmentPage'
 const EnrolmentDetailPage = lazy(() => import('../pages/resources/EnrolmentDetailPage'));
 const StudentDetailPage = lazy(() => import('../pages/resources/StudentDetailPage'));
 const ResourceDetailPage = lazy(() => import('../pages/resources/ResourceDetailPage'));
+const BoardPage = lazy(() => import('../pages/BoardPage'));
 const MembersContent = lazy(() => import('../components/Member/MembersContent'));
 const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
 const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));
@@ -163,6 +164,12 @@ export default function AppRoutes() {
           <Route path="dashboard/vendor" element={<GuardedDashboard path="/dashboard/vendor" element={<VendorDash />} />} />
           <Route path="dashboard/student" element={<GuardedDashboard path="/dashboard/student" element={<StudentDash />} />} />
 
+          
+          <Route
+            path="tasks"
+            element={
+              <RequireRole path="/tasks">
+                <BoardPage />
           <Route
             path="institutes-scrapping"
             element={
@@ -172,6 +179,7 @@ export default function AppRoutes() {
             }
           />
 
+          {RESOURCE_PATHS.map((path) => (
           {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />} />
           ))}

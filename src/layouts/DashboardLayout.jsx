@@ -50,8 +50,11 @@ export default function DashboardLayout() {
           sx={{
             flexGrow: 1,
             p: { xs: 1, sm: 1.25, md: 1.5 },
-            overflow: 'auto',
-            width: '100%',
+          overflowX: 'scroll',
+    overflowY: 'scroll',  
+    width: '100%',
+    height: '90vh',  
+    boxSizing: 'border-box',
           }}
         >
           <Outlet />
