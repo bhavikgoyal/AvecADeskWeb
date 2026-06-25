@@ -5,11 +5,13 @@ import Sidebar from '../components/Sidebar';
 import Topbar from '../components/Topbar';
 import { DRAWER_WIDTH } from '../constants/layout';
 import { useAuth } from '../hooks/useAuth';
+import useCompactSidebar from '../hooks/useCompactSidebar';
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isCompactSidebar = useCompactSidebar();
 
   useEffect(() => {
     document.body.classList.add('force-scroll');
@@ -31,7 +33,7 @@ export default function DashboardLayout() {
         display: 'flex',
         minHeight: '100vh',
         backgroundColor: 'var(--bg)',
-        gap: { xs: 0, md: 2.5 },
+        gap: isCompactSidebar ? 0 : 2.5,
       }}
     >
       <CssBaseline />
@@ -57,7 +59,8 @@ export default function DashboardLayout() {
           sx={{
             flexGrow: 1,
             p: { xs: 1.25, sm: 1.5, md: 2 },
-            overflow: 'auto',
+            overflowX: 'hidden',
+            overflowY: 'auto',
             width: '100%',
             minWidth: 0,
           }}

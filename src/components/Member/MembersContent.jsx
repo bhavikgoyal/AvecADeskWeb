@@ -3,7 +3,7 @@ import MembersTable from './MembersTable';
 
 export default function MembersContent() {
   return (
-    <Box sx={{ width: '100%', maxWidth: '100%' }}>
+    <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
       <Box sx={{ mb: 1.5 }}>
         <Typography
           sx={{
