@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom'
 import { Session } from "../../utils/session";
 import { createMember, getRoles, getCompanies } from "../../api/membersApi";
+import { toast } from 'react-toastify';
 
 // const API_BASE_URL = '';
 
@@ -44,7 +45,7 @@ export default function MembersCreate() {
     setRoles(rolesData || []);
     setCompanies(companiesData || []);
   } catch (err) {
-    alert('Failed to load roles / companies: ' + err.message);
+    toast.error('Failed to load roles / companies: ' + err.message);
   }
 };
     loadLookups();
@@ -99,7 +100,7 @@ if (form.phoneNo && !/^\d{10}$/.test(form.phoneNo))
       if (!token) { alert('You are not logged in.'); return; }
 
     const res = await createMember(form);
-      if (res.ok) { alert('Member created successfully'); navigate('/Members'); return; }
+      if (res.ok) { toast.success('Member created successfully'); navigate('/Members'); return; }
 
       if (res.status === 409) {
         const data = await res.json();
