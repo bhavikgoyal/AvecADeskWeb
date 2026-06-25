@@ -1,10 +1,13 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import RouteFallback from '../components/RouteFallback';
 import { RequireAuth, RequireRole } from '../components/ProtectedRoute';
 import { RESOURCE_PATHS } from '../config/resourceConfig';
 import { useAuth } from '../hooks/useAuth';
 import { getDefaultRoute } from '../utils/rbac';
+import { isSeedRecordId } from '../utils/recordId';
+
+const API_DETAIL_PATHS = new Set(['/students', '/institutes', '/vendors']);
 
 const LoginForm = lazy(() => import('../pages/Login/LoginForm'));
 const OtpLoginForm = lazy(() => import('../pages/Login/OtpLoginForm'));
@@ -33,12 +36,13 @@ const StartStopActivity = lazy(() => import('../components/StartStopActivity/Sta
 const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
 const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
 const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
-
+const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
   path !== 'institutes-scrapping' &&
-  path !== 'work-history'
+  path !== 'work-history'&&
+  path !== 'reports/receivables'
 );
 
 function RoleRedirect() {
@@ -102,6 +106,16 @@ function GuardedNewResource({ path }) {
 }
 
 function GuardedResourceDetail({ path }) {
+  const { id } = useParams();
+
+  if (API_DETAIL_PATHS.has(path) && isSeedRecordId(id)) {
+    return (
+      <RequireRole path={path}>
+        <ResourceDetailPage basePath={path} />
+      </RequireRole>
+    );
+  }
+
   if (path === '/students') {
     return (
       <RequireRole path={path}>
@@ -190,6 +204,14 @@ export default function AppRoutes() {
               </RequireRole>
             }
           />
+          <Route
+  path="reports/receivables"
+  element={
+    <RequireRole path="/reports/receivables">
+      <ReceivablesPage />
+    </RequireRole>
+  }
+/>
           {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />}
             />
@@ -206,6 +228,7 @@ export default function AppRoutes() {
           <Route path="Members/Create" element={<MembersCreate />} />
           <Route path="Members/Edit/:id" element={<MembersEdit />} />
           <Route path="*" element={<RoleRedirect />} />
+          <Route path="StartStopActivity" element={<StartStopActivity />} />
           <Route path="startstop" element={<StartStopActivity />} />
           <Route path="task-reports" element={<StartStopActivity />} />
         </Route>

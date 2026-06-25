@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import {
-  FormBackButton,
+  FormActions,
   FormPageLayout,
-  FormSaveButton,
   FormSectionsLayout,
   formPaperSx,
 } from '../../components/forms';
@@ -17,16 +16,8 @@ export default function ResourceDetailPage({ basePath }) {
   const { id } = useParams();
   const resource = getResourceConfig(basePath);
   const existing = getRecordById(basePath, id);
-  const [editMode, setEditMode] = useState(location.state?.edit ?? true);
-  const [form, setForm] = useState(existing || getEmptyForm(basePath));
-
-  useEffect(() => {
-    const record = getRecordById(basePath, id);
-    if (record) {
-      setForm(record);
-      setEditMode(location.state?.edit ?? true);
-    }
-  }, [basePath, id, location.state?.edit]);
+  const [editMode, setEditMode] = useState(() => location.state?.edit ?? true);
+  const [form, setForm] = useState(() => existing || getEmptyForm(basePath));
 
   if (!resource) return null;
 
@@ -67,12 +58,6 @@ export default function ResourceDetailPage({ basePath }) {
         },
         { label: 'Mode', value: editMode ? 'Editing' : 'View' },
       ]}
-      actions={
-        <>
-          <FormBackButton onClick={() => navigate(basePath)} />
-          <FormSaveButton editMode={editMode} onClick={handleSave} />
-        </>
-      }
     >
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
         <FormSectionsLayout
@@ -80,6 +65,12 @@ export default function ResourceDetailPage({ basePath }) {
           form={form}
           onChange={updateField}
           disabled={!editMode}
+        />
+        <FormActions
+          onCancel={() => navigate(basePath)}
+          cancelLabel="Back"
+          onSubmit={handleSave}
+          submitLabel={editMode ? 'Save' : 'Edit'}
         />
       </Paper>
     </FormPageLayout>

@@ -162,8 +162,8 @@ export const DOMAIN_FIELD_DEFS = {
 
   email: { label: 'Email', type: 'email', grid: grid.half },
   phone: { label: 'Phone', type: 'text', required: true, grid: grid.half },
-  notes: { label: 'Notes', type: 'textarea', grid: grid.wide },
-  description: { label: 'Description', type: 'textarea', grid: grid.wide },
+  notes: { label: 'Notes', type: 'textarea', grid: grid.full },
+  description: { label: 'Description', type: 'textarea', grid: grid.full },
 };
 
 export const DOMAIN_RESOURCES = {
@@ -586,7 +586,7 @@ vendors: {
     sections: [
       {
         title: 'Institute details',
-        description: 'Institute name and main website homepage URL. Programs pages are discovered automatically.',
+        description: 'Institute name and website URL. Use the homepage, or the course search / programs listing page for faster results on modern (JavaScript) sites.',
         fields: ['instituteName', 'websiteUrl'],
       },
     ],

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Session } from "../../utils/session";
 import { updateMember, getRoles, getCompanies } from "../../api/membersApi";
