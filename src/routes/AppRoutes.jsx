@@ -37,11 +37,12 @@ const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteSc
 const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
 const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
 const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'));
+const ManageAccountPage = lazy(() => import('../pages/account/ManageAccountPage'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
   path !== 'institutes-scrapping' &&
-  path !== 'work-history'&&
+  path !== 'work-history' &&
   path !== 'reports/receivables'
 );
 
@@ -205,13 +206,13 @@ export default function AppRoutes() {
             }
           />
           <Route
-  path="reports/receivables"
-  element={
-    <RequireRole path="/reports/receivables">
-      <ReceivablesPage />
-    </RequireRole>
-  }
-/>
+            path="reports/receivables"
+            element={
+              <RequireRole path="/reports/receivables">
+                <ReceivablesPage />
+              </RequireRole>
+            }
+          />
           {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />}
             />
@@ -227,6 +228,7 @@ export default function AppRoutes() {
           <Route path="Members" element={<MembersContent />} />
           <Route path="Members/Create" element={<MembersCreate />} />
           <Route path="Members/Edit/:id" element={<MembersEdit />} />
+          <Route path="account" element={<ManageAccountPage />} />
           <Route path="*" element={<RoleRedirect />} />
           <Route path="StartStopActivity" element={<StartStopActivity />} />
           <Route path="startstop" element={<StartStopActivity />} />
