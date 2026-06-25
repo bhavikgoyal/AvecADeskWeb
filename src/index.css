@@ -132,7 +132,7 @@ body {
 }
 
 main .MuiTableContainer-root {
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 main .MuiTableCell-root {
