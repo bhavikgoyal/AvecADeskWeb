@@ -88,10 +88,10 @@ export const DOMAIN_FIELD_DEFS = {
   workDate: { label: 'Work date', type: 'date', grid: grid.quarter },
   checkIn: { label: 'Check-in', type: 'text', grid: grid.quarter },
   checkOut: { label: 'Check-out', type: 'text', grid: grid.quarter },
-  hoursWorked: { label: 'Hours worked', type: 'number', grid: grid.quarter },
 
   taskTitle: { label: 'Task title', type: 'text', required: true, grid: grid.half },
   taskDescription: { label: 'Description', type: 'textarea', grid: grid.full },
+  //dueDate: { label: 'Due date', type: 'date', grid: grid.quarter },
   priority: {
     label: 'Priority',
     type: 'select',
@@ -167,49 +167,32 @@ export const DOMAIN_FIELD_DEFS = {
 };
 
 export const DOMAIN_RESOURCES = {
-  vendors: {
+vendors: {
     singular: 'Vendor',
     plural: 'Vendors',
     actionLabel: 'Add Vendor',
     primaryField: 'businessName',
-    requiredFields: ['vendorRef', 'phone'],
+    requiredFields: ['businessName', 'phone'], // Updated required fields
     sections: [
       {
-        title: 'Vendor & institute',
-        description: 'Link vendor account to institute profile.',
-        fields: ['vendorRef', 'instituteName', 'vendorStatus'],
-      },
-      {
-        title: 'Branding',
-        description: 'Portal appearance and public URLs.',
-        fields: ['websiteUrl', 'logoUrl', 'primaryColor', 'secondaryColor'],
-      },
-      {
-        title: 'Location & services',
-        description: 'Address and service offerings.',
-        fields: ['address', 'city', 'state', 'serviceType'],
-      },
-      {
-        title: 'Contact',
-        description: 'Primary contact and visibility.',
-        fields: ['contact', 'email', 'phone', 'isPublic'],
+        title: 'Vendor Details',
+        description: 'Basic vendor information and commission settings.',
+        fields: ['businessName', 'contactPerson', 'phone', 'email', 'commissionPreference'],
       },
     ],
     columns: [
-      { id: 'vendorCode', label: 'Vendor code', field: 'vendorCode' },
-      { id: 'username', label: 'Username', field: 'username' },
       { id: 'businessName', label: 'Business name', field: 'businessName' },
       { id: 'contactPerson', label: 'Contact person', field: 'contactPerson' },
       { id: 'email', label: 'Email', field: 'email' },
       { id: 'phone', label: 'Phone', field: 'phone' },
-      { id: 'referral', label: 'Referral', field: 'referral' },
-      { id: 'vendorStatus', label: 'Status', field: 'vendorStatus' },
+      { id: 'commissionPreference', label: 'Commission', field: 'commissionPreference' },
     ],
     emptyForm: () => ({
-      vendorCode: '', username: '', businessName: '', contactPerson: '', referral: '',
-      vendorRef: '', instituteName: '', websiteUrl: '', logoUrl: '', primaryColor: '#3385c6',
-      secondaryColor: '#1a2b3d', address: '', city: '', state: '', serviceType: '',
-      contact: '', email: '', phone: '', isPublic: 'No', vendorStatus: 'Pending',
+      businessName: '',
+      contactPerson: '',
+      phone: '',
+      email: '',
+      commissionPreference: '',
     }),
   },
   institutes: {
@@ -366,20 +349,23 @@ export const DOMAIN_RESOURCES = {
     plural: 'Work history',
     actionLabel: 'Log Hours',
     primaryField: 'fullName',
+    hideDelete: true,
     requiredFields: ['fullName', 'workDate'],
     sections: [
       { title: 'Employee', description: 'Staff member and work date.', fields: ['fullName', 'designation', 'department', 'workDate'] },
       { title: 'Time log', description: 'Check-in, check-out, and calculated hours.', fields: ['checkIn', 'checkOut', 'hoursWorked', 'notes'] },
     ],
     columns: [
-      { id: 'fullName', label: 'Employee', field: 'fullName' },
       { id: 'workDate', label: 'Date', field: 'workDate' },
-      { id: 'hoursWorked', label: 'Hours', field: 'hoursWorked' },
-      { id: 'updated', label: 'Updated', field: 'updated' },
+      { id: 'fullName', label: 'Member', field: 'fullName' },
+      { id: 'workspaces', label: 'Workspaces', field: 'workspaces' },
+      { id: 'hoursWorked', label: 'Total time', field: 'hoursWorked' },
+      { id: 'productive', label: 'Productive', field: 'productive' },
+      { id: 'neutral', label: 'Neutral', field: 'neutral' },
     ],
     emptyForm: () => ({
       fullName: '', designation: '', department: '', workDate: '',
-      checkIn: '09:00', checkOut: '17:30', hoursWorked: '8', notes: '',
+      checkIn: '', checkOut: '', hoursWorked: '', notes: '',
     }),
   },
   tasks: {
@@ -548,27 +534,6 @@ export const DOMAIN_RESOURCES = {
     emptyForm: () => ({
       fullName: '', instituteNameRef: '', amountDue: '', paymentStatus: 'Pending',
       dueDate: '', assignedTo: '', notes: '',
-    }),
-  },
-  'reports_work-hours': {
-    singular: 'Hours entry',
-    plural: 'Work hours',
-    actionLabel: 'Log Hours',
-    primaryField: 'fullName',
-    requiredFields: ['fullName', 'workDate'],
-    sections: [
-      { title: 'Employee hours', description: 'Working hours report entry.', fields: ['fullName', 'department', 'workDate', 'hoursWorked'] },
-      { title: 'Time log', description: 'Check-in and check-out times.', fields: ['checkIn', 'checkOut', 'notes'] },
-    ],
-    columns: [
-      { id: 'fullName', label: 'Employee', field: 'fullName' },
-      { id: 'workDate', label: 'Date', field: 'workDate' },
-      { id: 'hoursWorked', label: 'Hours', field: 'hoursWorked' },
-      { id: 'department', label: 'Dept', field: 'department' },
-    ],
-    emptyForm: () => ({
-      fullName: '', department: '', workDate: '', hoursWorked: '',
-      checkIn: '', checkOut: '', notes: '',
     }),
   },
   'ai-tool': {

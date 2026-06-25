@@ -47,7 +47,7 @@ function seedRecords(path, count = 6) {
       ...base,
       id: `${key}-${index + 1}`,
       name: getRecordLabel(resource, base),
-      updated: `Jun ${10 + index}, 2026`,
+      updated: updated,
     };
   });
 }

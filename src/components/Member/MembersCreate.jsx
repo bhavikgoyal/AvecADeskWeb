@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Alert, Paper } from '@mui/material';
-import { Session } from '../../utils/session';
-import { createMember, getRoles, getCompanies } from '../../api/membersApi';
-import { FormActions, FormPageLayout, formPaperSx } from '../forms';
-import MemberFormFields from './MemberFormFields';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom'
+import { Session } from "../../utils/session";
+import { createMember, getRoles, getCompanies } from "../../api/membersApi";
+import { toast } from 'react-toastify';
 
 const emptyForm = {
   userName: '',
@@ -29,16 +27,19 @@ export default function MembersCreate() {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    const loadLookups = async () => {
-      try {
-        const [rolesData, companiesData] = await Promise.all([getRoles(), getCompanies()]);
-        setRoles(rolesData || []);
-        setCompanies(companiesData || []);
-      } catch (err) {
-        alert(`Failed to load roles / companies: ${err.message}`);
-      }
-    };
+   const loadLookups = async () => {
+  try {
+    const [rolesData, companiesData] = await Promise.all([
+      getRoles(),
+      getCompanies()
+    ]);
 
+    setRoles(rolesData || []);
+    setCompanies(companiesData || []);
+  } catch (err) {
+    toast.error('Failed to load roles / companies: ' + err.message);
+  }
+};
     loadLookups();
   }, []);
 
@@ -102,12 +103,8 @@ export default function MembersCreate() {
         return;
       }
 
-      const res = await createMember(form);
-      if (res.ok) {
-        alert('Member created successfully');
-        navigate('/Members');
-        return;
-      }
+    const res = await createMember(form);
+      if (res.ok) { toast.success('Member created successfully'); navigate('/Members'); return; }
 
       if (res.status === 409) {
         const data = await res.json();

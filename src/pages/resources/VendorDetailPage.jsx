@@ -24,25 +24,30 @@ export default function VendorDetailPage({ basePath }) {
   const submittingRef = useRef(false);
 
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError('');
+  let active = true;
 
-    fetchVendorForm(id)
-      .then(({ form: loadedForm }) => {
-        if (active) setForm(loadedForm);
-      })
-      .catch((err) => {
-        if (active) setError(err.message || 'Vendor not found.');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+  (async () => {
+    try {
+      const { form: loadedForm } = await fetchVendorForm(id);
 
-    return () => {
-      active = false;
-    };
-  }, [id]);
+      if (active) {
+        setForm(loadedForm);
+      }
+    } catch (err) {
+      if (active) {
+        setError(err.message || 'Vendor not found.');
+      }
+    } finally {
+      if (active) {
+        setLoading(false);
+      }
+    }
+  })();
+
+  return () => {
+    active = false;
+  };
+}, [id]);
 
   if (!resource) return null;
 

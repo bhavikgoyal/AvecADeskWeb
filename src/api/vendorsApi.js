@@ -14,9 +14,10 @@ function getStoredUserId() {
 }
 
 function formatDate(value) {
-  if (!value) return '';
+  if (!value) return '—';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
+
+  if (isNaN(date.getTime())) return '—'; 
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 

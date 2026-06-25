@@ -28,12 +28,21 @@ const NewEnrolmentPage = lazy(() => import('../pages/resources/NewEnrolmentPage'
 const EnrolmentDetailPage = lazy(() => import('../pages/resources/EnrolmentDetailPage'));
 const StudentDetailPage = lazy(() => import('../pages/resources/StudentDetailPage'));
 const ResourceDetailPage = lazy(() => import('../pages/resources/ResourceDetailPage'));
+const BoardPage = lazy(() => import('../pages/BoardPage'));
 const MembersContent = lazy(() => import('../components/Member/MembersContent'));
 const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
 const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));
+const StartStopActivity = lazy(() => import('../components/StartStopActivity/StartStopActivity'));
 const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
+const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
+const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
 
-const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
+// const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
+
+const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
+  path !== 'institutes-scrapping' &&
+  path !== 'work-history'
+);
 
 function RoleRedirect() {
   const { user } = useAuth();
@@ -174,7 +183,18 @@ export default function AppRoutes() {
           <Route path="dashboard/accounting" element={<GuardedDashboard path="/dashboard/accounting" element={<AccDash />} />} />
           <Route path="dashboard/vendor" element={<GuardedDashboard path="/dashboard/vendor" element={<VendorDash />} />} />
           <Route path="dashboard/student" element={<GuardedDashboard path="/dashboard/student" element={<StudentDash />} />} />
-
+          <Route path="work-history" element={<RequireRole path="/work-history"> <WorkHistoryPage /> </RequireRole>} />
+          <Route path="work-history/:id" element={<RequireRole path="/work-history"> <WorkHistoryDetailPage /> </RequireRole>
+          }
+          />
+          <Route
+            path="tasks"
+            element={
+              <RequireRole path="/tasks">
+                <BoardPage />
+              </RequireRole>
+            }
+          />
           <Route
             path="institutes-scrapping"
             element={
@@ -183,21 +203,25 @@ export default function AppRoutes() {
               </RequireRole>
             }
           />
-
           {LIST_RESOURCE_PATHS.map((path) => (
-            <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />} />
+            <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />}
+            />
           ))}
           {LIST_RESOURCE_PATHS.map((path) => (
-            <Route key={`${path}-detail`} path={`${path}/:id`} element={<GuardedResourceDetail path={`/${path}`} />} />
+            <Route key={`${path}-detail`} path={`${path}/:id`} element={<GuardedResourceDetail path={`/${path}`} />}
+            />
           ))}
           {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={path} path={path} element={<GuardedResourceList path={`/${path}`} />} />
           ))}
 
-<Route path="Members" element={<MembersContent />} />
-<Route path="Members/Create" element={<MembersCreate />} />
-<Route path="Members/Edit/:id" element={<MembersEdit />} />
+          <Route path="Members" element={<MembersContent />} />
+          <Route path="Members/Create" element={<MembersCreate />} />
+          <Route path="Members/Edit/:id" element={<MembersEdit />} />
           <Route path="*" element={<RoleRedirect />} />
+          <Route path="StartStopActivity" element={<StartStopActivity />} />
+          <Route path="startstop" element={<StartStopActivity />} />
+          <Route path="task-reports" element={<StartStopActivity />} />
         </Route>
 
         <Route path="*" element={<Navigate to={user ? getDefaultRoute(user.role) : '/login'} replace />} />
