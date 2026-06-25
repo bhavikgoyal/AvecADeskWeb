@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import useCompactSidebar from '../hooks/useCompactSidebar';
+import UserAccountMenu from './UserAccountMenu';
 
 const notifications = [
   { title: 'Payment received', description: 'Student payment confirmed for INV-2041.', time: '5m ago' },
@@ -25,9 +26,13 @@ const notifications = [
 export default function Topbar({ onDrawerToggle, user }) {
   const isMobile = useCompactSidebar();
   const notificationBtnRef = useRef(null);
+  const userBtnRef = useRef(null);
   const notificationOffsetY = isMobile ? 22 : 14;
+  const userMenuOffsetY = isMobile ? 22 : 14;
   const [notificationAnchor, setNotificationAnchor] = useState(null);
-  const open = Boolean(notificationAnchor);
+  const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+  const notificationOpen = Boolean(notificationAnchor);
+  const userMenuOpen = Boolean(userMenuAnchor);
 
   return (
     <>
@@ -90,9 +95,9 @@ export default function Topbar({ onDrawerToggle, user }) {
               <IconButton
                 ref={notificationBtnRef}
                 aria-label="notifications"
-                aria-controls={open ? 'notification-menu' : undefined}
+                aria-controls={notificationOpen ? 'notification-menu' : undefined}
                 aria-haspopup="true"
-                aria-expanded={open ? 'true' : undefined}
+                aria-expanded={notificationOpen ? 'true' : undefined}
                 sx={{ color: '#1f325d' }}
                 onClick={() => setNotificationAnchor(notificationBtnRef.current)}
               >
@@ -100,19 +105,29 @@ export default function Topbar({ onDrawerToggle, user }) {
                   <NotificationsNoneIcon />
                 </Badge>
               </IconButton>
-              <Avatar
-                alt={user?.name || 'User'}
-                src={user?.avatar}
-                sx={{
-                  width: { xs: 32, sm: 40 },
-                  height: { xs: 32, sm: 40 },
-                  bgcolor: 'var(--primary)',
-                  fontWeight: 700,
-                  border: '2px solid var(--primary-soft)',
-                }}
+              <IconButton
+                ref={userBtnRef}
+                aria-label="Open account menu"
+                aria-controls={userMenuOpen ? 'user-account-menu' : undefined}
+                aria-haspopup="true"
+                aria-expanded={userMenuOpen ? 'true' : undefined}
+                onClick={() => setUserMenuAnchor(userBtnRef.current)}
+                sx={{ p: 0.25 }}
               >
-                {user?.name ? user.name.split(' ').map((n) => n[0]).slice(0, 2).join('') : 'U'}
-              </Avatar>
+                <Avatar
+                  alt={user?.name || 'User'}
+                  src={user?.avatar}
+                  sx={{
+                    width: { xs: 32, sm: 40 },
+                    height: { xs: 32, sm: 40 },
+                    bgcolor: 'var(--primary)',
+                    fontWeight: 700,
+                    border: '2px solid var(--primary-soft)',
+                  }}
+                >
+                  {user?.name ? user.name.split(' ').map((n) => n[0]).slice(0, 2).join('') : 'U'}
+                </Avatar>
+              </IconButton>
             </Box>
           </Box>
         </Toolbar>
@@ -121,7 +136,7 @@ export default function Topbar({ onDrawerToggle, user }) {
       <Menu
         id="notification-menu"
         anchorEl={notificationAnchor}
-        open={open}
+        open={notificationOpen}
         onClose={() => setNotificationAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -147,7 +162,7 @@ export default function Topbar({ onDrawerToggle, user }) {
           },
           list: { sx: { py: 0 } },
         }}
-        MenuListProps={{ dense: true, disablePadding: true, autoFocusItem: open }}
+        MenuListProps={{ dense: true, disablePadding: true, autoFocusItem: notificationOpen }}
       >
         <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid rgba(229, 232, 240, 0.9)' }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -172,6 +187,14 @@ export default function Topbar({ onDrawerToggle, user }) {
           </Box>
         ))}
       </Menu>
+
+      <UserAccountMenu
+        user={user}
+        anchorEl={userMenuAnchor}
+        open={userMenuOpen}
+        onClose={() => setUserMenuAnchor(null)}
+        offsetY={userMenuOffsetY}
+      />
     </>
   );
 }
