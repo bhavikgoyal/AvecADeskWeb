@@ -26,7 +26,14 @@ export default function DashboardLayout() {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        minHeight: '100vh',
+        backgroundColor: 'var(--bg)',
+        gap: { xs: 0, md: 2.5 },
+      }}
+    >
       <CssBaseline />
       <Sidebar
         role={user.role}
@@ -49,9 +56,10 @@ export default function DashboardLayout() {
           component="main"
           sx={{
             flexGrow: 1,
-            p: { xs: 1, sm: 1.25, md: 1.5 },
+            p: { xs: 1.25, sm: 1.5, md: 2 },
             overflow: 'auto',
             width: '100%',
+            minWidth: 0,
           }}
         >
           <Outlet />

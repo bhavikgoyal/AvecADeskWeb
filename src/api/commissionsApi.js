@@ -35,9 +35,20 @@ export async function fetchVendorCommissionRates(vendorId) {
 }
 
 export async function createVendorCommissionRate(vendorId, form) {
-  const { data } = await axiosClient.post(`/api/commissions/vendor/${vendorId}`, toApiPayload(form));
-  return normalizeCommissionRate(data);
-}
+  try {
+    const { data } = await axiosClient.post(
+      `/api/commissions/vendor/${vendorId}`, 
+      toApiPayload(form)
+    );
+    return normalizeCommissionRate(data);
+  } catch (err) {
+  const message =
+    typeof err.response?.data === 'string'
+      ? err.response.data
+      : err.message || 'Failed to create commission rate';
+
+  throw new Error(message, { cause: err });
+}}
 
 export async function updateVendorCommissionRate(vendorId, commissionId, form) {
   const { data } = await axiosClient.put(
@@ -62,4 +73,18 @@ export function getEmptyCommissionRateForm(defaultVendorId = '') {
     effectiveFrom: today,
     effectiveTo: '',
   };
+}
+
+
+export async function fetchCommissionHistory(vendorId, instituteId, courseId) {
+  const params = {};
+
+  if (instituteId) params.instituteId = instituteId;
+  if (courseId) params.courseId = courseId;
+
+  const { data } = await axiosClient.get(
+    `/api/commissions/vendor/${vendorId}/history`,
+    { params }
+  );
+  return (Array.isArray(data) ? data : []).map(normalizeCommissionRate);
 }

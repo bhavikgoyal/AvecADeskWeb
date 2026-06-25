@@ -7,11 +7,13 @@ import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
 const fieldProps = { size: 'small', fullWidth: true, sx: formFieldSx };
 
 function resolveFieldGrid(def, compact) {
-  if (def.type === 'textarea' || def.type === 'checkbox') {
+  if (def.type === 'textarea') {
+    return { xs: 12 };
+  }
+  if (def.type === 'checkbox') {
     return compact ? { xs: 12 } : (def.grid || { xs: 12 });
   }
   if (compact) {
-    if (def.type === 'textarea') return { xs: 12 };
     if (def.grid?.xs === 12 && !def.grid?.md) return { xs: 12 };
     return compactFieldGrid;
   }

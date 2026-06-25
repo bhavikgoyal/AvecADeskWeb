@@ -1,176 +1,168 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  MenuItem,
-  Stack,
-  TextField,
-  Typography,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent,
+  DialogTitle, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
 import ResponsiveTable from '../ResponsiveTable';
 import {
   createVendorCommissionRate,
-  deleteVendorCommissionRate,
   fetchCommissionRates,
+  fetchCommissionHistory,
   getEmptyCommissionRateForm,
-  updateVendorCommissionRate,
 } from '../../api/commissionsApi';
-import { fetchCoursesByInstitute, fetchInstitutes, fetchVendors } from '../../api/lookupApi';
+import { fetchCoursesByInstitute, fetchInstitutes } from '../../api/lookupApi';
 import { primaryButtonSx } from '../forms';
 
 function formatDate(value) {
   if (!value) return '—';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatRate(row) {
-  if (row.rateType === 'Percentage') return `${row.rate}%`;
-  return row.rate?.toLocaleString?.() ?? row.rate;
 }
 
 export default function VendorCommissionRatesPanel({ defaultVendorId = null }) {
   const [rates, setRates] = useState([]);
-  const [vendors, setVendors] = useState([]);
   const [institutes, setInstitutes] = useState([]);
-  const [courses, setCourses] = useState([]);
+  const [allCourses, setAllCourses] = useState([]);
+  const [dialogCourses, setDialogCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingRate, setEditingRate] = useState(null);
   const [form, setForm] = useState(() => getEmptyCommissionRateForm(defaultVendorId));
   const [saving, setSaving] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
 
-  const vendorMap = useMemo(
-    () => Object.fromEntries(
-      vendors.map((v) => [
-        String(v.vendorId ?? v.VendorId),
-        v.businessName ?? v.BusinessName ?? v.name ?? v.Name ?? `Vendor ${v.vendorId ?? v.VendorId}`,
+const instituteMap = useMemo(
+  () =>
+    Object.fromEntries(
+      institutes.map((i) => [
+        String(i.instituteId ?? i.InstituteId),
+        i.name ?? i.Name ?? i.instituteName ?? i.InstituteName,
       ]),
     ),
-    [vendors],
-  );
+  [institutes],
+);
 
-  const instituteMap = useMemo(
-    () => Object.fromEntries(institutes.map((i) => [String(i.instituteId ?? i.InstituteId), i.name ?? i.Name ?? i.instituteName ?? i.InstituteName])),
-    [institutes],
-  );
+const courseMap = useMemo(
+  () =>
+    Object.fromEntries(
+      allCourses.map((c) => [
+        String(c.courseId ?? c.CourseId),
+        c.courseName ?? c.CourseName ?? c.name ?? c.Name,
+      ]),
+    ),
+  [allCourses],
+);
 
-  const courseMap = useMemo(
-    () => Object.fromEntries(courses.map((c) => [String(c.courseId ?? c.CourseId), c.courseName ?? c.CourseName ?? c.name ?? c.Name])),
-    [courses],
-  );
+const loadRates = useCallback(async () => {
+  setLoading(true);
+  setError('');
 
-  const loadRates = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const rows = await fetchCommissionRates();
-      setRates(rows);
-    } catch (err) {
-      setError(err.message || 'Failed to load commission rates.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  try {
+    const rows = await fetchCommissionRates(defaultVendorId);
+    setRates(rows);
+  } catch (err) {
+    setError(err.message || 'Failed to load commission rates.');
+  } finally {
+    setLoading(false);
+  }
+}, [defaultVendorId]);
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([fetchInstitutes(), fetchVendors()])
-      .then(([instituteData, vendorData]) => {
-        if (!active) return;
-        setInstitutes(instituteData ?? []);
-        setVendors(vendorData ?? []);
-      })
-      .catch(() => {
-        if (!active) {
-          setInstitutes([]);
-          setVendors([]);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+useEffect(() => {
+  fetchInstitutes()
+    .then((data) => setInstitutes(data ?? []))
+    .catch(() => setInstitutes([]));
+}, []);
 
-  useEffect(() => {
-    loadRates();
-  }, [loadRates]);
+useEffect(() => {
+  if (institutes.length === 0) return;
 
-  useEffect(() => {
-    let active = true;
-    if (!form.instituteId) {
-      setCourses([]);
-      return undefined;
-    }
+  Promise.all(
+    institutes.map((i) => {
+      const id = i.instituteId ?? i.InstituteId;
+      return fetchCoursesByInstitute(id).catch(() => []);
+    }),
+  ).then((results) => setAllCourses(results.flat()));
+}, [institutes]);
 
-    fetchCoursesByInstitute(form.instituteId)
-      .then((data) => {
-        if (active) setCourses(data ?? []);
-      })
-      .catch(() => {
-        if (active) setCourses([]);
-      });
+useEffect(() => {
+  let active = true;
 
-    return () => {
-      active = false;
-    };
-  }, [form.instituteId]);
-
-  const openCreateDialog = () => {
-    setEditingRate(null);
-    setForm(getEmptyCommissionRateForm(defaultVendorId));
-    setDialogOpen(true);
+  const run = async () => {
+    if (!defaultVendorId || !active) return;
+    await loadRates();
   };
 
-  const openEditDialog = (rate) => {
-    setEditingRate(rate);
-    setForm({
-      vendorId: rate.vendorId ? String(rate.vendorId) : '',
-      instituteId: rate.instituteId ? String(rate.instituteId) : '',
-      courseId: rate.courseId ? String(rate.courseId) : '',
-      rateType: rate.rateType || 'Fixed',
-      rate: String(rate.rate ?? ''),
-      effectiveFrom: rate.effectiveFrom ? String(rate.effectiveFrom).slice(0, 10) : '',
-      effectiveTo: rate.effectiveTo ? String(rate.effectiveTo).slice(0, 10) : '',
-    });
+  void run();
+
+  return () => {
+    active = false;
+  };
+}, [loadRates, defaultVendorId]);
+
+useEffect(() => {
+  let active = true;
+
+  const loadCourses = async () => {
+    try {
+      if (!form.instituteId) {
+        if (active) {
+          setDialogCourses([]);
+        }
+        return;
+      }
+
+      const data = await fetchCoursesByInstitute(form.instituteId);
+
+      if (active) {
+        setDialogCourses(data ?? []);
+      }
+    } catch {
+      if (active) {
+        setDialogCourses([]);
+      }
+    }
+  };
+
+  void loadCourses();
+
+  return () => {
+    active = false;
+  };
+}, [form.instituteId]);
+
+
+    if (!defaultVendorId) {
+    return (
+      <Box sx={{ py: 4, textAlign: 'center' }}>
+        <Typography sx={{ color: 'var(--muted)' }}>
+          Please save vendor details first to add commission rates.
+        </Typography>
+      </Box>
+    );
+  }
+
+  const openCreateDialog = () => {
+    setForm(getEmptyCommissionRateForm(defaultVendorId));
     setDialogOpen(true);
   };
 
   const closeDialog = () => {
     if (saving) return;
     setDialogOpen(false);
-    setEditingRate(null);
   };
 
   const handleSave = async () => {
-    const vendorId = editingRate?.vendorId ?? Number(form.vendorId);
-    if (!vendorId) {
-      setError('Vendor is required.');
-      return;
-    }
     if (!form.rateType || !form.rate || !form.effectiveFrom) {
       setError('Rate type, rate, and effective from are required.');
       return;
     }
-
     setSaving(true);
     setError('');
-
     try {
-      if (editingRate) {
-        await updateVendorCommissionRate(vendorId, editingRate.commissionId, form);
-      } else {
-        await createVendorCommissionRate(vendorId, form);
-      }
+      await createVendorCommissionRate(defaultVendorId, form);
       setDialogOpen(false);
-      setEditingRate(null);
       await loadRates();
     } catch (err) {
       setError(err.message || 'Failed to save commission rate.');
@@ -179,54 +171,35 @@ export default function VendorCommissionRatesPanel({ defaultVendorId = null }) {
     }
   };
 
-  const handleDelete = async (rate) => {
-    if (!window.confirm('Delete this commission rate?')) return;
-
+const openHistoryDialog = async (row) => {
+  try {
+    setLoading(true);
+    const data = await fetchCommissionHistory(
+      row.vendorId,
+      row.instituteId,
+      row.courseId
+    );
+    setHistoryData(data);
+    setHistoryOpen(true);
     setError('');
-    try {
-      await deleteVendorCommissionRate(rate.vendorId, rate.commissionId);
-      await loadRates();
-    } catch (err) {
-      setError(err.message || 'Failed to delete commission rate.');
-    }
-  };
+  } catch {
+    setError('Failed to load history.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const columns = [
-    {
-      id: 'vendor',
-      label: 'Vendor',
-      field: 'vendorId',
-      render: (row) => vendorMap[String(row.vendorId)] || row.vendorId || '—',
-    },
-    {
-      id: 'institute',
-      label: 'Institute',
-      field: 'instituteId',
-      render: (row) => instituteMap[String(row.instituteId)] || row.instituteId || '—',
-    },
-    {
-      id: 'course',
-      label: 'Course',
-      field: 'courseId',
-      render: (row) => courseMap[String(row.courseId)] || row.courseId || '—',
-    },
+    { id: 'institute', label: 'Institute', render: (row) => row.instituteId ? (instituteMap[String(row.instituteId)] || '—') : '—' },
+    { id: 'course', label: 'Course', render: (row) => row.courseId ? (courseMap[String(row.courseId)] || '—') : '—' },
     { id: 'rateType', label: 'Rate type', field: 'rateType' },
-    { id: 'rate', label: 'Rate', field: 'rate', render: (row) => formatRate(row) },
-    { id: 'effectiveFrom', label: 'Effective from', field: 'effectiveFrom', render: (row) => formatDate(row.effectiveFrom) },
-    { id: 'effectiveTo', label: 'Effective to', field: 'effectiveTo', render: (row) => formatDate(row.effectiveTo) },
+    { id: 'rate', label: 'Rate', field: 'rate' },
+    { id: 'effectiveFrom', label: 'From', render: (r) => formatDate(r.effectiveFrom) },
     {
-      id: 'actions',
-      label: 'Actions',
-      align: 'right',
+      id: 'actions', label: 'Actions', align: 'right',
       render: (row) => (
-        <Stack direction="row" spacing={1} justifyContent="flex-end">
-          <Button size="small" onClick={() => openEditDialog(row)} sx={{ textTransform: 'none', minWidth: 0 }}>
-            Edit
-          </Button>
-          <Button size="small" color="error" onClick={() => handleDelete(row)} sx={{ textTransform: 'none', minWidth: 0 }}>
-            Delete
-          </Button>
-        </Stack>
+        <Button size="small" onClick={() => openHistoryDialog(row)}>History</Button>
       ),
     },
   ];
@@ -237,20 +210,13 @@ export default function VendorCommissionRatesPanel({ defaultVendorId = null }) {
         <Box>
           <Typography sx={{ fontWeight: 700, color: 'var(--text)' }}>Commission rates</Typography>
           <Typography variant="body2" sx={{ color: 'var(--muted)', mt: 0.25 }}>
-            All commission rates across vendors, institutes, and courses.
+            Commission rates for this vendor.
           </Typography>
         </Box>
         <Button
           variant="contained"
           onClick={openCreateDialog}
-          sx={{
-            ...primaryButtonSx,
-            minWidth: { xs: '100%', sm: 160 },
-            height: 38,
-            px: 2.25,
-            alignSelf: { xs: 'stretch', sm: 'auto' },
-            whiteSpace: 'nowrap',
-          }}
+          sx={{ ...primaryButtonSx, minWidth: { xs: '100%', sm: 160 }, height: 38, px: 2.25, whiteSpace: 'nowrap' }}
         >
           Add commission rate
         </Button>
@@ -263,7 +229,9 @@ export default function VendorCommissionRatesPanel({ defaultVendorId = null }) {
       )}
 
       {loading ? (
-        <Typography sx={{ color: 'var(--muted)', py: 2 }}>Loading commission rates...</Typography>
+        <Typography sx={{ color: 'var(--muted)', py: 2 }}>Loading...</Typography>
+      ) : rates.length === 0 ? (
+        <Typography sx={{ color: 'var(--muted)', py: 2 }}>No commission rates yet.</Typography>
       ) : (
         <ResponsiveTable
           columns={columns}
@@ -274,116 +242,75 @@ export default function VendorCommissionRatesPanel({ defaultVendorId = null }) {
         />
       )}
 
+      {/* Add Dialog */}
       <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
-        <DialogTitle>{editingRate ? 'Edit commission rate' : 'Add commission rate'}</DialogTitle>
+        <DialogTitle>Add commission rate</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
-            <TextField
-              select
-              label="Vendor"
-              value={form.vendorId}
-              onChange={(e) => setForm((prev) => ({ ...prev, vendorId: e.target.value }))}
-              fullWidth
-              required
-              disabled={Boolean(editingRate)}
-            >
-              <MenuItem value="">Select vendor</MenuItem>
-              {vendors.map((vendor) => {
-                const id = vendor.vendorId ?? vendor.VendorId;
-                const name = vendor.businessName ?? vendor.BusinessName ?? vendor.name ?? vendor.Name;
-                return (
-                  <MenuItem key={id} value={String(id)}>
-                    {name}
-                  </MenuItem>
-                );
-              })}
-            </TextField>
-
-            <TextField
-              select
-              label="Institute"
-              value={form.instituteId}
-              onChange={(e) => setForm((prev) => ({ ...prev, instituteId: e.target.value, courseId: '' }))}
-              fullWidth
-            >
+            <TextField select label="Institute" value={form.instituteId} fullWidth
+              onChange={(e) => setForm((prev) => ({ ...prev, instituteId: e.target.value, courseId: '' }))}>
               <MenuItem value="">None</MenuItem>
-              {institutes.map((institute) => {
-                const id = institute.instituteId ?? institute.InstituteId;
-                const name = institute.name ?? institute.Name ?? institute.instituteName ?? institute.InstituteName;
-                return (
-                  <MenuItem key={id} value={String(id)}>
-                    {name}
-                  </MenuItem>
-                );
+              {institutes.map((i) => {
+                const id = i.instituteId ?? i.InstituteId;
+                const name = i.name ?? i.Name ?? i.instituteName ?? i.InstituteName;
+                return <MenuItem key={id} value={String(id)}>{name}</MenuItem>;
               })}
             </TextField>
 
-            <TextField
-              select
-              label="Course"
-              value={form.courseId}
-              onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value }))}
-              fullWidth
-              disabled={!form.instituteId}
-            >
+            <TextField select label="Course" value={form.courseId} fullWidth disabled={!form.instituteId}
+              onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
-              {courses.map((course) => {
-                const id = course.courseId ?? course.CourseId;
-                const name = course.courseName ?? course.CourseName ?? course.name ?? course.Name;
-                return (
-                  <MenuItem key={id} value={String(id)}>
-                    {name}
-                  </MenuItem>
-                );
+              {dialogCourses.map((c) => {
+                const id = c.courseId ?? c.CourseId;
+                const name = c.courseName ?? c.CourseName ?? c.name ?? c.Name;
+                return <MenuItem key={id} value={String(id)}>{name}</MenuItem>;
               })}
             </TextField>
 
-            <TextField
-              select
-              label="Rate type"
-              value={form.rateType}
-              onChange={(e) => setForm((prev) => ({ ...prev, rateType: e.target.value }))}
-              fullWidth
-              required
-            >
+            <TextField select label="Rate type" value={form.rateType} fullWidth required
+              onChange={(e) => setForm((prev) => ({ ...prev, rateType: e.target.value }))}>
               <MenuItem value="Fixed">Fixed</MenuItem>
               <MenuItem value="Percentage">Percentage</MenuItem>
             </TextField>
 
-            <TextField
-              label="Rate"
-              type="number"
-              value={form.rate}
-              onChange={(e) => setForm((prev) => ({ ...prev, rate: e.target.value }))}
-              fullWidth
-              required
-            />
+            <TextField label="Rate" type="number" value={form.rate} fullWidth required
+              onChange={(e) => setForm((prev) => ({ ...prev, rate: e.target.value }))} />
 
-            <TextField
-              label="Effective from"
-              type="date"
-              value={form.effectiveFrom}
+            <TextField label="Effective from" type="date" value={form.effectiveFrom} fullWidth required
               onChange={(e) => setForm((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
-              fullWidth
-              required
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
+              slotProps={{ inputLabel: { shrink: true } }} />
 
-            <TextField
-              label="Effective to"
-              type="date"
-              value={form.effectiveTo}
+            <TextField label="Effective to" type="date" value={form.effectiveTo} fullWidth
               onChange={(e) => setForm((prev) => ({ ...prev, effectiveTo: e.target.value }))}
-              fullWidth
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
+              slotProps={{ inputLabel: { shrink: true } }} />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={closeDialog} disabled={saving}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : editingRate ? 'Update' : 'Add'}
+            {saving ? 'Saving...' : 'Add'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>Commission History</DialogTitle>
+        <DialogContent>
+          <ResponsiveTable
+            columns={[
+              { id: 'rateType', label: 'Rate Type', field: 'rateType' },
+              { id: 'rate', label: 'Rate', field: 'rate' },
+              { id: 'effectiveFrom', label: 'From', render: (r) => formatDate(r.effectiveFrom) },
+              { id: 'effectiveTo', label: 'To', render: (r) => formatDate(r.effectiveTo) },
+            ]}
+            rows={historyData}
+            getRowKey={(row) => row.commissionId}
+            alwaysTable
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHistoryOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>
