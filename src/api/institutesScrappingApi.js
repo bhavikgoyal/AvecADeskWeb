@@ -44,9 +44,25 @@ export async function fetchInstituteScrappingRows() {
   return (data ?? []).map((raw) => mapRow(normalizeRecord(raw)));
 }
 
+function validateScrapeForm(form) {
+  const instituteName = (form.instituteName || '').trim();
+  const websiteUrl = (form.websiteUrl || '').trim();
+
+  if (!instituteName || !websiteUrl) {
+    return 'Institute name and website URL are required.';
+  }
+
+  return '';
+}
+
 export async function runInstituteScrapping(form) {
+  const validationError = validateScrapeForm(form);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
   const { data } = await axiosClient.post('/api/institutes-scrapping/run', toRequestBody(form), {
-    timeout: 600000,
+    timeout: 660_000,
   });
   return {
     recordsInserted: data?.recordsInserted ?? data?.RecordsInserted ?? 0,
