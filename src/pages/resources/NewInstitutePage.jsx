@@ -22,22 +22,15 @@ export default function NewInstitutePage({ basePath }) {
   const [loadError, setLoadError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [createdInstituteId, setCreatedInstituteId] = useState(null);
+  const [showSaveFirst, setShowSaveFirst] = useState(false);
   const submittingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
-
     fetchVendors()
-      .then((data) => {
-        if (active) setVendors(data);
-      })
-      .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load vendors.');
-      });
-
-    return () => {
-      active = false;
-    };
+      .then((data) => { if (active) setVendors(data); })
+      .catch((err) => { if (active) setLoadError(err.message || 'Failed to load vendors.'); });
+    return () => { active = false; };
   }, []);
 
   const selectOptions = useMemo(
@@ -58,9 +51,17 @@ export default function NewInstitutePage({ basePath }) {
     if (loadError) setLoadError('');
   };
 
+  const handleTabChange = (_, value) => {
+    if (value === 1 && !createdInstituteId) {
+      setShowSaveFirst(true);
+      return;
+    }
+    setShowSaveFirst(false);
+    setActiveTab(value);
+  };
+
   const handleCreate = async () => {
     if (submittingRef.current) return;
-
     submittingRef.current = true;
     setSubmitting(true);
     setError('');
@@ -68,7 +69,8 @@ export default function NewInstitutePage({ basePath }) {
     try {
       const institute = await createInstitute(form);
       setCreatedInstituteId(institute.instituteId);
-      setActiveTab(1);
+      setShowSaveFirst(false);
+      setActiveTab(1); 
     } catch (err) {
       setError(err.message || 'Failed to create institute.');
     } finally {
@@ -88,7 +90,7 @@ export default function NewInstitutePage({ basePath }) {
       ]}
     >
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
-        <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
+        <Tabs value={activeTab} onChange={handleTabChange}>
           <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
@@ -103,11 +105,19 @@ export default function NewInstitutePage({ basePath }) {
 
         {activeTab === 0 && (
           <>
-            {createdInstituteId && (
-              <Alert severity="success" sx={{ mb: 1.5 }}>
-                Institute saved. Switch to the Commission rates tab to add rates.
+            {showSaveFirst && !createdInstituteId && (
+              <Alert severity="warning" sx={{ mb: 1.5 }} onClose={() => setShowSaveFirst(false)}>
+                Please save institute details first before adding commission rates.
               </Alert>
             )}
+
+            {/* Institute save */}
+            {createdInstituteId && (
+              <Alert severity="success" sx={{ mb: 1.5 }}>
+                Institute saved successfully! You can now add commission rates from the Commission rates tab.
+              </Alert>
+            )}
+
             <FormSectionsLayout
               sections={resource.sections}
               form={form}
@@ -130,7 +140,9 @@ export default function NewInstitutePage({ basePath }) {
         )}
 
         {activeTab === 1 && (
-          <VendorCommissionRatesPanel defaultVendorId={form.vendorId ? Number(form.vendorId) : null} />
+          <VendorCommissionRatesPanel
+            defaultVendorId={form.vendorId ? Number(form.vendorId) : null}
+          />
         )}
       </Paper>
     </FormPageLayout>

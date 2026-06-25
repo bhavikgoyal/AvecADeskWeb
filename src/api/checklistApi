@@ -1,0 +1,35 @@
+import axiosClient from './axiosClient';
+
+export async function getChecklists(cardId) {
+  const response = await axiosClient.get(`/api/Checklist/card/${cardId}`);
+  return response.data;
+}
+
+export async function createChecklist(payload) {
+  const response = await axiosClient.post('/api/Checklist/create', payload);
+  return response.data;
+}
+
+export async function deleteChecklist(checklistId) {
+  const response = await axiosClient.delete(`/api/Checklist/delete/${checklistId}`);
+  return response.data;
+}
+
+export async function createChecklistItem(payload) {
+  const response = await axiosClient.post('/api/Checklist/item/create', payload);
+  return response.data;
+}
+
+export async function toggleChecklistItem(itemId, isCompleted) {
+  const response = await axiosClient.patch(`/api/Checklist/item/toggle/${itemId}`, { isCompleted });
+  return response.data;
+}
+export async function deleteChecklistItem(itemId) {
+  const response = await axiosClient.delete(`/api/Checklist/item/delete/${itemId}`);
+  return response.data;
+}
+ 
+export async function updateChecklistItemName(itemId, itemName) {
+  const response = await axiosClient.put(`/api/Checklist/item/update/${itemId}`, { itemName });
+  return response.data;
+}

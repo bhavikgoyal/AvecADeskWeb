@@ -44,48 +44,61 @@ export default function StudentDetailPage({ basePath }) {
     };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError('');
-    setLoadError('');
+ useEffect(() => {
+  let active = true;
 
-    fetchStudentWithSchedule(id)
-      .then(({ form: loadedForm }) => {
-        if (active) setForm(loadedForm);
-      })
-      .catch((err) => {
-        if (active) setError(err.message || 'Student not found.');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+  const loadStudent = async () => {
+    try {
+      const { form: loadedForm } = await fetchStudentWithSchedule(id);
 
-    return () => {
-      active = false;
-    };
-  }, [id]);
+      if (active) {
+        setForm(loadedForm);
+      }
+    } catch (err) {
+      if (active) {
+        setError(err.message || 'Student not found.');
+      }
+    } finally {
+      if (active) {
+        setLoading(false);
+      }
+    }
+  };
 
-  useEffect(() => {
-    let active = true;
+  void loadStudent();
 
+  return () => {
+    active = false;
+  };
+}, [id]);
+
+ useEffect(() => {
+  let active = true;
+
+  const loadCourses = async () => {
     if (!form?.instituteId) {
-      setCourses([]);
-      return undefined;
+      return;
     }
 
-    fetchCoursesByInstitute(form.instituteId)
-      .then((data) => {
-        if (active) setCourses(data);
-      })
-      .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load courses.');
-      });
+    try {
+      const data = await fetchCoursesByInstitute(form.instituteId);
 
-    return () => {
-      active = false;
-    };
-  }, [form?.instituteId]);
+      if (active) {
+        setCourses(data);
+      }
+    } catch (err) {
+      if (active) {
+        setLoadError(err.message || 'Failed to load courses.');
+      }
+    }
+  };
+
+  void loadCourses();
+
+  return () => {
+    active = false;
+  };
+}, [form?.instituteId]);
 
   const selectOptions = useMemo(
     () => ({

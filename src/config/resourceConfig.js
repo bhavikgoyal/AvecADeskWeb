@@ -12,7 +12,7 @@ export const RESOURCE_PATHS = [
   'templates',
   'users',
   'work-history',
-  'tasks',
+  // 'tasks',
   'status/students',
   'status/vendors',
   'status/institutes',
@@ -20,7 +20,6 @@ export const RESOURCE_PATHS = [
   'reports/receivables',
   'reports/received',
   'reports/dues',
-  'reports/work-hours',
   'ai-tool',
   'vendor-portal',
 ];
