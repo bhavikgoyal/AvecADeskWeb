@@ -1,22 +1,31 @@
 import axiosClient, { setAuthToken } from './axiosClient';
 
-const ROLE_BY_ID = {
-  1: 'Admin',
-  2: 'Accounting',
-  3: 'Consultant',
-  4: 'Vendor',
-};
+// const ROLE_BY_ID = {
+//   1: 'Admin',
+//   2: 'Accounting',
+//   3: 'Consultant',
+//   4: 'Vendor',
+// };
+
 
 function mapApiUser(apiUser, fallbackEmail = '') {
-  const roleId = apiUser?.userRoleId ?? apiUser?.UserRoleId;
-
   return {
     id: String(apiUser?.userId ?? apiUser?.UserId ?? 'api-user'),
     email: apiUser?.email ?? apiUser?.Email ?? fallbackEmail,
-    role: ROLE_BY_ID[roleId] ?? 'Vendor',
+    role: apiUser?.userRoleName ?? apiUser?.UserRoleName ?? '',
+    roleId: apiUser?.userRoleId ?? apiUser?.UserRoleId,
     name: apiUser?.userName ?? apiUser?.UserName ?? fallbackEmail,
     avatar: '',
   };
+
+
+  // return {
+  //   id: String(apiUser?.userId ?? apiUser?.UserId ?? 'api-user'),
+  //   email: apiUser?.email ?? apiUser?.Email ?? fallbackEmail,
+  //   role: ROLE_BY_ID[roleId] ?? 'Vendor',
+  //   name: apiUser?.userName ?? apiUser?.UserName ?? fallbackEmail,
+  //   avatar: '',
+  // };
 }
 
 function applyAuthResponse(data, fallbackEmail = '') {
@@ -32,6 +41,7 @@ function applyAuthResponse(data, fallbackEmail = '') {
 }
 
 export async function loginWithApi(email, password) {
+  debugger;
   const { data } = await axiosClient.post('/api/auth/login', { email, password });
   return applyAuthResponse(data, email);
 }
