@@ -19,7 +19,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 export const GET_MENU = (role) => {
   const menus = {
-    Admin: [
+    'Super Admin': [
       {
         category: 'CORE',
         items: [
@@ -99,31 +99,27 @@ export const GET_MENU = (role) => {
       },
     ],
 
-    Consultant: [
+    Student: [
       {
         category: 'CORE',
         items: [
-          { title: 'Admin Overview', path: '/dashboard/admin', Icon: DashboardIcon },
-          { title: 'Vendor Dashboard', path: '/dashboard/vendor', Icon: DashboardIcon },
           { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
         ],
       },
       {
         category: 'MANAGEMENT',
         items: [
-          { title: 'Vendors (P)', path: '/vendors', Icon: StoreIcon },
-          { title: 'Institutes (P)', path: '/institutes', Icon: AccountBalanceIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
-          { title: 'Work History (P)', path: '/work-history', Icon: HistoryIcon },
-          { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
+          // { title: 'Work History (P)', path: '/work-history', Icon: HistoryIcon },
+          // { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
         ],
       },
       {
         category: 'STATUSES',
         items: [
           { title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
-          { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
-          { title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
+          // { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
+          // { title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
         ],
       },
     ],
