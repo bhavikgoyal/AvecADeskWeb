@@ -586,7 +586,7 @@ vendors: {
     sections: [
       {
         title: 'Institute details',
-        description: 'Institute name and main website homepage URL. Programs pages are discovered automatically.',
+        description: 'Institute name and website URL. Use the homepage, or the course search / programs listing page for faster results on modern (JavaScript) sites.',
         fields: ['instituteName', 'websiteUrl'],
       },
     ],

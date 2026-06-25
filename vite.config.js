@@ -10,6 +10,8 @@ export default defineConfig({
         target: 'https://localhost:7099',
         changeOrigin: true,
         secure: false,
+        timeout: 660_000,
+        proxyTimeout: 660_000,
       },
     },
   },
