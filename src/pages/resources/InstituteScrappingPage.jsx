@@ -125,6 +125,10 @@ export default function InstituteScrappingPage() {
           response.message ||
             'Website blocked scraping. ChatGPT generated program data from institute name and URL — please verify before use.',
         );
+      } else if ((response.recordsInserted ?? 0) === 0) {
+        setWarning(
+          response.message || 'Scraping finished but no program records were saved. Check the website URL or API logs.',
+        );
       } else {
         setSuccess(
           response.message ||
@@ -153,7 +157,7 @@ export default function InstituteScrappingPage() {
   return (
     <FormPageLayout
       title="Institutes Scrapping"
-      subtitle="Enter institute name and main website URL (homepage). The system will automatically find study/programs pages and scrape live data."
+      subtitle="Enter institute name and website URL (homepage or course search page). JavaScript-heavy sites like Box Hill Institute work best with the course search URL (e.g. …/search/)."
     >
       <Backdrop
         open={submitting}
@@ -169,7 +173,7 @@ export default function InstituteScrappingPage() {
           Scraping website…
         </Typography>
         <Typography variant="body2" sx={{ opacity: 0.9 }}>
-          This may take 1–3 minutes. Please wait.
+          Discovering program pages — usually 3–10 minutes. Do not close this tab.
         </Typography>
       </Backdrop>
 
