@@ -206,6 +206,7 @@ export default function AppRoutes() {
           <Route path="Members/Create" element={<MembersCreate />} />
           <Route path="Members/Edit/:id" element={<MembersEdit />} />
           <Route path="*" element={<RoleRedirect />} />
+          <Route path="StartStopActivity" element={<StartStopActivity />} />
           <Route path="startstop" element={<StartStopActivity />} />
           <Route path="task-reports" element={<StartStopActivity />} />
         </Route>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMembers, deleteMember, resignMember } from "../../api/membersApi";
 import { Session } from "../../utils/session";
+import { toast } from 'react-toastify';
 
 export default function MembersTable({ searchQuery = '' }) {
   const [rows, setRows] = useState([]);
@@ -32,6 +33,7 @@ export default function MembersTable({ searchQuery = '' }) {
               UserRoleId: u.userRoleId ?? u.UserRoleId,
               CompaniesId: u.companiesId ?? u.CompaniesId,
               IsActive: u.isActive ?? u.IsActive ?? u.active ?? u.Active,
+              AvatarBase64: u.avatarBase64 ?? u.AvatarBase64,
             }))
           : [];
         setRows(normalized);
@@ -52,12 +54,12 @@ export default function MembersTable({ searchQuery = '' }) {
 
       if (result.success) {
         setRows(prev => prev.filter(u => String(u.UserId) !== String(userId)));
-        alert('Member deleted successfully');
+       toast.error('Member deleted successfully');
       } else {
-        alert(result.message || 'Delete failed');
+       console.error(result.message || 'Delete failed');
       }
     } catch (err) {
-      alert(err.message || 'Delete failed');
+      console.error(err.message || 'Delete failed');
     }
   };
 
@@ -72,12 +74,12 @@ export default function MembersTable({ searchQuery = '' }) {
         setRows(prev =>
           prev.map(u => u.UserId === userId ? { ...u, MemberResignedOn: resignDate } : u)
         );
-        alert('Member marked as resigned');
+      toast.warning('Member marked as resigned');
       } else {
-        alert(result.message || 'Failed to mark member as resigned');
+        toast.error(result.message || 'Failed to mark member as resigned');
       }
     } catch (err) {
-      alert(err.message || 'Failed to mark member as resigned');
+      toast.error(err.message || 'Failed to mark member as resigned');
     }
   };
 
@@ -133,15 +135,26 @@ export default function MembersTable({ searchQuery = '' }) {
               <td style={tdStyle}>{index + 1}</td>
               <td style={tdStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
-                  <img
-                    src={`/images/${r.UserName}.png`}
-                    alt={r.UserName}
-                    style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8ecf0', flexShrink: 0 }}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = `https://i.pravatar.cc/100?u=${r.UserId || r.UserName}`;
-                    }}
-                  />
+                 <img
+  src={
+    r.AvatarBase64
+      ? r.AvatarBase64
+      : `https://i.pravatar.cc/100?u=${r.UserId || r.UserName}`
+  }
+  alt={r.UserName}
+  style={{
+    width: 36,
+    height: 36,
+    borderRadius: '50%',
+    objectFit: 'cover',
+    border: '2px solid #e8ecf0',
+    flexShrink: 0
+  }}
+  onError={(e) => {
+    e.target.onerror = null;
+    e.target.src = `https://i.pravatar.cc/100?u=${r.UserId || r.UserName}`;
+  }}
+/>
                   <span style={{ fontWeight: 500, color: '#1e293b', whiteSpace: 'nowrap' }}>
                     {r.UserName}
                   </span>
