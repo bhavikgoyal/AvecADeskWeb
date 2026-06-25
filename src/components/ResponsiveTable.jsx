@@ -43,9 +43,23 @@ function renderTextCell(value, column, columnIndex, onRowClick) {
   return value;
 }
 
-export default function ResponsiveTable({ columns, rows, getRowKey, sx, onRowClick, alwaysTable = false, variant = 'default' }) {
+export default function ResponsiveTable({
+  columns,
+  rows,
+  getRowKey,
+  sx,
+  onRowClick,
+  alwaysTable = false,
+  variant = 'default',
+  collapseToCardsBelow = 'md',
+  tableMinWidth,
+}) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const cardBreakpoint =
+    typeof collapseToCardsBelow === 'number'
+      ? collapseToCardsBelow
+      : theme.breakpoints.values[collapseToCardsBelow] ?? theme.breakpoints.values.md;
+  const isMobile = useMediaQuery(`(max-width:${cardBreakpoint - 0.05}px)`);
   const mobileColumns = columns.filter((col) => !col.hideOnMobile);
   const isResource = variant === 'resource' || alwaysTable;
 
@@ -94,12 +108,17 @@ export default function ResponsiveTable({ columns, rows, getRowKey, sx, onRowCli
                   </Typography>
                   <Box
                     sx={{
-                      textAlign: column.align === 'left' ? 'left' : 'right',
+                      textAlign: column.align === 'left' ? 'left' : column.align === 'center' ? 'center' : 'right',
                       minWidth: 0,
                       flex: 1,
                       display: 'flex',
-                      justifyContent: column.align === 'left' ? 'flex-start' : 'flex-end',
-                      flexWrap: 'wrap',
+                      justifyContent:
+                        column.align === 'left'
+                          ? 'flex-start'
+                          : column.align === 'center'
+                            ? 'center'
+                            : 'flex-end',
+                      flexWrap: column.id === 'action' ? 'nowrap' : 'wrap',
                     }}
                   >
                     {renderTextCell(renderCellValue(row, column), column, columnIndex, onRowClick)}
@@ -113,16 +132,29 @@ export default function ResponsiveTable({ columns, rows, getRowKey, sx, onRowCli
     );
   }
 
+  const resolvedTableMinWidth = tableMinWidth ?? (isResource ? 960 : undefined);
+
   return (
     <TableContainer
       sx={{
         width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
         overflowX: 'auto',
+        overflowY: 'hidden',
+        display: 'block',
+        WebkitOverflowScrolling: 'touch',
         ...(isResource ? resourceTableSx : {}),
         ...sx,
       }}
     >
-      <Table sx={{ width: '100%', minWidth: isResource ? 960 : undefined }}>
+      <Table
+        sx={{
+          width: '100%',
+          minWidth: resolvedTableMinWidth,
+          tableLayout: resolvedTableMinWidth ? 'fixed' : 'auto',
+        }}
+      >
         <TableHead>
           <TableRow sx={isResource ? resourceTableHeadRowSx : { backgroundColor: 'var(--muted-bg)' }}>
             {columns.map((column) => (

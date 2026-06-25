@@ -248,7 +248,9 @@ function ActivityThumbGrid({ entry, onOpenImage }) {
 
   const handleThumbClick = (index) => {
     setSelected(index);
-    onOpenImage(index, images, entry.thumbs?.[index]?.taskName);
+    const thumb = entry.thumbs?.[index];
+    const caption = [thumb?.taskName, thumb?.time].filter(Boolean).join(' · ') || 'Activity screenshot';
+    onOpenImage(index, images, caption);
   };
 
   return (
@@ -259,7 +261,7 @@ function ActivityThumbGrid({ entry, onOpenImage }) {
           xs: 'repeat(auto-fill, minmax(96px, 1fr))',
           sm: 'repeat(auto-fill, minmax(104px, 1fr))',
           md: 'repeat(8, minmax(0, 1fr))',
-          lg: 'repeat(11, minmax(0, 1fr))',
+          lg: 'repeat(13, minmax(0, 1fr))',
         },
         gap: { xs: 1, sm: 1.25 },
         width: '100%',
@@ -283,14 +285,13 @@ export default function ViewActivityHistoryPage() {
   const { state } = useLocation();
 
   const userName = state?.memberName;
-  const incomingWorkDate = state?.workDate || new Date().toISOString().split('T')[0];
+  const workDate = useMemo(
+    () => state?.workDate || new Date().toISOString().split('T')[0],
+    [state?.workDate],
+  );
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [workDate, setWorkDate] = useState(incomingWorkDate);
-  useEffect(() => {
-    setWorkDate(incomingWorkDate);
-  }, [incomingWorkDate]);
 
   const [modalImage, setModalImage] = useState(null);
   const [imageError, setImageError] = useState(false);
@@ -306,7 +307,7 @@ export default function ViewActivityHistoryPage() {
     setLoading(true);
     setError('');
     try {
-      debugger;
+     
       const data = await getActivityHistoryByUserId({ userId: id, date: workDate });
       setEntries(data);
     } catch (e) {
@@ -318,9 +319,7 @@ export default function ViewActivityHistoryPage() {
     }
   }, [id, workDate]);
 
-  const handleRefresh = useCallback(() => {
-    fetchActivityHistory();
-  }, []);
+  const handleRefresh = fetchActivityHistory;
 
   const openImage = useCallback((index, images, caption) => {
     setModalImage({ index, images, caption });
@@ -361,10 +360,42 @@ export default function ViewActivityHistoryPage() {
   }, [modalImage, closeModal, prevImage, nextImage]);
 
   useEffect(() => {
-    fetchActivityHistory();
-  }, [fetchActivityHistory]);
+    let cancelled = false;
+
+    async function loadActivityHistory() {
+      if (!id) {
+        if (!cancelled) {
+          setError('User ID is missing.');
+          setLoading(false);
+        }
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+      try {
+        const data = await getActivityHistoryByUserId({ userId: id, date: workDate });
+        if (!cancelled) setEntries(data);
+      } catch (e) {
+        if (!cancelled) {
+          console.error('Failed to fetch activity history:', e);
+          setError(`Failed to load activity history: ${e.message}`);
+          setEntries([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadActivityHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, workDate]);
 
   return (
+    <>
     <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, px: contentInset }}>
       <Stack
         direction="row"
@@ -518,90 +549,144 @@ export default function ViewActivityHistoryPage() {
           </Typography>
         </Paper>
       ) : (
-        mappedEntries.mapped.map((entry, entryIndex) => (
-          <Box key={entry.raw.userTrackingId || entryIndex} sx={{ mb: 2 }}>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              sx={{ mb: 1.25 }}
+        <Box sx={{ width: '100%' }}>
+          {mappedEntries.mapped.map((entry, entryIndex) => (
+            <Box
+              key={entry.raw.userTrackingId || entryIndex}
+              sx={{ mb: entryIndex < mappedEntries.mapped.length - 1 ? 3 : 0 }}
             >
-              <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#22a06b', flexShrink: 0 }} />
-                <Typography
-                  sx={{
-                    fontSize: { xs: '0.8rem', sm: '0.84rem' },
-                    color: 'var(--text)',
-                    fontWeight: 500,
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {entry.range}
-                </Typography>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                sx={{ mb: 1.25 }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#22a06b', flexShrink: 0 }} />
+                  <Typography
+                    sx={{
+                      fontSize: { xs: '0.8rem', sm: '0.84rem' },
+                      color: 'var(--text)',
+                      fontWeight: 500,
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {entry.range}
+                  </Typography>
+                </Stack>
+                <IconButton size="small" sx={{ color: '#8b95a5', flexShrink: 0 }} aria-label="More options">
+                  <MoreHorizIcon fontSize="small" />
+                </IconButton>
               </Stack>
-              <IconButton size="small" sx={{ color: '#8b95a5', flexShrink: 0 }} aria-label="More options">
-                <MoreHorizIcon fontSize="small" />
-              </IconButton>
-            </Stack>
 
-            <Typography
-              sx={{
-                fontWeight: 700,
-                fontSize: { xs: '0.88rem', sm: '0.92rem' },
-                color: 'var(--text)',
-                mb: 1.5,
-                textTransform: 'uppercase',
-                letterSpacing: '0.03em',
-              }}
-            >
-              {userName}
-            </Typography>
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  fontSize: { xs: '0.88rem', sm: '0.92rem' },
+                  color: 'var(--text)',
+                  mb: 1.5,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.03em',
+                }}
+              >
+                {userName || entry.title}
+              </Typography>
 
-            <Paper
-              elevation={0}
-              sx={{
-                ...sectionCardSx,
-                p: { xs: 1.25, sm: 1.5 },
-              }}
-            >
               <ActivityThumbGrid entry={entry} onOpenImage={openImage} />
-            </Paper>
-          </Box>
-        ))
+            </Box>
+          ))}
+        </Box>
       )}
+
+    </Box>
 
       <Dialog
         open={Boolean(modalImage)}
         onClose={closeModal}
         maxWidth={false}
-        PaperProps={{
-          sx: {
-            bgcolor: 'transparent',
-            boxShadow: 'none',
-            overflow: 'visible',
+        sx={{
+          '& .MuiDialog-container': {
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          '& .MuiDialog-paper': {
+            width: '70vw',
+            maxWidth: '70vw !important',
+            height: '95vh',
+            maxHeight: '95vh',
+            minHeight: '95vh',
+            m: 0,
+            bgcolor: '#fff',
+            borderRadius: 2,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 24px 64px rgba(15, 23, 42, 0.45)',
+            border: '1px solid #dce3ec',
           },
         }}
         slotProps={{
-          backdrop: { sx: { bgcolor: 'rgba(0,0,0,0.82)' } },
+          backdrop: { sx: { bgcolor: 'rgba(15, 23, 42, 0.72)' } },
         }}
       >
-        <DialogContent sx={{ position: 'relative', p: 0, overflow: 'visible' }}>
-          <IconButton
-            onClick={closeModal}
-            aria-label="Close preview"
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+            px: { xs: 1.5, sm: 2.5 },
+            py: 1.5,
+            borderBottom: '1px solid #e8ecf1',
+            bgcolor: '#fff',
+            flexShrink: 0,
+          }}
+        >
+          <Typography
             sx={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              zIndex: 2,
-              bgcolor: 'var(--primary)',
-              color: '#fff',
-              '&:hover': { bgcolor: 'var(--primary-dark)' },
+              fontWeight: 700,
+              fontSize: { xs: '0.95rem', sm: '1.05rem' },
+              color: 'var(--text)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              minWidth: 0,
+              flex: 1,
             }}
           >
-            <CloseIcon />
-          </IconButton>
+            {modalImage?.caption || 'Activity screenshot'}
+          </Typography>
+          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+            {modalImage && modalImage.index > 0 && (
+              <IconButton size="small" onClick={prevImage} aria-label="Previous image" sx={{ color: '#5c6b82' }}>
+                <ChevronLeftIcon fontSize="small" />
+              </IconButton>
+            )}
+            {modalImage && modalImage.index < modalImage.images.length - 1 && (
+              <IconButton size="small" onClick={nextImage} aria-label="Next image" sx={{ color: '#5c6b82' }}>
+                <ChevronRightIcon fontSize="small" />
+              </IconButton>
+            )}
+            <IconButton size="small" onClick={closeModal} aria-label="Close preview" sx={{ color: '#5c6b82' }}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        </Box>
 
+        <DialogContent
+          sx={{
+            p: '0 !important',
+            bgcolor: '#f4f6f9',
+            position: 'relative',
+            overflow: 'hidden',
+            flex: '1 1 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            minWidth: 0,
+            minHeight: 0,
+          }}
+        >
           {modalImage && modalImage.index > 0 && (
             <IconButton
               onClick={prevImage}
@@ -609,12 +694,16 @@ export default function ViewActivityHistoryPage() {
               sx={{
                 position: 'absolute',
                 top: '50%',
-                left: 8,
+                left: { xs: 8, sm: 16 },
                 transform: 'translateY(-50%)',
                 zIndex: 2,
-                bgcolor: 'var(--primary)',
-                color: '#fff',
-                '&:hover': { bgcolor: 'var(--primary-dark)' },
+                bgcolor: 'rgba(255,255,255,0.95)',
+                color: 'var(--primary)',
+                border: '1px solid #dce3ec',
+                boxShadow: '0 4px 12px rgba(26, 43, 61, 0.12)',
+                width: { xs: 36, sm: 44 },
+                height: { xs: 36, sm: 44 },
+                '&:hover': { bgcolor: '#fff' },
               }}
             >
               <ChevronLeftIcon />
@@ -628,56 +717,98 @@ export default function ViewActivityHistoryPage() {
               sx={{
                 position: 'absolute',
                 top: '50%',
-                right: 8,
+                right: { xs: 8, sm: 16 },
                 transform: 'translateY(-50%)',
                 zIndex: 2,
-                bgcolor: 'var(--primary)',
-                color: '#fff',
-                '&:hover': { bgcolor: 'var(--primary-dark)' },
+                bgcolor: 'rgba(255,255,255,0.95)',
+                color: 'var(--primary)',
+                border: '1px solid #dce3ec',
+                boxShadow: '0 4px 12px rgba(26, 43, 61, 0.12)',
+                width: { xs: 36, sm: 44 },
+                height: { xs: 36, sm: 44 },
+                '&:hover': { bgcolor: '#fff' },
               }}
             >
               <ChevronRightIcon />
             </IconButton>
           )}
 
-          {modalImage?.images[modalImage.index] && !imageError ? (
+          <Box
+            sx={{
+              flex: '1 1 auto',
+              width: '100%',
+              minWidth: 0,
+              minHeight: 0,
+              display: 'flex',
+              alignItems: 'stretch',
+              justifyContent: 'center',
+              p: 1,
+            }}
+          >
+            {modalImage?.images[modalImage.index] && !imageError ? (
+              <Box
+                component="img"
+                src={modalImage.images[modalImage.index]}
+                alt={`Preview ${modalImage.index + 1}`}
+                onError={() => setImageError(true)}
+                sx={{
+                  flex: 1,
+                  width: '100%',
+                  height: '100%',
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  display: 'block',
+                  bgcolor: '#fff',
+                  borderRadius: 1,
+                  border: '1px solid #dce3ec',
+                  boxShadow: '0 8px 24px rgba(26, 43, 61, 0.08)',
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  flex: 1,
+                  width: '100%',
+                  bgcolor: '#e8ecf1',
+                  color: 'var(--muted)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  borderRadius: 1,
+                  border: '1px solid #dce3ec',
+                  fontWeight: 600,
+                  fontSize: { xs: '0.95rem', sm: '1.05rem' },
+                }}
+              >
+                No Image Available
+              </Box>
+            )}
+          </Box>
+
+          {modalImage && (
             <Box
-              component="img"
-              src={modalImage.images[modalImage.index]}
-              alt={`Preview ${modalImage.index + 1}`}
-              onError={() => setImageError(true)}
               sx={{
-                maxWidth: 'min(96vw, 1280px)',
-                maxHeight: '90vh',
-                objectFit: 'contain',
-                display: 'block',
-                borderRadius: 1,
-              }}
-            />
-          ) : (
-            <Box
-              sx={{
-                width: { xs: '90vw', md: 720 },
-                height: { xs: 240, md: 420 },
-                bgcolor: '#d7cdcd',
-                color: 'var(--text)',
-                display: 'grid',
-                placeItems: 'center',
-                borderRadius: 1,
-                fontWeight: 600,
+                px: { xs: 2, sm: 2.5 },
+                py: 1.25,
+                borderTop: '1px solid #e8ecf1',
+                bgcolor: '#fff',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexShrink: 0,
+                width: '100%',
               }}
             >
-              No Image Available.
+              <Typography sx={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                {modalImage.caption || 'Screenshot'}
+              </Typography>
+              <Typography sx={{ fontSize: '0.875rem', color: 'var(--muted)', fontWeight: 600 }}>
+                {modalImage.index + 1} / {modalImage.images.length}
+              </Typography>
             </Box>
-          )}
-
-          {modalImage?.caption && (
-            <Typography sx={{ color: '#fff', textAlign: 'center', mt: 1, fontSize: '0.875rem' }}>
-              {modalImage.caption}
-            </Typography>
           )}
         </DialogContent>
       </Dialog>
-    </Box>
+    </>
   );
 }

@@ -13,9 +13,8 @@ import {
   MenuItem,
   Toolbar,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
+import useCompactSidebar from '../hooks/useCompactSidebar';
 
 const notifications = [
   { title: 'Payment received', description: 'Student payment confirmed for INV-2041.', time: '5m ago' },
@@ -24,8 +23,7 @@ const notifications = [
 ];
 
 export default function Topbar({ onDrawerToggle, user }) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useCompactSidebar();
   const notificationBtnRef = useRef(null);
   const notificationOffsetY = isMobile ? 22 : 14;
   const [notificationAnchor, setNotificationAnchor] = useState(null);
@@ -71,7 +69,7 @@ export default function Topbar({ onDrawerToggle, user }) {
               aria-label="open drawer"
               edge="start"
               onClick={onDrawerToggle}
-              sx={{ display: { md: 'none' }, color: '#1f325d', flexShrink: 0 }}
+              sx={{ display: isMobile ? 'inline-flex' : 'none', color: '#1f325d', flexShrink: 0 }}
             >
               <MenuIcon />
             </IconButton>

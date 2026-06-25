@@ -9,14 +9,13 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { NavLink } from 'react-router-dom';
 import { GET_MENU } from '../config/MenuConfig';
 import { MOBILE_DRAWER_WIDTH } from '../constants/layout';
+import useCompactSidebar from '../hooks/useCompactSidebar';
 import BrandLogo from './BrandLogo';
 
 export default function Sidebar({
@@ -26,8 +25,7 @@ export default function Sidebar({
   drawerWidth,
   onLogout,
 }) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useCompactSidebar();
   const menuGroups = useMemo(() => GET_MENU(role), [role]);
 
   const closeMobileDrawer = () => {
@@ -184,17 +182,18 @@ export default function Sidebar({
     <Box
       component="nav"
       sx={{
-        width: { md: drawerWidth },
-        flexShrink: { md: 0 },
+        width: isMobile ? 0 : drawerWidth,
+        flexShrink: 0,
       }}
     >
-      {/* ✅ SINGLE Drawer — switches temporary/permanent by screen size */}
       <Drawer
         variant={isMobile ? 'temporary' : 'permanent'}
         open={isMobile ? mobileOpen : true}
         onClose={onDrawerToggle}
         ModalProps={{ keepMounted: true }}
         sx={{
+          width: isMobile ? 'auto' : drawerWidth,
+          flexShrink: 0,
           '& .MuiDrawer-paper': {
             boxSizing: 'border-box',
             width: isMobile ? MOBILE_DRAWER_WIDTH : drawerWidth,
