@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Session } from "../../utils/session";
 import { updateMember, getRoles, getCompanies } from "../../api/membersApi";
-import { toast } from 'react-toastify';
 
 
 const authHeaders = () => {
@@ -43,7 +42,7 @@ export default function MembersEdit() {
         UserRoleId: state.user.UserRoleId || '',
         CompaniesId: state.user.CompaniesId || '',
         IsActive: state.user.IsActive ?? true,
-      AvatarBase64: state.user.AvatarBase64 || ''
+        AvatarBase64: state.user.Avatar || ''
       }));
     }
   }, [state]);
@@ -54,7 +53,6 @@ export default function MembersEdit() {
         setLoading(true);
        const [rolesData, companiesData] = await Promise.all([
   getRoles(),
-
   getCompanies()
 ]);
 
@@ -115,8 +113,8 @@ if (form.PhoneNo && !/^\d{10}$/.test(form.PhoneNo))
 
     try {
      const res = await updateMember(form);
-      if (res.ok) { toast.success('Member updated successfully'); navigate('/Members'); }
-      else toast.error('Update failed: ' + await res.text());
+      if (res.ok) { alert('Member updated successfully'); navigate('/Members'); }
+      else setServerError('Update failed: ' + await res.text());
     } catch (err) {
       setServerError('Update failed: ' + err.message);
     }

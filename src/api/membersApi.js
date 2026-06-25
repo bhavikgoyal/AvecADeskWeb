@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+
 import { Session } from "../utils/session";
 
 const authHeaders = () => {

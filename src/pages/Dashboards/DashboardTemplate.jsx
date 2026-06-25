@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { Box, Button, CircularProgress, Divider, Grid, List, ListItem, ListItemAvatar, ListItemText, Avatar, Paper, Stack, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import QuickInsightsPanel from '../../components/dashboard/QuickInsightsPanel';
 import DashboardUpcomingPanel from '../../components/dashboard/DashboardUpcomingPanel';
 import ResponsiveTable from '../../components/ResponsiveTable';
 import { useAuth } from '../../hooks/useAuth';
+import { canAccessPath } from '../../utils/rbac';
 import { revenueTrend, trafficData } from '../../constants/chartData';
 
 const DashboardTrendSnapshot = lazy(() => import('../../components/dashboard/DashboardTrendSnapshot'));
@@ -49,13 +50,7 @@ export default function DashboardTemplate({
   const primaryKpis = kpiStats.slice(0, 2);
   const secondaryKpis = kpiStats.slice(2, 4);
   const tableResource = getResourceConfig(tableBasePath);
-  const [storedRows, setStoredRows] = useState([]);
-
-  useEffect(() => {
-    if (tableBasePath) {
-      setStoredRows(loadRecords(tableBasePath));
-    }
-  }, [tableBasePath]);
+  const storedRows = useMemo(() => (tableBasePath ? loadRecords(tableBasePath) : []), [tableBasePath]);
 
   const tableColumns = useMemo(
     () => columns || tableResource?.columns || [],
@@ -66,7 +61,10 @@ export default function DashboardTemplate({
     return source.slice(0, 6);
   }, [rows, storedRows]);
 
+  const canOpenDetail = user?.role ? canAccessPath(user.role, tableBasePath) : true;
+
   const openRecord = (row) => {
+    if (!canOpenDetail) return;
     navigate(`${tableBasePath}/${row.id}`, { state: { edit: true } });
   };
 
@@ -168,9 +166,11 @@ export default function DashboardTemplate({
           <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, overflow: 'hidden' }}>
             <Box sx={{ px: { xs: 1.25, md: 1.5 }, py: 1.25, borderBottom: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
               <Typography sx={{ fontWeight: 700, color: 'var(--text)' }}>{tableTitle}</Typography>
-              <Button size="small" onClick={() => navigate(`${tableBasePath}/new`)} sx={{ textTransform: 'none' }}>
-                Add item
-              </Button>
+              {canOpenDetail && (
+                <Button size="small" onClick={() => navigate(`${tableBasePath}/new`)} sx={{ textTransform: 'none' }}>
+                  Add item
+                </Button>
+              )}
             </Box>
             {tableRows.length > 0 && tableColumns.length > 0 ? (
               <ResponsiveTable
@@ -178,7 +178,7 @@ export default function DashboardTemplate({
                 rows={tableRows}
                 getRowKey={(row) => row.id}
                 alwaysTable
-                onRowClick={openRecord}
+                onRowClick={canOpenDetail ? openRecord : undefined}
               />
             ) : (
               <Box sx={{ px: 1.5, py: 2 }}>
