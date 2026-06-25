@@ -16,3 +16,11 @@ export async function fetchVendors() {
   const { data } = await axiosClient.get('/api/vendors');
   return data;
 }
+
+export async function fetchStudentsLookup() {
+  const { data } = await axiosClient.get('/api/students');
+  return data.map((s) => ({
+    studentId: s.studentId ?? s.StudentId,
+    fullName: s.fullName ?? s.FullName ?? '',
+  }));
+}

@@ -36,12 +36,13 @@ const StartStopActivity = lazy(() => import('../components/StartStopActivity/Sta
 const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
 const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
 const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
-
+const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
   path !== 'institutes-scrapping' &&
-  path !== 'work-history'
+  path !== 'work-history'&&
+  path !== 'reports/receivables'
 );
 
 function RoleRedirect() {
@@ -203,6 +204,14 @@ export default function AppRoutes() {
               </RequireRole>
             }
           />
+          <Route
+  path="reports/receivables"
+  element={
+    <RequireRole path="/reports/receivables">
+      <ReceivablesPage />
+    </RequireRole>
+  }
+/>
           {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />}
             />
