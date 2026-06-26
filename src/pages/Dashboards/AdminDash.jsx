@@ -89,8 +89,8 @@ export default function AdminDash() {
   return (
     <DashboardTemplate
       title="Admin Overview"
-      subtitle="Full system overview across vendors, students, finance, and operations."
-      welcomeSubtitle="You have 5 new messages and 2 new notifications across the platform."
+      // subtitle="Full system overview across vendors, students, finance, and operations."
+      // welcomeSubtitle="You have 5 new messages and 2 new notifications across the platform."
       welcomeFooterStats={[
         { label: "Today's collections", value: '$6,782', trend: 7 },
         { label: 'Growth rate', value: '78.4%', trend: -1 },
