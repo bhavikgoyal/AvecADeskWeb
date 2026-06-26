@@ -41,7 +41,6 @@ function applyAuthResponse(data, fallbackEmail = '') {
 }
 
 export async function loginWithApi(email, password) {
-  debugger;
   const { data } = await axiosClient.post('/api/auth/login', { email, password });
   return applyAuthResponse(data, email);
 }

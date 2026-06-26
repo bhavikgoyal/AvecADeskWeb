@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import RouteFallback from '../components/RouteFallback';
 import { RequireAuth, RequireRole } from '../components/ProtectedRoute';
@@ -6,6 +6,7 @@ import { RESOURCE_PATHS } from '../config/resourceConfig';
 import { useAuth } from '../hooks/useAuth';
 import { getDefaultRoute } from '../utils/rbac';
 import { isSeedRecordId } from '../utils/recordId';
+import { getAuthToken } from '../api/axiosClient';
 
 const API_DETAIL_PATHS = new Set(['/students', '/institutes', '/vendors']);
 
@@ -50,7 +51,30 @@ function RoleRedirect() {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  return <Navigate to={getDefaultRoute(user.role)} replace />;
+  const defaultRoute = getDefaultRoute(user.role);
+  if (defaultRoute === '/login') {
+    return <Navigate to="/login" replace />;
+  }
+  return <Navigate to={defaultRoute} replace />;
+}
+
+function LoginRoute() {
+  const { user, logout } = useAuth();
+  const token = getAuthToken();
+  const defaultRoute = user?.role ? getDefaultRoute(user.role) : '/login';
+  const hasValidSession = Boolean(user && token && user.role && defaultRoute !== '/login');
+
+  useEffect(() => {
+    if (user && token && !hasValidSession) {
+      logout();
+    }
+  }, [user, token, hasValidSession, logout]);
+
+  if (hasValidSession) {
+    return <Navigate to={defaultRoute} replace />;
+  }
+
+  return <LoginForm />;
 }
 
 function GuardedDashboard({ path, element }) {
@@ -161,10 +185,7 @@ export default function AppRoutes() {
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to={getDefaultRoute(user.role)} replace /> : <LoginForm />}
-        />
+        <Route path="/login" element={<LoginRoute />} />
 
         <Route path="/user-portal" element={<UserPortal />} />
 
