@@ -24,9 +24,9 @@ export const GET_MENU = (role) => {
         category: 'CORE',
         items: [
           { title: 'Admin Overview', path: '/dashboard/admin', Icon: DashboardIcon },
-          { title: 'Vendor Dashboard', path: '/dashboard/vendor', Icon: DashboardIcon },
-          { title: 'Accounting Dashboard', path: '/dashboard/accounting', Icon: DashboardIcon },
-          { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
+          // { title: 'Vendor Dashboard', path: '/dashboard/vendor', Icon: DashboardIcon },
+          // { title: 'Accounting Dashboard', path: '/dashboard/accounting', Icon: DashboardIcon },
+          // { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
         ],
       },
       {
@@ -43,7 +43,7 @@ export const GET_MENU = (role) => {
           { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
           { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
           { title: 'Members', path: '/Members', Icon: PeopleIcon },
-          { title: 'Start/Stop Activity', path: '/StartStopActivity', Icon: AssignmentIcon },
+          { title: 'Employee Work Hours', path: '/EmployeeWorkHours', Icon: AssignmentIcon },
         ],
       },
       {
@@ -70,7 +70,7 @@ export const GET_MENU = (role) => {
       },
     ],
 
-    Accounting: [
+    'Accounting': [
       {
         category: 'CORE',
         items: [
@@ -89,6 +89,12 @@ export const GET_MENU = (role) => {
         ],
       },
       {
+        category: 'STATUSES',
+        items: [
+          { title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
+        ],
+      },
+      {
         category: 'REPORTS',
         items: [
           { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
@@ -98,30 +104,30 @@ export const GET_MENU = (role) => {
       },
     ],
 
-    Student: [
-      {
-        category: 'CORE',
-        items: [
-          { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
-        ],
-      },
-      {
-        category: 'MANAGEMENT',
-        items: [
-          { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
-          // { title: 'Work History (P)', path: '/work-history', Icon: HistoryIcon },
-          // { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
-        ],
-      },
-      {
-        category: 'STATUSES',
-        items: [
-          { title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
-          // { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
-          // { title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
-        ],
-      },
-    ],
+    // Student: [
+    //   {
+    //     category: 'CORE',
+    //     items: [
+    //       { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
+    //     ],
+    //   },
+    //   {
+    //     category: 'MANAGEMENT',
+    //     items: [
+    //       { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
+    //       // { title: 'Work History (P)', path: '/work-history', Icon: HistoryIcon },
+    //       // { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
+    //     ],
+    //   },
+    //   {
+    //     category: 'STATUSES',
+    //     items: [
+    //       { title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
+    //       // { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
+    //       // { title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
+    //     ],
+    //   },
+    // ],
 
     Vendor: [
       {

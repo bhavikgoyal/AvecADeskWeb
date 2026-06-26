@@ -17,6 +17,7 @@
     "@mui/material": "^9.0.1",
     "axios": "^1.18.0",
     "bootstrap": "^5.3.8",
+    "file-saver": "^2.0.5",
     "flatpickr": "^4.6.13",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

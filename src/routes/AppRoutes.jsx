@@ -33,16 +33,17 @@ const BoardPage = lazy(() => import('../pages/BoardPage'));
 const MembersContent = lazy(() => import('../components/Member/MembersContent'));
 const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
 const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));
-const StartStopActivity = lazy(() => import('../components/StartStopActivity/StartStopActivity'));
+const EmployeeWorkHours = lazy(() => import('../components/EmployeeWorkHours/EmployeeWorkHours'));
 const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
 const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
 const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
 const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'));
+const ManageAccountPage = lazy(() => import('../pages/account/ManageAccountPage'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
   path !== 'institutes-scrapping' &&
-  path !== 'work-history'&&
+  path !== 'work-history' &&
   path !== 'reports/receivables'
 );
 
@@ -226,13 +227,13 @@ export default function AppRoutes() {
             }
           />
           <Route
-  path="reports/receivables"
-  element={
-    <RequireRole path="/reports/receivables">
-      <ReceivablesPage />
-    </RequireRole>
-  }
-/>
+            path="reports/receivables"
+            element={
+              <RequireRole path="/reports/receivables">
+                <ReceivablesPage />
+              </RequireRole>
+            }
+          />
           {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />}
             />
@@ -248,10 +249,11 @@ export default function AppRoutes() {
           <Route path="Members" element={<MembersContent />} />
           <Route path="Members/Create" element={<MembersCreate />} />
           <Route path="Members/Edit/:id" element={<MembersEdit />} />
+          <Route path="account" element={<ManageAccountPage />} />
           <Route path="*" element={<RoleRedirect />} />
-          <Route path="StartStopActivity" element={<StartStopActivity />} />
-          <Route path="startstop" element={<StartStopActivity />} />
-          <Route path="task-reports" element={<StartStopActivity />} />
+          <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
+          <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
+          <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
         </Route>
 
         <Route path="*" element={<Navigate to={user ? getDefaultRoute(user.role) : '/login'} replace />} />

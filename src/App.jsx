@@ -9,7 +9,16 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <AppRoutes />
-        <ToastContainer />
+       <ToastContainer
+    position="top-right"
+    autoClose={3000}
+    hideProgressBar={true}
+    newestOnTop
+    closeOnClick
+    pauseOnHover={false}
+    draggable={false}
+    theme="light"
+/>
       </BrowserRouter>
     </AuthProvider>
   );
