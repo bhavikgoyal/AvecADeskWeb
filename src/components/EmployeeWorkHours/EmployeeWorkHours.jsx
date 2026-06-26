@@ -20,7 +20,6 @@ import {
   TablePagination,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 const EmployeeWorkHours = () => {
   const todayStr = new Date().toISOString().split('T')[0];
@@ -41,11 +40,9 @@ const EmployeeWorkHours = () => {
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [filters, setFilters] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
-
   const [employeeInput, setEmployeeInput] = useState('All Users');
   const [startInput, setStartInput] = useState(sevenDaysAgoDefault);
   const [endInput, setEndInput] = useState(todayStr);
@@ -57,28 +54,26 @@ const EmployeeWorkHours = () => {
       try {
         const data = await getAllStartStops();
         const list = Array.isArray(data) ? data : [];
-
-        // ── DEBUG: Aa console.log thi tame check kari shako ke API thi
-        // ketla records aavya, ane kaya kaya dates na che. F12 -> Console ma joi lo.
         console.log('[EmployeeWorkHours] Total records from API:', list.length);
-
-        // ── DEBUG: Date-wise count, in an easy-to-read TABLE format.
-        // Open browser console, you'll see a clean table of every date
-        // and how many records exist for that date.
         const dateCounts = {};
         list.forEach((i) => {
           const key = i.startTime ? String(i.startTime).slice(0, 10) : 'NO_START_TIME';
           dateCounts[key] = (dateCounts[key] || 0) + 1;
         });
-        console.log('[EmployeeWorkHours] Records per date (raw startTime string):');
+        console.log('[EmployeeWorkHours] Records per date:');
         console.table(
           Object.entries(dateCounts)
             .sort((a, b) => (a[0] > b[0] ? 1 : -1))
             .map(([date, count]) => ({ date, count }))
         );
-
-        console.log('[EmployeeWorkHours] Raw sample (first 5 records):', list.slice(0, 5));
-
+        console.log('[EmployeeWorkHours] Raw sample (first 5):', list.slice(0, 5));
+        console.table(
+  list.map((x) => ({
+    userName: x.userName,
+    startTime: x.startTime,
+    stopTime: x.stopTime,
+  }))
+);
         setActivity(list);
       } catch (err) {
         setError(err.message || 'Failed to load activity list');
@@ -90,90 +85,70 @@ const EmployeeWorkHours = () => {
     fetchList();
   }, []);
 
-  const computeEndMax = (startVal) => {
-    if (!startVal) return todayStr;
-    const d = new Date(startVal);
-    d.setMonth(d.getMonth() + 2);
-    const maxStr = d.toISOString().split('T')[0];
-    return maxStr > todayStr ? todayStr : maxStr;
+  const toLocalDateStr = (value) => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-const toLocalDateStr = (value) => {
-  if (!value) return null;
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return null;
-  const year = d.getUTCFullYear();
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
   const handleSearch = () => {
     setPage(0);
-
     const newFilters = {
+      
       employeeName: employeeInput === 'All Users' ? '' : employeeInput,
       startDate: startInput || null,
       endDate: endInput || null,
     };
-
-    // ── DEBUG: Search dabavta exact filter values console ma dekhay che
+    console.log("Selected User :", employeeInput);
+console.log("Start Date :", startInput);
+console.log("End Date :", endInput);
     console.log('[EmployeeWorkHours] Applying filters:', newFilters);
-
     setFilters(newFilters);
   };
 
   const filteredActivity = !filters
     ? activity
     : activity.filter((item) => {
-        // Employee Filter
-        if (
-          filters.employeeName &&
-          (item.userName || '').trim().toLowerCase() !== filters.employeeName.trim().toLowerCase()
-        ) {
-          return false;
-        }
+        // if (
+        //   filters.employeeName &&
+        //   (item.userName || '').trim().toLowerCase() !== filters.employeeName.trim().toLowerCase()
+        // ) return false;
+        if (filters.employeeName) {
 
-        // Date Filter — agar startDate/endDate set nathi to date check skip
-        if (!filters.startDate && !filters.endDate) {
-          return true;
-        }
+  const selectedUser = filters.employeeName
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 
+  const currentUser = (item.userName || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  if (!currentUser.includes(selectedUser)) {
+    return false;
+  }
+}
+        if (!filters.startDate && !filters.endDate) return true;
         const itemDateStr = toLocalDateStr(item.startTime);
-
-        // Agar item ma valid startTime j nathi, to e record date-filter lagu
-        // thay tyare hide thase (kemke compare karva mate date j nathi).
-        if (!itemDateStr) {
-          return false;
-        }
-
-        if (filters.startDate && itemDateStr < filters.startDate) {
-          return false;
-        }
-
-        if (filters.endDate && itemDateStr > filters.endDate) {
-          return false;
-        }
-
+        if (!itemDateStr) return false;
+        if (filters.startDate && itemDateStr < filters.startDate) return false;
+        if (filters.endDate && itemDateStr > filters.endDate) return false;
         return true;
       });
 
-  // ── DEBUG: Filter lagavya pachi ketla records reh gaya, console ma dekhay che
   useEffect(() => {
     if (filters) {
-      console.log(
-        '[EmployeeWorkHours] After filtering:',
-        filteredActivity.length,
-        'records out of',
-        activity.length
-      );
+      console.log('[EmployeeWorkHours] After filtering:', filteredActivity.length, 'records out of', activity.length);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
-  const paginatedActivity = filteredActivity.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
+  const paginatedActivity = filteredActivity.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const formatMinutes = (m) => {
     const mins = Number(m);
@@ -185,7 +160,6 @@ const toLocalDateStr = (value) => {
     return `${rem} min`;
   };
 
-  // ── Excel Export ──────────────────────────────────────
   const handleExport = () => {
     const exportData = filteredActivity.map((item) => {
       let totalMinutes = '';
@@ -204,20 +178,34 @@ const toLocalDateStr = (value) => {
       return {
         'User Name': item.userName || '',
         'Task Name': item.itemName || '',
-    'Start Date': toLocalDateStr(item.startTime) || '',
+        'Start Date': toLocalDateStr(item.startTime) || '',
         'Total Time': totalMinutes !== '' ? formatMinutes(totalMinutes) : '',
       };
     });
-
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     worksheet['!cols'] = [{ wch: 25 }, { wch: 35 }, { wch: 15 }, { wch: 15 }];
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Task Reports');
-    XLSX.writeFile(workbook, `Task_Reports_${todayStr}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Employee Work Hours');
+    XLSX.writeFile(workbook, `Employee_Work_Hours_${todayStr}.xlsx`);
   };
-  // ─────────────────────────────────────────────────────
 
-  const uniqueUsers = [...new Set(activity.map((a) => a.userName).filter(Boolean))];
+  const ExcelIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#fff" fillOpacity="0.15"/>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#fff" fillOpacity="0.9"/>
+      <path d="M14 2v6h6" fill="none" stroke="#fff" strokeWidth="1.2" strokeOpacity="0.7"/>
+      <text x="4" y="20" fontSize="9" fontWeight="800" fill="#16a34a" fontFamily="Arial, sans-serif">XLS</text>
+    </svg>
+  );
+
+  // const uniqueUsers = [...new Set(activity.map((a) => a.userName).filter(Boolean))];
+  const uniqueUsers = [
+  ...new Set(
+    activity
+      .map((a) => (a.userName || "").trim())
+      .filter((a) => a !== "")
+  ),
+].sort();
 
   return (
     <Box sx={{ p: 3 }}>
@@ -231,9 +219,7 @@ const toLocalDateStr = (value) => {
             User
           </Typography>
           <TextField
-            select
-            size="small"
-            fullWidth
+            select size="small" fullWidth
             value={employeeInput}
             onChange={(e) => setEmployeeInput(e.target.value)}
           >
@@ -249,17 +235,9 @@ const toLocalDateStr = (value) => {
             Start Date
           </Typography>
           <TextField
-            type="date"
-            size="small"
-            fullWidth
+            type="date" size="small" fullWidth
             value={startInput}
-            slotProps={{ htmlInput: { min: minStartDefault, max: todayStr } }}
-            onChange={(e) => {
-              let v = e.target.value;
-              if (v && v < minStartDefault) v = minStartDefault;
-              setStartInput(v || '');
-              if (endInput && v && endInput < v) setEndInput(v);
-            }}
+            onChange={(e) => setStartInput(e.target.value)}
           />
         </Box>
 
@@ -268,12 +246,9 @@ const toLocalDateStr = (value) => {
             End Date
           </Typography>
           <TextField
-            type="date"
-            size="small"
-            fullWidth
+            type="date" size="small" fullWidth
             value={endInput}
-            slotProps={{ htmlInput: { min: startInput || minStartDefault, max: computeEndMax(startInput) } }}
-            onChange={(e) => setEndInput(e.target.value || '')}
+            onChange={(e) => setEndInput(e.target.value)}
           />
         </Box>
 
@@ -286,14 +261,23 @@ const toLocalDateStr = (value) => {
           Search
         </Button>
 
-        {/* Export Button */}
+        {/* ✅ EXCEL ICON GREEN BUTTON */}
         <Button
-          variant="outlined"
-          color="primary"
-          startIcon={<FileDownloadIcon />}
+          variant="contained"
+          startIcon={<ExcelIcon />}
           onClick={handleExport}
           disabled={filteredActivity.length === 0}
-          sx={{ height: 40 }}
+          sx={{
+            height: 40,
+            backgroundColor: '#16a34a',
+            color: '#fff',
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '14px',
+            paddingX: 2,
+            '&:hover': { backgroundColor: '#15803d' },
+            '&:disabled': { backgroundColor: '#bbf7d0', color: '#fff' },
+          }}
         >
           Export Excel
         </Button>
@@ -312,10 +296,10 @@ const toLocalDateStr = (value) => {
               component="div"
               count={filteredActivity.length}
               page={page}
-              onPageChange={(event, newPage) => setPage(newPage)}
+              onPageChange={(_, newPage) => setPage(newPage)}
               rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(event) => {
-                setRowsPerPage(parseInt(event.target.value, 10));
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
                 setPage(0);
               }}
               rowsPerPageOptions={[50]}
