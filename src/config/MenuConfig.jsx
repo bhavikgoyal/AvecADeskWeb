@@ -74,7 +74,7 @@ export const GET_MENU = (role) => {
       {
         category: 'CORE',
         items: [
-          { title: 'Admin Overview', path: '/dashboard/admin', Icon: DashboardIcon },
+          // { title: 'Admin Overview', path: '/dashboard/admin', Icon: DashboardIcon },
           { title: 'Accounting Dashboard', path: '/dashboard/accounting', Icon: DashboardIcon },
         ],
       },

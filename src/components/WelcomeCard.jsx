@@ -1,9 +1,7 @@
 import { Avatar, Box, Divider, Grid, Paper, Typography } from '@mui/material';
 import TrendBadge from './TrendBadge';
 
-export default function WelcomeCard({ userName, subtitle, avatar, footerStats = [] }) {
-  const firstName = userName?.split(' ')[0] || 'User';
-
+export default function WelcomeCard({ userName = 'User', subtitle, avatar, footerStats = [] }) {
   return (
     <Paper elevation={0} className="dashboard-card welcome-card" sx={{ borderRadius: 3, overflow: 'hidden' }}>
       <Box sx={{ p: { xs: 1.5, md: 1.75 }, display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
@@ -20,14 +18,14 @@ export default function WelcomeCard({ userName, subtitle, avatar, footerStats = 
             fontSize: '1rem',
           }}
         >
-          {firstName[0]}
+          {userName?.[0]}
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase', mb: 0.5 }}>
-            Overview
+            {/* Overview */}
           </Typography>
           <Typography sx={{ fontWeight: 800, fontSize: { xs: '1.15rem', md: '1.35rem' }, color: 'var(--text)', lineHeight: 1.2 }}>
-            Welcome back, {firstName}
+            Welcome back, {userName.split(' ')[0]}
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--muted)', mt: 0.5, lineHeight: 1.5, fontSize: '0.82rem' }}>
             {subtitle}
