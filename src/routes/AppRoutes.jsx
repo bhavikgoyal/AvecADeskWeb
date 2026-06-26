@@ -32,7 +32,7 @@ const BoardPage = lazy(() => import('../pages/BoardPage'));
 const MembersContent = lazy(() => import('../components/Member/MembersContent'));
 const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
 const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));
-const StartStopActivity = lazy(() => import('../components/StartStopActivity/StartStopActivity'));
+const EmployeeWorkHours = lazy(() => import('../components/EmployeeWorkHours/EmployeeWorkHours'));
 const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
 const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
 const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
@@ -230,9 +230,9 @@ export default function AppRoutes() {
           <Route path="Members/Edit/:id" element={<MembersEdit />} />
           <Route path="account" element={<ManageAccountPage />} />
           <Route path="*" element={<RoleRedirect />} />
-          <Route path="StartStopActivity" element={<StartStopActivity />} />
-          <Route path="startstop" element={<StartStopActivity />} />
-          <Route path="task-reports" element={<StartStopActivity />} />
+          <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
+          <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
+          <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
         </Route>
 
         <Route path="*" element={<Navigate to={user ? getDefaultRoute(user.role) : '/login'} replace />} />
