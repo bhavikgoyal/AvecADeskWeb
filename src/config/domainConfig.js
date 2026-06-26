@@ -172,12 +172,12 @@ vendors: {
     plural: 'Vendors',
     actionLabel: 'Add Vendor',
     primaryField: 'businessName',
-    requiredFields: ['businessName', 'phone'], // Updated required fields
+    requiredFields: ['businessName', 'phone', 'email'],
     sections: [
       {
         title: 'Vendor Details',
-        description: 'Basic vendor information and commission settings.',
-        fields: ['businessName', 'contactPerson', 'phone', 'email', 'commissionPreference'],
+        description: 'Basic vendor information. An onboarding email with a link will be sent after registration.',
+        fields: ['businessName', 'contactPerson', 'phone', 'email'],
       },
     ],
     columns: [
@@ -185,14 +185,13 @@ vendors: {
       { id: 'contactPerson', label: 'Contact person', field: 'contactPerson' },
       { id: 'email', label: 'Email', field: 'email' },
       { id: 'phone', label: 'Phone', field: 'phone' },
-      { id: 'commissionPreference', label: 'Commission', field: 'commissionPreference' },
+      { id: 'status', label: 'Status', field: 'status' },
     ],
     emptyForm: () => ({
       businessName: '',
       contactPerson: '',
       phone: '',
       email: '',
-      commissionPreference: '',
     }),
   },
   institutes: {

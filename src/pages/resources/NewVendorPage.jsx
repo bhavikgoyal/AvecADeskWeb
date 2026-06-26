@@ -62,7 +62,7 @@ export default function NewVendorPage({ basePath }) {
   return (
     <FormPageLayout
       title={`Add new ${resource.singular.toLowerCase()}`}
-      subtitle="Vendor is saved to AvecADeskApi. Vendor code is assigned automatically on registration."
+      subtitle="Vendor is saved with Pending status. Vendor code stays empty until onboarding is complete, and an email with an onboarding link is sent to the vendor."
       metaItems={[
         { label: 'Module', value: resource.plural },
         { label: 'API', value: 'AvecADeskApi' },

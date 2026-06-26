@@ -30,8 +30,6 @@ function normalizeVendor(vendor) {
     contactPerson: vendor.contactPerson ?? vendor.ContactPerson ?? '',
     phone: vendor.phone ?? vendor.Phone ?? '',
     email: vendor.email ?? vendor.Email ?? '',
-    bankDetails: vendor.bankDetails ?? vendor.BankDetails ?? '',
-    commissionPreference: vendor.commissionPreference ?? vendor.CommissionPreference ?? '',
     status: vendor.status ?? vendor.Status ?? '',
     createdAt: vendor.createdAt ?? vendor.CreatedAt,
   };
@@ -44,9 +42,6 @@ function deriveUsername(email) {
 }
 
 function deriveReferral(vendor) {
-  if (vendor.commissionPreference?.startsWith('REF-')) {
-    return vendor.commissionPreference;
-  }
   if (vendor.vendorCode) {
     const suffix = vendor.vendorCode.replace(/^VEN-/i, 'AU-');
     return `REF-${suffix}`;
@@ -126,6 +121,10 @@ export async function createVendor(form) {
     throw new Error('Phone is required');
   }
 
+  if (!form.email?.trim()) {
+    throw new Error('Email is required to send the onboarding link');
+  }
+
   const userId = getStoredUserId();
   if (!userId) {
     throw new Error('Please log in again to register a vendor.');
@@ -136,9 +135,7 @@ export async function createVendor(form) {
     businessName,
     contactPerson: (form.contactPerson || form.contact)?.trim() || '',
     phone: form.phone.trim(),
-    email: form.email?.trim() || '',
-    bankDetails: form.bankDetails?.trim() || null,
-    commissionPreference: form.referral?.trim() || form.commissionPreference?.trim() || null,
+    email: form.email.trim(),
   });
 
   const vendor = normalizeVendor(data);
@@ -164,8 +161,6 @@ function buildVendorForm(vendor, instituteFields = {}) {
     vendorStatus: vendor.status || 'Pending',
     email: vendor.email || '',
     phone: vendor.phone || '',
-    commissionPreference: vendor.commissionPreference || '',
-    bankDetails: vendor.bankDetails || '',
     instituteName: instituteFields.instituteName || '',
     websiteUrl: instituteFields.websiteUrl || '',
     logoUrl: instituteFields.logoUrl || '',
@@ -215,8 +210,6 @@ export async function updateVendor(vendorId, form) {
     contactPerson: (form.contactPerson || form.contact)?.trim() || '',
     phone: form.phone.trim(),
     email: form.email?.trim() || '',
-    bankDetails: form.bankDetails?.trim() || null,
-    commissionPreference: form.referral?.trim() || form.commissionPreference?.trim() || null,
   });
 
   let vendor = normalizeVendor(data);
