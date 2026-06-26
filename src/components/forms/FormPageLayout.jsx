@@ -5,10 +5,7 @@ export default function FormPageLayout({ title, subtitle, metaItems = [], childr
   return (
     <Box className="form-page" sx={{ width: '100%', maxWidth, mx: 'auto', pb: 2 }}>
       <Box sx={{ mb: 1.5, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase' }}>
-          Form
-        </Typography>
-        <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text)', mt: 0.5, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text)', fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
           {title}
         </Typography>
         {subtitle && (

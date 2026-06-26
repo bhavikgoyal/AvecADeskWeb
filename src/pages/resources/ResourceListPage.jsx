@@ -171,6 +171,7 @@ export default function ResourceListPage({ basePath }) {
         title={page.title}
         subtitle={page.subtitle}
         stats={stats}
+        showCharts={page.showCharts !== false}
         columns={resource.columns}
         rows={loading ? [] : rows}
         actionLabel={resource.actionLabel}

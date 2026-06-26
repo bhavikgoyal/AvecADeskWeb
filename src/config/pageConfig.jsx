@@ -20,12 +20,8 @@ export const PAGE_CONFIG = {
     title: 'Vendor Commission',
     subtitle: 'Manage vendor commission rates, payouts, and performance.',
     actionLabel: 'Add Vendor',
-    stats: [
-      { label: 'Active vendors', value: '42', caption: '3 pending approval', icon: <StoreIcon fontSize="large" />, color: 'var(--primary)' },
-      { label: 'Commission due', value: '$18.4k', caption: 'Due this month', icon: <PaymentsIcon fontSize="large" />, color: 'var(--amber)' },
-      { label: 'Paid this quarter', value: '$96k', caption: '+8% vs last quarter', icon: <ReceiptIcon fontSize="large" />, color: 'var(--teal)' },
-      { label: 'Open disputes', value: '2', caption: 'Needs review', icon: <FactCheckIcon fontSize="large" />, color: 'var(--accent)' },
-    ],
+    showCharts: false,
+    stats: [],
     columns: [
       { id: 'name', label: 'Vendor', field: 'name' },
       { id: 'status', label: 'Status', field: 'status' },

@@ -36,6 +36,7 @@ export default function ResourceFormFields({
   compact = false,
   stretch = false,
   selectOptions = {},
+  requiredFields = [],
 }) {
   const handleChange = (field) => (event) => {
     onChange(field, event.target.value);
@@ -46,6 +47,7 @@ export default function ResourceFormFields({
   const renderField = (fieldName) => {
     const def = FIELD_DEFS[fieldName];
     if (!def) return null;
+    const isRequired = Boolean(def.required) || requiredFields.includes(fieldName);
     const isDate = def.type === 'date';
 
     if (def.type === 'select' || def.type === 'api-select') {
@@ -56,8 +58,8 @@ export default function ResourceFormFields({
 
       return (
         <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
-          <FormControl {...fieldProps} disabled={disabled || (def.type === 'api-select' && options.length === 0)}>
-            <InputLabel id={labelId} shrink required={def.required}>
+          <FormControl {...fieldProps} disabled={disabled || def.readOnly || (def.type === 'api-select' && options.length === 0)}>
+            <InputLabel id={labelId} shrink required={isRequired}>
               {def.label}
             </InputLabel>
             <Select
@@ -104,7 +106,7 @@ export default function ResourceFormFields({
               <Checkbox
                 checked={checked}
                 onChange={(event) => onChange(fieldName, event.target.checked ? 'Yes' : 'No')}
-                disabled={disabled}
+                disabled={disabled || def.readOnly}
                 sx={{ color: 'var(--primary)', '&.Mui-checked': { color: 'var(--primary)' } }}
               />
             }
@@ -121,13 +123,13 @@ export default function ResourceFormFields({
           {...fieldProps}
           {...(isDate ? dateFieldProps : {})}
           label={def.label}
-          required={def.required}
+          required={isRequired}
           type={def.type === 'textarea' ? undefined : def.type}
           multiline={def.type === 'textarea'}
           minRows={def.type === 'textarea' ? textareaRows : undefined}
           value={form[fieldName] ?? ''}
           onChange={handleChange(fieldName)}
-          disabled={disabled}
+          disabled={disabled || def.readOnly}
         />
       </FormGridItem>
     );

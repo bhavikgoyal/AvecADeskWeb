@@ -1,5 +1,7 @@
 /** Field definitions aligned with Project_Architecture_v2 (18 SQL tables). */
 
+import { VENDOR_EDIT_SECTIONS } from './vendorOnboardingEditConfig';
+
 /** xs: 1 col | md: 2 cols | lg: 3 cols */
 const grid = {
   half: { xs: 12, md: 6, lg: 6 },
@@ -193,6 +195,8 @@ vendors: {
       phone: '',
       email: '',
     }),
+    editSections: VENDOR_EDIT_SECTIONS,
+    editRequiredFields: ['businessName', 'phone'],
   },
   institutes: {
     singular: 'Institute',
@@ -585,7 +589,6 @@ vendors: {
     sections: [
       {
         title: 'Institute details',
-        description: 'Institute name and website URL. Use the homepage, or the course search / programs listing page for faster results on modern (JavaScript) sites.',
         fields: ['instituteName', 'websiteUrl'],
       },
     ],

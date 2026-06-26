@@ -1,5 +1,7 @@
 import axiosClient from './axiosClient';
 import { STORAGE_KEY } from '../constants/auth';
+import { emptyVendorOnboardingForm } from '../config/vendorOnboardingEditConfig';
+import { fetchVendorOnboarding, saveVendorOnboarding } from './vendorOnboardingApi';
 
 function getStoredUserId() {
   try {
@@ -54,13 +56,15 @@ function resolveBusinessName(form) {
 }
 
 function mapVendorRow(vendor) {
+  const status = vendor.status || 'Pending';
   return {
     id: String(vendor.vendorId),
     vendorId: vendor.vendorId,
     businessName: vendor.businessName,
     vendorCode: vendor.vendorCode || '—',
     username: deriveUsername(vendor.email),
-    vendorStatus: vendor.status,
+    vendorStatus: status,
+    status,
     email: vendor.email || '—',
     phone: vendor.phone || '—',
     contactPerson: vendor.contactPerson || '—',
@@ -149,8 +153,14 @@ export async function createVendor(form) {
   return vendor;
 }
 
-function buildVendorForm(vendor, instituteFields = {}) {
+function buildVendorForm(vendor, instituteFields = {}, onboardingFields = {}) {
   return {
+    ...emptyVendorOnboardingForm(),
+    ...onboardingFields,
+    primaryContactName: onboardingFields.primaryContactName || vendor.contactPerson || '',
+    primaryContactEmail: onboardingFields.primaryContactEmail || vendor.email || '',
+    primaryContactMobile: onboardingFields.primaryContactMobile || vendor.phone || '',
+    legalBusinessName: onboardingFields.legalBusinessName || vendor.businessName || '',
     vendorCode: vendor.vendorCode || '',
     username: deriveUsername(vendor.email),
     businessName: vendor.businessName,
@@ -181,11 +191,14 @@ export async function fetchVendorById(vendorId) {
 }
 
 export async function fetchVendorForm(vendorId) {
-  const vendor = await fetchVendorById(vendorId);
-  const instituteFields = await fetchLinkedInstituteFields(vendorId);
+  const [vendor, instituteFields, onboardingFields] = await Promise.all([
+    fetchVendorById(vendorId),
+    fetchLinkedInstituteFields(vendorId),
+    fetchVendorOnboarding(vendorId),
+  ]);
   return {
     vendor,
-    form: buildVendorForm(vendor, instituteFields),
+    form: buildVendorForm(vendor, instituteFields, onboardingFields),
   };
 }
 
@@ -220,6 +233,8 @@ export async function updateVendor(vendorId, form) {
     });
     vendor = await fetchVendorById(vendorId);
   }
+
+  await saveVendorOnboarding(vendorId, form);
 
   return vendor;
 }

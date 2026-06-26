@@ -10,6 +10,7 @@ import {
   formPaperSx,
 } from '../../components/forms';
 import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
+import { VENDOR_EDIT_SECTIONS } from '../../config/vendorOnboardingEditConfig';
 
 export default function VendorDetailPage({ basePath }) {
   const navigate = useNavigate();
@@ -93,17 +94,14 @@ export default function VendorDetailPage({ basePath }) {
     );
   }
 
+  const editSections = resource.editSections || VENDOR_EDIT_SECTIONS;
+  const requiredFields = resource.editRequiredFields || resource.requiredFields;
+  const formIsValid = requiredFields?.length
+    ? requiredFields.every((field) => String(form[field] ?? '').trim())
+    : isFormValid(resource, form);
+
   return (
-    <FormPageLayout
-      title={`Edit ${resource.singular.toLowerCase()}`}
-      subtitle={`${form.businessName} • ${form.vendorStatus} • ${form.contact || form.contactPerson || 'Unassigned'}`}
-      metaItems={[
-        { label: 'ID', value: `vendors-${id}` },
-        { label: 'Module', value: resource.plural },
-        { label: 'Status', value: form.vendorStatus || 'Active' },
-        { label: 'Mode', value: 'Editing' },
-      ]}
-    >
+    <FormPageLayout title={`Edit ${resource.singular.toLowerCase()}`}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
           <Tab label="Vendor details" sx={{ textTransform: 'none', fontWeight: 600 }} />
@@ -121,15 +119,16 @@ export default function VendorDetailPage({ basePath }) {
         {activeTab === 0 && (
           <>
             <FormSectionsLayout
-              sections={resource.sections}
+              sections={editSections}
               form={form}
               onChange={updateField}
+              requiredFields={requiredFields}
             />
             <FormActions
               onCancel={() => navigate(basePath)}
               onSubmit={handleUpdate}
               submitLabel={submitting ? 'Saving...' : 'Save'}
-              submitDisabled={!isFormValid(resource, form) || submitting}
+              submitDisabled={!formIsValid || submitting}
             />
           </>
         )}

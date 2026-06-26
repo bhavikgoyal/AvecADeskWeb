@@ -155,10 +155,7 @@ export default function InstituteScrappingPage() {
   };
 
   return (
-    <FormPageLayout
-      title="Institutes Scrapping"
-      subtitle="Enter institute name and website URL (homepage or course search page). JavaScript-heavy sites like Box Hill Institute work best with the course search URL (e.g. …/search/)."
-    >
+    <FormPageLayout title="Institutes Scrapping">
       <Backdrop
         open={submitting}
         sx={{
@@ -206,7 +203,7 @@ export default function InstituteScrappingPage() {
 
       <Box sx={{ mt: 3, width: '100%' }}>
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
-          INSTITUTEScrapping List
+          Institute Scrap List
         </Typography>
 
         {listError && (
