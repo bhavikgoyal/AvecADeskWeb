@@ -33,7 +33,6 @@ export default function DashboardLayout() {
         display: 'flex',
         minHeight: '100vh',
         backgroundColor: 'var(--bg)',
-        gap: isCompactSidebar ? 0 : 2.5,
       }}
     >
       <CssBaseline />
