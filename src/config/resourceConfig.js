@@ -1,6 +1,10 @@
 import { DOMAIN_FIELD_DEFS, DOMAIN_RESOURCES } from './domainConfig';
+import { VENDOR_ONBOARDING_FIELD_DEFS } from './vendorOnboardingEditConfig';
 
-export const FIELD_DEFS = DOMAIN_FIELD_DEFS;
+export const FIELD_DEFS = {
+  ...DOMAIN_FIELD_DEFS,
+  ...VENDOR_ONBOARDING_FIELD_DEFS,
+};
 
 export const RESOURCE_PATHS = [
   'vendors',

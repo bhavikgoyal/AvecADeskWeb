@@ -60,15 +60,7 @@ export default function NewVendorPage({ basePath }) {
   };
 
   return (
-    <FormPageLayout
-      title={`Add new ${resource.singular.toLowerCase()}`}
-      subtitle="Vendor is saved with Pending status. Vendor code stays empty until onboarding is complete, and an email with an onboarding link is sent to the vendor."
-      metaItems={[
-        { label: 'Module', value: resource.plural },
-        { label: 'API', value: 'AvecADeskApi' },
-        { label: 'Table', value: 'Vendors' },
-      ]}
-    >
+    <FormPageLayout title={`Add new ${resource.singular.toLowerCase()}`}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
           <Tab label="Vendor details" sx={{ textTransform: 'none', fontWeight: 600 }} />
@@ -102,6 +94,7 @@ export default function NewVendorPage({ basePath }) {
               sections={resource.sections}
               form={form}
               onChange={updateField}
+              requiredFields={resource.requiredFields}
             />
             <FormActions
               onCancel={() => navigate(basePath)}
