@@ -39,12 +39,14 @@ const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistory
 const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
 const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'));
 const ManageAccountPage = lazy(() => import('../pages/account/ManageAccountPage'));
+const PaymentSchedulesPage = lazy(() => import('../pages/resources/PaymentSchedulesPage'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
   path !== 'institutes-scrapping' &&
-  path !== 'work-history' &&
-  path !== 'reports/receivables'
+  path !== 'work-history'&&
+  path !== 'reports/receivables'&&
+  path !== 'students'
 );
 
 function RoleRedirect() {
@@ -218,6 +220,14 @@ export default function AppRoutes() {
               </RequireRole>
             }
           />
+        <Route
+  path="students"
+  element={
+    <RequireRole path="/students">
+      <PaymentSchedulesPage />
+    </RequireRole>
+  }
+/>
           <Route
             path="institutes-scrapping"
             element={
