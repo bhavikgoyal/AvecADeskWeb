@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom'
 import { Session } from "../../utils/session";
 import { createMember, getRoles, getCompanies } from "../../api/membersApi";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 
 export default function MembersCreate() {
   const navigate = useNavigate();
@@ -89,7 +92,17 @@ if (form.phoneNo && !/^\d{10}$/.test(form.phoneNo))
       if (!token) { alert('You are not logged in.'); return; }
 
     const res = await createMember(form);
-      if (res.ok) { alert('Member created successfully'); navigate('/Members'); return; }
+     if (res.ok) {
+  toast.success("Member created successfully", {
+    hideProgressBar: true,
+});
+
+    setTimeout(() => {
+        navigate("/Members");
+    }, 1500);
+
+    return;
+}
 
       if (res.status === 409) {
         const data = await res.json();
@@ -108,7 +121,6 @@ if (form.phoneNo && !/^\d{10}$/.test(form.phoneNo))
       <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b', marginBottom: 24 }}>
         Member Create
       </h2>
-
       {serverError && (
         <div style={{ background: '#fee2e2', color: '#dc2626', padding: '10px 16px', borderRadius: 8, marginBottom: 16, fontSize: '0.875rem' }}>
           {serverError}

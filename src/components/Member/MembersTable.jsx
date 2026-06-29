@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+// import { ToastContainer, toast } from "react-toastify";
+// import "react-toastify/dist/ReactToastify.css";
+import { toast, ToastContainer } from 'react-toastify'; 
 import {
   Box,
   Button,
@@ -136,7 +139,11 @@ function UsernameCell({ row }) {
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
       <Box
         component="img"
-        src={`/images/${row.UserName}.png`}
+       src={
+    row.AvatarBase64
+        ? row.AvatarBase64
+        : `/images/${row.UserName}.png`
+}
         alt={row.UserName}
         onError={(event) => {
           event.currentTarget.onerror = null;
@@ -249,6 +256,7 @@ export default function MembersTable({ searchQuery = '' }) {
               UserRoleId: u.userRoleId ?? u.UserRoleId,
               CompaniesId: u.companiesId ?? u.CompaniesId,
               IsActive: u.isActive ?? u.IsActive ?? u.active ?? u.Active,
+              AvatarBase64: u.avatarBase64 ?? u.AvatarBase64 ?? "",
             }))
           : [];
         setRows(normalized);
@@ -267,7 +275,9 @@ export default function MembersTable({ searchQuery = '' }) {
       const result = await deleteMember(userId);
       if (result.success) {
         setRows((prev) => prev.filter((u) => String(u.UserId) !== String(userId)));
-        alert('Member deleted successfully');
+     toast.error("Member deleted successfully", {
+    hideProgressBar: true,
+});
       } else {
         alert(result.message || 'Delete failed');
       }
@@ -277,22 +287,27 @@ export default function MembersTable({ searchQuery = '' }) {
   }, []);
 
   const handleResign = useCallback(async (userId) => {
-    if (!window.confirm('Are you sure this member is resigning?')) return;
-    try {
-      const result = await resignMember(userId);
-      if (result.success) {
-        const resignDate = new Date().toISOString();
-        setRows((prev) =>
-          prev.map((u) => (u.UserId === userId ? { ...u, MemberResignedOn: resignDate } : u)),
-        );
-        alert('Member marked as resigned');
-      } else {
-        alert(result.message || 'Failed to mark member as resigned');
-      }
-    } catch (err) {
-      alert(err.message || 'Failed to mark member as resigned');
+  if (!window.confirm('Are you sure this member is resigning?')) return;
+  try {
+    const result = await resignMember(userId);
+    if (result.success) {
+    
+      setRows((prev) => prev.filter((u) => String(u.UserId) !== String(userId)));
+      
+      toast.success("Member resigned successfully", {
+        hideProgressBar: true,
+      });
+    } else {
+      toast.error(result.message || 'Failed to mark member as resigned', {
+        hideProgressBar: true,
+      });
     }
-  }, []);
+  } catch (err) {
+    toast.error(err.message || 'Failed to mark member as resigned', {
+      hideProgressBar: true,
+    });
+  }
+}, []);
 
   const handleEdit = useCallback(
     (row) => navigate(`/Members/Edit/${row.UserId}`, { state: { user: row } }),
