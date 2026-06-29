@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Session } from "../../utils/session";
 import { updateMember, getRoles, getCompanies } from "../../api/membersApi";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 
 const authHeaders = () => {
@@ -42,7 +44,11 @@ export default function MembersEdit() {
         UserRoleId: state.user.UserRoleId || '',
         CompaniesId: state.user.CompaniesId || '',
         IsActive: state.user.IsActive ?? true,
-        AvatarBase64: state.user.Avatar || ''
+        AvatarBase64:
+    state.user.AvatarBase64 ||
+    state.user.avatarBase64 ||
+    state.user.Avatar ||
+    ''
       }));
     }
   }, [state]);
@@ -113,7 +119,9 @@ if (form.PhoneNo && !/^\d{10}$/.test(form.PhoneNo))
 
     try {
      const res = await updateMember(form);
-      if (res.ok) { alert('Member updated successfully'); navigate('/Members'); }
+      if (res.ok) {toast.success("Member updated successfully", {
+    hideProgressBar: true,
+}); navigate('/Members'); }
       else setServerError('Update failed: ' + await res.text());
     } catch (err) {
       setServerError('Update failed: ' + err.message);
@@ -264,7 +272,11 @@ if (form.PhoneNo && !/^\d{10}$/.test(form.PhoneNo))
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <label style={labelStyle}>Current Image</label>
               <img
-                src={form.AvatarBase64 ? form.AvatarBase64 : `/images/${form.UserName}.png`}
+             src={
+    form.AvatarBase64
+        ? form.AvatarBase64
+        : `/images/${form.UserName}.png`
+}
                 alt="Avatar"
                 onError={(e) => { e.target.onerror = null; e.target.src = `https://i.pravatar.cc/100?u=${form.UserId}`; }}
                 style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '3px solid #e8ecf0' }}

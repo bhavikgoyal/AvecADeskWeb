@@ -4,7 +4,7 @@ const BASE_URL = "/api/EmployeeWorkHours";
 
 export const createStartStop = async (data) => {
     const response = await axiosClient.post(
-        `${BASE_URL}/Create_Start_Stop`,
+        `${BASE_URL}/Create%20Employee%20Work%20Hours`,
         data
     );
     return response.data;
@@ -12,7 +12,7 @@ export const createStartStop = async (data) => {
 
 export const updateStartStop = async (data) => {
     const response = await axiosClient.put(
-        `${BASE_URL}/Update_Start_Stop`,
+        `${BASE_URL}/Update%20Employee%20Work%20Hours`,
         data
     );
     return response.data;
@@ -27,7 +27,7 @@ export const getStartStopByUserId = async (id) => {
 
 export const getAllStartStops = async () => {
     const response = await axiosClient.get(
-        `${BASE_URL}/Start_Stop_ALL`
+        `${BASE_URL}/Employee%20Work%20Hours%20ALL`
     );
     return response.data;
 };

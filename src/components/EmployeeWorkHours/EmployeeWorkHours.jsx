@@ -68,12 +68,12 @@ const EmployeeWorkHours = () => {
         );
         console.log('[EmployeeWorkHours] Raw sample (first 5):', list.slice(0, 5));
         console.table(
-  list.map((x) => ({
-    userName: x.userName,
-    startTime: x.startTime,
-    stopTime: x.stopTime,
-  }))
-);
+          list.map((x) => ({
+            userName: x.userName,
+            startTime: x.startTime,
+            stopTime: x.stopTime,
+          }))
+        );
         setActivity(list);
       } catch (err) {
         setError(err.message || 'Failed to load activity list');
@@ -98,14 +98,13 @@ const EmployeeWorkHours = () => {
   const handleSearch = () => {
     setPage(0);
     const newFilters = {
-      
       employeeName: employeeInput === 'All Users' ? '' : employeeInput,
       startDate: startInput || null,
       endDate: endInput || null,
     };
     console.log("Selected User :", employeeInput);
-console.log("Start Date :", startInput);
-console.log("End Date :", endInput);
+    console.log("Start Date :", startInput);
+    console.log("End Date :", endInput);
     console.log('[EmployeeWorkHours] Applying filters:', newFilters);
     setFilters(newFilters);
   };
@@ -113,26 +112,11 @@ console.log("End Date :", endInput);
   const filteredActivity = !filters
     ? activity
     : activity.filter((item) => {
-        // if (
-        //   filters.employeeName &&
-        //   (item.userName || '').trim().toLowerCase() !== filters.employeeName.trim().toLowerCase()
-        // ) return false;
         if (filters.employeeName) {
-
-  const selectedUser = filters.employeeName
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLowerCase();
-
-  const currentUser = (item.userName || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLowerCase();
-
-  if (!currentUser.includes(selectedUser)) {
-    return false;
-  }
-}
+          const selectedUser = filters.employeeName.trim().replace(/\s+/g, " ").toLowerCase();
+          const currentUser = (item.userName || "").trim().replace(/\s+/g, " ").toLowerCase();
+          if (!currentUser.includes(selectedUser)) return false;
+        }
         if (!filters.startDate && !filters.endDate) return true;
         const itemDateStr = toLocalDateStr(item.startTime);
         if (!itemDateStr) return false;
@@ -190,22 +174,26 @@ console.log("End Date :", endInput);
   };
 
   const ExcelIcon = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <rect width="24" height="24" rx="4" fill="#fff" fillOpacity="0.15"/>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#fff" fillOpacity="0.9"/>
-      <path d="M14 2v6h6" fill="none" stroke="#fff" strokeWidth="1.2" strokeOpacity="0.7"/>
-      <text x="4" y="20" fontSize="9" fontWeight="800" fill="#16a34a" fontFamily="Arial, sans-serif">XLS</text>
+    <svg width="18" height="18" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <rect width="32" height="32" rx="5" fill="#1d6f42"/>
+      <rect x="16" y="2" width="14" height="18" rx="2" fill="#2ea35a"/>
+      <rect x="17" y="3" width="12" height="3" fill="#3cbf6a"/>
+      <rect x="17" y="7" width="12" height="2" fill="#2ea35a"/>
+      <rect x="17" y="10" width="12" height="2" fill="#3cbf6a"/>
+      <rect x="17" y="13" width="12" height="2" fill="#2ea35a"/>
+      <rect x="17" y="16" width="12" height="2" fill="#3cbf6a"/>
+      <rect x="2" y="8" width="18" height="22" rx="2" fill="#185c37"/>
+      <text x="11" y="24" fontSize="13" fontWeight="900" fill="white" textAnchor="middle" fontFamily="Arial, sans-serif">X</text>
     </svg>
   );
 
-  // const uniqueUsers = [...new Set(activity.map((a) => a.userName).filter(Boolean))];
   const uniqueUsers = [
-  ...new Set(
-    activity
-      .map((a) => (a.userName || "").trim())
-      .filter((a) => a !== "")
-  ),
-].sort();
+    ...new Set(
+      activity
+        .map((a) => (a.userName || "").trim())
+        .filter((a) => a !== "")
+    ),
+  ].sort();
 
   return (
     <Box sx={{ p: 3 }}>
@@ -252,16 +240,31 @@ console.log("End Date :", endInput);
           />
         </Box>
 
+        {/* Search Button - same color as Add Vendor #2F80C9 */}
         <Button
           variant="contained"
           startIcon={<SearchIcon />}
           onClick={handleSearch}
-          sx={{ height: 40 }}
+          sx={{
+            height: 40,
+            backgroundColor: '#2F80C9',
+            color: '#fff',
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '14px',
+            borderRadius: '8px',
+            px: 3,
+            boxShadow: '0 3px 8px rgba(47, 128, 201, 0.35)',
+            '&:hover': {
+              backgroundColor: '#2874B8',
+              boxShadow: '0 4px 10px rgba(47, 128, 201, 0.45)',
+            },
+          }}
         >
           Search
         </Button>
 
-        {/* ✅ EXCEL ICON GREEN BUTTON */}
+        {/* Export Excel Button - light green */}
         <Button
           variant="contained"
           startIcon={<ExcelIcon />}
@@ -269,14 +272,14 @@ console.log("End Date :", endInput);
           disabled={filteredActivity.length === 0}
           sx={{
             height: 40,
-            backgroundColor: '#16a34a',
+            backgroundColor: '#66bb6a',
             color: '#fff',
             textTransform: 'none',
             fontWeight: 500,
             fontSize: '14px',
             paddingX: 2,
-            '&:hover': { backgroundColor: '#15803d' },
-            '&:disabled': { backgroundColor: '#bbf7d0', color: '#fff' },
+            '&:hover': { backgroundColor: '#57a85b' },
+            '&:disabled': { backgroundColor: '#c8e6c9', color: '#fff' },
           }}
         >
           Export Excel
