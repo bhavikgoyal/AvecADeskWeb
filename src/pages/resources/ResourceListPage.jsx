@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert } from '@mui/material';
 import { deleteInstitute, fetchInstituteRows } from '../../api/institutesApi';
@@ -37,6 +37,48 @@ function applyStudentSummary(baseStats, summary) {
   ];
 }
 
+async function fetchResourceRows({
+  basePath,
+  isStudents,
+  isEnrolment,
+  isInstitutes,
+  isVendors,
+  pageStats,
+}) {
+  if (isEnrolment) {
+    return { rows: await fetchEnrolmentRows(), stats: pageStats ?? [] };
+  }
+
+  if (isInstitutes) {
+    return { rows: await fetchInstituteRows(), stats: pageStats ?? [] };
+  }
+
+  if (isVendors) {
+    return { rows: await fetchVendorRows(), stats: pageStats ?? [] };
+  }
+
+  if (!isStudents) {
+    return { rows: loadRecords(basePath), stats: pageStats ?? [] };
+  }
+
+  const apiRows = await fetchStudentRows();
+
+  try {
+    const summary = await fetchPaymentSummary();
+    return { rows: apiRows, stats: applyStudentSummary(pageStats, summary) };
+  } catch {
+    return { rows: apiRows, stats: pageStats ?? [] };
+  }
+}
+
+function getLoadErrorMessage(basePath) {
+  if (basePath === '/status/students') return 'Failed to load student enrolment from the API.';
+  if (basePath === '/institutes') return 'Failed to load institutes from the API.';
+  if (basePath === '/vendors') return 'Failed to load vendors from the API.';
+  if (basePath === '/students') return 'Failed to load students from the API.';
+  return 'Failed to load records.';
+}
+
 export default function ResourceListPage({ basePath }) {
   const navigate = useNavigate();
   const resource = getResourceConfig(basePath);
@@ -45,94 +87,66 @@ export default function ResourceListPage({ basePath }) {
   const isEnrolment = basePath === '/status/students';
   const isInstitutes = basePath === '/institutes';
   const isVendors = basePath === '/vendors';
+  const pageStats = useMemo(() => page?.stats ?? [], [page]);
+  const usesApi = isStudents || isEnrolment || isInstitutes || isVendors;
   const [rows, setRows] = useState([]);
-  const [stats, setStats] = useState(page?.stats ?? []);
-  const [loading, setLoading] = useState(isStudents || isEnrolment || isInstitutes || isVendors);
+  const [stats, setStats] = useState(pageStats);
+  const [loading, setLoading] = useState(usesApi);
   const [error, setError] = useState('');
 
-  const loadRows = useCallback(async () => {
-    if (isEnrolment) {
-      setLoading(true);
-      setError('');
-
-      try {
-        const apiRows = await fetchEnrolmentRows();
-        setRows(apiRows);
-        setStats(page?.stats ?? []);
-      } catch (err) {
-        setError(err.message || 'Failed to load student enrolment from the API.');
-        setRows([]);
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
-    if (isInstitutes) {
-      setLoading(true);
-      setError('');
-
-      try {
-        const apiRows = await fetchInstituteRows();
-        setRows(apiRows);
-        setStats(page?.stats ?? []);
-      } catch (err) {
-        setError(err.message || 'Failed to load institutes from the API.');
-        setRows([]);
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
-    if (isVendors) {
-      setLoading(true);
-      setError('');
-
-      try {
-        const apiRows = await fetchVendorRows();
-        setRows(apiRows);
-        setStats(page?.stats ?? []);
-      } catch (err) {
-        setError(err.message || 'Failed to load vendors from the API.');
-        setRows([]);
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
-    if (!isStudents) {
-      setRows(loadRecords(basePath));
-      setStats(page?.stats ?? []);
-      return;
-    }
-
-    setLoading(true);
+  const refreshRows = useCallback(async () => {
+    if (usesApi) setLoading(true);
     setError('');
 
     try {
-      const apiRows = await fetchStudentRows();
-      setRows(apiRows);
-
-      try {
-        const summary = await fetchPaymentSummary();
-        setStats(applyStudentSummary(page?.stats, summary));
-      } catch {
-        setStats(page?.stats ?? []);
-      }
+      const result = await fetchResourceRows({
+        basePath,
+        isStudents,
+        isEnrolment,
+        isInstitutes,
+        isVendors,
+        pageStats,
+      });
+      setRows(result.rows);
+      setStats(result.stats);
     } catch (err) {
-      setError(err.message || 'Failed to load students from the API.');
+      setError(err.message || getLoadErrorMessage(basePath));
       setRows([]);
-      setStats(page?.stats ?? []);
+      setStats(pageStats);
     } finally {
-      setLoading(false);
+      if (usesApi) setLoading(false);
     }
-  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, page?.stats]);
+  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, pageStats, usesApi]);
 
   useEffect(() => {
-    loadRows();
-  }, [loadRows]);
+    let cancelled = false;
+
+    fetchResourceRows({
+      basePath,
+      isStudents,
+      isEnrolment,
+      isInstitutes,
+      isVendors,
+      pageStats,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setRows(result.rows);
+        setStats(result.stats);
+        if (usesApi) setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err.message || getLoadErrorMessage(basePath));
+        setRows([]);
+        setStats(pageStats);
+        if (usesApi) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, pageStats, usesApi]);
 
   const handleDelete = useCallback(async (row) => {
     const label = row.fullName || row.businessName || row.instituteName || row.name || row.id;
@@ -142,13 +156,13 @@ export default function ResourceListPage({ basePath }) {
     try {
       if (isStudents || isEnrolment) {
         await deleteStudent(row.id);
-        await loadRows();
+        await refreshRows();
       } else if (isVendors) {
         await deleteVendor(row.id);
-        await loadRows();
+        await refreshRows();
       } else if (isInstitutes) {
         await deleteInstitute(row.id);
-        await loadRows();
+        await refreshRows();
       } else {
         deleteRecord(basePath, row.id);
         setRows((prev) => prev.filter((r) => String(r.id) !== String(row.id)));
@@ -156,7 +170,7 @@ export default function ResourceListPage({ basePath }) {
     } catch (err) {
       setError(err.message || 'Failed to delete record.');
     }
-  }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, loadRows]);
+  }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, refreshRows]);
 
   if (!resource || !page) return null;
 
@@ -175,6 +189,7 @@ export default function ResourceListPage({ basePath }) {
         rows={loading ? [] : rows}
         actionLabel={resource.actionLabel}
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
+        showCharts={basePath !== '/institutes',''}
         onAdd={() => navigate(`${basePath}/new`)}
         onRowClick={(row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })}
         onDelete={handleDelete}
