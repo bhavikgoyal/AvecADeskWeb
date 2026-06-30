@@ -17,7 +17,7 @@ export default function App() {
     closeOnClick
     pauseOnHover={false}
     draggable={false}
-    theme="light"
+    theme="colored"
 />
       </BrowserRouter>
     </AuthProvider>
