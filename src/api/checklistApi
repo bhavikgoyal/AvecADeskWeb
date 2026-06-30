@@ -24,11 +24,12 @@ export async function toggleChecklistItem(itemId, isCompleted) {
   const response = await axiosClient.patch(`/api/Checklist/item/toggle/${itemId}`, { isCompleted });
   return response.data;
 }
+
 export async function deleteChecklistItem(itemId) {
   const response = await axiosClient.delete(`/api/Checklist/item/delete/${itemId}`);
   return response.data;
 }
- 
+
 export async function updateChecklistItemName(itemId, itemName) {
   const response = await axiosClient.put(`/api/Checklist/item/update/${itemId}`, { itemName });
   return response.data;

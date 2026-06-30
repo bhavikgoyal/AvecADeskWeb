@@ -282,9 +282,6 @@ useEffect(() => {
     setSelectedIds((prev) => (prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.scheduleId))));
   };
 
-  // Saves every selected row using ITS OWN current draft (status/amount),
-  // so different rows can have different statuses (e.g. one Partial, two
-  // Paid) and still be committed together in a single action.
   const handleSaveSelected = async () => {
     setBulkSaving(true);
     setError('');

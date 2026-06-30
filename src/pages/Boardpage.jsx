@@ -10,14 +10,12 @@ export default function BoardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addModalStatusId, setAddModalStatusId] = useState(null);
-const [selectedCard, setSelectedCard] = useState(null);
+  const [selectedCardId, setSelectedCardId] = useState(null); 
 
   const [searchText, setSearchText] = useState('');
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [fromDate, setFromDate] = useState('');  
-  const [toDate, setToDate] = useState('');     
-
-
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
@@ -38,8 +36,8 @@ const [selectedCard, setSelectedCard] = useState(null);
       const data = await getBoardCards({
         searchText,
         assignedUserId: selectedUserId,
-        fromDate: fromDate || undefined,  
-        toDate: toDate || undefined,      
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
       });
       setColumns(data);
     } catch (err) {
@@ -50,28 +48,14 @@ const [selectedCard, setSelectedCard] = useState(null);
   }, [searchText, selectedUserId, fromDate, toDate]);
 
   useEffect(() => {
-    let isMounted = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadBoard();
+  }, [loadBoard]);
 
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getBoardCards({
-          searchText,
-          assignedUserId: selectedUserId,
-          fromDate: fromDate || undefined, 
-          toDate: toDate || undefined,      
-        });
-        if (isMounted) setColumns(data);
-      } catch (err) {
-        if (isMounted) setError(err.message || 'Failed to load board');
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    })();
 
-    return () => { isMounted = false; };
-  }, [searchText, selectedUserId, fromDate, toDate]);  
+  const selectedCard = selectedCardId
+    ? columns.flatMap((col) => col.cards).find((c) => c.cardID === selectedCardId) || null
+    : null;
 
   const handleDragEnd = async (result) => {
     const { source, destination, draggableId } = result;
@@ -105,19 +89,15 @@ const [selectedCard, setSelectedCard] = useState(null);
     }
   };
 
- const handleAddCard = async (statusId, title) => {
-    console.log('Creating card with statusId:', statusId); 
+  const handleAddCard = async (statusId, title) => {
     try {
-        await createCard({
-            cardTitle: title,
-            cardStatusID: statusId,
-        });
-        setAddModalStatusId(null);
-        loadBoard();
+      await createCard({ cardTitle: title, cardStatusID: statusId });
+      setAddModalStatusId(null);
+      loadBoard();
     } catch (err) {
-        setError(err.message || 'Could not create card.');
+      setError(err.message || 'Could not create card.');
     }
-};
+  };
 
   const handleDeleteCard = async (cardId) => {
     try {
@@ -132,11 +112,9 @@ const [selectedCard, setSelectedCard] = useState(null);
     <div>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Tasks </h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Tasks</h1>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-
-          {/* ✅ Users Dropdown */}
           <select
             value={selectedUserId ?? ''}
             onChange={(e) => setSelectedUserId(e.target.value ? parseInt(e.target.value, 10) : null)}
@@ -150,7 +128,6 @@ const [selectedCard, setSelectedCard] = useState(null);
             ))}
           </select>
 
-          {/* Search */}
           <input
             type="text"
             placeholder="Search task"
@@ -159,7 +136,6 @@ const [selectedCard, setSelectedCard] = useState(null);
             style={{ width: 180, padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6 }}
           />
 
-          {/* ✅ From Date */}
           <input
             type="date"
             value={fromDate}
@@ -167,7 +143,6 @@ const [selectedCard, setSelectedCard] = useState(null);
             style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6 }}
           />
 
-          {/* ✅ To Date */}
           <input
             type="date"
             value={toDate}
@@ -175,24 +150,18 @@ const [selectedCard, setSelectedCard] = useState(null);
             style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6 }}
           />
 
-          {/* ✅ Refresh Button */}
           <button
             onClick={loadBoard}
             disabled={loading}
             style={{
-              padding: '6px 14px',
-              background: '#2563eb',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
+              padding: '6px 14px', background: '#2563eb', color: '#fff',
+              border: 'none', borderRadius: 6,
               cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: 14,
-              opacity: loading ? 0.7 : 1,
+              fontSize: 14, opacity: loading ? 0.7 : 1,
             }}
           >
             {loading ? '...' : '⟳ Refresh'}
           </button>
-
         </div>
       </div>
 
@@ -205,30 +174,26 @@ const [selectedCard, setSelectedCard] = useState(null);
       {loading ? (
         <p style={{ color: '#6b7280' }}>Loading board...</p>
       ) : (
-       <DragDropContext onDragEnd={handleDragEnd}>
-  <div style={{
-    display: 'flex',
-    gap: 12,
-    marginLeft: -12,
-    marginRight: -12,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingBottom: 16,
-    alignItems: 'flex-start',
-
-
-  }}>
-    {columns.map((col) => (
-      <BoardColumn
-        key={col.cardStatusID}
-        column={col}
-        onAddCard={() => setAddModalStatusId(col.cardStatusID)}
-        onDeleteCard={handleDeleteCard}
-        onCardClick={(card) => setSelectedCard(card)}
-      />
-    ))}
-  </div>
-</DragDropContext>
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div
+            className="board-scroll"
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: '12px',
+              width: '100%', overflowX: 'auto', overflowY: 'hidden',
+              padding: '12px', boxSizing: 'border-box', whiteSpace: 'nowrap',
+            }}
+          >
+            {columns.map((col) => (
+              <BoardColumn
+                key={col.cardStatusID}
+                column={col}
+                onAddCard={() => setAddModalStatusId(col.cardStatusID)}
+                onDeleteCard={handleDeleteCard}
+                onCardClick={(card) => setSelectedCardId(card.cardID)}
+              />
+            ))}
+          </div>
+        </DragDropContext>
       )}
 
       {addModalStatusId !== null && (
@@ -236,15 +201,15 @@ const [selectedCard, setSelectedCard] = useState(null);
           onSubmit={(title) => handleAddCard(addModalStatusId, title)}
           onClose={() => setAddModalStatusId(null)}
         />
-        
       )}
+
       {selectedCard && (
-  <CardDetailModal
-    card={selectedCard}
-    onClose={() => setSelectedCard(null)}
-    onUpdated={loadBoard}
-  />
-)}
+        <CardDetailModal
+          card={selectedCard}
+          onClose={() => setSelectedCardId(null)} 
+          onUpdated={loadBoard}
+        />
+      )}
     </div>
   );
 }
