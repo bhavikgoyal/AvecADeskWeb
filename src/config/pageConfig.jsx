@@ -35,14 +35,9 @@ export const PAGE_CONFIG = {
   },
   '/institutes': {
     title: 'Institute Commission',
-    subtitle: 'Track institute partnerships, commission tiers, and agreements.',
+    //subtitle: 'Track institute partnerships, commission tiers, and agreements.',
     actionLabel: 'Add Institute',
-    stats: [
-      { label: 'Partner institutes', value: '28', caption: '2 onboarding', icon: <StoreIcon fontSize="large" />, color: 'var(--primary)' },
-      { label: 'Avg. commission', value: '12%', caption: 'Across active partners', icon: <PaymentsIcon fontSize="large" />, color: 'var(--teal)' },
-      { label: 'Renewals due', value: '5', caption: 'Within 30 days', icon: <AssignmentIcon fontSize="large" />, color: 'var(--amber)' },
-      { label: 'Inactive', value: '1', caption: 'Requires follow-up', icon: <FactCheckIcon fontSize="large" />, color: 'var(--accent)' },
-    ],
+  
     columns: [
       { id: 'name', label: 'Institute', field: 'name' },
       { id: 'status', label: 'Status', field: 'status' },
@@ -69,14 +64,14 @@ export const PAGE_CONFIG = {
   },
   '/invoices': {
     title: 'Invoices',
-    subtitle: 'Create, review, and track invoices across vendors and students.',
+    //subtitle: 'Create, review, and track invoices across vendors and students.',
     actionLabel: 'Create Invoice',
-    stats: [
-      { label: 'Open invoices', value: '56', caption: '12 due this week', icon: <ReceiptIcon fontSize="large" />, color: 'var(--primary)' },
-      { label: 'Paid', value: '$142k', caption: 'Last 30 days', icon: <PaymentsIcon fontSize="large" />, color: 'var(--teal)' },
-      { label: 'Drafts', value: '8', caption: 'Awaiting approval', icon: <AssignmentIcon fontSize="large" />, color: 'var(--amber)' },
-      { label: 'Overdue', value: '9', caption: 'Escalated', icon: <FactCheckIcon fontSize="large" />, color: 'var(--accent)' },
-    ],
+    // stats: [
+    //   { label: 'Open invoices', value: '56', caption: '12 due this week', icon: <ReceiptIcon fontSize="large" />, color: 'var(--primary)' },
+    //   { label: 'Paid', value: '$142k', caption: 'Last 30 days', icon: <PaymentsIcon fontSize="large" />, color: 'var(--teal)' },
+    //   { label: 'Drafts', value: '8', caption: 'Awaiting approval', icon: <AssignmentIcon fontSize="large" />, color: 'var(--amber)' },
+    //   { label: 'Overdue', value: '9', caption: 'Escalated', icon: <FactCheckIcon fontSize="large" />, color: 'var(--accent)' },
+    // ],
     columns: [
       { id: 'name', label: 'Invoice', field: 'name' },
       { id: 'status', label: 'Status', field: 'status' },
@@ -86,14 +81,14 @@ export const PAGE_CONFIG = {
   },
   '/reminders': {
     title: 'Reminder Rules',
-    subtitle: 'Configure automated payment and follow-up reminder workflows.',
+   // subtitle: 'Configure automated payment and follow-up reminder workflows.',
     actionLabel: 'Add Rule',
-    stats: [
-      { label: 'Active rules', value: '14', caption: '3 payment due rules', icon: <AssignmentIcon fontSize="large" />, color: 'var(--primary)' },
-      { label: 'Sent today', value: '38', caption: 'Email + SMS', icon: <ReceiptIcon fontSize="large" />, color: 'var(--teal)' },
-      { label: 'Paused', value: '2', caption: 'Under review', icon: <FactCheckIcon fontSize="large" />, color: 'var(--amber)' },
-      { label: 'Failed', value: '1', caption: 'Retry scheduled', icon: <PaymentsIcon fontSize="large" />, color: 'var(--accent)' },
-    ],
+    // stats: [
+    //   { label: 'Active rules', value: '14', caption: '3 payment due rules', icon: <AssignmentIcon fontSize="large" />, color: 'var(--primary)' },
+    //   { label: 'Sent today', value: '38', caption: 'Email + SMS', icon: <ReceiptIcon fontSize="large" />, color: 'var(--teal)' },
+    //   { label: 'Paused', value: '2', caption: 'Under review', icon: <FactCheckIcon fontSize="large" />, color: 'var(--amber)' },
+    //   { label: 'Failed', value: '1', caption: 'Retry scheduled', icon: <PaymentsIcon fontSize="large" />, color: 'var(--accent)' },
+    // ],
     columns: [
       { id: 'name', label: 'Rule', field: 'name' },
       { id: 'status', label: 'Status', field: 'status' },
@@ -103,14 +98,14 @@ export const PAGE_CONFIG = {
   },
   '/templates': {
     title: 'Email Templates',
-    subtitle: 'Manage branded email templates for reminders and notifications.',
+    //subtitle: 'Manage branded email templates for reminders and notifications.',
     actionLabel: 'New Template',
-    stats: [
-      { label: 'Templates', value: '22', caption: '6 payment related', icon: <ReceiptIcon fontSize="large" />, color: 'var(--primary)' },
-      { label: 'Published', value: '18', caption: 'In production use', icon: <FactCheckIcon fontSize="large" />, color: 'var(--teal)' },
-      { label: 'Drafts', value: '4', caption: 'Awaiting review', icon: <AssignmentIcon fontSize="large" />, color: 'var(--amber)' },
-      { label: 'Last edited', value: 'Today', caption: 'Payment reminder v3', icon: <PaymentsIcon fontSize="large" />, color: 'var(--accent)' },
-    ],
+    // stats: [
+    //   { label: 'Templates', value: '22', caption: '6 payment related', icon: <ReceiptIcon fontSize="large" />, color: 'var(--primary)' },
+    //   { label: 'Published', value: '18', caption: 'In production use', icon: <FactCheckIcon fontSize="large" />, color: 'var(--teal)' },
+    //   { label: 'Drafts', value: '4', caption: 'Awaiting review', icon: <AssignmentIcon fontSize="large" />, color: 'var(--amber)' },
+    //   { label: 'Last edited', value: 'Today', caption: 'Payment reminder v3', icon: <PaymentsIcon fontSize="large" />, color: 'var(--accent)' },
+    // ],
     columns: [
       { id: 'name', label: 'Template', field: 'name' },
       { id: 'status', label: 'Status', field: 'status' },

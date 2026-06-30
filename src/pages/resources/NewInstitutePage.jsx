@@ -81,13 +81,8 @@ export default function NewInstitutePage({ basePath }) {
 
   return (
     <FormPageLayout
-      title={`Add new ${resource.singular.toLowerCase()}`}
-      subtitle="Institute is saved to AvecADeskApi with primary and secondary brand colours."
-      metaItems={[
-        { label: 'Module', value: resource.plural },
-        { label: 'API', value: 'AvecADeskApi' },
-        { label: 'Table', value: 'Institutes' },
-      ]}
+      title={`Add ${resource.singular.toLowerCase()}`}
+      
     >
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={handleTabChange}>

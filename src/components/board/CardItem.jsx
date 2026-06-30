@@ -31,15 +31,31 @@ export default function CardItem({ card, index, onDelete, onCardClick }) {
             fontSize: 13,
             cursor: 'pointer',
             boxShadow: snapshot.isDragging ? '0 4px 10px rgba(0,0,0,0.12)' : 'none',
+            boxSizing: 'border-box',
+            maxWidth: '100%', 
+            overflowWrap: 'break-word',
             ...provided.draggableProps.style,
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <p style={{ margin: '0 0 8px', fontWeight: 600, paddingRight: 8 }}>{card.cardTitle}</p>
+            <p
+              style={{
+                margin: '0 0 8px',
+                fontWeight: 600,
+                paddingRight: 8,
+                flex: 1,
+                minWidth: 0,
+                overflowWrap: 'break-word', 
+                wordBreak: 'break-word',
+                whiteSpace: 'normal', 
+              }}
+            >
+              {card.cardTitle}
+            </p>
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(card.cardID); }}
               aria-label="Delete card"
-              style={{ border: 'none', background: 'transparent', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}
+              style={{ border: 'none', background: 'transparent', color: '#9ca3af', cursor: 'pointer', fontSize: 14, flexShrink: 0 }}
             >
               ×
             </button>
@@ -58,10 +74,12 @@ export default function CardItem({ card, index, onDelete, onCardClick }) {
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#6b7280', fontSize: 12 }}>
-            <span>{card.dueDate ? new Date(card.dueDate).toISOString().slice(0, 10) : ''}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#6b7280', fontSize: 12, gap: 6 }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {card.dueDate ? new Date(card.dueDate).toISOString().slice(0, 10) : ''}
+            </span>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
               {/* Checklist badge */}
               {card.checklistTotal > 0 && (
                 <span style={{
@@ -81,7 +99,7 @@ export default function CardItem({ card, index, onDelete, onCardClick }) {
 
               {/* Avatar */}
               <div
-                style={{ width: 22, height: 22, borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#374151' }}
+                style={{ width: 22, height: 22, borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#374151', flexShrink: 0 }}
                 title={card.assignedUserName || 'Unassigned'}
               >
                 {card.assignedUserName ? card.assignedUserName.slice(0, 2).toUpperCase() : '?'}
