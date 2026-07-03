@@ -41,6 +41,8 @@ const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'))
 const ManageAccountPage = lazy(() => import('../pages/account/ManageAccountPage'));
 const PaymentSchedulesPage = lazy(() => import('../pages/resources/PaymentSchedulesPage'));
 const StudentApplicationDetailsPage = lazy(() => import('../pages/resources/StudentApplicationDetails'));
+const AgreementTemplate = lazy(() => import('../pages/AgreementTemplate/AgreementTemplate'));
+const AgreementTemplateForm = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateForm'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
@@ -273,6 +275,9 @@ export default function AppRoutes() {
           <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
           <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
           <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
+          <Route path="agreement-template" element={<AgreementTemplate />} />
+          <Route path="agreement-template/new" element={<AgreementTemplateForm />} />
+          <Route path="agreement-template/:id/edit" element={<AgreementTemplateForm />} />
          
         </Route>
 
