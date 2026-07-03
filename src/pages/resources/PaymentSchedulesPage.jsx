@@ -18,6 +18,7 @@ import {
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import { useNavigate } from 'react-router-dom';
 
 import {
   bulkUpdatePaymentScheduleStatus,
@@ -211,6 +212,7 @@ export default function PaymentSchedulesPage() {
   const [drafts, setDrafts] = useState({}); 
   const [savingRowId, setSavingRowId] = useState(null);
   const [bulkSaving, setBulkSaving] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchStudentRows()
@@ -323,8 +325,8 @@ useEffect(() => {
             Add schedules per student, track status, and update multiple records at once.
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-          Add schedule
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/students/new")}>
+          Add Student
         </Button>
       </Box>
 

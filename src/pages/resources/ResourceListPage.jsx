@@ -190,7 +190,7 @@ export default function ResourceListPage({ basePath }) {
         rows={loading ? [] : rows}
         actionLabel={resource.actionLabel}
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
-        showCharts={basePath !== '/institutes',''}
+        showCharts={basePath !== '/institutes'}
         onAdd={() => navigate(`${basePath}/new`)}
         onRowClick={(row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })}
         onDelete={handleDelete}

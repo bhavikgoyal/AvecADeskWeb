@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Paper } from '@mui/material';
+import { Alert, Box, Paper, Tab, Tabs } from '@mui/material';
 import { fetchCoursesByInstitute, fetchInstitutes } from '../../api/lookupApi';
 import { createStudentWithPaymentSchedule, derivePaymentStatus } from '../../api/studentsApi';
 import {
@@ -21,6 +21,14 @@ export default function NewStudentPage({ basePath }) {
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
   const submittingRef = useRef(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [showSaveFirst, setShowSaveFirst] = useState(false);
+  const [createdStudentId, setCreatedStudentId] = useState(null);
+
+const handleTabChange = (_, value) => {
+  setShowSaveFirst(false);
+  setActiveTab(value);
+};
 
   useEffect(() => {
     let active = true;
@@ -80,7 +88,43 @@ export default function NewStudentPage({ basePath }) {
       const next = { ...prev, [field]: value };
       if (field === 'instituteId' && value !== prev.instituteId) {
         next.courseId = '';
+        next.courseFee = '';
+
+        next.commissionPercentage = 0;
+        next.gstPercentage = 0;
+        next.bonus = 0;
+
+        next.commissionAmount = 0;
+        next.gstAmount = 0;
+        next.invoiceAmount = 0;
+        next.grandTotal = 0;
+
+        next.amountDue = '';
       }
+
+      if (field === 'courseId') 
+      {
+          const selectedCourse = courses.find(
+          c => String(c.courseId) === String(value));
+
+         next.courseFee = selectedCourse?.fees ?? '';
+         next.amountDue = selectedCourse?.fees ?? '';
+         next.commissionPercentage = selectedCourse?.commissionPercentage ?? 0;
+         next.gstPercentage = selectedCourse?.gstPercentage ?? 0;
+         next.bonus = selectedCourse?.bonusAmount ?? 0;
+
+         const fee = Number(next.courseFee);
+         const commission = (fee * Number(next.commissionPercentage)) / 100;
+         const gst = (commission * Number(next.gstPercentage)) / 100;
+         const invoice = commission + gst;
+         const grandTotal = fee + invoice;
+
+         next.commissionAmount = commission.toFixed(2);
+         next.gstAmount = gst.toFixed(2);
+         next.invoiceAmount = invoice.toFixed(2);
+         next.grandTotal = grandTotal.toFixed(2);
+     }
+     
       if (field === 'amountDue' || field === 'amountPaid') {
         const due = field === 'amountDue' ? value : prev.amountDue;
         const paid = field === 'amountPaid' ? value : prev.amountPaid;
@@ -100,8 +144,13 @@ export default function NewStudentPage({ basePath }) {
     setError('');
 
     try {
-      await createStudentWithPaymentSchedule(form);
+      const student = await createStudentWithPaymentSchedule(form);
+      alert('Student created successfully.');
+
       navigate(basePath);
+      setCreatedStudentId(student.studentId);
+      setShowSaveFirst(false);
+      setActiveTab(1);
     } catch (err) {
       setError(err.message || 'Failed to create student.');
     } finally {
@@ -111,33 +160,50 @@ export default function NewStudentPage({ basePath }) {
   };
 
   return (
-    <FormPageLayout
-      title={`Add new ${resource.singular.toLowerCase()}`}
-      subtitle="Select institute and course from the list. Student and payment schedule are saved to AvecADeskApi."
-      metaItems={[
-        { label: 'Module', value: resource.plural },
-        { label: 'API', value: 'AvecADeskApi' },
-        { label: 'Tables', value: 'Students + PaymentSchedules' },
-      ]}
-    >
+      <FormPageLayout title={`Add new ${resource.singular.toLowerCase()}`}>
+       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
+        <Tabs value={activeTab} onChange={handleTabChange}>
+          <Tab label="Student Details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Payment Schedule" sx={{ textTransform: 'none', fontWeight: 600 }} />
+        </Tabs>
+      </Box>
+
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
         {(error || loadError) && (
           <Alert severity="error" sx={{ mb: 1.5 }}>
             {error || loadError}
           </Alert>
         )}
-        <FormSectionsLayout
-          sections={resource.sections}
-          form={form}
-          onChange={updateField}
-          selectOptions={selectOptions}
-        />
-        <FormActions
-          onCancel={() => navigate(basePath)}
-          onSubmit={handleCreate}
-          submitLabel={submitting ? 'Saving...' : resource.actionLabel}
-          submitDisabled={!isFormValid(resource, form) || submitting}
-        />
+    {activeTab === 0 && (
+  <>
+    <FormSectionsLayout
+      sections={[resource.sections[0]]}
+      form={form}
+      onChange={updateField}
+      selectOptions={selectOptions}
+      requiredFields={resource.requiredFields}
+      
+    />
+  </>
+)}
+
+{activeTab === 1 && (
+  <>
+    <FormSectionsLayout
+      sections={[resource.sections[1], resource.sections[2]]}
+      form={form}
+      onChange={updateField}
+      selectOptions={selectOptions}
+      requiredFields={resource.requiredFields}
+    />
+    <FormActions
+      onCancel={() => navigate(basePath)}
+      onSubmit={handleCreate}
+      submitLabel={submitting ? 'Saving...' : 'Save Student'}
+      submitDisabled={!isFormValid(resource, form) || submitting}
+    />
+  </>
+)}
       </Paper>
     </FormPageLayout>
   );
