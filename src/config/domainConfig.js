@@ -44,8 +44,9 @@ export const DOMAIN_FIELD_DEFS = {
   studentId: { label: 'Select student', type: 'api-select', required: true, grid: grid.full },
   fullName: { label: 'Full name', type: 'text', required: true, grid: grid.half },
   enrollmentNumber: { label: 'Enrolment number', type: 'text', grid: grid.half },
-  instituteId: { label: 'Institute', type: 'api-select', required: true, grid: grid.half },
-  courseId: { label: 'Course', type: 'api-select', required: true, grid: grid.half },
+  instituteId: { label: 'Institute', type: 'api-select', required: true, grid: grid.full  },
+  courseId: { label: 'Course', type: 'api-select', required: true, grid: grid.full  },
+  courseFee: { label: 'Course Fee', type: 'number', grid: grid.full ,readOnly: true  },
   enrolmentStatus: {
     label: 'Enrolment status',
     type: 'select',
@@ -166,6 +167,15 @@ export const DOMAIN_FIELD_DEFS = {
   phone: { label: 'Phone', type: 'text', required: true, grid: grid.half },
   notes: { label: 'Notes', type: 'textarea', grid: grid.full },
   description: { label: 'Description', type: 'textarea', grid: grid.full },
+
+  commissionPercentage: { label: 'Commission %', type: 'number', grid: grid.quarter, readOnly: true },
+  gstPercentage: { label: 'GST %', type: 'number', grid: grid.quarter, readOnly: true },
+  bonus: { label: 'Bonus', type: 'number', grid: grid.quarter, readOnly: true },
+
+  commissionAmount: { label: 'Commission Amount', type: 'number', grid: grid.half, readOnly: true },
+  gstAmount: { label: 'GST Amount', type: 'number', grid: grid.half, readOnly: true },
+  invoiceAmount: { label: 'Invoice Amount', type: 'number', grid: grid.half, readOnly: true },
+  grandTotal: { label: 'Grand Total', type: 'number', grid: grid.half, readOnly: true },
 };
 
 export const DOMAIN_RESOURCES = {
@@ -243,12 +253,13 @@ vendors: {
     plural: 'Students',
     actionLabel: 'Add Student',
     primaryField: 'fullName',
-    requiredFields: ['fullName', 'phone', 'instituteId', 'courseId', 'amountDue', 'dueDate'],
+    requiredFields: ['fullName', 'phone',  'email','instituteId', 'courseId'],
     sections: [
-      { title: 'Student profile', description: 'Registered student after AIH interest.', fields: ['fullName', 'enrollmentNumber', 'enrolmentStatus', 'email'] },
-      { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
-      { title: 'Payment schedule', description: 'Outstanding balance tracking.', fields: ['amountDue', 'amountPaid', 'paymentStatus', 'dueDate'] },
-      { title: 'Notes', description: 'Internal follow-up notes.', fields: ['notes'] },
+      { title: 'Student profile', description: 'Registered student DEtail', fields: ['fullName',  'email','phone'] },
+     // { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
+      { title: 'Payment schedule', description: 'Institute and course details.', fields: ['instituteId', 'courseId', 'courseFee'] },
+      { title: 'Payment', description: 'Commission & GST information.', fields: ['commissionPercentage', 'commissionAmount','gstPercentage','gstAmount', 'bonus', 'invoiceAmount','grandTotal',] },
+    //  { title: 'Notes', description: 'Internal follow-up notes.', fields: ['notes'] },
     ],
     columns: [
       { id: 'fullName', label: 'Student', field: 'fullName' },
@@ -259,9 +270,11 @@ vendors: {
       { id: 'paymentStatus', label: 'Payment', field: 'paymentStatus' },
     ],
     emptyForm: () => ({
-      fullName: '', enrollmentNumber: '', enrolmentStatus: 'Interested', email: '',
-      instituteId: '', courseId: '', phone: '',
-      amountDue: '', amountPaid: '', paymentStatus: 'Pending', dueDate: '', notes: '',
+      fullName: '', email: '',phone: '',
+      instituteId: '', courseId: '', courseFee: '', 
+      amountDue: '', amountPaid: '', paymentStatus: 'Pending', dueDate: '',
+      commissionPercentage: '',gstPercentage: '',bonus: '',
+      commissionAmount: '', gstAmount: '',invoiceAmount: '', grandTotal: '',
     }),
   },
   invoices: {
@@ -601,4 +614,23 @@ vendors: {
       websiteUrl: '',
     }),
   },
+  'reports_student-Inquiry': {
+  singular: 'Student Inquiry',
+  plural: 'Student Inquiry',
+  actionLabel: '',
+  primaryField: 'firstName',
+
+  columns: [
+    { id: 'firstName', label: 'First Name', field: 'firstName' },
+    { id: 'lastName', label: 'Last Name', field: 'lastName' },
+    { id: 'email', label: 'Email', field: 'email' },
+    { id: 'phone', label: 'Phone', field: 'phone' },
+    { id: 'nationality', label: 'Nationality', field: 'nationality' },
+    { id: 'englishTestName', label: 'English Test', field: 'englishTestName' },
+    { id: 'englishTestScore', label: 'Test Score', field: 'englishTestScore' },
+    { id: 'highestQualification', label: 'Highest Qualification', field: 'highestQualification' },
+  ],
+
+  emptyForm: () => ({}),
+},
 };

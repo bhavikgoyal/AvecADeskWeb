@@ -163,14 +163,14 @@ export async function createStudentWithPaymentSchedule(form) {
     throw new Error('Phone is required');
   }
 
-  const amountDue = Number(form.amountDue);
-  if (Number.isNaN(amountDue) || amountDue < 0) {
-    throw new Error('Amount due must be zero or greater');
-  }
+  // const amountDue = Number(form.amountDue);
+  // if (Number.isNaN(amountDue) || amountDue < 0) {
+  //   throw new Error('Amount due must be zero or greater');
+  // }
 
-  if (!form.dueDate) {
-    throw new Error('Due date is required');
-  }
+  // if (!form.dueDate) {
+  //   throw new Error('Due date is required');
+  // }
 
   const { data: student } = await axiosClient.post('/api/students', {
     instituteId,
@@ -182,23 +182,24 @@ export async function createStudentWithPaymentSchedule(form) {
     enrolmentStatus: form.enrolmentStatus || 'Interested',
   });
 
-  const { data: schedule } = await axiosClient.post('/api/schedules', {
-    studentId: student.studentId,
-    dueDate: form.dueDate,
-    amountDue,
-    notes: form.notes?.trim() || null,
-  });
+  // const { data: schedule } = await axiosClient.post('/api/schedules', {
+  //   studentId: student.studentId,
+  //   dueDate: form.dueDate,
+  //   amountDue,
+  //   notes: form.notes?.trim() || null,
+  // });
 
-  if (schedule.scheduleId) {
-    const paymentStatus = await applyPaymentStatus(schedule.scheduleId, amountDue, form.amountPaid);
-    return mapStudentRow(student, {
-      ...schedule,
-      status: paymentStatus,
-    });
-  }
+//   if (schedule.scheduleId) {
+//     const paymentStatus = await applyPaymentStatus(schedule.scheduleId, amountDue, form.amountPaid);
+//     return mapStudentRow(student, {
+//       ...schedule,
+//       status: paymentStatus,
+//     });
+//   }
 
-  return mapStudentRow(student, schedule);
-}
+//   return mapStudentRow(student, schedule);
+return normalizeStudent(student);
+ }
 
 export async function deleteStudent(studentId) {
   await axiosClient.delete(`/api/students/${studentId}`);

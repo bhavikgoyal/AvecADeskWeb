@@ -40,13 +40,14 @@ const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewA
 const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'));
 const ManageAccountPage = lazy(() => import('../pages/account/ManageAccountPage'));
 const PaymentSchedulesPage = lazy(() => import('../pages/resources/PaymentSchedulesPage'));
+const StudentApplicationDetailsPage = lazy(() => import('../pages/resources/StudentApplicationDetails'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
   path !== 'institutes-scrapping' &&
   path !== 'work-history'&&
-  path !== 'reports/receivables'&&
-  path !== 'students'
+  path !== 'reports/receivables'
+  
 );
 
 function RoleRedirect() {
@@ -220,14 +221,14 @@ export default function AppRoutes() {
               </RequireRole>
             }
           />
-        <Route
-  path="students"
-  element={
-    <RequireRole path="/students">
-      <PaymentSchedulesPage />
-    </RequireRole>
-  }
-/>
+         <Route
+            path="students"
+            element={
+              <RequireRole path="/students">
+                <PaymentSchedulesPage />
+              </RequireRole>
+            }
+          />
           <Route
             path="institutes-scrapping"
             element={
@@ -241,6 +242,14 @@ export default function AppRoutes() {
             element={
               <RequireRole path="/reports/receivables">
                 <ReceivablesPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="reports/student-Inquiry"
+            element={
+              <RequireRole path="/reports/student-Inquiry">
+                <StudentApplicationDetailsPage />
               </RequireRole>
             }
           />
@@ -264,6 +273,7 @@ export default function AppRoutes() {
           <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
           <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
           <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
+         
         </Route>
 
         <Route path="*" element={<Navigate to={user ? getDefaultRoute(user.role) : '/login'} replace />} />

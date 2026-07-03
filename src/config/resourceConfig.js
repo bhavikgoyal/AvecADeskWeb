@@ -24,6 +24,7 @@ export const RESOURCE_PATHS = [
   'reports/receivables',
   'reports/received',
   'reports/dues',
+  'reports/student-Inquiry',
   'ai-tool',
   'vendor-portal',
 ];

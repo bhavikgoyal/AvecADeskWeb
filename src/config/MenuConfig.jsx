@@ -62,6 +62,7 @@ export const GET_MENU = (role) => {
           { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
           { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
           { title: 'Work Hours', path: '/reports/work-hours', Icon: HistoryIcon },
+          { title: 'Student Inquiry', path: '/reports/student-Inquiry', Icon: PeopleIcon },
         ],
       },
       {
