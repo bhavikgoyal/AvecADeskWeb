@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Alert,
   Button,
@@ -16,6 +16,7 @@ import { fetchCommissionHistory } from '../../api/commissionsApi';
 import { fetchPaymentSummary, formatCurrency } from '../../api/schedulesApi';
 import { deleteStudent, fetchEnrolmentRows, fetchStudentRows } from '../../api/studentsApi';
 import { deleteVendor, fetchVendorRows } from '../../api/vendorsApi';
+import { getEmailTemplates, deleteEmailTemplate } from '../../api/EmailtemplatesApi';
 import PageShell from '../../components/PageShell';
 import ResponsiveTable from '../../components/ResponsiveTable';
 import { PAGE_CONFIG } from '../../config/pageConfig';
@@ -77,6 +78,10 @@ async function fetchResourceRows({
     return { rows: await fetchVendorRows(), stats: pageStats ?? [] };
   }
 
+  if (basePath === '/templates') {
+    return { rows: await getEmailTemplates(), stats: pageStats ?? [] };
+  }
+
   if (!isStudents) {
     return { rows: loadRecords(basePath), stats: pageStats ?? [] };
   }
@@ -101,14 +106,16 @@ function getLoadErrorMessage(basePath) {
 
 export default function ResourceListPage({ basePath }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const resource = getResourceConfig(basePath);
   const page = PAGE_CONFIG[basePath];
   const isStudents = basePath === '/students';
   const isEnrolment = basePath === '/status/students';
   const isInstitutes = basePath === '/institutes';
   const isVendors = basePath === '/vendors';
+  const isTemplates = basePath === '/templates';
   const pageStats = useMemo(() => page?.stats ?? [], [page]);
-  const usesApi = isStudents || isEnrolment || isInstitutes || isVendors;
+  const usesApi = isStudents || isEnrolment || isInstitutes || isVendors || isTemplates;
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState(pageStats);
   const [loading, setLoading] = useState(usesApi);
@@ -144,7 +151,7 @@ export default function ResourceListPage({ basePath }) {
     } finally {
       if (usesApi) setLoading(false);
     }
-  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, pageStats, usesApi]);
+  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, pageStats, usesApi]);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,10 +178,21 @@ export default function ResourceListPage({ basePath }) {
         if (usesApi) setLoading(false);
       });
 
+    // If navigated back with a refresh flag, trigger refresh and clear state
+    if (location?.state?.refresh) {
+      refreshRows();
+      try {
+        // clear history state so refresh doesn't loop
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     return () => {
       cancelled = true;
     };
-  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, pageStats, usesApi]);
+  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, pageStats, usesApi]);
 
   // Reset selection whenever the resource type or the underlying rows change
   useEffect(() => {
@@ -193,17 +211,20 @@ export default function ResourceListPage({ basePath }) {
       } else if (isVendors) {
         await deleteVendor(row.id);
         await refreshRows();
-      } else if (isInstitutes) {
-        await deleteInstitute(row.id);
-        await refreshRows();
-      } else {
+        } else if (isInstitutes) {
+          await deleteInstitute(row.id);
+          await refreshRows();
+        } else if (isTemplates) {
+          await deleteEmailTemplate(row.id);
+          await refreshRows();
+        } else {
         deleteRecord(basePath, row.id);
         setRows((prev) => prev.filter((r) => String(r.id) !== String(row.id)));
       }
-    } catch (err) {
+      } catch (err) {
       setError(err.message || 'Failed to delete record.');
     }
-  }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, refreshRows]);
+    }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, isTemplates, refreshRows]);
 
   // ---- Selection (institutes only) ----
   const allSelected = isInstitutes && rows.length > 0 && selectedIds.length === rows.length;
@@ -332,6 +353,13 @@ export default function ResourceListPage({ basePath }) {
         title={page.title}
         subtitle={page.subtitle}
         stats={stats}
+        showCharts={isTemplates ? false : (page.showCharts !== false)}
+        columns={resource.columns}
+        rows={loading ? [] : rows}
+        actionLabel={resource.actionLabel}
+        searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
+        // explicitly hide charts for templates
+        showCharts={isTemplates ? false : (basePath !== '/institutes')}
         showCharts={basePath !== '/institutes'}
         columns={columnsWithSelect}
         rows={loading ? [] : rows}

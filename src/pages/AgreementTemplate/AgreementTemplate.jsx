@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Alert, Box, TextField, Button, Typography } from '@mui/material';
-import './styles.css';
 import AgreementTemplateTable from './AgreementTemplateTable';
 import {
   fetchAgrrementTemplates,
@@ -109,57 +108,95 @@ const AgreementTemplate = () => {
 
   const navigate = useNavigate();
 
+  const filteredTemplates = templates.filter((t) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (t.templateName || '').toLowerCase().includes(q)
+      || (t.agreementType || '').toLowerCase().includes(q)
+      || (stripHtml(t.bodyHtml) || '').toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div className="root">
+    <Box
+      sx={{
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+        boxSizing: 'border-box',
+      }}
+    >
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      <div className="header">
-        <div>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text)' }}>
-            Agreement Templates
-          </Typography>
-        </div>
+      <Typography
+        variant="h5"
+        sx={{
+          fontWeight: 800,
+          color: 'var(--text)',
+          mb: 2,
+        }}
+      >
+        Agreement Templates
+      </Typography>
 
-        <div style={{ width: '100%', marginTop: 15, marginBottom: 22, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <TextField
-              size="small"
-              placeholder="Search templates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              fullWidth
-              sx={{ backgroundColor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-            />
-            <Button
-              variant="contained"
-              onClick={() => navigate('/agreement-template/new')}
-              sx={{ minWidth: 140, height: 40, backgroundColor: '#2F80C9', color: '#fff', textTransform: 'none', fontWeight: 600, borderRadius: '8px' }}
-            >
-              Add Template
-            </Button>
-          </div>
-        </div>
-      </div>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          mb: 2,
+          flexDirection: { xs: 'column', sm: 'row' },
+        }}
+      >
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Search templates..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{
+            backgroundColor: '#fff',
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '8px',
+            },
+          }}
+        />
 
-        {loading ? (
-          <p>Loading…</p>
-        ) : (
-          <AgreementTemplateTable
-            templates={templates.filter((t) => {
-              if (!searchQuery) return true;
-              const q = searchQuery.toLowerCase();
-              return (t.templateName || '').toLowerCase().includes(q)
-                || (t.agreementType || '').toLowerCase().includes(q)
-                || (stripHtml(t.bodyHtml) || '').toLowerCase().includes(q);
-            })}
-            onDelete={handleDelete}
-          />
-        )}
-      </div>
+        <Button
+          variant="contained"
+          onClick={() => navigate('/agreement-template/new')}
+          sx={{
+            minWidth: { xs: '100%', sm: 170 },
+            height: 40,
+            backgroundColor: '#2F80C9',
+            color: '#fff',
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '14px',
+            borderRadius: '8px',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 3px 8px rgba(47,128,201,0.35)',
+            '&:hover': {
+              backgroundColor: '#2874B8',
+              boxShadow: '0 4px 10px rgba(47,128,201,0.45)',
+            },
+          }}
+        >
+          Add Template
+        </Button>
+      </Box>
+
+      <AgreementTemplateTable
+        templates={filteredTemplates}
+        onDelete={handleDelete}
+        loading={loading}
+      />
+    </Box>
   );
 };
 

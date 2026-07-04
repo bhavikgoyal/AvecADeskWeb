@@ -74,7 +74,7 @@ export const DOMAIN_FIELD_DEFS = {
   category: {
     label: 'Category',
     type: 'select',
-    options: ['Reminder', 'Invoice', 'OTP', 'General'],
+    options: ['Reminder', 'Invoice', 'OTP', 'General', 'Forgate password', 'Registration user', 'Admission', 'Onboarding' ],
     grid: grid.third,
   },
 
