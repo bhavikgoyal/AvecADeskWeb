@@ -78,12 +78,18 @@ useEffect(() => {
 useEffect(() => {
   if (institutes.length === 0) return;
 
-  Promise.all(
-    institutes.map((i) => {
-      const id = i.instituteId ?? i.InstituteId;
-      return fetchCoursesByInstitute(id).catch(() => []);
-    }),
-  ).then((results) => setAllCourses(results.flat()));
+ Promise.all(
+  institutes.map(async (i) => {
+    const id = i.instituteId ?? i.InstituteId;
+
+    try {
+      const data = await fetchCoursesByInstitute(id);
+      return data.courses ?? [];
+    } catch {
+      return [];
+    }
+  }),
+).then((results) => setAllCourses(results.flat()));
 }, [institutes]);
 
 useEffect(() => {
@@ -115,13 +121,13 @@ useEffect(() => {
 
       const data = await fetchCoursesByInstitute(form.instituteId);
 
-      if (active) {
-        setDialogCourses(data ?? []);
-      }
+    if (active) {
+    setDialogCourses(data?.courses ?? []);
+}
     } catch {
       if (active) {
-        setDialogCourses([]);
-      }
+    setDialogCourses(data?.courses ?? []);
+}
     }
   };
 
@@ -260,7 +266,7 @@ const openHistoryDialog = async (row) => {
             <TextField select label="Course" value={form.courseId} fullWidth disabled={!form.instituteId}
               onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
-              {dialogCourses.map((c) => {
+              {(dialogCourses ?? []).map((c) => {
                 const id = c.courseId ?? c.CourseId;
                 const name = c.courseName ?? c.CourseName ?? c.name ?? c.Name;
                 return <MenuItem key={id} value={String(id)}>{name}</MenuItem>;

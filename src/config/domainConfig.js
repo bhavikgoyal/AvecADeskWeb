@@ -170,7 +170,7 @@ export const DOMAIN_FIELD_DEFS = {
 
   commissionPercentage: { label: 'Commission %', type: 'number', grid: grid.quarter, readOnly: true },
   gstPercentage: { label: 'GST %', type: 'number', grid: grid.quarter, readOnly: true },
-  bonus: { label: 'Bonus', type: 'number', grid: grid.quarter, readOnly: true },
+  bonus: { label: 'Bonus', type: 'number', grid: grid.quarter},
 
   commissionAmount: { label: 'Commission Amount', type: 'number', grid: grid.half, readOnly: true },
   gstAmount: { label: 'GST Amount', type: 'number', grid: grid.half, readOnly: true },
@@ -258,7 +258,7 @@ vendors: {
       { title: 'Student profile', description: 'Registered student DEtail', fields: ['fullName',  'email','phone'] },
      // { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
       { title: 'Payment schedule', description: 'Institute and course details.', fields: ['instituteId', 'courseId', 'courseFee'] },
-      { title: 'Payment', description: 'Commission & GST information.', fields: ['commissionPercentage', 'commissionAmount','gstPercentage','gstAmount', 'bonus', 'invoiceAmount','grandTotal',] },
+      { title: 'Payment', description: 'Commission & GST information.', fields: ['commissionPercentage', 'commissionAmount','gstPercentage','gstAmount', 'bonus','dueDate', 'invoiceAmount','grandTotal',] },
     //  { title: 'Notes', description: 'Internal follow-up notes.', fields: ['notes'] },
     ],
     columns: [

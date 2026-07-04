@@ -6,10 +6,6 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Grid,
   MenuItem,
   Paper,
@@ -17,12 +13,10 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import { useNavigate } from 'react-router-dom';
-
+import AddIcon from '@mui/icons-material/Add';
 import {
   bulkUpdatePaymentScheduleStatus,
-  createPaymentSchedule,
   fetchScheduleRows,
   formatCurrency,
   formatDisplayDate,
@@ -43,117 +37,6 @@ function statusColor(status) {
   }
 }
 
-function AddScheduleDialog({ open, onClose, students, onCreated }) {
-  const [form, setForm] = useState({ studentId: '', dueDate: '', amountDue: '', notes: '' });
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-
-const EMPTY_FORM = {
-  studentId: '',
-  dueDate: '',
-  amountDue: '',
-  notes: '',
-};
-
-useEffect(() => {
-  if (!open) return;
-
-  queueMicrotask(() => {
-    setForm(EMPTY_FORM);
-    setError('');
-  });
-}, [open]);
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setError('');
-    try {
-      await createPaymentSchedule(form);
-      onCreated();
-      onClose();
-    } catch (err) {
-      setError(err.message || 'Failed to create payment schedule.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Add payment schedule</DialogTitle>
-      <DialogContent>
-        {error && (
-          <Alert severity="error" sx={{ mb: 1.5 }}>
-            {error}
-          </Alert>
-        )}
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={12} sx={{ minWidth: 260 }}>
-            <TextField
-              select
-              label="Student"
-              fullWidth
-              size="small"
-              value={form.studentId}
-              onChange={(e) => setForm((p) => ({ ...p, studentId: e.target.value }))}
-            >
-              {students.map((s) => (
-                <MenuItem key={s.studentId} value={s.studentId}>
-                  {s.fullName}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={6} sx={{ minWidth: 160 }}>
-            <TextField
-              label="Due date"
-              type="date"
-              fullWidth
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{
-                '& input[type="date"]::-webkit-datetime-edit': {
-                  opacity: form.dueDate ? 1 : 0,
-                },
-              }}
-              value={form.dueDate}
-              onChange={(e) => setForm((p) => ({ ...p, dueDate: e.target.value }))}
-            />
-          </Grid>
-          <Grid item xs={6} sx={{ minWidth: 140 }}>
-            <TextField
-              label="Amount due"
-              type="number"
-              fullWidth
-              size="small"
-              value={form.amountDue}
-              onChange={(e) => setForm((p) => ({ ...p, amountDue: e.target.value }))}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              label="Notes"
-              fullWidth
-              size="small"
-              multiline
-              minRows={2}
-              value={form.notes}
-              onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-            />
-          </Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? 'Saving...' : 'Add schedule'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
 
 function ScheduleRow({ row, selected, onToggleSelect, draft, onDraftChange, onSaveRow, saving }) {
   const dirty = draft.status !== row.status || String(row.amountPaid ?? '') !== draft.amountPaid;
@@ -207,7 +90,6 @@ export default function PaymentSchedulesPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [drafts, setDrafts] = useState({}); 
   const [savingRowId, setSavingRowId] = useState(null);
@@ -418,13 +300,6 @@ useEffect(() => {
           </Box>
         )}
       </Paper>
-
-      <AddScheduleDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        students={students}
-        onCreated={loadRows}
-      />
     </Box>
   );
 }

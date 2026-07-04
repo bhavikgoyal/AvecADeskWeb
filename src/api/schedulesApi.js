@@ -77,17 +77,20 @@ export async function fetchScheduleRows(studentId) {
   });
 }
  
-export async function createPaymentSchedule({ studentId, dueDate, amountDue, notes }) {
+export async function createPaymentSchedule({ studentId, dueDate, amountDue, notes,fees,commission }) {
   if (!studentId) throw new Error('Please select a student');
   if (!dueDate) throw new Error('Due date is required');
   const due = Number(amountDue);
   if (Number.isNaN(due) || due < 0) throw new Error('Amount due must be zero or greater');
  
   const { data } = await axiosClient.post('/api/schedules', {
-    studentId: Number(studentId),
+    studentId,
     dueDate,
-    amountDue: due,
+    amountDue,
     notes: notes?.trim() || null,
+    fees,
+    commission,
+    
   });
   return normalizeSchedule(data);
 }
