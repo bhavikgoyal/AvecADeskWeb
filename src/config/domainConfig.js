@@ -232,6 +232,10 @@ vendors: {
       { id: 'instituteName', label: 'Institute name', field: 'instituteName' },
       { id: 'address', label: 'Address', field: 'address' },
       { id: 'serviceType', label: 'Service type', field: 'serviceType' },
+       { id: 'rateType', label: 'Rate type', field: 'rateType' },
+  { id: 'rate', label: 'Rate', field: 'rate' },
+  { id: 'effectiveFrom', label: 'From', field: 'effectiveFrom' },
+  { id: 'effectiveTo', label: 'To', field: 'effectiveTo' },
     ],
     emptyForm: () => ({
       vendorId: '',
