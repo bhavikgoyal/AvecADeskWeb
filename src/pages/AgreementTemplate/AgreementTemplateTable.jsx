@@ -1,56 +1,324 @@
-import React from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import './styles.css';
+import {
+  Box,
+  Card,
+  CircularProgress,
+  IconButton,
+  Typography,
+} from '@mui/material';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import ResponsiveTable from '../../components/ResponsiveTable';
+
+const sectionCardSx = {
+  width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
+  border: '1px solid var(--card-border)',
+  bgcolor: 'var(--card-bg)',
+  borderRadius: 2,
+  boxShadow: '0 4px 16px rgba(26, 43, 61, 0.05)',
+};
+
+const contentInset = { xs: 1.5, sm: 2 };
+
+const scrollContainerSx = {
+  scrollbarWidth: 'thin',
+  scrollbarColor: 'rgba(47, 128, 201, 0.55) rgba(0,0,0,0.06)',
+  '&::-webkit-scrollbar': { height: 10 },
+  '&::-webkit-scrollbar-track': {
+    bgcolor: 'rgba(0,0,0,0.05)',
+    borderRadius: 5,
+  },
+  '&::-webkit-scrollbar-thumb': {
+    borderRadius: 5,
+    backgroundColor: 'rgba(47, 128, 201, 0.45)',
+    '&:hover': {
+      backgroundColor: 'rgba(47, 128, 201, 0.65)',
+    },
+  },
+};
+
+const tableAlignSx = {
+  '& .MuiTableCell-root:first-of-type': {
+    pl: contentInset,
+  },
+  '& .MuiTableCell-root:last-of-type': {
+    pr: contentInset,
+  },
+};
+
+const TABLE_MIN_WIDTH = 1080;
+
+const rollColSx = { width: 56, minWidth: 56, maxWidth: 56, whiteSpace: 'nowrap' };
+const nameColSx = { minWidth: 160, overflow: 'hidden' };
+const categoryColSx = { minWidth: 120, whiteSpace: 'nowrap' };
+const previewColSx = { minWidth: 240, maxWidth: 360, overflow: 'hidden' };
+const dateColSx = { minWidth: 110, whiteSpace: 'nowrap' };
+const createdByColSx = { minWidth: 100, whiteSpace: 'nowrap' };
+const activeColSx = { width: 80, minWidth: 80, maxWidth: 80, textAlign: 'center' };
+const actionColSx = { width: 148, minWidth: 148, maxWidth: 148, whiteSpace: 'nowrap' };
+
+const agreementTableSx = {
+  width: '100%',
+  ...scrollContainerSx,
+  ...tableAlignSx,
+  pb: 0.5,
+  '& table': {
+    width: '100%',
+    minWidth: TABLE_MIN_WIDTH,
+    tableLayout: 'fixed',
+  },
+  '& .MuiTableCell-root': {
+    verticalAlign: 'middle',
+  },
+};
 
 function stripHtml(html) {
   if (!html) return '';
   return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 }
 
-export default function AgreementTemplateTable({ templates = [], onDelete }) {
+function TruncateCell({ value, fontWeight = 400 }) {
+  const text = value ?? '';
   return (
-    <div className="tableWrap">
-      <table className={`table table-striped table`}>
-        <thead className="thead">
-          <tr>
-            <th className="rollCell">#</th>
-            <th style={{ minWidth: 220 }}>Template Name</th>
-            <th style={{ minWidth: 80 }}></th>
-            <th style={{ minWidth: 160 }}>Category</th>
-            <th style={{ minWidth: 360 }}>Subject / Body</th>
-            <th style={{ minWidth: 120 }}>Updated</th>
-            <th style={{ minWidth: 120 }}>Created By</th>
-            <th style={{ minWidth: 80 }}>Active</th>
-            <th style={{ width: 160 }}>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {templates.length === 0 && <tr><td colSpan={7}>No templates found.</td></tr>}
-          {templates.map((t, idx) => (
-            <tr key={t.templateId}>
-              <td className="rollCell">{idx + 1}</td>
-              <td style={{ verticalAlign: 'middle' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ fontWeight: 700 }}>{t.templateName}</div>
-                </div>
-              </td>
-              <td></td>
-              <td className="rowTitle">{t.agreementType}</td>
-              <td className="preview">
-                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{t.templateName}</div>
-                <div style={{ color: '#444' }}>{t.bodyHtml ? stripHtml(t.bodyHtml).slice(0, 180) + (stripHtml(t.bodyHtml).length > 180 ? '...' : '') : <em>No content</em>}</div>
-              </td>
-              <td className="rowTitle">{t.updatedAt ? new Date(t.updatedAt).toLocaleDateString() : new Date(t.createdAt).toLocaleDateString()}</td>
-              <td className="rowTitle">{t.createdByUserId}</td>
-              <td className="rowTitle">{t.isActive ? 'Yes' : 'No'}</td>
-              <td className="actions">
-                <Link to={`/agreement-template/${t.templateId}/edit`} className={`actionBtn editBtn`}>✎</Link>
-                <button className={`actionBtn deleteBtn`} onClick={() => onDelete && onDelete(t.templateId)}>🗑</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Typography
+      variant="body2"
+      component="span"
+      title={text}
+      sx={{
+        display: 'block',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        minWidth: 0,
+        color: 'var(--text)',
+        fontWeight,
+      }}
+    >
+      {text || '—'}
+    </Typography>
+  );
+}
+
+function PreviewCell({ value }) {
+  const text = value || 'No content';
+  return (
+    <Typography
+      variant="body2"
+      component="span"
+      title={text}
+      sx={{
+        display: 'block',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        minWidth: 0,
+        color: 'var(--muted)',
+      }}
+    >
+      {text}
+    </Typography>
+  );
+}
+
+function TemplateActions({ templateId, onDelete }) {
+  return (
+    <Box
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: { xs: 0.5, sm: 0.75 },
+        width: '100%',
+      }}
+    >
+      <IconButton
+        component={Link}
+        to={`/agreement-template/${templateId}/view`}
+        size="small"
+        aria-label="View template"
+        sx={{
+          color: 'var(--primary)',
+          bgcolor: 'var(--primary-soft, #e8f2fb)',
+          flexShrink: 0,
+          '&:hover': { bgcolor: 'rgba(47, 128, 201, 0.18)' },
+        }}
+      >
+        <VisibilityOutlinedIcon fontSize="small" />
+      </IconButton>
+      <IconButton
+        component={Link}
+        to={`/agreement-template/${templateId}/edit`}
+        size="small"
+        aria-label="Edit template"
+        sx={{
+          color: 'var(--primary)',
+          bgcolor: 'var(--primary-soft, #e8f2fb)',
+          flexShrink: 0,
+          '&:hover': { bgcolor: 'rgba(47, 128, 201, 0.18)' },
+        }}
+      >
+        <EditOutlinedIcon fontSize="small" />
+      </IconButton>
+      <IconButton
+        size="small"
+        aria-label="Delete template"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete?.(templateId);
+        }}
+        sx={{
+          color: 'var(--danger, #d63939)',
+          bgcolor: 'rgba(214, 57, 57, 0.08)',
+          flexShrink: 0,
+          '&:hover': { bgcolor: 'rgba(214, 57, 57, 0.14)' },
+        }}
+      >
+        <DeleteOutlinedIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  );
+}
+
+export default function AgreementTemplateTable({ templates = [], onDelete, loading = false }) {
+  const tableRows = useMemo(
+    () =>
+      templates.map((t, index) => ({
+        ...t,
+        roll: index + 1,
+        preview: stripHtml(t.bodyHtml),
+        updatedLabel: t.updatedAt
+          ? new Date(t.updatedAt).toLocaleDateString()
+          : t.createdAt
+            ? new Date(t.createdAt).toLocaleDateString()
+            : '—',
+        isActive: !!t.isActive,
+      })),
+    [templates],
+  );
+
+  const tableColumns = useMemo(
+    () => [
+      {
+        id: 'roll',
+        label: '#',
+        field: 'roll',
+        align: 'center',
+        headerSx: rollColSx,
+        cellSx: { ...rollColSx, color: 'var(--muted)', fontWeight: 600 },
+      },
+      {
+        id: 'templateName',
+        label: 'Template Name',
+        field: 'templateName',
+        render: (row) => <TruncateCell value={row.templateName} fontWeight={600} />,
+        headerSx: nameColSx,
+        cellSx: nameColSx,
+      },
+      {
+        id: 'agreementType',
+        label: 'Category',
+        field: 'agreementType',
+        render: (row) => <TruncateCell value={row.agreementType} />,
+        headerSx: categoryColSx,
+        cellSx: categoryColSx,
+      },
+      {
+        id: 'preview',
+        label: 'Subject / Body',
+        field: 'preview',
+        render: (row) => <PreviewCell value={row.preview} />,
+        headerSx: previewColSx,
+        cellSx: previewColSx,
+      },
+      {
+        id: 'updated',
+        label: 'Updated',
+        field: 'updatedLabel',
+        headerSx: dateColSx,
+        cellSx: dateColSx,
+      },
+      {
+        id: 'createdBy',
+        label: 'Created By',
+        field: 'createdByUserId',
+        headerSx: createdByColSx,
+        cellSx: createdByColSx,
+      },
+      {
+        id: 'active',
+        label: 'Active',
+        field: 'active',
+        align: 'center',
+        headerSx: activeColSx,
+        cellSx: activeColSx,
+        render: (row) => (
+          <Typography
+            variant="body2"
+            component="span"
+            sx={{
+              fontWeight: 600,
+              color: row.isActive ? 'rgb(51, 133, 198)' : 'var(--muted)',
+            }}
+          >
+            {row.isActive ? 'Yes' : 'No'}
+          </Typography>
+        ),
+      },
+      {
+        id: 'action',
+        label: 'Action',
+        field: 'action',
+        align: 'center',
+        headerSx: actionColSx,
+        cellSx: actionColSx,
+        render: (row) => (
+          <TemplateActions templateId={row.templateId} onDelete={onDelete} />
+        ),
+      },
+    ],
+    [onDelete],
+  );
+
+  return (
+    <Card elevation={0} sx={{ ...sectionCardSx, overflow: 'hidden' }}>
+      <Box sx={{ px: contentInset, pt: contentInset, pb: 1 }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text)' }}>
+          All Agreement Templates
+        </Typography>
+      </Box>
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+          <CircularProgress />
+        </Box>
+      ) : tableRows.length === 0 ? (
+        <Box sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center' }}>
+          <Typography color="text.secondary">No templates found.</Typography>
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: '100%',
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <ResponsiveTable
+            columns={tableColumns}
+            rows={tableRows}
+            getRowKey={(row) => row.templateId}
+            variant="resource"
+            alwaysTable
+            tableMinWidth={TABLE_MIN_WIDTH}
+            sx={agreementTableSx}
+          />
+        </Box>
+      )}
+    </Card>
   );
 }
