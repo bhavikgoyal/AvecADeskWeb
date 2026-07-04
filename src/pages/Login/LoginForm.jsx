@@ -172,6 +172,17 @@ export default function LoginForm() {
         </Link>
       </Box>
 
+      <Box sx={{ textAlign: 'center', mt: 1.5 }}>
+        <Link
+          component={RouterLink}
+          to="/register"
+          underline="none"
+          sx={{ fontSize: '0.8125rem', color: '#2f80c9', fontWeight: 600 }}
+        >
+          I am student - Register
+        </Link>
+      </Box>
+
       <Box sx={{ display: { xs: 'block', lg: 'none' }, textAlign: 'center', mt: 3 }}>
         <Typography sx={{ fontSize: '0.875rem', color: '#64748b' }}>Business Management Platform</Typography>
       </Box>

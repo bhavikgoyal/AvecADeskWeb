@@ -12,6 +12,7 @@ const API_DETAIL_PATHS = new Set(['/students', '/institutes', '/vendors']);
 
 const LoginForm = lazy(() => import('../pages/Login/LoginForm'));
 const OtpLoginForm = lazy(() => import('../pages/Login/OtpLoginForm'));
+const RegisterForm = lazy(() => import('../pages/Login/RegisterForm'));
 const UserPortal = lazy(() => import('../pages/UserPortal/UserPortal'));
 const DashboardLayout = lazy(() => import('../layouts/DashboardLayout'));
 const AdminDash = lazy(() => import('../pages/Dashboards/AdminDash'));
@@ -197,6 +198,7 @@ export default function AppRoutes() {
         <Route path="/user-portal" element={<UserPortal />} />
 
         <Route path="/phone-verified" element={<OtpLoginForm />} />
+        <Route path="/register" element={<RegisterForm />} />
 
         <Route
           path="/"
