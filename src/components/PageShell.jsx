@@ -17,6 +17,7 @@ export default function PageShell({
   actionLabel = 'Add New',
   searchPlaceholder = 'Search...',
   showCharts = true,
+  headerExtra = null,
   onAdd,
   onRowClick,
   onDelete,
@@ -121,6 +122,9 @@ export default function PageShell({
                 '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'var(--muted-bg)' },
               }}
             />
+
+            {headerExtra}
+
             <Button
               variant="contained"
               size="small"

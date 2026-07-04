@@ -12,6 +12,7 @@ const API_DETAIL_PATHS = new Set(['/students', '/institutes', '/vendors']);
 
 const LoginForm = lazy(() => import('../pages/Login/LoginForm'));
 const OtpLoginForm = lazy(() => import('../pages/Login/OtpLoginForm'));
+const RegisterForm = lazy(() => import('../pages/Login/RegisterForm'));
 const UserPortal = lazy(() => import('../pages/UserPortal/UserPortal'));
 const DashboardLayout = lazy(() => import('../layouts/DashboardLayout'));
 const AdminDash = lazy(() => import('../pages/Dashboards/AdminDash'));
@@ -41,6 +42,9 @@ const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'))
 const ManageAccountPage = lazy(() => import('../pages/account/ManageAccountPage'));
 const PaymentSchedulesPage = lazy(() => import('../pages/resources/PaymentSchedulesPage'));
 const StudentApplicationDetailsPage = lazy(() => import('../pages/resources/StudentApplicationDetails'));
+const AgreementTemplate = lazy(() => import('../pages/AgreementTemplate/AgreementTemplate'));
+const AgreementTemplateForm = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateForm'));
+const AgreementTemplateView = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateView'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
@@ -194,6 +198,7 @@ export default function AppRoutes() {
         <Route path="/user-portal" element={<UserPortal />} />
 
         <Route path="/phone-verified" element={<OtpLoginForm />} />
+        <Route path="/register" element={<RegisterForm />} />
 
         <Route
           path="/"
@@ -273,6 +278,10 @@ export default function AppRoutes() {
           <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
           <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
           <Route path="EmployeeWorkHours" element={<EmployeeWorkHours />} />
+          <Route path="agreement-template" element={<AgreementTemplate />} />
+          <Route path="agreement-template/new" element={<AgreementTemplateForm />} />
+          <Route path="agreement-template/:id/view" element={<AgreementTemplateView />} />
+          <Route path="agreement-template/:id/edit" element={<AgreementTemplateForm />} />
          
         </Route>
 
