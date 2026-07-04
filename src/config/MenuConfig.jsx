@@ -15,6 +15,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ContactPageIcon from '@mui/icons-material/ContactPage';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import DescriptionIcon from '@mui/icons-material/Description';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 export const GET_MENU = (role) => {
@@ -39,7 +40,8 @@ export const GET_MENU = (role) => {
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
           { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
           { title: 'Email Templates', path: '/templates', Icon: EmailIcon },
-          // { title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
+          { title: 'Agreement Template', path: '/agreement-template', Icon: DescriptionIcon },
+          { title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
           { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
           { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
           { title: 'Members', path: '/Members', Icon: PeopleIcon },
