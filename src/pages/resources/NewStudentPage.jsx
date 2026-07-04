@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, Box, Paper, Tab, Tabs } from '@mui/material';
 import { fetchCoursesByInstitute, fetchInstitutes } from '../../api/lookupApi';
 import { createStudentWithPaymentSchedule, derivePaymentStatus } from '../../api/studentsApi';
+import { createPaymentSchedule } from '../../api/schedulesApi';
 import {
   FormActions,
   FormPageLayout,
@@ -23,7 +24,7 @@ export default function NewStudentPage({ basePath }) {
   const submittingRef = useRef(false);
   const [activeTab, setActiveTab] = useState(0);
   const [showSaveFirst, setShowSaveFirst] = useState(false);
-  const [createdStudentId, setCreatedStudentId] = useState(null);
+  const [gstPercentage, setGstPercentage] = useState(0);
 
 const handleTabChange = (_, value) => {
   setShowSaveFirst(false);
@@ -54,13 +55,16 @@ const handleTabChange = (_, value) => {
       return undefined;
     }
 
-    fetchCoursesByInstitute(form.instituteId)
-      .then((data) => {
-        if (active) setCourses(data);
-      })
-      .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load courses.');
-      });
+  fetchCoursesByInstitute(form.instituteId)
+    .then((data) => {
+      if (active) {
+        setCourses(data.courses);
+        setGstPercentage(data.gstPercentage);
+      }
+    })
+    .catch((err) => {
+      if (active) setLoadError(err.message || 'Failed to load courses.');
+    });
 
     return () => {
       active = false;
@@ -84,57 +88,99 @@ const handleTabChange = (_, value) => {
   if (!resource) return null;
 
   const updateField = (field, value) => {
-    setForm((prev) => {
-      const next = { ...prev, [field]: value };
-      if (field === 'instituteId' && value !== prev.instituteId) {
-        next.courseId = '';
-        next.courseFee = '';
+  setForm((prev) => {
+    const next = { ...prev, [field]: value };
 
-        next.commissionPercentage = 0;
-        next.gstPercentage = 0;
-        next.bonus = 0;
+    if (field === "instituteId" && value !== prev.instituteId) {
+      next.courseId = "";
+      next.courseFee = "";
 
-        next.commissionAmount = 0;
-        next.gstAmount = 0;
-        next.invoiceAmount = 0;
-        next.grandTotal = 0;
+      next.commissionRate = 0;
+      next.rateType = "";
+      next.gstPercentage = gstPercentage;
+      next.bonus = "";
 
-        next.amountDue = '';
+      next.commissionAmount = 0;
+      next.gstAmount = 0;
+      next.invoiceAmount = 0;
+      next.grandTotal = 0;
+
+      next.amountDue = "";
+    }
+
+    if (field === "courseId") {
+      const selectedCourse = courses.find(
+        (c) => String(c.courseId) === String(value)
+      );
+      next.courseFee = selectedCourse?.fees ?? "";
+      next.amountDue = selectedCourse?.fees ?? "";
+
+      next.commissionRate = selectedCourse?.commissionRate ?? 0;
+      next.rateType = selectedCourse?.rateType ?? "";
+      if (next.rateType === "Percentage") {
+          next.commissionPercentage = next.commissionRate;
+      } else {
+          next.commissionPercentage = "";
+      }
+      // GST API / appsettings માંથી આવશે
+      next.gstPercentage = gstPercentage;
+
+      // Bonus manually ભરશો
+      next.bonus = "";
+
+      const fee = Number(next.courseFee);
+
+      let commission = 0;
+
+      if (next.rateType === "Percentage") {
+        commission =
+          (fee * Number(next.commissionRate)) / 100;
+      } else if (next.rateType === "Fixed") {
+        commission = Number(next.commissionRate);
       }
 
-      if (field === 'courseId') 
-      {
-          const selectedCourse = courses.find(
-          c => String(c.courseId) === String(value));
+      const gst =
+        (commission * Number(next.gstPercentage)) / 100;
 
-         next.courseFee = selectedCourse?.fees ?? '';
-         next.amountDue = selectedCourse?.fees ?? '';
-         next.commissionPercentage = selectedCourse?.commissionPercentage ?? 0;
-         next.gstPercentage = selectedCourse?.gstPercentage ?? 0;
-         next.bonus = selectedCourse?.bonusAmount ?? 0;
+      const invoice =
+        commission + gst + Number(next.bonus || 0);
 
-         const fee = Number(next.courseFee);
-         const commission = (fee * Number(next.commissionPercentage)) / 100;
-         const gst = (commission * Number(next.gstPercentage)) / 100;
-         const invoice = commission + gst;
-         const grandTotal = fee + invoice;
+      const grandTotal = fee + invoice;
 
-         next.commissionAmount = commission.toFixed(2);
-         next.gstAmount = gst.toFixed(2);
-         next.invoiceAmount = invoice.toFixed(2);
-         next.grandTotal = grandTotal.toFixed(2);
-     }
-     
-      if (field === 'amountDue' || field === 'amountPaid') {
-        const due = field === 'amountDue' ? value : prev.amountDue;
-        const paid = field === 'amountPaid' ? value : prev.amountPaid;
-        next.paymentStatus = derivePaymentStatus(due, paid);
-      }
-      return next;
-    });
-    if (error) setError('');
-    if (loadError) setLoadError('');
-  };
+      next.commissionAmount = commission.toFixed(2);
+      next.gstAmount = gst.toFixed(2);
+      next.invoiceAmount = invoice.toFixed(2);
+      next.grandTotal = grandTotal.toFixed(2);
+    }
+if (field === "bonus") {
+
+  const fee = Number(next.courseFee || 0);
+  const commission = Number(next.commissionAmount || 0);
+  const gst = Number(next.gstAmount || 0);
+  const bonus = Number(value || 0);
+
+  const invoice = commission + gst + bonus;
+  const grandTotal = fee + invoice;
+
+  next.invoiceAmount = invoice.toFixed(2);
+  next.grandTotal = grandTotal.toFixed(2);
+}
+    if (field === "amountDue" || field === "amountPaid") {
+      const due =
+        field === "amountDue" ? value : prev.amountDue;
+
+      const paid =
+        field === "amountPaid" ? value : prev.amountPaid;
+
+      next.paymentStatus = derivePaymentStatus(due, paid);
+    }
+
+    return next;
+  });
+
+  if (error) setError("");
+  if (loadError) setLoadError("");
+};
 
   const handleCreate = async () => {
     if (submittingRef.current) return;
@@ -145,12 +191,16 @@ const handleTabChange = (_, value) => {
 
     try {
       const student = await createStudentWithPaymentSchedule(form);
+      await createPaymentSchedule({
+        studentId: student.studentId,
+        dueDate: form.dueDate,
+        amountDue: Number(form.grandTotal),
+        fees: Number(form.courseFee),
+        commission: Number(form.commissionAmount),
+        notes: form.notes
+    });
       alert('Student created successfully.');
-
       navigate(basePath);
-      setCreatedStudentId(student.studentId);
-      setShowSaveFirst(false);
-      setActiveTab(1);
     } catch (err) {
       setError(err.message || 'Failed to create student.');
     } finally {
@@ -158,6 +208,7 @@ const handleTabChange = (_, value) => {
       setSubmitting(false);
     }
   };
+
 
   return (
       <FormPageLayout title={`Add new ${resource.singular.toLowerCase()}`}>

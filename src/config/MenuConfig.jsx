@@ -39,7 +39,7 @@ export const GET_MENU = (role) => {
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
           { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
           { title: 'Email Templates', path: '/templates', Icon: EmailIcon },
-          { title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
+          // { title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
           { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
           { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
           { title: 'Members', path: '/Members', Icon: PeopleIcon },
@@ -57,18 +57,18 @@ export const GET_MENU = (role) => {
       {
         category: 'REPORTS',
         items: [
-          { title: 'AI Scraping Jobs', path: '/reports/ai-scraping', Icon: SmartToyIcon },
+          // { title: 'AI Scraping Jobs', path: '/reports/ai-scraping', Icon: SmartToyIcon },
           { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
-          { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
-          { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
-          { title: 'Work Hours', path: '/reports/work-hours', Icon: HistoryIcon },
+          // { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
+          // { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
+          // { title: 'Work Hours', path: '/reports/work-hours', Icon: HistoryIcon },
           { title: 'Student Inquiry', path: '/reports/student-Inquiry', Icon: PeopleIcon },
         ],
       },
-      {
-        category: 'ADMIN TOOLS',
-        items: [{ title: 'AI Scraping Tool', path: '/ai-tool', Icon: SmartToyIcon }],
-      },
+      // {
+      //   category: 'ADMIN TOOLS',
+      //   items: [{ title: 'AI Scraping Tool', path: '/ai-tool', Icon: SmartToyIcon }],
+      // },
     ],
 
     'Accounting': [
