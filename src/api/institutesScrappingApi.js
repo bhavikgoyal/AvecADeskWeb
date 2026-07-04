@@ -22,6 +22,9 @@ function normalizeRecord(raw) {
     description: raw.description ?? raw.Description ?? '',
     countryRanking: raw.countryRanking ?? raw.CountryRanking ?? '',
     scholarshipsDetails: raw.scholarshipsDetails ?? raw.ScholarshipsDetails ?? '',
+    programDescription: raw.programDescription ?? raw.ProgramDescription ?? '',
+    programLogo: raw.programLogo ?? raw.ProgramLogo ?? '',
+    addmissionRequirements: raw.addmissionRequirements ?? raw.AddmissionRequirements ?? '',
   };
 }
 
