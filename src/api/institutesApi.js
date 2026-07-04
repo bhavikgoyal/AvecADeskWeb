@@ -1,10 +1,25 @@
 import axiosClient from './axiosClient';
 import { fetchVendors } from './lookupApi';
+import { fetchCommissionRates } from './commissionsApi';
 
 function formatInstituteAddress(institute) {
   const cityState = [institute.city, institute.state].filter(Boolean).join(' ');
   const parts = [institute.address, cityState].filter(Boolean);
   return parts.join(', ') || '—';
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function pickCurrentRate(rates) {
+  if (!rates.length) return null;
+  const sorted = [...rates].sort((a, b) => new Date(b.effectiveFrom) - new Date(a.effectiveFrom));
+  const active = sorted.find((r) => !r.effectiveTo || new Date(r.effectiveTo) >= new Date());
+  return active || sorted[0];
 }
 
 async function buildVendorNameMap() {
@@ -43,16 +58,23 @@ function normalizeInstitute(institute) {
 }
 
 export async function fetchInstituteRows() {
-  const [{ data }, vendorMap] = await Promise.all([
+  const [{ data }, vendorMap, allRates] = await Promise.all([
     axiosClient.get('/api/institutes/admin'),
     buildVendorNameMap(),
+    fetchCommissionRates().catch(() => []),
   ]);
 
   return data.map((raw) => {
     const institute = normalizeInstitute(raw);
+    const instituteRates = allRates.filter(
+      (r) => String(r.instituteId) === String(institute.instituteId),
+    );
+    const currentRate = pickCurrentRate(instituteRates);
+
     return {
       id: String(institute.instituteId),
       instituteId: institute.instituteId,
+      vendorId: institute.vendorId,
       vendorName: vendorMap[String(institute.vendorId)] || '—',
       instituteName: institute.instituteName,
       address: formatInstituteAddress(institute),
@@ -64,6 +86,11 @@ export async function fetchInstituteRows() {
       contactPhone: institute.contactPhone,
       isPublished: institute.isPublished ? 'Yes' : 'No',
       name: institute.instituteName,
+      rateType: currentRate?.rateType || '—',
+      rate: currentRate ? currentRate.rate : '—',
+      effectiveFrom: formatDate(currentRate?.effectiveFrom),
+      effectiveTo: currentRate?.effectiveTo ? formatDate(currentRate.effectiveTo) : '—',
+      commissionRates: instituteRates,
     };
   });
 }

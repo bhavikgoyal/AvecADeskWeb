@@ -1,14 +1,34 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert } from '@mui/material';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Tooltip,
+} from '@mui/material';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import { deleteInstitute, fetchInstituteRows } from '../../api/institutesApi';
+import { fetchCommissionHistory } from '../../api/commissionsApi';
 import { fetchPaymentSummary, formatCurrency } from '../../api/schedulesApi';
 import { deleteStudent, fetchEnrolmentRows, fetchStudentRows } from '../../api/studentsApi';
 import { deleteVendor, fetchVendorRows } from '../../api/vendorsApi';
 import PageShell from '../../components/PageShell';
+import ResponsiveTable from '../../components/ResponsiveTable';
 import { PAGE_CONFIG } from '../../config/pageConfig';
 import { getResourceConfig } from '../../config/resourceConfig';
 import { deleteRecord, loadRecords } from '../../utils/resourceStorage';
+import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
+
+function formatDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 function applyStudentSummary(baseStats, summary) {
   if (!baseStats?.length || !summary) return baseStats;
@@ -93,6 +113,14 @@ export default function ResourceListPage({ basePath }) {
   const [stats, setStats] = useState(pageStats);
   const [loading, setLoading] = useState(usesApi);
   const [error, setError] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  // Commission history dialog state (institutes only)
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const [historyRows, setHistoryRows] = useState([]);
+  const [historyInstituteName, setHistoryInstituteName] = useState('');
 
   const refreshRows = useCallback(async () => {
     if (usesApi) setLoading(true);
@@ -148,6 +176,11 @@ export default function ResourceListPage({ basePath }) {
     };
   }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, pageStats, usesApi]);
 
+  // Reset selection whenever the resource type or the underlying rows change
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [basePath, rows]);
+
   const handleDelete = useCallback(async (row) => {
     const label = row.fullName || row.businessName || row.instituteName || row.name || row.id;
     if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return;
@@ -172,6 +205,120 @@ export default function ResourceListPage({ basePath }) {
     }
   }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, refreshRows]);
 
+  // ---- Selection (institutes only) ----
+  const allSelected = isInstitutes && rows.length > 0 && selectedIds.length === rows.length;
+  const someSelected = isInstitutes && selectedIds.length > 0 && !allSelected;
+
+  const toggleRow = useCallback((id) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setSelectedIds((prev) => (prev.length === rows.length ? [] : rows.map((r) => r.id)));
+  }, [rows]);
+
+  // ---- Commission history (institutes only) ----
+  const openHistory = useCallback(async (row) => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    setHistoryError('');
+    setHistoryInstituteName(row.instituteName || 'Institute');
+
+    try {
+      const data = await fetchCommissionHistory(row.vendorId, row.instituteId);
+      setHistoryRows(data);
+    } catch (err) {
+      setHistoryError(err.message || 'Failed to load commission history.');
+      setHistoryRows([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
+    setHistoryRows([]);
+    setHistoryError('');
+  }, []);
+
+  const columnsWithSelect = useMemo(() => {
+    if (!isInstitutes || !resource) return resource?.columns ?? [];
+    return [
+      {
+        id: '__select__',
+        label: (
+          <Checkbox
+            size="small"
+            checked={allSelected}
+            indeterminate={someSelected}
+            onChange={toggleAll}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+        align: 'center',
+        headerSx: { width: 44, px: 0.5 },
+        cellSx: { width: 44, px: 0.5 },
+        render: (row) => (
+          <Checkbox
+            size="small"
+            checked={selectedIds.includes(row.id)}
+            onChange={() => toggleRow(row.id)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+      },
+      ...resource.columns,
+      {
+        id: '__history__',
+        label: 'History',
+        align: 'center',
+        headerSx: { width: 90 },
+        render: (row) => (
+          <Button
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              openHistory(row);
+            }}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
+          >
+            History
+          </Button>
+        ),
+      },
+    ];
+  }, [isInstitutes, resource, selectedIds, allSelected, someSelected, toggleAll, toggleRow, openHistory]);
+
+  const handleExportPdf = useCallback(() => {
+    const selectedRows = rows.filter((r) => selectedIds.includes(r.id));
+    if (!selectedRows.length) return;
+    exportInstituteCommissionPdf(selectedRows);
+  }, [rows, selectedIds]);
+
+  const headerExtra = isInstitutes ? (
+    <Tooltip title={selectedIds.length === 0 ? 'Select at least one institute' : ''}>
+      <span>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<PictureAsPdfOutlinedIcon />}
+          onClick={handleExportPdf}
+          disabled={selectedIds.length === 0}
+          sx={{
+            textTransform: 'none',
+            height: 40,
+            borderRadius: 2,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            px: 2,
+          }}
+        >
+          Export PDF{selectedIds.length ? ` (${selectedIds.length})` : ''}
+        </Button>
+      </span>
+    </Tooltip>
+  ) : null;
+
   if (!resource || !page) return null;
 
   return (
@@ -185,16 +332,51 @@ export default function ResourceListPage({ basePath }) {
         title={page.title}
         subtitle={page.subtitle}
         stats={stats}
-        showCharts={page.showCharts !== false}
-        columns={resource.columns}
+        showCharts={basePath !== '/institutes'}
+        columns={columnsWithSelect}
         rows={loading ? [] : rows}
         actionLabel={resource.actionLabel}
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
-        showCharts={basePath !== '/institutes'}
+        headerExtra={headerExtra}
         onAdd={() => navigate(`${basePath}/new`)}
         onRowClick={(row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })}
         onDelete={handleDelete}
       />
+
+      {isInstitutes && (
+        <Dialog open={historyOpen} onClose={closeHistory} fullWidth maxWidth="md">
+          <DialogTitle>Commission History — {historyInstituteName}</DialogTitle>
+          <DialogContent>
+            {historyError && (
+              <Alert severity="error" sx={{ mb: 1.5 }}>
+                {historyError}
+              </Alert>
+            )}
+            {historyLoading ? (
+              <Alert severity="info" sx={{ mb: 1.5 }}>
+                Loading history...
+              </Alert>
+            ) : historyRows.length === 0 && !historyError ? (
+              <Alert severity="info">No commission history for this institute yet.</Alert>
+            ) : (
+              <ResponsiveTable
+                columns={[
+                  { id: 'rateType', label: 'Rate Type', field: 'rateType' },
+                  { id: 'rate', label: 'Rate', field: 'rate' },
+                  { id: 'effectiveFrom', label: 'From', render: (r) => formatDate(r.effectiveFrom) },
+                  { id: 'effectiveTo', label: 'To', render: (r) => formatDate(r.effectiveTo) },
+                ]}
+                rows={historyRows}
+                getRowKey={(row) => row.commissionId}
+                alwaysTable
+              />
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeHistory}>Close</Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   );
 }
