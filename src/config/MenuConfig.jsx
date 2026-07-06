@@ -34,7 +34,8 @@ export const GET_MENU = (role) => {
         category: 'MANAGEMENT',
         items: [
           { title: 'Vendor Commission', path: '/vendors', Icon: StoreIcon },
-          { title: 'Institute Commission', path: '/institutes', Icon: AccountBalanceIcon },
+          { title: 'Institute Commission old', path: '/institutes', Icon: AccountBalanceIcon },
+          { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institutes Scrapping', path: '/institutes-scrapping', Icon: TravelExploreIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },

@@ -24,6 +24,7 @@ const NewResourcePage = lazy(() => import('../pages/resources/NewResourcePage'))
 const NewStudentPage = lazy(() => import('../pages/resources/NewStudentPage'));
 const NewInstitutePage = lazy(() => import('../pages/resources/NewInstitutePage'));
 const InstituteDetailPage = lazy(() => import('../pages/resources/InstituteDetailPage'));
+const InstituteCommissionPage = lazy( () => import('../pages/resources/InstituteCommissionPage'));
 const NewVendorPage = lazy(() => import('../pages/resources/NewVendorPage'));
 const VendorDetailPage = lazy(() => import('../pages/resources/VendorDetailPage'));
 const NewEnrolmentPage = lazy(() => import('../pages/resources/NewEnrolmentPage'));
@@ -282,6 +283,14 @@ export default function AppRoutes() {
           <Route path="agreement-template/new" element={<AgreementTemplateForm />} />
           <Route path="agreement-template/:id/view" element={<AgreementTemplateView />} />
           <Route path="agreement-template/:id/edit" element={<AgreementTemplateForm />} />
+          <Route
+  path="institute-commission"
+  element={
+    <RequireRole path="/institutes">
+      <InstituteCommissionPage />
+    </RequireRole>
+  }
+/>
          
         </Route>
 
