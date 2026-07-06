@@ -59,3 +59,24 @@ export async function vendorLoginWithApi(vendorCode) {
   const { data } = await axiosClient.post('/api/auth/vendor-login', { vendorCode });
   return applyAuthResponse(data, '');
 }
+
+export async function registerStudent(registerData) {
+  const { data } = await axiosClient.post(
+    '/api/auth/register',
+    registerData
+  );
+
+  return data;
+}
+
+export async function verifyEmail(email, verificationCode) {
+  const { data } = await axiosClient.post(
+    '/api/auth/verify-email',
+    {
+      email,
+      verificationCode,
+    }
+  );
+
+  return data;
+}
