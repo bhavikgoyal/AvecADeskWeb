@@ -54,7 +54,7 @@ export async function createVendorCommissionRate(vendorId, form) {
 export async function createInstituteCommissionRate(form) {
   try {
     const { data } = await axiosClient.post(
-      '/api/commissions/institute',
+      `/api/commissions/institute/${form.instituteId}`,
       toApiPayload(form)
     );
 

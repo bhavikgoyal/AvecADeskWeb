@@ -286,7 +286,7 @@ export default function AppRoutes() {
           <Route
   path="institute-commission"
   element={
-    <RequireRole path="/institutes">
+    <RequireRole path="/institute-commission">
       <InstituteCommissionPage />
     </RequireRole>
   }
