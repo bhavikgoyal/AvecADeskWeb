@@ -353,14 +353,7 @@ export default function ResourceListPage({ basePath }) {
         title={page.title}
         subtitle={page.subtitle}
         stats={stats}
-        showCharts={isTemplates ? false : (page.showCharts !== false)}
-        columns={resource.columns}
-        rows={loading ? [] : rows}
-        actionLabel={resource.actionLabel}
-        searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
-        // explicitly hide charts for templates
-        showCharts={isTemplates ? false : (basePath !== '/institutes')}
-        showCharts={basePath !== '/institutes'}
+        showCharts={!isTemplates && (page.showCharts !== false)}
         columns={columnsWithSelect}
         rows={loading ? [] : rows}
         actionLabel={resource.actionLabel}
