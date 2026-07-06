@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+ import axiosClient from './axiosClient';
 
 export function formatCurrency(amount) {
   const num = Number(amount) || 0;
@@ -17,12 +17,20 @@ export function formatDisplayDate(value) {
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
- 
+
 export function toDateInputValue(value) {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toISOString().slice(0, 10);
+}
+
+function extractErrorMessage(err, fallback) {
+  const body = err?.response?.data;
+  if (typeof body === 'string' && body.trim()) return body;
+  if (body?.message) return body.message;
+  if (body?.title) return body.title;
+  return err?.message || fallback;
 }
 
 export async function fetchPaymentSummary() {
@@ -49,22 +57,17 @@ function normalizeSchedule(schedule) {
   };
 }
 
-/**
- * Fetch all payment schedules, optionally filtered to a single student.
- * Maps StudentId -> studentName/instituteName using the student list, since
- * GET /api/schedules itself only returns schedule rows (no student fields).
- */
 export async function fetchScheduleRows(studentId) {
   const params = studentId ? { studentId } : undefined;
   const [{ data: schedules }, { data: students }] = await Promise.all([
     axiosClient.get('/api/schedules', { params }),
     axiosClient.get('/api/students'),
   ]);
- 
+
   const studentMap = new Map(
     students.map((s) => [s.studentId ?? s.StudentId, s]),
   );
- 
+
   return schedules.map((raw) => {
     const schedule = normalizeSchedule(raw);
     const student = studentMap.get(schedule.studentId);
@@ -76,47 +79,54 @@ export async function fetchScheduleRows(studentId) {
     };
   });
 }
- 
-export async function createPaymentSchedule({ studentId, dueDate, amountDue, notes,fees,commission }) {
+
+export async function createPaymentSchedule({ studentId, dueDate, amountDue, notes, fees, commission }) {
   if (!studentId) throw new Error('Please select a student');
   if (!dueDate) throw new Error('Due date is required');
   const due = Number(amountDue);
   if (Number.isNaN(due) || due < 0) throw new Error('Amount due must be zero or greater');
- 
-  const { data } = await axiosClient.post('/api/schedules', {
-    studentId,
-    dueDate,
-    amountDue,
-    notes: notes?.trim() || null,
-    fees,
-    commission,
-    
-  });
-  return normalizeSchedule(data);
+
+  try {
+    const { data } = await axiosClient.post('/api/schedules', {
+      studentId,
+      dueDate,
+      amountDue,
+      notes: notes?.trim() || null,
+      fees,
+      commission,
+    });
+    return normalizeSchedule(data);
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Failed to create payment schedule.'), { cause: err });
+  }
 }
- 
+
 export async function updatePaymentScheduleStatus(scheduleId, status, amountPaid) {
-  const { data } = await axiosClient.put(`/api/schedules/${scheduleId}/status`, {
-    status,
-    amountPaid: status === 'Pending' ? null : (amountPaid ?? 0),
-  });
-  return normalizeSchedule(data);
+  try {
+    const { data } = await axiosClient.put(`/api/schedules/${scheduleId}/status`, {
+      status,
+      amountPaid: status === 'Partial' ? amountPaid : null,
+    });
+    return normalizeSchedule(data);
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Failed to update schedule status.'), { cause: err });
+  }
 }
- 
-/**
- * Bulk-update status for several schedules at once.
- * items: [{ scheduleId, status, amountPaid }]
- */
+
+
 export async function bulkUpdatePaymentScheduleStatus(items) {
   if (!items?.length) throw new Error('Select at least one schedule to update');
- 
-  const { data } = await axiosClient.post('/api/schedules/bulk-status', {
-    items: items.map((item) => ({
-      scheduleId: item.scheduleId,
-      status: item.status,
-      amountPaid: item.status === 'Pending' ? null : (item.amountPaid ?? 0),
-    })),
-  });
-  return data; // { updatedCount, message }
+
+  try {
+    const { data } = await axiosClient.post('/api/schedules/bulk-status', {
+      items: items.map((item) => ({
+        scheduleId: item.scheduleId,
+        status: item.status,
+        amountPaid: item.status === 'Partial' ? item.amountPaid : null,
+      })),
+    });
+    return data;
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, 'Failed to update the selected schedules.'), { cause: err });
+  }
 }
- 
