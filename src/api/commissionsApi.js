@@ -34,21 +34,23 @@ export async function fetchVendorCommissionRates(vendorId) {
   return fetchCommissionRates(vendorId);
 }
 
-// export async function createVendorCommissionRate(vendorId, form) {
-//   try {
-//     const { data } = await axiosClient.post(
-//       `/api/commissions/vendor/${vendorId}`, 
-//       toApiPayload(form)
-//     );
-//     return normalizeCommissionRate(data);
-//   } catch (err) {
-//   const message =
-//     typeof err.response?.data === 'string'
-//       ? err.response.data
-//       : err.message || 'Failed to create commission rate';
+export async function createVendorCommissionRate(vendorId, form) {
+  try {
+    const { data } = await axiosClient.post(
+      `/api/commissions/vendor/${vendorId}`,
+      toApiPayload(form),
+    );
+    return normalizeCommissionRate(data);
+  } catch (err) {
+    const message =
+      typeof err.response?.data === 'string'
+        ? err.response.data
+        : err.message || 'Failed to create commission rate';
 
-//   throw new Error(message, { cause: err });
-// }}
+    throw new Error(message);
+  }
+}
+
 export async function createInstituteCommissionRate(form) {
   try {
     const { data } = await axiosClient.post(

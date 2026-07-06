@@ -126,8 +126,8 @@ useEffect(() => {
 }
     } catch {
       if (active) {
-    setDialogCourses(data?.courses ?? []);
-}
+        setDialogCourses([]);
+      }
     }
   };
 
