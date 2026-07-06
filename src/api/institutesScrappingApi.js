@@ -12,7 +12,7 @@ function normalizeRecord(raw) {
     programLink: raw.programLink ?? raw.ProgramLink ?? '',
     cricosCode: raw.cricosCode ?? raw.CricosCode ?? '',
     duration: raw.duration ?? raw.Duration ?? '',
-    intake: raw.intake ?? raw.Intake ?? '',
+    intake: raw.intake ?? raw.Intake ?? '', 
     feesYearly: raw.feesYearly ?? raw.FeesYearly ?? '',
     englishReq: raw.englishReq ?? raw.EnglishReq ?? '',
     name: raw.name ?? raw.Name ?? '',
