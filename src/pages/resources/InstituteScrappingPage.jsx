@@ -3,6 +3,7 @@ import {
   Alert,
   Backdrop,
   Box,
+  Button,
   CircularProgress,
   Link,
   Paper,
@@ -13,15 +14,22 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   FormActions,
   FormPageLayout,
   FormSectionsLayout,
   formPaperSx,
 } from '../../components/forms';
-import { fetchInstituteScrappingRows, runInstituteScrapping } from '../../api/institutesScrappingApi';
+import {
+  exportInstituteScrappingExcel,
+  fetchInstituteScrappingRows,
+  runInstituteScrapping,
+} from '../../api/institutesScrappingApi';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
 
 const BASE_PATH = '/institutes-scrapping';
@@ -69,15 +77,18 @@ export default function InstituteScrappingPage() {
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState('');
   const [rows, setRows] = useState([]);
+  const [instituteNameFilter, setInstituteNameFilter] = useState('');
+  const [appliedInstituteNameFilter, setAppliedInstituteNameFilter] = useState('');
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  const loadList = useCallback(async () => {
+  const loadList = useCallback(async (instituteName = appliedInstituteNameFilter) => {
     setListLoading(true);
     setListError('');
 
     try {
-      const data = await fetchInstituteScrappingRows();
+      const data = await fetchInstituteScrappingRows({ instituteName });
       setRows(data);
     } catch (err) {
       setListError(err.message || 'Failed to load institute scrapping records.');
@@ -85,7 +96,7 @@ export default function InstituteScrappingPage() {
     } finally {
       setListLoading(false);
     }
-  }, []);
+  }, [appliedInstituteNameFilter]);
 
   useEffect(() => {
     loadList();
@@ -95,6 +106,36 @@ export default function InstituteScrappingPage() {
     () => rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
     [rows, page, rowsPerPage],
   );
+
+  const handleInstituteNameFilterChange = (event) => {
+    setInstituteNameFilter(event.target.value);
+  };
+
+  const handleApplyFilter = async () => {
+    setAppliedInstituteNameFilter(instituteNameFilter.trim());
+    setPage(0);
+    await loadList(instituteNameFilter.trim());
+  };
+
+  const handleClearFilter = async () => {
+    setInstituteNameFilter('');
+    setAppliedInstituteNameFilter('');
+    setPage(0);
+    await loadList('');
+  };
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    setListError('');
+
+    try {
+      await exportInstituteScrappingExcel({ instituteName: appliedInstituteNameFilter });
+    } catch (err) {
+      setListError(err.message || 'Failed to export institute scrapping records.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (!resource) return null;
 
@@ -225,14 +266,78 @@ export default function InstituteScrappingPage() {
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
               <CircularProgress size={36} sx={{ color: 'var(--primary)' }} />
             </Box>
-          ) : rows.length === 0 ? (
-            <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
-              <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
-                No scrapping records yet. Use the form above to scrape an institute website.
-              </Typography>
-            </Box>
           ) : (
             <>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'space-between',
+                  gap: 2,
+                  flexWrap: 'wrap',
+                  px: 2,
+                  py: 2,
+                  borderBottom: '1px solid var(--card-border)',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'wrap', flex: 1 }}>
+                  <TextField
+                    label="Institute name"
+                    placeholder="Filter by institute name"
+                    size="small"
+                    value={instituteNameFilter}
+                    onChange={handleInstituteNameFilterChange}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        handleApplyFilter();
+                      }
+                    }}
+                    sx={{ minWidth: 240, maxWidth: 360 }}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<SearchIcon />}
+                    onClick={handleApplyFilter}
+                    sx={{ textTransform: 'none', height: 40 }}
+                  >
+                    Search
+                  </Button>
+                  {appliedInstituteNameFilter && (
+                    <Button
+                      variant="text"
+                      size="small"
+                      onClick={handleClearFilter}
+                      sx={{ textTransform: 'none', height: 40 }}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  color="success"
+                  startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <TableChartIcon />}
+                  onClick={handleExportExcel}
+                  disabled={exporting || rows.length === 0}
+                  sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                >
+                  Export to Excel
+                </Button>
+              </Box>
+
+              {rows.length === 0 ? (
+                <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
+                    {appliedInstituteNameFilter
+                      ? 'No records match the institute name filter.'
+                      : 'No scrapping records yet. Use the form above to scrape an institute website.'}
+                  </Typography>
+                </Box>
+              ) : (
+              <>
               <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
                 <Table size="small" sx={{ minWidth: 1400 }}>
                   <TableHead>
@@ -270,6 +375,8 @@ export default function InstituteScrappingPage() {
                 rowsPerPageOptions={[5, 10, 25, 50]}
                 labelRowsPerPage="Rows per page:"
               />
+              </>
+              )}
             </>
           )}
         </Paper>
