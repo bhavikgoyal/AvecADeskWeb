@@ -259,6 +259,8 @@ export default function AppRoutes() {
               </RequireRole>
             }
           />
+          <Route  path="institute-commission" element={ 
+            <RequireRole path="/institute-commission"> <InstituteCommissionPage /> </RequireRole> }/>
           {LIST_RESOURCE_PATHS.map((path) => (
             <Route key={`${path}-new`} path={`${path}/new`} element={<GuardedNewResource path={`/${path}`} />}
             />
@@ -283,14 +285,7 @@ export default function AppRoutes() {
           <Route path="agreement-template/new" element={<AgreementTemplateForm />} />
           <Route path="agreement-template/:id/view" element={<AgreementTemplateView />} />
           <Route path="agreement-template/:id/edit" element={<AgreementTemplateForm />} />
-          <Route
-  path="institute-commission"
-  element={
-    <RequireRole path="/institute-commission">
-      <InstituteCommissionPage />
-    </RequireRole>
-  }
-/>
+          
          
         </Route>
 

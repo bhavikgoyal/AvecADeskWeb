@@ -100,7 +100,7 @@ function ScheduleRow({ row, selected, onToggleSelect, draft, onDraftChange, onSa
       </td>
       <td style={{ padding: '8px 12px' }}>{row.studentName}</td>
       <td style={{ padding: '8px 12px' }}>{formatDisplayDate(row.dueDate)}</td>
-      <td style={{ padding: '8px 12px', textAlign: 'right' }}>{formatCurrency(row.amountDue)}</td>
+      <td style={{ padding: '8px 12px', textAlign: 'right' }}>${Number(row.amountDue)}</td>
       <td style={{ padding: '8px 12px' }}>
         <TextField
           type="number"
