@@ -26,10 +26,10 @@ export default function NewStudentPage({ basePath }) {
   const [showSaveFirst, setShowSaveFirst] = useState(false);
   const [gstPercentage, setGstPercentage] = useState(0);
 
-const handleTabChange = (_, value) => {
-  setShowSaveFirst(false);
-  setActiveTab(value);
-};
+  const handleTabChange = (_, value) => {
+    setShowSaveFirst(false);
+    setActiveTab(value);
+  };
 
   useEffect(() => {
     let active = true;
@@ -55,16 +55,16 @@ const handleTabChange = (_, value) => {
       return undefined;
     }
 
-  fetchCoursesByInstitute(form.instituteId)
-    .then((data) => {
-      if (active) {
-        setCourses(data.courses);
-        setGstPercentage(data.gstPercentage);
-      }
-    })
-    .catch((err) => {
-      if (active) setLoadError(err.message || 'Failed to load courses.');
-    });
+    fetchCoursesByInstitute(form.instituteId)
+      .then((data) => {
+        if (active) {
+          setCourses(data.courses);
+          setGstPercentage(data.gstPercentage);
+        }
+      })
+      .catch((err) => {
+        if (active) setLoadError(err.message || 'Failed to load courses.');
+      });
 
     return () => {
       active = false;
@@ -88,99 +88,92 @@ const handleTabChange = (_, value) => {
   if (!resource) return null;
 
   const updateField = (field, value) => {
-  setForm((prev) => {
-    const next = { ...prev, [field]: value };
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
 
-    if (field === "instituteId" && value !== prev.instituteId) {
-      next.courseId = "";
-      next.courseFee = "";
+      if (field === "instituteId" && value !== prev.instituteId) {
+        next.courseId = "";
+        next.courseFee = "";
 
-      next.commissionRate = 0;
-      next.rateType = "";
-      next.gstPercentage = gstPercentage;
-      next.bonus = "";
+        next.commissionRate = 0;
+        next.rateType = "";
+        next.gstPercentage = gstPercentage;
+        next.bonus = "";
 
-      next.commissionAmount = 0;
-      next.gstAmount = 0;
-      next.invoiceAmount = 0;
-      next.grandTotal = 0;
+        next.commissionAmount = 0;
+        next.gstAmount = 0;
+        next.invoiceAmount = 0;
+        next.grandTotal = 0;
 
-      next.amountDue = "";
-    }
-
-    if (field === "courseId") {
-      const selectedCourse = courses.find(
-        (c) => String(c.courseId) === String(value)
-      );
-      next.courseFee = selectedCourse?.fees ?? "";
-      next.amountDue = selectedCourse?.fees ?? "";
-
-      next.commissionRate = selectedCourse?.commissionRate ?? 0;
-      next.rateType = selectedCourse?.rateType ?? "";
-      if (next.rateType === "Percentage") {
-          next.commissionPercentage = next.commissionRate;
-      } else {
-          next.commissionPercentage = "";
-      }
-      // GST API / appsettings માંથી આવશે
-      next.gstPercentage = gstPercentage;
-
-      // Bonus manually ભરશો
-      next.bonus = "";
-
-      const fee = Number(next.courseFee);
-
-      let commission = 0;
-
-      if (next.rateType === "Percentage") {
-        commission =
-          (fee * Number(next.commissionRate)) / 100;
-      } else if (next.rateType === "Fixed") {
-        commission = Number(next.commissionRate);
+        next.amountDue = "";
       }
 
-      const gst =
-        (commission * Number(next.gstPercentage)) / 100;
+      if (field === "courseId") {
+        const selectedCourse = courses.find(
+          (c) => String(c.courseId) === String(value)
+        );
 
-      const invoice =
-        commission + gst + Number(next.bonus || 0);
+        next.courseFee = selectedCourse?.fees ?? "";
+        next.amountDue = selectedCourse?.fees ?? "";
 
-      const grandTotal = fee + invoice;
+        next.commissionRate = Number(selectedCourse?.commissionRate ?? 0);
+        next.rateType = selectedCourse?.rateType ?? "";
 
-      next.commissionAmount = commission.toFixed(2);
-      next.gstAmount = gst.toFixed(2);
-      next.invoiceAmount = invoice.toFixed(2);
-      next.grandTotal = grandTotal.toFixed(2);
+        next.commissionPercentage =
+          next.rateType === "Percentage"
+            ? next.commissionRate
+            : "";
+
+        next.gstPercentage = Number(gstPercentage ?? 0);
+        next.bonus = 0;
+
+        calculateAmounts(next);
+      }
+
+      if (
+        field === "bonus" ||
+        field === "commissionPercentage" ||
+        field === "gstPercentage"
+      ) {
+        if (field === "commissionPercentage") {
+          next.commissionPercentage = Number(value || 0);
+        }
+
+        if (field === "gstPercentage") {
+          next.gstPercentage = Number(value || 0);
+        }
+
+        calculateAmounts(next);
+      }
+      return next;
+    });
+
+    if (error) setError("");
+    if (loadError) setLoadError("");
+  };
+
+  const calculateAmounts = (next) => {
+    const fee = Number(next.courseFee || 0);
+
+    let commission = 0;
+
+    if (next.rateType === "Percentage") {
+      commission = (fee * Number(next.commissionPercentage || 0)) / 100;
+    } else if (next.rateType === "Fixed") {
+      commission = Number(next.commissionRate || 0);
     }
-if (field === "bonus") {
 
-  const fee = Number(next.courseFee || 0);
-  const commission = Number(next.commissionAmount || 0);
-  const gst = Number(next.gstAmount || 0);
-  const bonus = Number(value || 0);
+    const gst = (commission * Number(next.gstPercentage || 0)) / 100;
+    const bonus = Number(next.bonus || 0);
 
-  const invoice = commission + gst + bonus;
-  const grandTotal = fee + invoice;
+    const invoice = commission + gst + bonus;
+    const grandTotal = fee + invoice;
 
-  next.invoiceAmount = invoice.toFixed(2);
-  next.grandTotal = grandTotal.toFixed(2);
-}
-    if (field === "amountDue" || field === "amountPaid") {
-      const due =
-        field === "amountDue" ? value : prev.amountDue;
-
-      const paid =
-        field === "amountPaid" ? value : prev.amountPaid;
-
-      next.paymentStatus = derivePaymentStatus(due, paid);
-    }
-
-    return next;
-  });
-
-  if (error) setError("");
-  if (loadError) setLoadError("");
-};
+    next.commissionAmount = commission.toFixed(2);
+    next.gstAmount = gst.toFixed(2);
+    next.invoiceAmount = invoice.toFixed(2);
+    next.grandTotal = grandTotal.toFixed(2);
+  };
 
   const handleCreate = async () => {
     if (submittingRef.current) return;
@@ -190,6 +183,11 @@ if (field === "bonus") {
     setError('');
 
     try {
+       if (!form.dueDate) {
+        setError("Due date is required.");
+        return;
+      }
+
       const student = await createStudentWithPaymentSchedule(form);
       await createPaymentSchedule({
         studentId: student.studentId,
@@ -198,7 +196,7 @@ if (field === "bonus") {
         fees: Number(form.courseFee),
         commission: Number(form.commissionAmount),
         notes: form.notes
-    });
+      });
       alert('Student created successfully.');
       navigate(basePath);
     } catch (err) {
@@ -211,8 +209,8 @@ if (field === "bonus") {
 
 
   return (
-      <FormPageLayout title={`Add new ${resource.singular.toLowerCase()}`}>
-       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
+    <FormPageLayout title={`Add new ${resource.singular.toLowerCase()}`}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
           <Tab label="Student Details" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab label="Payment Schedule" sx={{ textTransform: 'none', fontWeight: 600 }} />
@@ -225,36 +223,36 @@ if (field === "bonus") {
             {error || loadError}
           </Alert>
         )}
-    {activeTab === 0 && (
-  <>
-    <FormSectionsLayout
-      sections={[resource.sections[0]]}
-      form={form}
-      onChange={updateField}
-      selectOptions={selectOptions}
-      requiredFields={resource.requiredFields}
-      
-    />
-  </>
-)}
+        {activeTab === 0 && (
+          <>
+            <FormSectionsLayout
+              sections={[resource.sections[0]]}
+              form={form}
+              onChange={updateField}
+              selectOptions={selectOptions}
+              requiredFields={resource.requiredFields}
 
-{activeTab === 1 && (
-  <>
-    <FormSectionsLayout
-      sections={[resource.sections[1], resource.sections[2]]}
-      form={form}
-      onChange={updateField}
-      selectOptions={selectOptions}
-      requiredFields={resource.requiredFields}
-    />
-    <FormActions
-      onCancel={() => navigate(basePath)}
-      onSubmit={handleCreate}
-      submitLabel={submitting ? 'Saving...' : 'Save Student'}
-      submitDisabled={!isFormValid(resource, form) || submitting}
-    />
-  </>
-)}
+            />
+          </>
+        )}
+
+        {activeTab === 1 && (
+          <>
+            <FormSectionsLayout
+              sections={[resource.sections[1], resource.sections[2]]}
+              form={form}
+              onChange={updateField}
+              selectOptions={selectOptions}
+              requiredFields={resource.requiredFields}
+            />
+            <FormActions
+              onCancel={() => navigate(basePath)}
+              onSubmit={handleCreate}
+              submitLabel={submitting ? 'Saving...' : 'Save Student'}
+              submitDisabled={!isFormValid(resource, form) || submitting}
+            />
+          </>
+        )}
       </Paper>
     </FormPageLayout>
   );

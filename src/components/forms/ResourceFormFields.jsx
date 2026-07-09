@@ -73,7 +73,7 @@ export default function ResourceFormFields({
                   ? (selected) => {
                       if (!selected) {
                         const placeholder = options.length === 0
-                          ? `Loading ${def.label.toLowerCase()}...`
+                          ? `No ${def.label.toLowerCase()} available `
                           : `Select ${def.label.toLowerCase()}`;
                         return (
                           <Box component="span" sx={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
