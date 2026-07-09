@@ -42,9 +42,50 @@ function toRequestBody(form) {
   };
 }
 
-export async function fetchInstituteScrappingRows() {
-  const { data } = await axiosClient.get('/api/institutes-scrapping');
+function buildFilterParams({ instituteName } = {}) {
+  const params = {};
+  const trimmedName = (instituteName || '').trim();
+  if (trimmedName) params.instituteName = trimmedName;
+  return params;
+}
+
+function triggerBlobDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function getFilenameFromDisposition(disposition, fallback) {
+  if (!disposition) return fallback;
+  const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(disposition);
+  return match?.[1]?.trim().replace(/['"]/g, '') || fallback;
+}
+
+export async function fetchInstituteScrappingRows({ instituteName } = {}) {
+  const { data } = await axiosClient.get('/api/institutes-scrapping', {
+    params: buildFilterParams({ instituteName }),
+  });
   return (data ?? []).map((raw) => mapRow(normalizeRecord(raw)));
+}
+
+export async function exportInstituteScrappingExcel({ instituteName } = {}) {
+  const response = await axiosClient.get('/api/institutes-scrapping/export', {
+    params: buildFilterParams({ instituteName }),
+    responseType: 'blob',
+  });
+
+  const filename = getFilenameFromDisposition(
+    response.headers['content-disposition'],
+    `institute-scrap-list-${new Date().toISOString().slice(0, 10)}.xlsx`,
+  );
+  const blob = new Blob([response.data], {
+    type: response.headers['content-type']
+      || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  triggerBlobDownload(blob, filename);
 }
 
 function validateScrapeForm(form) {
