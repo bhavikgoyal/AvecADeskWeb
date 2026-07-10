@@ -8,7 +8,7 @@ import { getDefaultRoute } from '../utils/rbac';
 import { isSeedRecordId } from '../utils/recordId';
 import { getAuthToken } from '../api/axiosClient';
 
-const API_DETAIL_PATHS = new Set(['/students', '/institutes', '/vendors']);
+const API_DETAIL_PATHS = new Set(['/students', '/institutes', '/vendors', '/courses']);
 
 const LoginForm = lazy(() => import('../pages/Login/LoginForm'));
 const OtpLoginForm = lazy(() => import('../pages/Login/OtpLoginForm'));
@@ -47,6 +47,8 @@ const StudentApplicationDetailsPage = lazy(() => import('../pages/resources/Stud
 const AgreementTemplate = lazy(() => import('../pages/AgreementTemplate/AgreementTemplate'));
 const AgreementTemplateForm = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateForm'));
 const AgreementTemplateView = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateView'));
+const NewCoursePage = lazy(() => import('../pages/resources/NewCoursePage'));
+const CourseDetailPage = lazy(() => import('../pages/resources/CourseDetailPage'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
@@ -140,7 +142,13 @@ function GuardedNewResource({ path }) {
       </RequireRole>
     );
   }
-
+  if (path === '/courses') {              
+    return (
+      <RequireRole path={path}>
+        <NewCoursePage basePath={path} />
+      </RequireRole>
+    );
+  }
   if (path === '/status/students') {
     return (
       <RequireRole path={path}>
@@ -198,7 +206,13 @@ function GuardedResourceDetail({ path }) {
       </RequireRole>
     );
   }
-
+ if (path === '/courses') {            
+    return (
+      <RequireRole path={path}>
+        <CourseDetailPage basePath={path} />
+      </RequireRole>
+    );
+  }
   return (
     <RequireRole path={path}>
       <ResourceDetailPage basePath={path} />

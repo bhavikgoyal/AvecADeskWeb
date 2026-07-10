@@ -26,32 +26,33 @@ export default function StudentLoginForm() {
   const { login } = useAuth();
   const STUDENT_PORTAL_URL = import.meta.env.VITE_STUDENT_PORTAL_URL || 'http://localhost:5173';
 
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSubmitting(true);
+  e.preventDefault();
+  setError('');
+  setSubmitting(true);
 
-    try {
-      const apiStudent = await studentLoginWithApi(email, password);
-      login(apiStudent);
-      const params = new URLSearchParams({
-        token: apiStudent.token,
-        studentId: apiStudent.id,
-        email: apiStudent.email,
-        firstName: apiStudent.firstName,
-        lastName: apiStudent.lastName,
-      });
+  try {
+    const apiStudent = await studentLoginWithApi(email, password);
 
-      window.location.href = `${STUDENT_PORTAL_URL}/colleges?${params.toString()}`;
-    } catch (err) {
-      setError(
-        err.message === 'Request failed'
-          ? 'Cannot reach AvecADeskApi. Make sure the API is running and try again.'
-          : err.message || 'Invalid email or password.',
-      );
-      setSubmitting(false);
-    }
-  };
+    const params = new URLSearchParams({
+      token: apiStudent.token,
+      studentId: apiStudent.id,
+      email: apiStudent.email,
+      firstName: apiStudent.firstName,
+      lastName: apiStudent.lastName,
+    });
+
+    window.location.href = `${STUDENT_PORTAL_URL}/colleges?${params.toString()}`;
+  } catch (err) {
+    setError(
+      err.message === 'Request failed'
+        ? 'Cannot reach AvecADeskApi. Make sure the API is running and try again.'
+        : err.message || 'Invalid email or password.',
+    );
+    setSubmitting(false);
+  }
+};
   return (
     <LoginSplitLayout>
       <Typography sx={{ fontSize: { xs: '1.75rem', sm: '3rem' }, fontWeight: 700, color: '#0f172a', mb: 1.5, lineHeight: 1.15 }}>
