@@ -89,6 +89,7 @@ export default function RegisterForm() {
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [registerLoading, setRegisterLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -96,10 +97,19 @@ export default function RegisterForm() {
   });
   const navigate = useNavigate();
 
-  const updateField = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
-  };
+  // const updateField = (field) => (e) => {
+  //   setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  // };
+const updateField = (field) => (e) => {
+  if (field === "email") {
+    setEmailError("");
+  }
 
+  setForm((prev) => ({
+    ...prev,
+    [field]: e.target.value,
+  }));
+};
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -192,14 +202,37 @@ export default function RegisterForm() {
         setOpenVerificationDialog(true);
       }
     } catch (error) {
-      console.error(error);
+  console.log(error.response?.data);
 
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || "Registration failed.",
-        severity: "error",
-      });
-    } finally {
+  const data = error.response?.data;
+
+  const message =
+    data?.message ||
+    data?.error ||
+    data?.msg ||
+    error.message ||
+    "";
+
+  if (message.toLowerCase().includes("email")) {
+    setEmailError("Email already exists.");
+
+    setSnackbar({
+      open: true,
+      message: "Email already exists.",
+      severity: "warning",
+    });
+
+    return;
+  }
+
+  setSnackbar({
+    open: true,
+    message: message || "Registration failed.",
+    severity: "error",
+  });
+}
+
+     finally {
       setRegisterLoading(false);
     }
   };
@@ -229,7 +262,7 @@ export default function RegisterForm() {
 
         setVerificationCode("");
 
-        navigate("/login");
+        navigate("/student-login"); 
       }
     } catch (error) {
       setSnackbar({
@@ -356,19 +389,25 @@ export default function RegisterForm() {
           >
             Email Address
           </Typography>
-          <TextField
-            id="register-email"
-            fullWidth
-            type="email"
-            name="email"
-            autoComplete="email"
-            placeholder="Enter your email address"
-            value={form.email}
-            onChange={updateField("email")}
-            required
-            sx={loginFieldSx}
-            slotProps={{ input: { sx: { px: 1.875 } } }}
-          />
+      <TextField
+  id="register-email"
+  fullWidth
+  type="email"
+  name="email"
+  autoComplete="email"
+  placeholder="Enter your email address"
+  value={form.email}
+  onChange={updateField("email")}
+  error={!!emailError}
+  helperText={emailError}
+  required
+  sx={loginFieldSx}
+  slotProps={{
+    input: {
+      sx: { px: 1.875 },
+    },
+  }}
+/>
         </Box>
 
         <Box sx={{ mb: { xs: 2, sm: 3 } }}>
@@ -404,7 +443,7 @@ export default function RegisterForm() {
       <Box sx={{ textAlign: "center", mt: 3 }}>
         <Link
           component={RouterLink}
-          to="/login"
+          to="/student-login"
           underline="none"
           sx={{ fontSize: "0.8125rem", color: "#2f80c9", fontWeight: 600 }}
         >

@@ -13,6 +13,7 @@ const API_DETAIL_PATHS = new Set(['/students', '/institutes', '/vendors']);
 const LoginForm = lazy(() => import('../pages/Login/LoginForm'));
 const OtpLoginForm = lazy(() => import('../pages/Login/OtpLoginForm'));
 const RegisterForm = lazy(() => import('../pages/Login/RegisterForm'));
+const StudentLoginForm = lazy(() => import('../pages/Login/StudentLoginForm'));
 const UserPortal = lazy(() => import('../pages/UserPortal/UserPortal'));
 const DashboardLayout = lazy(() => import('../layouts/DashboardLayout'));
 const AdminDash = lazy(() => import('../pages/Dashboards/AdminDash'));
@@ -85,7 +86,24 @@ function LoginRoute() {
 
   return <LoginForm />;
 }
+function StudentLoginRoute() {
+  const { user, logout } = useAuth();
+  const token = getAuthToken();
+  const isStudent = user?.role === 'Student';
+  const hasValidSession = Boolean(user && token && isStudent);
 
+  useEffect(() => {
+    if (user && token && !hasValidSession) {
+      logout();
+    }
+  }, [user, token, hasValidSession, logout]);
+
+  if (hasValidSession) {
+    return <Navigate to="/dashboard/student" replace />;
+  }
+
+  return <StudentLoginForm />;
+}
 function GuardedDashboard({ path, element }) {
   return <RequireRole path={path}>{element}</RequireRole>;
 }
@@ -200,6 +218,7 @@ export default function AppRoutes() {
 
         <Route path="/phone-verified" element={<OtpLoginForm />} />
         <Route path="/register" element={<RegisterForm />} />
+       <Route path="/student-login" element={<StudentLoginRoute />} />
 
         <Route
           path="/"

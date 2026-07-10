@@ -77,6 +77,34 @@ export async function verifyEmail(email, verificationCode) {
       verificationCode,
     }
   );
-
   return data;
+}
+export async function studentLoginWithApi(email, password) {
+  const { data } = await axiosClient.post('/api/auth/Studentlogin', {
+    email,
+    password,
+  });
+
+  const token = data?.token || data?.Token;
+  if (!token) {
+    throw new Error('Login succeeded but no token was returned.');
+  }
+
+  setAuthToken(token);
+
+  const apiStudent = data?.student || data?.Student || {};
+
+  return {
+    id: String(apiStudent?.id ?? apiStudent?.Id ?? 'student-user'),
+    email: apiStudent?.email ?? apiStudent?.Email ?? email,
+    firstName: apiStudent?.firstName ?? apiStudent?.FirstName ?? '',
+    lastName: apiStudent?.lastName ?? apiStudent?.LastName ?? '',
+    role: 'Student',
+    name:
+      `${apiStudent?.firstName ?? apiStudent?.FirstName ?? ''} ${
+        apiStudent?.lastName ?? apiStudent?.LastName ?? ''
+      }`.trim() || email,
+    avatar: '',
+    token,
+  };
 }
