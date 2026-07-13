@@ -17,7 +17,8 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-
+import SchoolIcon from '@mui/icons-material/School';
+  
 export const GET_MENU = (role) => {
   const menus = {
     'Super Admin': [
@@ -38,6 +39,7 @@ export const GET_MENU = (role) => {
           { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institutes Scrapping', path: '/institutes-scrapping', Icon: TravelExploreIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
+          { title: 'Courses', path: '/courses', Icon: SchoolIcon },
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
           { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
           { title: 'Email Templates', path: '/templates', Icon: EmailIcon },

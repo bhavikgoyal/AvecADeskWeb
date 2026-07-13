@@ -37,9 +37,13 @@ axiosClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       clearAuthSession();
-      const onLoginPage = window.location.pathname === '/login';
+
+      const isStudentArea = window.location.pathname.startsWith('/student');
+      const loginPath = isStudentArea ? '/student-login' : '/login';
+      const onLoginPage = window.location.pathname === loginPath;
+
       if (!onLoginPage) {
-        window.location.assign('/login?session=expired');
+        window.location.assign(`${loginPath}?session=expired`);
       }
     }
 

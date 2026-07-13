@@ -11,6 +11,7 @@ export const RESOURCE_PATHS = [
   'institutes',
   'institutes-scrapping',
   'students',
+  'courses',
   'invoices',
   'reminders',
   'templates',

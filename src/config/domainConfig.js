@@ -360,6 +360,46 @@ vendors: {
       templateName: '', category: 'General', subject: '', bodyHtml: '', notes: '',
     }),
   },
+  courses: {
+  singular: 'Course',
+  plural: 'Courses',
+  actionLabel: 'Add Course',
+  primaryField: 'courseName',
+  requiredFields: ['instituteId', 'courseName'],
+  sections: [
+    {
+      title: 'Course details',
+      description: 'Institute link and basic course information.',
+      fields: ['instituteId', 'courseName', 'courseCategory', 'duration'],
+    },
+    {
+      title: 'Fees & eligibility',
+      description: 'Fee structure and eligibility criteria.',
+      fields: ['fees', 'eligibility'],
+    },
+    {
+      title: 'Description',
+      description: 'Additional details about the course.',
+      fields: ['description'],
+    },
+  ],
+  columns: [
+    { id: 'courseName', label: 'Course name', field: 'courseName' },
+    { id: 'courseCategory', label: 'Category', field: 'courseCategory' },
+    { id: 'fees', label: 'Fees', field: 'fees' },
+    { id: 'duration', label: 'Duration', field: 'duration' },
+    { id: 'isApproved', label: 'Approved', field: 'isApproved' },
+  ],
+  emptyForm: () => ({
+    instituteId: '',
+    courseName: '',
+    courseCategory: '',
+    description: '',
+    fees: '',
+    duration: '',
+    eligibility: '',
+  }),
+},
   users: {
     singular: 'User',
     plural: 'Users',

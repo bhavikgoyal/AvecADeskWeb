@@ -58,6 +58,21 @@ export const PAGE_CONFIG = {
     ],
     rows: sampleRows('Student'),
   },
+  '/courses': {
+  title: 'Courses',
+  subtitle: 'Manage courses offered across institutes.',
+  actionLabel: 'Add Course',
+  showCharts: false,
+  stats: [],
+  columns: [
+    { id: 'courseName', label: 'Course name', field: 'courseName' },
+    { id: 'courseCategory', label: 'Category', field: 'courseCategory' },
+    { id: 'fees', label: 'Fees', field: 'fees' },
+    { id: 'duration', label: 'Duration', field: 'duration' },
+  ],
+  rows: [],
+},
+
   '/invoices': {
     title: 'Invoices',
     //subtitle: 'Create, review, and track invoices across vendors and students.',

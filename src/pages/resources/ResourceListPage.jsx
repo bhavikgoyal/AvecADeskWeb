@@ -23,6 +23,7 @@ import { PAGE_CONFIG } from '../../config/pageConfig';
 import { getResourceConfig } from '../../config/resourceConfig';
 import { deleteRecord, loadRecords } from '../../utils/resourceStorage';
 import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
+import { deleteCourse, fetchCourses } from '../../api/coursesApi';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -64,6 +65,7 @@ async function fetchResourceRows({
   isEnrolment,
   isInstitutes,
   isVendors,
+  isCourses, 
   pageStats,
 }) {
   if (isEnrolment) {
@@ -77,7 +79,10 @@ async function fetchResourceRows({
   if (isVendors) {
     return { rows: await fetchVendorRows(), stats: pageStats ?? [] };
   }
-
+if (isCourses) {                                   
+    const { courses } = await fetchCourses();
+    return { rows: courses, stats: pageStats ?? [] };
+  }
   if (basePath === '/templates') {
     return { rows: await getEmailTemplates(), stats: pageStats ?? [] };
   }
@@ -115,7 +120,8 @@ export default function ResourceListPage({ basePath }) {
   const isVendors = basePath === '/vendors';
   const isTemplates = basePath === '/templates';
   const pageStats = useMemo(() => page?.stats ?? [], [page]);
-  const usesApi = isStudents || isEnrolment || isInstitutes || isVendors || isTemplates;
+  const isCourses = basePath === '/courses';
+  const usesApi = isStudents || isEnrolment || isInstitutes || isVendors || isTemplates || isCourses;;
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState(pageStats);
   const [loading, setLoading] = useState(usesApi);
@@ -140,6 +146,7 @@ export default function ResourceListPage({ basePath }) {
         isEnrolment,
         isInstitutes,
         isVendors,
+        isCourses, 
         pageStats,
       });
       setRows(result.rows);
@@ -162,6 +169,7 @@ export default function ResourceListPage({ basePath }) {
       isEnrolment,
       isInstitutes,
       isVendors,
+      isCourses, 
       pageStats,
     })
       .then((result) => {
@@ -192,7 +200,7 @@ export default function ResourceListPage({ basePath }) {
     return () => {
       cancelled = true;
     };
-  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, pageStats, usesApi]);
+  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, isCourses,pageStats, usesApi]);
 
   // Reset selection whenever the resource type or the underlying rows change
   useEffect(() => {
@@ -217,14 +225,17 @@ export default function ResourceListPage({ basePath }) {
         } else if (isTemplates) {
           await deleteEmailTemplate(row.id);
           await refreshRows();
-        } else {
+        } else if (isCourses) {                    
+        await deleteCourse(row.id);
+        await refreshRows();
+      } else {
         deleteRecord(basePath, row.id);
         setRows((prev) => prev.filter((r) => String(r.id) !== String(row.id)));
       }
       } catch (err) {
       setError(err.message || 'Failed to delete record.');
     }
-    }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, isTemplates, refreshRows]);
+    }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, isTemplates, isCourses, refreshRows]);
 
   // ---- Selection (institutes only) ----
   const allSelected = isInstitutes && rows.length > 0 && selectedIds.length === rows.length;
