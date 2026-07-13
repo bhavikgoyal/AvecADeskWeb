@@ -38,6 +38,7 @@ const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
 const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));
 const EmployeeWorkHours = lazy(() => import('../components/EmployeeWorkHours/EmployeeWorkHours'));
 const InstituteScrappingPage = lazy(() => import('../pages/resources/InstituteScrappingPage'));
+const InstituteScrappingEditPage = lazy(() => import('../pages/resources/InstituteScrappingEditPage'));
 const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
 const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
 const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'));
@@ -259,6 +260,14 @@ export default function AppRoutes() {
             element={
               <RequireRole path="/institutes-scrapping">
                 <InstituteScrappingPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="institutes-scrapping/:id"
+            element={
+              <RequireRole path="/institutes-scrapping">
+                <InstituteScrappingEditPage />
               </RequireRole>
             }
           />
