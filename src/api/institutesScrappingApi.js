@@ -42,6 +42,60 @@ function toRequestBody(form) {
   };
 }
 
+function toManualRequestBody(form) {
+  return {
+    instituteName: form.instituteName || null,
+    websiteURL: form.websiteUrl || null,
+    campus: form.campus || null,
+    state: form.state || null,
+    programName: form.programName || null,
+    level: form.level || null,
+    programLink: form.programLink || null,
+    cricosCode: form.cricosCode || null,
+    duration: form.duration || null,
+    intake: form.intake || null,
+    feesYearly: form.feesYearly || null,
+    englishReq: form.englishReq || null,
+    name: form.name || null,
+    logo: form.logo || null,
+    country: form.country || null,
+    city: form.city || null,
+    description: form.description || null,
+    countryRanking: form.countryRanking || null,
+    scholarshipsDetails: form.scholarshipsDetails || null,
+    programDescription: form.programDescription || null,
+    programLogo: form.programLogo || null,
+    addmissionRequirements: form.addmissionRequirements || null,
+  };
+}
+
+function getEmptyManualForm() {
+  return {
+    instituteName: '',
+    websiteUrl: '',
+    campus: '',
+    state: '',
+    programName: '',
+    level: '',
+    programLink: '',
+    cricosCode: '',
+    duration: '',
+    intake: '',
+    feesYearly: '',
+    englishReq: '',
+    name: '',
+    logo: '',
+    country: '',
+    city: '',
+    description: '',
+    countryRanking: '',
+    scholarshipsDetails: '',
+    programDescription: '',
+    programLogo: '',
+    addmissionRequirements: '',
+  };
+}
+
 function buildFilterParams({ instituteName } = {}) {
   const params = {};
   const trimmedName = (instituteName || '').trim();
@@ -62,6 +116,21 @@ function getFilenameFromDisposition(disposition, fallback) {
   if (!disposition) return fallback;
   const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(disposition);
   return match?.[1]?.trim().replace(/['"]/g, '') || fallback;
+}
+
+export async function fetchInstituteScrappingById(scrappingId) {
+  const { data } = await axiosClient.get(`/api/institutes-scrapping/${scrappingId}`);
+  return mapRow(normalizeRecord(data));
+}
+
+export async function updateInstituteScrapping(scrappingId, form) {
+  const validationError = validateManualForm(form);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  const { data } = await axiosClient.put(`/api/institutes-scrapping/${scrappingId}`, toManualRequestBody(form));
+  return mapRow(normalizeRecord(data));
 }
 
 export async function fetchInstituteScrappingRows({ instituteName } = {}) {
@@ -88,17 +157,6 @@ export async function exportInstituteScrappingExcel({ instituteName } = {}) {
   triggerBlobDownload(blob, filename);
 }
 
-function validateScrapeForm(form) {
-  const instituteName = (form.instituteName || '').trim();
-  const websiteUrl = (form.websiteUrl || '').trim();
-
-  if (!instituteName || !websiteUrl) {
-    return 'Institute name and website URL are required.';
-  }
-
-  return '';
-}
-
 export async function runInstituteScrapping(form) {
   const validationError = validateScrapeForm(form);
   if (validationError) {
@@ -115,6 +173,46 @@ export async function runInstituteScrapping(form) {
     records: (data?.records ?? data?.Records ?? []).map((raw) => mapRow(normalizeRecord(raw))),
   };
 }
+
+function validateScrapeForm(form) {
+  const instituteName = (form.instituteName || '').trim();
+  const websiteUrl = (form.websiteUrl || '').trim();
+
+  if (!instituteName || !websiteUrl) {
+    return 'Institute name and website URL are required.';
+  }
+
+  return '';
+}
+
+function validateManualForm(form) {
+  const instituteName = (form.instituteName || '').trim();
+  const programName = (form.programName || '').trim();
+
+  if (!instituteName || !programName) {
+    return 'Institute name and program name are required.';
+  }
+
+  return '';
+}
+
+export async function createInstituteScrappingManual(form) {
+  const validationError = validateManualForm(form);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  const { data } = await axiosClient.post('/api/institutes-scrapping/manual', toManualRequestBody(form));
+  const record = data?.record ?? data?.Record;
+  return {
+    scrappingId: data?.scrappingId ?? data?.ScrappingId,
+    courseId: data?.courseId ?? data?.CourseId,
+    instituteId: data?.instituteId ?? data?.InstituteId,
+    record: record ? mapRow(normalizeRecord(record)) : null,
+  };
+}
+
+export { getEmptyManualForm };
 
 export async function deleteInstituteScrapping(scrappingId) {
   await axiosClient.delete(`/api/institutes-scrapping/${scrappingId}`);

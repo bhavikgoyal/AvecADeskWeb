@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Backdrop,
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Link,
   Paper,
   Table,
@@ -19,6 +24,7 @@ import {
 } from '@mui/material';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
 import {
   FormActions,
   FormPageLayout,
@@ -26,11 +32,14 @@ import {
   formPaperSx,
 } from '../../components/forms';
 import {
+  createInstituteScrappingManual,
   exportInstituteScrappingExcel,
   fetchInstituteScrappingRows,
+  getEmptyManualForm,
   runInstituteScrapping,
 } from '../../api/institutesScrappingApi';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
+import { MANUAL_FORM_SECTIONS, MANUAL_REQUIRED_FIELDS, INSTITUTE_SCRAPPING_BASE_PATH } from './instituteScrappingFormConfig';
 
 const BASE_PATH = '/institutes-scrapping';
 
@@ -52,14 +61,26 @@ function renderCell(row, key) {
   const value = row[key] || '—';
   if (key === 'programLink' && value !== '—') {
     return (
-      <Link href={value} target="_blank" rel="noopener noreferrer" underline="hover">
+      <Link
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        underline="hover"
+        onClick={(event) => event.stopPropagation()}
+      >
         Link
       </Link>
     );
   }
   if (key === 'logo' && value !== '—') {
     return (
-      <Link href={value} target="_blank" rel="noopener noreferrer" underline="hover">
+      <Link
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        underline="hover"
+        onClick={(event) => event.stopPropagation()}
+      >
         Logo
       </Link>
     );
@@ -68,6 +89,7 @@ function renderCell(row, key) {
 }
 
 export default function InstituteScrappingPage() {
+  const navigate = useNavigate();
   const resource = getResourceConfig(BASE_PATH);
   const [form, setForm] = useState(() => getEmptyForm(BASE_PATH));
   const [error, setError] = useState('');
@@ -82,6 +104,10 @@ export default function InstituteScrappingPage() {
   const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [manualForm, setManualForm] = useState(() => getEmptyManualForm());
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualError, setManualError] = useState('');
 
   const loadList = useCallback(async (instituteName = appliedInstituteNameFilter) => {
     setListLoading(true);
@@ -137,6 +163,49 @@ export default function InstituteScrappingPage() {
     }
   };
 
+  const openAddDialog = () => {
+    setManualForm(getEmptyManualForm());
+    setManualError('');
+    setAddDialogOpen(true);
+  };
+
+  const closeAddDialog = () => {
+    if (manualSaving) return;
+    setAddDialogOpen(false);
+    setManualError('');
+  };
+
+  const updateManualField = (field, value) => {
+    setManualForm((prev) => ({ ...prev, [field]: value }));
+    setManualError('');
+  };
+
+  const isManualFormValid = MANUAL_REQUIRED_FIELDS.every((field) => String(manualForm[field] ?? '').trim());
+
+  const handleManualSave = async () => {
+    if (!isManualFormValid) {
+      setManualError('Institute name and program name are required.');
+      return;
+    }
+
+    setManualSaving(true);
+    setManualError('');
+    setListError('');
+
+    try {
+      await createInstituteScrappingManual(manualForm);
+      setAddDialogOpen(false);
+      setManualForm(getEmptyManualForm());
+      setSuccess('Manual institute scrapping record added successfully.');
+      setPage(0);
+      await loadList();
+    } catch (err) {
+      setManualError(err.message || 'Failed to add manual record.');
+    } finally {
+      setManualSaving(false);
+    }
+  };
+
   if (!resource) return null;
 
   const updateField = (field, value) => {
@@ -183,6 +252,12 @@ export default function InstituteScrappingPage() {
       setError(err.message || 'Failed to scrape institute website.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleRowClick = (row) => {
+    if (row?.id) {
+      navigate(`${INSTITUTE_SCRAPPING_BASE_PATH}/${row.id}`);
     }
   };
 
@@ -315,17 +390,28 @@ export default function InstituteScrappingPage() {
                     </Button>
                   )}
                 </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  color="success"
-                  startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <TableChartIcon />}
-                  onClick={handleExportExcel}
-                  disabled={exporting || rows.length === 0}
-                  sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-                >
-                  Export to Excel
-                </Button>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={openAddDialog}
+                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    color="success"
+                    startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <TableChartIcon />}
+                    onClick={handleExportExcel}
+                    disabled={exporting || rows.length === 0}
+                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    Export to Excel
+                  </Button>
+                </Box>
               </Box>
 
               {rows.length === 0 ? (
@@ -352,7 +438,12 @@ export default function InstituteScrappingPage() {
                   </TableHead>
                   <TableBody>
                     {paginatedRows.map((row, index) => (
-                      <TableRow key={row.id || `${page}-${index}`} hover>
+                      <TableRow
+                        key={row.id || `${page}-${index}`}
+                        hover
+                        onClick={() => handleRowClick(row)}
+                        sx={{ cursor: 'pointer' }}
+                      >
                         <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                         {LIST_COLUMNS.map((column) => (
                           <TableCell key={column.key} sx={{ maxWidth: 220, whiteSpace: 'normal' }}>
@@ -381,6 +472,37 @@ export default function InstituteScrappingPage() {
           )}
         </Paper>
       </Box>
+
+      <Dialog open={addDialogOpen} onClose={closeAddDialog} fullWidth maxWidth="md">
+        <DialogTitle>Add Institute Scrapping Record</DialogTitle>
+        <DialogContent dividers>
+          {manualError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {manualError}
+            </Alert>
+          )}
+          <FormSectionsLayout
+            sections={MANUAL_FORM_SECTIONS}
+            form={manualForm}
+            onChange={updateManualField}
+            disabled={manualSaving}
+            requiredFields={MANUAL_REQUIRED_FIELDS}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={closeAddDialog} disabled={manualSaving} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleManualSave}
+            disabled={!isManualFormValid || manualSaving}
+            sx={{ textTransform: 'none' }}
+          >
+            {manualSaving ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </FormPageLayout>
   );
 }
