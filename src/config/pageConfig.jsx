@@ -64,12 +64,6 @@ export const PAGE_CONFIG = {
   actionLabel: 'Add Course',
   showCharts: false,
   stats: [],
-  columns: [
-    { id: 'courseName', label: 'Course name', field: 'courseName' },
-    { id: 'courseCategory', label: 'Category', field: 'courseCategory' },
-    { id: 'fees', label: 'Fees', field: 'fees' },
-    { id: 'duration', label: 'Duration', field: 'duration' },
-  ],
   rows: [],
 },
 

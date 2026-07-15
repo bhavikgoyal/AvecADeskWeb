@@ -33,6 +33,7 @@ export default function ResourceFormFields({
   form,
   onChange,
   disabled = false,
+  disabledFields = [],
   compact = false,
   stretch = false,
   selectOptions = {},
@@ -49,6 +50,7 @@ export default function ResourceFormFields({
     if (!def) return null;
     const isRequired = Boolean(def.required) || requiredFields.includes(fieldName);
     const isDate = def.type === 'date';
+    const isFieldDisabled = disabled || def.readOnly || disabledFields.includes(fieldName);
 
     if (def.type === 'select' || def.type === 'api-select') {
       const options = def.type === 'api-select' ? selectOptions[fieldName] || [] : def.options.map((option) => ({ value: option, label: option }));
@@ -58,7 +60,7 @@ export default function ResourceFormFields({
 
       return (
         <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
-          <FormControl {...fieldProps} disabled={disabled || def.readOnly || (def.type === 'api-select' && options.length === 0)}>
+          <FormControl {...fieldProps} disabled={isFieldDisabled || (def.type === 'api-select' && options.length === 0)}>
             <InputLabel id={labelId} shrink required={isRequired}>
               {def.label}
             </InputLabel>
@@ -106,7 +108,7 @@ export default function ResourceFormFields({
               <Checkbox
                 checked={checked}
                 onChange={(event) => onChange(fieldName, event.target.checked ? 'Yes' : 'No')}
-                disabled={disabled || def.readOnly}
+                disabled={isFieldDisabled}
                 sx={{ color: 'var(--primary)', '&.Mui-checked': { color: 'var(--primary)' } }}
               />
             }
@@ -129,7 +131,7 @@ export default function ResourceFormFields({
           minRows={def.type === 'textarea' ? textareaRows : undefined}
           value={form[fieldName] ?? ''}
           onChange={handleChange(fieldName)}
-          disabled={disabled || def.readOnly}
+          disabled={isFieldDisabled}
         />
       </FormGridItem>
     );

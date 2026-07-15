@@ -1,5 +1,6 @@
 import {
   Box,
+  Link,
   Paper,
   Stack,
   Table,
@@ -62,13 +63,67 @@ export default function ResponsiveTable({
   const isMobile = useMediaQuery(`(max-width:${cardBreakpoint - 0.05}px)`);
   const mobileColumns = columns.filter((col) => !col.hideOnMobile);
   const isResource = variant === 'resource' || alwaysTable;
+const isValidUrl = (value) => {
+  if (!value || typeof value !== 'string') {
+    return false;
+  }
 
-  const renderCellValue = (row, column) => {
-    if (column.render) {
-      return column.render(row);
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const renderCellValue = (row, column) => {
+  if (column.render) {
+    return column.render(row);
+  }
+
+  const value = row[column.field];
+
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && value.trim() === '')
+  ) {
+    return '-';
+  }
+
+  if (
+    column.field === 'programLink' ||
+    column.field === 'programLogo'
+  ) {
+    if (!isValidUrl(value)) {
+      return '-';
     }
-    return row[column.field];
-  };
+
+    return (
+      <Link
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(event) => event.stopPropagation()}
+        sx={{
+          color: '#1976d2',
+          textDecoration: 'none',
+          cursor: 'pointer',
+          fontWeight: 400,
+          fontSize: 'inherit',
+          '&:hover': {
+            color: '#1565c0',
+            textDecoration: 'underline',
+          },
+        }}
+      >
+        {column.field === 'programLogo' ? 'Logo' : 'Link'}
+      </Link>
+    );
+  }
+
+  return value;
+};
 
   const renderAsTable = alwaysTable ? true : !isMobile;
 

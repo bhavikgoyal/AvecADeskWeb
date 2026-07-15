@@ -23,7 +23,7 @@ import { PAGE_CONFIG } from '../../config/pageConfig';
 import { getResourceConfig } from '../../config/resourceConfig';
 import { deleteRecord, loadRecords } from '../../utils/resourceStorage';
 import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
-import { deleteCourse, fetchCourses } from '../../api/coursesApi';
+import { deleteCourse, fetchCourseList  } from '../../api/coursesApi';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -79,10 +79,17 @@ async function fetchResourceRows({
   if (isVendors) {
     return { rows: await fetchVendorRows(), stats: pageStats ?? [] };
   }
-if (isCourses) {                                   
-    const { courses } = await fetchCourses();
-    return { rows: courses, stats: pageStats ?? [] };
-  }
+if (isCourses) {
+  const courses = await fetchCourseList();
+
+  return {
+    rows: courses.map((item) => ({
+      ...item,
+      id: String(item.courseId),
+    })),
+    stats: pageStats ?? [],
+  };
+}
   if (basePath === '/templates') {
     return { rows: await getEmailTemplates(), stats: pageStats ?? [] };
   }

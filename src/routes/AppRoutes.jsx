@@ -49,7 +49,7 @@ const AgreementTemplate = lazy(() => import('../pages/AgreementTemplate/Agreemen
 const AgreementTemplateForm = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateForm'));
 const AgreementTemplateView = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateView'));
 const NewCoursePage = lazy(() => import('../pages/resources/NewCoursePage'));
-const CourseDetailPage = lazy(() => import('../pages/resources/CourseDetailPage'));
+// const CourseDetailPage = lazy(() => import('../pages/resources/CourseDetailPage'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
@@ -210,7 +210,7 @@ function GuardedResourceDetail({ path }) {
  if (path === '/courses') {            
     return (
       <RequireRole path={path}>
-        <CourseDetailPage basePath={path} />
+        <NewCoursePage  basePath={path} />
       </RequireRole>
     );
   }
