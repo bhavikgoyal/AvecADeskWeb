@@ -51,7 +51,7 @@ export function assignSectionLayouts(sections) {
   });
 }
 
-export default function FormSectionsLayout({ sections = [], form, onChange, disabled = false, selectOptions = {}, requiredFields = [] }) {
+export default function FormSectionsLayout({ sections = [], form, onChange, disabled = false,disabledFields = [], selectOptions = {}, requiredFields = [] }) {
   const layouts = assignSectionLayouts(sections);
 
   return (
@@ -78,6 +78,7 @@ export default function FormSectionsLayout({ sections = [], form, onChange, disa
               form={form}
               onChange={onChange}
               disabled={disabled}
+              disabledFields={disabledFields}
               compact={compact}
               stretch={stretch}
               selectOptions={selectOptions}

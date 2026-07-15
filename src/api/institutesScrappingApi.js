@@ -117,7 +117,16 @@ function getFilenameFromDisposition(disposition, fallback) {
   const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(disposition);
   return match?.[1]?.trim().replace(/['"]/g, '') || fallback;
 }
+export async function fetchUniqueInstituteNames() {
+  const { data } = await axiosClient.get(
+    '/api/institutes-scrapping/institutenames'
+  );
 
+  return (data ?? []).map((item) => ({
+    id: item.scrappingId ?? item.ScrappingId,
+    name: item.instituteName ?? item.InstituteName ?? '',
+  }));
+}
 export async function fetchInstituteScrappingById(scrappingId) {
   const { data } = await axiosClient.get(`/api/institutes-scrapping/${scrappingId}`);
   return mapRow(normalizeRecord(data));
