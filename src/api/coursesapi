@@ -69,7 +69,7 @@ export async function createCourse(form) {
   const { data } = await axiosClient.post('/api/courses', {
     instituteId,
     courseName: form.courseName.trim(),
-    category: form.category?.trim() || null,
+    category: String(form.category || form.courseCategory || '').trim() || null,
     description: form.description?.trim() || null,
     fees: form.fees !== '' && form.fees != null ? Number(form.fees) : null,
     duration: form.duration?.trim() || null,
@@ -102,7 +102,7 @@ export async function updateCourse(courseId, form) {
   const { data } = await axiosClient.put(`/api/courses/${courseId}`, {
     instituteId,
     courseName: form.courseName.trim(),
-    category: form.category?.trim() || null,
+    category: String(form.category || form.courseCategory || '').trim() || null,
     description: form.description?.trim() || null,
     fees: form.fees !== '' && form.fees != null ? Number(form.fees) : null,
     duration: form.duration?.trim() || null,
@@ -125,7 +125,33 @@ export async function updateCourse(courseId, form) {
 }
 export async function fetchCourseList() {
   const { data } = await axiosClient.get('/api/courses/GetCourses');
-  return data;
+  const list = Array.isArray(data)
+    ? data
+    : (data?.courses ?? data?.Courses ?? data?.data ?? data?.Data ?? []);
+
+  let instituteNameById = {};
+  try {
+    const { fetchUniqueInstituteNames } = await import('./institutesScrappingApi');
+    const institutes = await fetchUniqueInstituteNames();
+    instituteNameById = Object.fromEntries(
+      (institutes ?? []).map((item) => [String(item.id), item.name || '']),
+    );
+  } catch {
+    instituteNameById = {};
+  }
+
+  return (list ?? []).map((raw) => {
+    const course = normalizeCourse(raw);
+    return {
+      ...course,
+      id: String(course.courseId),
+      courseCategory: course.category || '',
+      instituteName:
+        course.instituteName ||
+        instituteNameById[String(course.instituteId)] ||
+        '',
+    };
+  });
 }
 export async function approveCourse(courseId) {
   const { data } = await axiosClient.put(`/api/courses/${courseId}/approve`);
