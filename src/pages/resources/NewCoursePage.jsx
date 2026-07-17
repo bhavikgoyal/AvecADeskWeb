@@ -10,7 +10,7 @@ function toApiForm(form) {
   return {
     instituteId: Number(form.instituteId),
     courseName: form.courseName || '',
-    category: form.category || null,
+    category: form.courseCategory || form.category || null,
     description: form.description || null,
     fees: form.fees ? Number(form.fees) : null,
     duration: form.duration || null,
@@ -35,6 +35,7 @@ function toCourseForm(data, emptyForm) {
     ...emptyForm,
     instituteId: data?.instituteId != null ? String(data.instituteId) : '',
     courseName: data?.courseName || '',
+    courseCategory: data?.category || data?.courseCategory || '',
     category: data?.category || data?.courseCategory || '',
     description: data?.description || '',
     fees: data?.fees != null ? String(data.fees) : '',
@@ -51,7 +52,7 @@ function toCourseForm(data, emptyForm) {
     addmissionRequirements: data?.addmissionRequirements || '',
     programLogo: data?.programLogo || '',
     isApproved: data?.isApproved ? 'Yes' : 'No',
-    isActive: data?.isActive ? 'Yes' : 'No',
+    isActive: data?.isActive !== false ? 'Yes' : 'No',
     isAIFetched: data?.isAIFetched ?? false,
   };
 }

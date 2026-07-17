@@ -17,25 +17,9 @@ export const MANUAL_FORM_SECTIONS = [
       'scholarshipsDetails',
     ],
   },
-  {
-    title: 'Program details',
-    fields: [
-      'programName',
-      'level',
-      'programLink',
-      'cricosCode',
-      'duration',
-      'intake',
-      'feesYearly',
-      'englishReq',
-      'programDescription',
-      'programLogo',
-      'addmissionRequirements',
-    ],
-  },
 ];
 
-export const MANUAL_REQUIRED_FIELDS = ['instituteName', 'programName'];
+export const MANUAL_REQUIRED_FIELDS = ['instituteName'];
 
 export function recordToManualForm(record = {}) {
   return {
@@ -43,14 +27,6 @@ export function recordToManualForm(record = {}) {
     websiteUrl: record.websiteUrl ?? '',
     campus: record.campus ?? '',
     state: record.state ?? '',
-    programName: record.programName ?? '',
-    level: record.level ?? '',
-    programLink: record.programLink ?? '',
-    cricosCode: record.cricosCode ?? '',
-    duration: record.duration ?? '',
-    intake: record.intake ?? '',
-    feesYearly: record.feesYearly ?? '',
-    englishReq: record.englishReq ?? '',
     name: record.name ?? '',
     logo: record.logo ?? '',
     country: record.country ?? '',
@@ -58,9 +34,6 @@ export function recordToManualForm(record = {}) {
     description: record.description ?? '',
     countryRanking: record.countryRanking ?? '',
     scholarshipsDetails: record.scholarshipsDetails ?? '',
-    programDescription: record.programDescription ?? '',
-    programLogo: record.programLogo ?? '',
-    addmissionRequirements: record.addmissionRequirements ?? '',
   };
 }
 

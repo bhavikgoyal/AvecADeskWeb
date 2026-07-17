@@ -48,14 +48,6 @@ function toManualRequestBody(form) {
     websiteURL: form.websiteUrl || null,
     campus: form.campus || null,
     state: form.state || null,
-    programName: form.programName || null,
-    level: form.level || null,
-    programLink: form.programLink || null,
-    cricosCode: form.cricosCode || null,
-    duration: form.duration || null,
-    intake: form.intake || null,
-    feesYearly: form.feesYearly || null,
-    englishReq: form.englishReq || null,
     name: form.name || null,
     logo: form.logo || null,
     country: form.country || null,
@@ -63,9 +55,6 @@ function toManualRequestBody(form) {
     description: form.description || null,
     countryRanking: form.countryRanking || null,
     scholarshipsDetails: form.scholarshipsDetails || null,
-    programDescription: form.programDescription || null,
-    programLogo: form.programLogo || null,
-    addmissionRequirements: form.addmissionRequirements || null,
   };
 }
 
@@ -75,14 +64,6 @@ function getEmptyManualForm() {
     websiteUrl: '',
     campus: '',
     state: '',
-    programName: '',
-    level: '',
-    programLink: '',
-    cricosCode: '',
-    duration: '',
-    intake: '',
-    feesYearly: '',
-    englishReq: '',
     name: '',
     logo: '',
     country: '',
@@ -90,9 +71,6 @@ function getEmptyManualForm() {
     description: '',
     countryRanking: '',
     scholarshipsDetails: '',
-    programDescription: '',
-    programLogo: '',
-    addmissionRequirements: '',
   };
 }
 
@@ -146,7 +124,16 @@ export async function fetchInstituteScrappingRows({ instituteName } = {}) {
   const { data } = await axiosClient.get('/api/institutes-scrapping', {
     params: buildFilterParams({ instituteName }),
   });
-  return (data ?? []).map((raw) => mapRow(normalizeRecord(raw)));
+
+  const seen = new Set();
+  return (data ?? [])
+    .map((raw) => mapRow(normalizeRecord(raw)))
+    .filter((row) => {
+      const key = String(row.scrappingId ?? row.id ?? '');
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 export async function exportInstituteScrappingExcel({ instituteName } = {}) {
@@ -196,10 +183,9 @@ function validateScrapeForm(form) {
 
 function validateManualForm(form) {
   const instituteName = (form.instituteName || '').trim();
-  const programName = (form.programName || '').trim();
 
-  if (!instituteName || !programName) {
-    return 'Institute name and program name are required.';
+  if (!instituteName) {
+    return 'Institute name is required.';
   }
 
   return '';

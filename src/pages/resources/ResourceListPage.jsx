@@ -85,7 +85,7 @@ if (isCourses) {
   return {
     rows: courses.map((item) => ({
       ...item,
-      id: String(item.courseId),
+      id: String(item.courseId ?? item.id),
     })),
     stats: pageStats ?? [],
   };
@@ -113,6 +113,7 @@ function getLoadErrorMessage(basePath) {
   if (basePath === '/institutes') return 'Failed to load institutes from the API.';
   if (basePath === '/vendors') return 'Failed to load vendors from the API.';
   if (basePath === '/students') return 'Failed to load students from the API.';
+  if (basePath === '/courses') return 'Failed to load courses from the API.';
   return 'Failed to load records.';
 }
 
