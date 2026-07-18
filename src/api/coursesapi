@@ -5,7 +5,7 @@ function normalizeCourse(course) {
     courseId: course.courseId ?? course.CourseId,
     instituteId: course.instituteId ?? course.InstituteId,
     courseName: course.courseName ?? course.CourseName ?? '',
-    category: course.category ?? course.Category ?? '',
+    CourseCategory: course.category ?? course.Category ?? '',
     description: course.description ?? course.Description ?? '',
     fees: course.fees ?? course.Fees ?? null,
     duration: course.duration ?? course.Duration ?? '',
@@ -58,6 +58,7 @@ export async function fetchCourseById(courseId) {
 }
 
 export async function createCourse(form) {
+  
   const instituteId = Number(form.instituteId);
 
   if (!instituteId) {
@@ -69,17 +70,11 @@ export async function createCourse(form) {
   }
 
   const formData = new FormData();
-
   formData.append('InstituteId', instituteId);
   formData.append('CourseName', form.courseName.trim());
-  formData.append('Category', form.category || '');
+  formData.append("CourseCategory", form.CourseCategory || "");
   formData.append('Description', form.description || '');
-  formData.append(
-    'Fees',
-    form.fees !== '' && form.fees != null
-      ? Number(form.fees)
-      : ''
-  );
+  formData.append('Fees', form.fees !== '' && form.fees != null ? Number(form.fees): '');
   formData.append('Duration', form.duration || '');
   formData.append('Eligibility', form.eligibility || '');
   formData.append('IsAIFetched', Boolean(form.isAIFetched));
@@ -89,21 +84,10 @@ export async function createCourse(form) {
   formData.append('CricosCode', form.cricosCode || '');
   formData.append('Intake', form.intake || '');
   formData.append('EnglishReq', form.englishReq || '');
-  formData.append(
-    'ScholarshipsDetails',
-    form.scholarshipsDetails || ''
-  );
-  formData.append(
-    'ProgramDescription',
-    form.programDescription || ''
-  );
-  formData.append(
-    'AddmissionRequirements',
-    form.addmissionRequirements || ''
-  );
-
+  formData.append( 'ScholarshipsDetails',form.scholarshipsDetails || '');
+  formData.append('ProgramDescription', form.programDescription || '' );
+  formData.append('AddmissionRequirements',form.addmissionRequirements || '');
   formData.append('ProgramLogo', form.programLogo);
-
   formData.append('IsApproved', Boolean(form.isApproved));
   formData.append('IsActive', Boolean(form.isActive));
 
@@ -117,10 +101,7 @@ export async function createCourse(form) {
 
 export async function updateCourse(courseId, form) {
   const instituteId = Number(form.instituteId);
-console.log(form);
-console.log(form.programLogo);
-console.log(typeof form.programLogo);
-console.log(form.programLogo instanceof File);
+
   if (!form.courseName?.trim()) {
     throw new Error('Course name is required');
   }
@@ -129,7 +110,7 @@ console.log(form.programLogo instanceof File);
 
   formData.append("InstituteId", instituteId);
   formData.append("CourseName", form.courseName.trim());
-  formData.append("Category", form.category || "");
+  formData.append("CourseCategory", form.CourseCategory || "");
   formData.append("Description", form.description || "");
   formData.append("Fees", form.fees || "");
   formData.append("Duration", form.duration || "");
@@ -160,7 +141,33 @@ console.log(form.programLogo instanceof File);
 }
 export async function fetchCourseList() {
   const { data } = await axiosClient.get('/api/courses/GetCourses');
-  return data;
+  const list = Array.isArray(data)
+    ? data
+    : (data?.courses ?? data?.Courses ?? data?.data ?? data?.Data ?? []);
+
+  let instituteNameById = {};
+  try {
+    const { fetchUniqueInstituteNames } = await import('./institutesScrappingApi');
+    const institutes = await fetchUniqueInstituteNames();
+    instituteNameById = Object.fromEntries(
+      (institutes ?? []).map((item) => [String(item.id), item.name || '']),
+    );
+  } catch {
+    instituteNameById = {};
+  }
+
+  return (list ?? []).map((raw) => {
+    const course = normalizeCourse(raw);
+    return {
+      ...course,
+      id: String(course.courseId),
+      CourseCategory: course.CourseCategory || '',
+      instituteName:
+        course.instituteName ||
+        instituteNameById[String(course.instituteId)] ||
+        '',
+    };
+  });
 }
 export async function approveCourse(courseId) {
   const { data } = await axiosClient.put(`/api/courses/${courseId}/approve`);
@@ -175,7 +182,7 @@ export function buildCourseForm(course) {
   return {
     instituteId: course.instituteId ? String(course.instituteId) : '',
     courseName: course.courseName || '',
-    category: course.category || '',
+    CourseCategory: course.CourseCategory || course.Category || '',
     description: course.description || '',
     fees: course.fees ?? '',
     duration: course.duration || '',
@@ -200,7 +207,7 @@ export function getEmptyCourseForm(instituteId) {
   return {
     instituteId: instituteId ? String(instituteId) : '',
     courseName: '',
-    category: '',
+    CourseCategory: '',
     description: '',
     fees: '',
     duration: '',

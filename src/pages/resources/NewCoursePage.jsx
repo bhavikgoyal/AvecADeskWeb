@@ -6,36 +6,13 @@ import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig } from '../../config/resourceConfig';
 
-function toApiForm(form) {
-  return {
-    instituteId: Number(form.instituteId),
-    courseName: form.courseName || '',
-    category: form.category || null,
-    description: form.description || null,
-    fees: form.fees ? Number(form.fees) : null,
-    duration: form.duration || null,
-    eligibility: form.eligibility || null,
-    campus: form.campus || null,
-    level: form.level || null,
-    programLink: form.programLink || null,
-    cricosCode: form.cricosCode || null,
-    intake: form.intake || null,
-    englishReq: form.englishReq || null,
-    scholarshipsDetails: form.scholarshipsDetails || null,
-    programDescription: form.programDescription || null,
-    addmissionRequirements: form.addmissionRequirements || null,
-    programLogo: form.programLogo,
-    isApproved: form.isApproved === 'Yes',
-    isActive: form.isActive === 'Yes'
-  };
-}
 
 function toCourseForm(data, emptyForm) {
   return {
     ...emptyForm,
     instituteId: data?.instituteId != null ? String(data.instituteId) : '',
     courseName: data?.courseName || '',
-    category: data?.category || data?.courseCategory || '',
+    CourseCategory: data?.CourseCategory || data?.Category || '',
     description: data?.description || '',
     fees: data?.fees != null ? String(data.fees) : '',
     duration: data?.duration || '',
@@ -51,7 +28,7 @@ function toCourseForm(data, emptyForm) {
     addmissionRequirements: data?.addmissionRequirements || '',
     programLogo: data?.programLogo || '',
     isApproved: data?.isApproved ? 'Yes' : 'No',
-    isActive: data?.isActive ? 'Yes' : 'No',
+    isActive: data?.isActive !== false ? 'Yes' : 'No',
     isAIFetched: data?.isAIFetched ?? false,
   };
 }

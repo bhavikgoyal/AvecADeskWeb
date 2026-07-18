@@ -75,7 +75,7 @@ export default function InstituteScrappingEditPage() {
 
   const handleSave = async () => {
     if (!isManualFormValid(form)) {
-      setError('Institute name and program name are required.');
+      setError('Institute name is required.');
       return;
     }
 
@@ -118,7 +118,7 @@ export default function InstituteScrappingEditPage() {
   return (
     <FormPageLayout
       title="Edit Institute Scrapping Record"
-      subtitle={form.instituteName || form.programName || `Record #${id}`}
+      subtitle={form.instituteName || `Record #${id}`}
     >
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -183,8 +183,8 @@ export default function InstituteScrappingEditPage() {
           )}
           <DialogContentText>
             This will hide the institute scrapping record
-            {form.programName ? ` for "${form.programName}"` : ''} from the list (soft delete).
-            If this record is linked in the Courses table, delete will be blocked.
+            {form.instituteName ? ` for "${form.instituteName}"` : ''} from the list (soft delete).
+            If courses are linked to this institute, delete will be blocked.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

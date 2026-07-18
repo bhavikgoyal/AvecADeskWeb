@@ -77,7 +77,7 @@ export default function CourseDetailPage({
           onClick={() => navigate(`${basePath}/${item.courseId}`)}
           sx={{ cursor: 'pointer' }}
         >
-          {item.instituteName} | {item.courseName} | {item.courseCategory || '—'} |{' '}
+          {item.instituteName} | {item.courseName} | {item.CourseCategory  || '—'} |{' '}
           {item.level || '—'} | {item.campus || '—'} | {item.intake || '—'} |{' '}
           {item.fees ?? '—'} | {item.duration || '—'} |{' '}
 

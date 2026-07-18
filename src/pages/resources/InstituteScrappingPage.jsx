@@ -45,21 +45,18 @@ const BASE_PATH = '/institutes-scrapping';
 
 const LIST_COLUMNS = [
   { key: 'instituteName', label: 'Institute name' },
-  { key: 'logo', label: 'Logo URL' },
+  { key: 'logo', label: 'Logo' },
+  { key: 'websiteUrl', label: 'Website URL' },
+  { key: 'country', label: 'Country' },
+  { key: 'city', label: 'City' },
   { key: 'campus', label: 'Campus' },
-  { key: 'programName', label: 'Program name' },
-  { key: 'level', label: 'Level' },
-  { key: 'programLink', label: 'Program link' },
-  { key: 'cricosCode', label: 'CRICOS code' },
-  { key: 'duration', label: 'Duration' },
-  { key: 'intake', label: 'Intake' },
-  { key: 'feesYearly', label: 'Fees yearly' },
+  { key: 'state', label: 'State' },
   { key: 'countryRanking', label: 'Country ranking' },
 ];
 
 function renderCell(row, key) {
   const value = row[key] || '—';
-  if (key === 'programLink' && value !== '—') {
+  if ((key === 'websiteUrl' || key === 'logo') && value !== '—') {
     return (
       <Link
         href={value}
@@ -68,20 +65,7 @@ function renderCell(row, key) {
         underline="hover"
         onClick={(event) => event.stopPropagation()}
       >
-        Link
-      </Link>
-    );
-  }
-  if (key === 'logo' && value !== '—') {
-    return (
-      <Link
-        href={value}
-        target="_blank"
-        rel="noopener noreferrer"
-        underline="hover"
-        onClick={(event) => event.stopPropagation()}
-      >
-        Logo
+        {key === 'logo' ? 'Logo' : 'Website'}
       </Link>
     );
   }
@@ -184,7 +168,7 @@ export default function InstituteScrappingPage() {
 
   const handleManualSave = async () => {
     if (!isManualFormValid) {
-      setManualError('Institute name and program name are required.');
+      setManualError('Institute name is required.');
       return;
     }
 
@@ -196,7 +180,7 @@ export default function InstituteScrappingPage() {
       await createInstituteScrappingManual(manualForm);
       setAddDialogOpen(false);
       setManualForm(getEmptyManualForm());
-      setSuccess('Manual institute scrapping record added successfully.');
+      setSuccess('Institute added successfully. Add its courses from the Courses page.');
       setPage(0);
       await loadList();
     } catch (err) {
@@ -233,16 +217,16 @@ export default function InstituteScrappingPage() {
       if (response.usedAiFallback) {
         setWarning(
           response.message ||
-            'Website blocked scraping. ChatGPT generated program data from institute name and URL — please verify before use.',
+            'Website blocked scraping. ChatGPT generated data from institute name and URL — please verify before use.',
         );
       } else if ((response.recordsInserted ?? 0) === 0) {
         setWarning(
-          response.message || 'Scraping finished but no program records were saved. Check the website URL or API logs.',
+          response.message || 'Scraping finished but no institute/course records were saved. Check the website URL or API logs.',
         );
       } else {
         setSuccess(
           response.message ||
-            `${response.recordsInserted} program record(s) scraped from the website and saved.`,
+            `Institute scraped successfully. ${response.recordsInserted} course(s) saved to Courses.`,
         );
       }
       setForm(getEmptyForm(BASE_PATH));
@@ -425,7 +409,7 @@ export default function InstituteScrappingPage() {
               ) : (
               <>
               <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                <Table size="small" sx={{ minWidth: 1400 }}>
+                <Table size="small" sx={{ minWidth: 1000 }}>
                   <TableHead>
                     <TableRow sx={{ backgroundColor: 'var(--muted-bg)' }}>
                       <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>S No</TableCell>
@@ -474,7 +458,7 @@ export default function InstituteScrappingPage() {
       </Box>
 
       <Dialog open={addDialogOpen} onClose={closeAddDialog} fullWidth maxWidth="md">
-        <DialogTitle>Add Institute Scrapping Record</DialogTitle>
+        <DialogTitle>Add Institute</DialogTitle>
         <DialogContent dividers>
           {manualError && (
             <Alert severity="error" sx={{ mb: 2 }}>
