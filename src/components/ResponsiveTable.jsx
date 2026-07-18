@@ -21,6 +21,7 @@ import {
   resourceTableHeadRowSx,
   resourceTableSx,
 } from './resourceTableStyles';
+import axiosClient from '../api/axiosClient'; 
 
 function renderTextCell(value, column, columnIndex, onRowClick) {
   const isPrimaryLink = onRowClick && columnIndex === 0;
@@ -63,6 +64,8 @@ export default function ResponsiveTable({
   const isMobile = useMediaQuery(`(max-width:${cardBreakpoint - 0.05}px)`);
   const mobileColumns = columns.filter((col) => !col.hideOnMobile);
   const isResource = variant === 'resource' || alwaysTable;
+  const API_BASE_URL = axiosClient.defaults.baseURL;
+ 
 const isValidUrl = (value) => {
   if (!value || typeof value !== 'string') {
     return false;
@@ -91,37 +94,43 @@ const renderCellValue = (row, column) => {
     return '-';
   }
 
-  if (
-    column.field === 'programLink' ||
-    column.field === 'programLogo'
-  ) {
-    if (!isValidUrl(value)) {
-      return '-';
-    }
-
-    return (
-      <Link
-        href={value}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(event) => event.stopPropagation()}
-        sx={{
-          color: '#1976d2',
-          textDecoration: 'none',
-          cursor: 'pointer',
-          fontWeight: 400,
-          fontSize: 'inherit',
-          '&:hover': {
-            color: '#1565c0',
-            textDecoration: 'underline',
-          },
-        }}
-      >
-        {column.field === 'programLogo' ? 'Logo' : 'Link'}
-      </Link>
-    );
+  if (column.field === 'programLink') {
+  if (!isValidUrl(value)) {
+    return '-';
   }
 
+  return (
+    <Link
+      href={value}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(event) => event.stopPropagation()}
+    >
+      Link
+    </Link>
+  );
+}
+
+if (column.field === 'programLogo') {
+  if (!value) return '-';
+
+  let finalUrl = value;
+
+  if (!isValidUrl(value)) {
+    finalUrl = `${API_BASE_URL}/${value.replace(/^wwwroot[\\/]/, '')}`;
+  }
+
+  return (
+    <Link
+      href={finalUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+    >
+      Logo
+    </Link>
+  );
+}
   return value;
 };
 

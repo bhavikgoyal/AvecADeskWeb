@@ -85,7 +85,14 @@ export default function CourseDetailPage({
 
           {' | '}
 
-          <CourseLink value={item.programLogo} label="Logo" />
+              <Link
+        href={`${API_BASE_URL}${item.programLogo}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        Logo
+      </Link>
         </Box>
       ))}
     </Paper>

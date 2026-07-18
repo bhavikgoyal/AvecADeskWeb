@@ -24,7 +24,7 @@ function toApiForm(form) {
     scholarshipsDetails: form.scholarshipsDetails || null,
     programDescription: form.programDescription || null,
     addmissionRequirements: form.addmissionRequirements || null,
-    programLogo: form.programLogo || null,
+    programLogo: form.programLogo,
     isApproved: form.isApproved === 'Yes',
     isActive: form.isActive === 'Yes'
   };
@@ -121,56 +121,65 @@ export default function NewCoursePage({ basePath = '/courses' }) {
     if (error) setError('');
   };
 
-  const isCourseFormValid = () => {
-    const requiredFields = resource.requiredFields ?? [];
+const isCourseFormValid = () => {
+  const requiredFields = resource.requiredFields ?? [];
 
-    return requiredFields.every((field) => {
-      const value = form[field];
-      return value !== null && value !== undefined && String(value).trim() !== '';
-    });
-  };
+  return requiredFields.every((field) => {
+    const value = form[field];
+
+    if (value === null || value === undefined) {
+      return false;
+    }
+
+    // File upload field
+    if (value instanceof File) {
+      return true;
+    }
+
+    return String(value).trim() !== '';
+  });
+};
 
   const hasChanges =
     originalForm !== null &&
     JSON.stringify(form) !== JSON.stringify(originalForm);
+const handleSave = async () => {
+  if (submittingRef.current) return;
 
-  const handleSave = async () => {
-    if (submittingRef.current) return;
+  if (!isCourseFormValid()) {
+    setError('Please fill all required fields.');
+    return;
+  }
 
-    if (!isCourseFormValid()) {
-      setError('Please fill all required fields.');
-      return;
+  if (isEditMode && !hasChanges) return;
+
+  submittingRef.current = true;
+  setSubmitting(true);
+  setError('');
+
+  try {
+    if (isEditMode) {
+      await updateCourse(courseId, form);
+    } else {
+      await createCourse(form);
     }
 
-    if (isEditMode && !hasChanges) return;
-
-    submittingRef.current = true;
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const payload = toApiForm(form);
-
-      if (isEditMode) {
-        await updateCourse(courseId, payload);
-      } else {
-        await createCourse(payload);
-      }
-
-      navigate(basePath, {
-        replace: true,
-        state: { refresh: true },
-      });
-    } catch (err) {
-      setError(
-        err?.message ||
-        (isEditMode ? 'Failed to update course.' : 'Failed to create course.')
-      );
-    } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
-    }
-  };
+    navigate(basePath, {
+      replace: true,
+      state: { refresh: true },
+    });
+  } catch (err) {
+    setError(
+      err?.message ||
+        (isEditMode
+          ? 'Failed to update course.'
+          : 'Failed to create course.')
+    );
+  } finally {
+    submittingRef.current = false;
+    setSubmitting(false);
+  }
+};
 
   const instituteOptions = [
     { value: '', label: 'Please select institute' },

@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Box, Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField } from '@mui/material';
+import { Box,Button, Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography } from '@mui/material';
 import { FIELD_DEFS } from '../../config/resourceConfig';
 import { FormGridItem } from './FormSection';
 import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
@@ -51,7 +51,51 @@ export default function ResourceFormFields({
     const isRequired = Boolean(def.required) || requiredFields.includes(fieldName);
     const isDate = def.type === 'date';
     const isFieldDisabled = disabled || def.readOnly || disabledFields.includes(fieldName);
+      if (def.type === "file") {
+      const preview =
+        form[fieldName] && typeof form[fieldName] === "string"
+          ? `${import.meta.env.VITE_API_BASE_URL}${form[fieldName].replace(/^wwwroot/, "")}`
+          : form[fieldName] instanceof File
+          ? URL.createObjectURL(form[fieldName])
+          : null;
 
+      return (
+        <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+          <Box sx={{ width: "100%" }}>
+            <Typography
+              component="label"
+              sx={{ display: "block", mb: 0.5, color: "var(--text)", fontSize: "0.75rem", fontWeight: 500 }}
+            >
+              {def.label}
+            </Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box sx={{ flexShrink: 0 }}>
+                <input
+                  type="file"
+                  accept={def.accept || "image/*"}
+                  disabled={isFieldDisabled}
+                  style={{ width: "auto", maxWidth: "220px" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onChange(fieldName, file);
+                  }}
+                />
+              </Box>
+
+              {preview && (
+                <Box
+                  component="img"
+                  src={preview}
+                  alt="Preview"
+                  sx={{ width: 80, height: 80, objectFit: "contain", border: "1px solid #ddd", borderRadius: 1, flexShrink: 0 }}
+                />
+              )}
+            </Box>
+          </Box>
+        </FormGridItem>
+      );
+    }
     if (def.type === 'select' || def.type === 'api-select') {
       const options = def.type === 'api-select' ? selectOptions[fieldName] || [] : def.options.map((option) => ({ value: option, label: option }));
       const labelId = `${fieldName}-label`;
