@@ -77,7 +77,7 @@ export default function CourseDetailPage({
           onClick={() => navigate(`${basePath}/${item.courseId}`)}
           sx={{ cursor: 'pointer' }}
         >
-          {item.instituteName} | {item.courseName} | {item.courseCategory || '—'} |{' '}
+          {item.instituteName} | {item.courseName} | {item.CourseCategory  || '—'} |{' '}
           {item.level || '—'} | {item.campus || '—'} | {item.intake || '—'} |{' '}
           {item.fees ?? '—'} | {item.duration || '—'} |{' '}
 
@@ -85,7 +85,14 @@ export default function CourseDetailPage({
 
           {' | '}
 
-          <CourseLink value={item.programLogo} label="Logo" />
+              <Link
+        href={`${API_BASE_URL}${item.programLogo}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        Logo
+      </Link>
         </Box>
       ))}
     </Paper>

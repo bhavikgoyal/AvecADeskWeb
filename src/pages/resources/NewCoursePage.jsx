@@ -6,37 +6,13 @@ import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig } from '../../config/resourceConfig';
 
-function toApiForm(form) {
-  return {
-    instituteId: Number(form.instituteId),
-    courseName: form.courseName || '',
-    category: form.courseCategory || form.category || null,
-    description: form.description || null,
-    fees: form.fees ? Number(form.fees) : null,
-    duration: form.duration || null,
-    eligibility: form.eligibility || null,
-    campus: form.campus || null,
-    level: form.level || null,
-    programLink: form.programLink || null,
-    cricosCode: form.cricosCode || null,
-    intake: form.intake || null,
-    englishReq: form.englishReq || null,
-    scholarshipsDetails: form.scholarshipsDetails || null,
-    programDescription: form.programDescription || null,
-    addmissionRequirements: form.addmissionRequirements || null,
-    programLogo: form.programLogo || null,
-    isApproved: form.isApproved === 'Yes',
-    isActive: form.isActive === 'Yes'
-  };
-}
 
 function toCourseForm(data, emptyForm) {
   return {
     ...emptyForm,
     instituteId: data?.instituteId != null ? String(data.instituteId) : '',
     courseName: data?.courseName || '',
-    courseCategory: data?.category || data?.courseCategory || '',
-    category: data?.category || data?.courseCategory || '',
+    CourseCategory: data?.CourseCategory || data?.Category || '',
     description: data?.description || '',
     fees: data?.fees != null ? String(data.fees) : '',
     duration: data?.duration || '',
@@ -122,56 +98,65 @@ export default function NewCoursePage({ basePath = '/courses' }) {
     if (error) setError('');
   };
 
-  const isCourseFormValid = () => {
-    const requiredFields = resource.requiredFields ?? [];
+const isCourseFormValid = () => {
+  const requiredFields = resource.requiredFields ?? [];
 
-    return requiredFields.every((field) => {
-      const value = form[field];
-      return value !== null && value !== undefined && String(value).trim() !== '';
-    });
-  };
+  return requiredFields.every((field) => {
+    const value = form[field];
+
+    if (value === null || value === undefined) {
+      return false;
+    }
+
+    // File upload field
+    if (value instanceof File) {
+      return true;
+    }
+
+    return String(value).trim() !== '';
+  });
+};
 
   const hasChanges =
     originalForm !== null &&
     JSON.stringify(form) !== JSON.stringify(originalForm);
+const handleSave = async () => {
+  if (submittingRef.current) return;
 
-  const handleSave = async () => {
-    if (submittingRef.current) return;
+  if (!isCourseFormValid()) {
+    setError('Please fill all required fields.');
+    return;
+  }
 
-    if (!isCourseFormValid()) {
-      setError('Please fill all required fields.');
-      return;
+  if (isEditMode && !hasChanges) return;
+
+  submittingRef.current = true;
+  setSubmitting(true);
+  setError('');
+
+  try {
+    if (isEditMode) {
+      await updateCourse(courseId, form);
+    } else {
+      await createCourse(form);
     }
 
-    if (isEditMode && !hasChanges) return;
-
-    submittingRef.current = true;
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const payload = toApiForm(form);
-
-      if (isEditMode) {
-        await updateCourse(courseId, payload);
-      } else {
-        await createCourse(payload);
-      }
-
-      navigate(basePath, {
-        replace: true,
-        state: { refresh: true },
-      });
-    } catch (err) {
-      setError(
-        err?.message ||
-        (isEditMode ? 'Failed to update course.' : 'Failed to create course.')
-      );
-    } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
-    }
-  };
+    navigate(basePath, {
+      replace: true,
+      state: { refresh: true },
+    });
+  } catch (err) {
+    setError(
+      err?.message ||
+        (isEditMode
+          ? 'Failed to update course.'
+          : 'Failed to create course.')
+    );
+  } finally {
+    submittingRef.current = false;
+    setSubmitting(false);
+  }
+};
 
   const instituteOptions = [
     { value: '', label: 'Please select institute' },
