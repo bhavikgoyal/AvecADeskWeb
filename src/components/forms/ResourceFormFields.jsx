@@ -1,4 +1,37 @@
-import { Fragment } from 'react';
+import { Fragment, useState, useEffect } from 'react';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+
+const defaultEditorConfig = {
+  toolbar: {
+    items: [
+      'undo', 'redo', '|', 'heading', '|', 'bold', 'italic', 'underline',
+      '|', 'link', '|', 'bulletedList', 'numberedList', 'outdent', 'indent',
+      '|', 'insertTable', 'blockQuote', 'codeBlock', '|', 'imageUpload', 'mediaEmbed', '|', 'removeFormat'
+    ],
+    shouldNotGroupWhenFull: true
+  },
+  image: {
+    toolbar: ['imageTextAlternative', 'imageStyle:full', 'imageStyle:side']
+  },
+  extraPlugins: [function MyCustomUploadAdapterPlugin(editor) {
+    editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+      return {
+        upload() {
+          return loader.file.then(file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({ default: reader.result });
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(file);
+          }));
+        },
+        abort() {
+          // no-op for base64
+        }
+      };
+    };
+  }]
+};
 import { Box,Button, Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography } from '@mui/material';
 import { FIELD_DEFS } from '../../config/resourceConfig';
 import { FormGridItem } from './FormSection';
@@ -96,6 +129,54 @@ export default function ResourceFormFields({
         </FormGridItem>
       );
     }
+    if (def.type === 'editor') {
+      const [isSource, setIsSource] = useState(false);
+      const [localData, setLocalData] = useState(form[fieldName] || '');
+
+      useEffect(() => {
+        setLocalData(form[fieldName] || '');
+      }, [form[fieldName]]);
+
+      const toggleSource = () => setIsSource((s) => !s);
+
+      return (
+        <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+            <Typography component="label" sx={{ color: 'var(--text)', fontSize: '0.75rem', fontWeight: 500 }}>{def.label}</Typography>
+            <Button size="small" onClick={toggleSource} disabled={isFieldDisabled}>
+              {isSource ? 'Editor' : 'HTML Source'}
+            </Button>
+          </Box>
+          {isSource ? (
+            <TextField
+              {...fieldProps}
+              multiline
+              minRows={6}
+              value={localData}
+              onChange={(e) => {
+                setLocalData(e.target.value);
+                onChange(fieldName, e.target.value);
+              }}
+              disabled={isFieldDisabled}
+            />
+          ) : (
+            <CKEditor
+              editor={ClassicEditor}
+              data={localData}
+              config={defaultEditorConfig}
+              disabled={isFieldDisabled}
+              onReady={() => {}}
+              onChange={(_, editor) => {
+                const data = editor.getData();
+                setLocalData(data);
+                onChange(fieldName, data);
+              }}
+            />
+          )}
+        </FormGridItem>
+      );
+    }
+
     if (def.type === 'select' || def.type === 'api-select') {
       const options = def.type === 'api-select' ? selectOptions[fieldName] || [] : def.options.map((option) => ({ value: option, label: option }));
       const labelId = `${fieldName}-label`;

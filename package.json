@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-build-classic": "^41.4.2",
+    "@ckeditor/ckeditor5-react": "^11.2.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hello-pangea/dnd": "^18.0.1",
@@ -17,6 +19,7 @@
     "@mui/material": "^9.0.1",
     "axios": "^1.18.0",
     "bootstrap": "^5.3.8",
+    "ckeditor5": "^48.3.1",
     "file-saver": "^2.0.5",
     "flatpickr": "^4.6.13",
     "jspdf": "^4.2.1",

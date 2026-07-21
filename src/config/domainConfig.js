@@ -88,7 +88,7 @@ export const DOMAIN_FIELD_DEFS = {
 
   templateName: { label: 'Template name', type: 'text', required: true, grid: grid.half },
   subject: { label: 'Email subject', type: 'text', grid: grid.half },
-  bodyHtml: { label: 'Body (HTML)', type: 'textarea', grid: grid.full },
+  bodyHtml: { label: 'Body (HTML)', type: 'editor', grid: grid.full },
   category: {
     label: 'Category',
     type: 'select',
@@ -364,8 +364,8 @@ vendors: {
     primaryField: 'templateName',
     requiredFields: ['templateName'],
     sections: [
-      { title: 'Template', description: 'Supports {{placeholders}} in subject and body.', fields: ['templateName', 'category', 'subject'] },
-      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml', 'notes'] },
+      { title: 'Template', description: 'Supports {{placeholders}} in subject and body.', fields: ['templateName', 'category', 'subject'],layout:'full' },
+      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml', 'notes'],layout:'full' },
     ],
     columns: [
       { id: 'templateName', label: 'Name', field: 'templateName' },
