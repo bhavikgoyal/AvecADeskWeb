@@ -26,7 +26,7 @@ function formatDate(value) {
     year: 'numeric',
   });
 }
-
+ 
 export default function InstituteCommissionPage() {
   const [rates, setRates] = useState([]);
   const [institutes, setInstitutes] = useState([]);
@@ -472,12 +472,11 @@ export default function InstituteCommissionPage() {
               {institutes.map((i) => <MenuItem key={i.instituteId} value={i.instituteId}>{i.instituteName}</MenuItem>)}
             </TextField>
 
-            <TextField select label="Course" value={form.courseId} fullWidth disabled={!form.instituteId} onChange={(e) => setForm({ ...form, courseId: e.target.value })}>
-              {dialogCourses.length > 0 ? (<><MenuItem value="">Select Course</MenuItem>
-                {dialogCourses.map((c) => <MenuItem key={c.courseId} value={c.courseId}>{c.courseName}</MenuItem>)}  </>) : (
-                <MenuItem value="" disabled>  No courses available </MenuItem>)}
+            <TextField select label="Course" value={form.courseId}fullWidth  disabled={!form.instituteId}onChange={(e) => setForm((prev) => ({  ...prev, courseId: e.target.value,}))} >
+              <MenuItem value="">Select Course</MenuItem>
+              {dialogCourses.map((c) => ( <MenuItem key={c.courseId} value={c.courseId}> {c.courseName} </MenuItem>))}
+              {dialogCourses.length === 0 && ( <MenuItem value="" disabled> No courses available </MenuItem>)}
             </TextField>
-
             <TextField select label="Rate Type" value={form.rateType} fullWidth required onChange={(e) => setForm({ ...form, rateType: e.target.value })}>
               <MenuItem value="Fixed">Fixed</MenuItem>
               <MenuItem value="Percentage">Percentage</MenuItem>
