@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link , useNavigate} from 'react-router-dom';
 import {
   Box,
   Card,
@@ -7,7 +7,7 @@ import {
   IconButton,
   Typography,
 } from '@mui/material';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+//import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import ResponsiveTable from '../../components/ResponsiveTable';
@@ -140,6 +140,7 @@ function TemplateActions({ templateId, onDelete }) {
         to={`/agreement-template/${templateId}/view`}
         size="small"
         aria-label="View template"
+        onClick={(event) => event.stopPropagation()} 
         sx={{
           color: 'var(--primary)',
           bgcolor: 'var(--primary-soft, #e8f2fb)',
@@ -147,21 +148,7 @@ function TemplateActions({ templateId, onDelete }) {
           '&:hover': { bgcolor: 'rgba(47, 128, 201, 0.18)' },
         }}
       >
-        <VisibilityOutlinedIcon fontSize="small" />
-      </IconButton>
-      <IconButton
-        component={Link}
-        to={`/agreement-template/${templateId}/edit`}
-        size="small"
-        aria-label="Edit template"
-        sx={{
-          color: 'var(--primary)',
-          bgcolor: 'var(--primary-soft, #e8f2fb)',
-          flexShrink: 0,
-          '&:hover': { bgcolor: 'rgba(47, 128, 201, 0.18)' },
-        }}
-      >
-        <EditOutlinedIcon fontSize="small" />
+               <VisibilityOutlinedIcon fontSize="small" />
       </IconButton>
       <IconButton
         size="small"
@@ -184,6 +171,7 @@ function TemplateActions({ templateId, onDelete }) {
 }
 
 export default function AgreementTemplateTable({ templates = [], onDelete, loading = false }) {
+   const navigate = useNavigate();
   const tableRows = useMemo(
     () =>
       templates.map((t, index) => ({
@@ -214,7 +202,24 @@ export default function AgreementTemplateTable({ templates = [], onDelete, loadi
         id: 'templateName',
         label: 'Template Name',
         field: 'templateName',
-        render: (row) => <TruncateCell value={row.templateName} fontWeight={600} />,
+        render: (row) =>  <Typography
+      variant="body2"
+      component="span"
+      title={row.templateName}
+      sx={{
+        display: 'block',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        minWidth: 0,
+        color: 'var(--primary)',
+        fontWeight: 600,
+        cursor: 'pointer',
+        '&:hover': { textDecoration: 'underline' },
+      }}
+    >
+      {row.templateName || '—'}
+    </Typography>,
         headerSx: nameColSx,
         cellSx: nameColSx,
       },
@@ -283,6 +288,9 @@ export default function AgreementTemplateTable({ templates = [], onDelete, loadi
     [onDelete],
   );
 
+  const handleRowClick = (row) => {
+    navigate(`/agreement-template/${row.templateId}/edit`);
+  };
   return (
     <Card elevation={0} sx={{ ...sectionCardSx, overflow: 'hidden' }}>
       <Box sx={{ px: contentInset, pt: contentInset, pb: 1 }}>
@@ -316,6 +324,7 @@ export default function AgreementTemplateTable({ templates = [], onDelete, loadi
             alwaysTable
             tableMinWidth={TABLE_MIN_WIDTH}
             sx={agreementTableSx}
+            onRowClick={handleRowClick}
           />
         </Box>
       )}
