@@ -15,7 +15,6 @@ import { Link as RouterLink } from 'react-router-dom';
 import LoginSplitLayout from '../../components/login/LoginSplitLayout';
 import { loginButtonSx, loginFieldSx, loginLabelSx } from '../../components/login/loginFormStyles';
 import { studentLoginWithApi } from '../../api/authApi';
-import { useAuth } from '../../hooks/useAuth';
 
 export default function StudentLoginForm() {
   const [email, setEmail] = useState('');
@@ -23,7 +22,6 @@ export default function StudentLoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { login } = useAuth();
   const STUDENT_PORTAL_URL = import.meta.env.VITE_STUDENT_PORTAL_URL || 'http://localhost:5173';
 
 
@@ -34,6 +32,7 @@ export default function StudentLoginForm() {
 
   try {
     const apiStudent = await studentLoginWithApi(email, password);
+    const phone = apiStudent.mobileNumber || apiStudent.phone || apiStudent.phoneNumber || apiStudent.mobile || '';
 
     const params = new URLSearchParams({
       token: apiStudent.token,
@@ -41,6 +40,9 @@ export default function StudentLoginForm() {
       email: apiStudent.email,
       firstName: apiStudent.firstName,
       lastName: apiStudent.lastName,
+      phone,
+      mobileNumber: phone,
+      phoneNumber: phone,
     });
 
     window.location.href = `${STUDENT_PORTAL_URL}/colleges?${params.toString()}`;

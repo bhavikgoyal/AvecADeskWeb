@@ -34,7 +34,7 @@ export const GET_MENU = (role) => {
       {
         category: 'MANAGEMENT',
         items: [
-          { title: 'Vendor Commission', path: '/vendors', Icon: StoreIcon },
+          { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
           // { title: 'Institute Commission old', path: '/institutes', Icon: AccountBalanceIcon },
           { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institutes Scrapping', path: '/institutes-scrapping', Icon: TravelExploreIcon },
@@ -44,7 +44,7 @@ export const GET_MENU = (role) => {
           { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
           { title: 'Email Templates', path: '/templates', Icon: EmailIcon },
           { title: 'Agreement Template', path: '/agreement-template', Icon: DescriptionIcon },
-          { title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
+          //{ title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
           // { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
           { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
           { title: 'Members', path: '/Members', Icon: PeopleIcon },
