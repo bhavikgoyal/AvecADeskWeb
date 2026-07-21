@@ -1,10 +1,11 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
-import { Box, Button, CircularProgress, Grid, IconButton, InputAdornment, Paper, Stack, TextField, Typography } from '@mui/material';
+import { lazy, Suspense, useMemo, useState ,useEffect} from 'react';
+import { Box, Button, CircularProgress, Grid, IconButton, InputAdornment, Paper, Stack, TextField, TablePagination, Typography } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import StatCard from './StatCard';
 import ResponsiveTable from './ResponsiveTable';
 import { buildSparkline } from '../constants/chartData';
+
 
 const PageChartsPanel = lazy(() => import('./charts/PageChartsPanel'));
 
@@ -23,6 +24,8 @@ export default function PageShell({
   onDelete,
 }) {
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const filteredRows = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -31,6 +34,18 @@ export default function PageShell({
       Object.values(row).some((value) => String(value ?? '').toLowerCase().includes(term)),
     );
   }, [rows, query]);
+
+  
+const paginatedRows = useMemo(() => {
+  return filteredRows.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+}, [filteredRows, page, rowsPerPage]);
+
+useEffect(() => {
+  setPage(0);
+}, [query]);
 
   const enhancedStats = stats.map((stat, index) => ({
     ...stat,
@@ -153,7 +168,7 @@ export default function PageShell({
 
         {tableColumns.length > 0 && rows.length > 0 ? (
           filteredRows.length > 0 ? (
-            <ResponsiveTable columns={tableColumns} rows={filteredRows} getRowKey={(row) => row.id} variant="resource" alwaysTable onRowClick={onRowClick} />
+            <ResponsiveTable columns={tableColumns} rows={paginatedRows} getRowKey={(row) => row.id} variant="resource" alwaysTable onRowClick={onRowClick} />
           ) : (
             <Box sx={{ px: { xs: 1.25, md: 1.5 }, py: 2.5 }}>
               <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
@@ -168,6 +183,18 @@ export default function PageShell({
             </Typography>
           </Box>
         )}
+        <TablePagination
+  component="div"
+  count={filteredRows.length}
+  page={page}
+  rowsPerPage={rowsPerPage}
+  onPageChange={(_, newPage) => setPage(newPage)}
+  onRowsPerPageChange={(e) => {
+    setRowsPerPage(parseInt(e.target.value, 10));
+    setPage(0);
+  }}
+  rowsPerPageOptions={[10, 25, 50]}
+/>
       </Paper>
     </Box>
   );

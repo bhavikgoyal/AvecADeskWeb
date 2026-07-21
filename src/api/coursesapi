@@ -5,7 +5,7 @@ function normalizeCourse(course) {
     courseId: course.courseId ?? course.CourseId,
     instituteId: course.instituteId ?? course.InstituteId,
     courseName: course.courseName ?? course.CourseName ?? '',
-    CourseCategory: course.category ?? course.Category ?? '',
+    CourseCategory: course.CourseCategory ?? course.courseCategory ?? '',
     description: course.description ?? course.Description ?? '',
     fees: course.fees ?? course.Fees ?? null,
     duration: course.duration ?? course.Duration ?? '',
