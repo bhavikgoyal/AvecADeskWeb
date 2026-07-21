@@ -88,6 +88,7 @@ export const PAGE_CONFIG = {
     title: 'Reminder Rules',
    // subtitle: 'Configure automated payment and follow-up reminder workflows.',
     actionLabel: 'Add Rule',
+    showCharts: false,
     // stats: [
     //   { label: 'Active rules', value: '14', caption: '3 payment due rules', icon: <AssignmentIcon fontSize="large" />, color: 'var(--primary)' },
     //   { label: 'Sent today', value: '38', caption: 'Email + SMS', icon: <ReceiptIcon fontSize="large" />, color: 'var(--teal)' },

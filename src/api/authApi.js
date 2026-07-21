@@ -93,12 +93,23 @@ export async function studentLoginWithApi(email, password) {
   setAuthToken(token);
 
   const apiStudent = data?.student || data?.Student || {};
+  const mobileNumber =
+    apiStudent?.mobileNumber ??
+    apiStudent?.MobileNumber ??
+    apiStudent?.phoneNumber ??
+    apiStudent?.PhoneNumber ??
+    apiStudent?.phone ??
+    apiStudent?.Phone ??
+    '';
 
   return {
     id: String(apiStudent?.id ?? apiStudent?.Id ?? 'student-user'),
     email: apiStudent?.email ?? apiStudent?.Email ?? email,
     firstName: apiStudent?.firstName ?? apiStudent?.FirstName ?? '',
     lastName: apiStudent?.lastName ?? apiStudent?.LastName ?? '',
+    mobileNumber,
+    phone: mobileNumber,
+    phoneNumber: mobileNumber,
     role: 'Student',
     name:
       `${apiStudent?.firstName ?? apiStudent?.FirstName ?? ''} ${
