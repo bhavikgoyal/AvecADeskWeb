@@ -138,7 +138,16 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
   const handleAddItem = async (checklistId) => {
     const text = newItems[checklistId];
     if (!text?.trim()) return;
-    await createChecklistItem({ checklistID: checklistId, itemName: text.trim() });
+    const checklistAssignedUserId = assignedUserId ?? normalizeUserId(visibleMembers[0]?.userID ?? visibleMembers[0]?.userId);
+    if (!checklistAssignedUserId) {
+      window.alert('Assign a user to this card before adding checklist items.');
+      return;
+    }
+    await createChecklistItem({
+      checklistID: checklistId,
+      itemName: text.trim(),
+      assignedUserID: checklistAssignedUserId,
+    });
     setNewItems((prev) => ({ ...prev, [checklistId]: '' }));
     loadChecklists();
   };
