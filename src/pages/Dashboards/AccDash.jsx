@@ -10,6 +10,7 @@ import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
 import { fetchStudentPaymentInstallments } from '../../api/Receivablesapi';
 import { fetchAllStudents } from '../../api/studentsApi';
 import GroupedBarChartCard from '../../components/charts/GroupedBarChartCard';
+import DashboardUpcomingPanel from '../../components/dashboard/DashboardUpcomingPanel';
 
 
 const lastMonth = [
@@ -163,54 +164,71 @@ export default function AccDash() {
   }, []);
 
   return (
-    <DashboardTemplate
-      title="Accounting Dashboard"
-      subtitle="This Month's Receivables Overview"
-      welcomeFooterStats={[
-        { label: 'Received', value: monthRevenue ? `$${Number(monthRevenue.collected || 0).toLocaleString()}` : '$0' },
-        { label: 'Due', value: monthRevenue ? `$${Number(monthRevenue.outstanding || 0).toLocaleString()}` : '$0' },
-      ]}
-      kpiStats={(() => {
-        const base = [
-          {
-            label: 'Total students',
-            value: studentStats.total.toLocaleString(),
-            sparklineData: buildSparkline(2),
-            icon: <PeopleIcon />,
-            color: 'var(--primary)',
-            footer: [
-              { label: 'New this month', value: `+${studentStats.newThisMonth}`, sub: 'this month' },
-            ],
-          },
-        ];
+    <Box>
+      <DashboardTemplate
+        title="Accounting Dashboard"
+        subtitle="This Month's Receivables Overview"
+        welcomeFooterStats={[
+          { label: 'Received', value: monthRevenue ? `$${Number(monthRevenue.collected || 0).toLocaleString()}` : '$0' },
+          { label: 'Due', value: monthRevenue ? `$${Number(monthRevenue.outstanding || 0).toLocaleString()}` : '$0' },
+        ]}
+        kpiStats={(() => {
+          const base = [
+            {
+              label: 'Total students',
+              value: studentStats.total.toLocaleString(),
+              sparklineData: buildSparkline(2),
+              icon: <PeopleIcon />,
+              color: 'var(--primary)',
+              footer: [
+                { label: 'New this month', value: `+${studentStats.newThisMonth}`, sub: 'this month' },
+              ],
+            },
+          ];
 
-        base.push();
-        return base;
-      })()}
+          base.push();
+          return base;
+        })()}
         showSnapshot={false}
         showQuickInsights={false}
         showUpcoming={false}
         showCharts={false}
         showMiniStats={false}
         showTable={false}
-      tableBasePath="/invoices"
-      
-      showTable={false}
-      children={(
-        <>
-          <GroupedBarChartCard title="Last Month - weekly paid vs due" data={installmentSummary.weeksPrev ? installmentSummary.weeksPrev.map((w, i) => ({ name: `W${i+1}`, paid: w.paid, due: w.due })) : []} keys={["paid","due"]} height={220} sx={{ height: 260 }} />
-          <GroupedBarChartCard title="This Month - weekly paid vs due" data={installmentSummary.weeksThis ? installmentSummary.weeksThis.map((w, i) => ({ name: `W${i+1}`, paid: w.paid, due: w.due })) : []} keys={["paid","due"]} height={220} sx={{ height: 260 }} />
-           <GroupedBarChartCard
-            title="Next Month — upcoming installments (by week)"
-            data={installmentSummary.weeksNext ? installmentSummary.weeksNext.map((w, i) => ({ name: `W${i+1}`, paid: w.paid, due: w.due })) : []}
-            keys={["paid", "due"]}
-            height={220}
-            sx={{ height: 260 }}
-          />
-
-        </>
-      )}
+        tableBasePath="/invoices"
         rightExtra={null}
-    />
+      >
+        <GroupedBarChartCard
+          items={[
+            {
+              title: 'Last Month - weekly paid vs due',
+              data: installmentSummary.weeksPrev
+                ? installmentSummary.weeksPrev.map((w, i) => ({ name: `W${i + 1}`, paid: w.paid, due: w.due }))
+                : [],
+              keys: ['paid', 'due'],
+            },
+            {
+              title: 'This Month - weekly paid vs due',
+              data: installmentSummary.weeksThis
+                ? installmentSummary.weeksThis.map((w, i) => ({ name: `W${i + 1}`, paid: w.paid, due: w.due }))
+                : [],
+              keys: ['paid', 'due'],
+            },
+          ]}
+        />
+        <Box sx={{ mt: 1.5 }}>
+          <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 } }}>
+            <Typography sx={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem' }}>
+              Next Month — Total Upcoming
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: 'var(--text)', mt: 1 }}>
+              {`$${(installmentSummary.upcomingNext || [])
+                .reduce((sum, it) => sum + Number(it.balanceAmount || 0), 0)
+                .toLocaleString()}`}
+            </Typography>
+          </Paper>
+        </Box>
+      </DashboardTemplate>
+    </Box>
   );
 }

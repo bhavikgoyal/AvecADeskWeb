@@ -95,9 +95,13 @@ export function AnimatedAreaChart({ data, dataKey = 'value', height = 260, secon
   );
 }
 
-export function AnimatedBarChart({ data, keys = ['visits', 'signups'], height = 260 }) {
-  const colors = [CHART_COLORS.primary, CHART_COLORS.teal];
-
+export function AnimatedBarChart({
+  data,
+  keys = ['visits', 'signups'],
+  colors = [CHART_COLORS.primary, CHART_COLORS.teal],
+  height = 260,
+  maxBarSize = 28,
+}) {
   return (
     <Box sx={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -112,7 +116,7 @@ export function AnimatedBarChart({ data, keys = ['visits', 'signups'], height = 
               dataKey={key}
               fill={colors[index % colors.length]}
               radius={[6, 6, 0, 0]}
-              maxBarSize={28}
+              maxBarSize={maxBarSize}
               {...CHART_ANIMATION}
             />
           ))}
