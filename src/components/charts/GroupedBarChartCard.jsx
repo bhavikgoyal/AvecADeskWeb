@@ -49,14 +49,14 @@ export default function GroupedBarChartCard({ items, ...singleProps }) {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
           gap: { xs: 1, md: 1.25 },
           width: '100%',
           alignItems: 'stretch',
         }}
       >
         {items.map((chart, index) => (
-          <Box key={chart.id ?? chart.title ?? index} sx={{ minWidth: 0 }}>
+          <Box key={chart.id ?? chart.title ?? index} sx={{ minWidth: 0, width: '100%' }}>
             <SingleGroupedBarChart {...chart} />
           </Box>
         ))}

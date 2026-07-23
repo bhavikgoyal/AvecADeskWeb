@@ -11,7 +11,7 @@ import { fetchStudentPaymentInstallments } from '../../api/Receivablesapi';
 import { fetchAllStudents } from '../../api/studentsApi';
 import GroupedBarChartCard from '../../components/charts/GroupedBarChartCard';
 import DashboardUpcomingPanel from '../../components/dashboard/DashboardUpcomingPanel';
-
+import { CHART_COLORS } from '../../theme/chartTheme';
 
 const lastMonth = [
   { name: '00', thisMonth: 120, lastMonth: 40 },
@@ -197,7 +197,9 @@ export default function AccDash() {
         showTable={false}
         tableBasePath="/invoices"
         rightExtra={null}
-      >
+      />
+
+      <Box sx={{ mt: 1.5, width: '100%' }}>
         <GroupedBarChartCard
           items={[
             {
@@ -206,6 +208,7 @@ export default function AccDash() {
                 ? installmentSummary.weeksPrev.map((w, i) => ({ name: `W${i + 1}`, paid: w.paid, due: w.due }))
                 : [],
               keys: ['paid', 'due'],
+               colors: [CHART_COLORS.teal, CHART_COLORS.danger],
             },
             {
               title: 'This Month - weekly paid vs due',
@@ -213,6 +216,7 @@ export default function AccDash() {
                 ? installmentSummary.weeksThis.map((w, i) => ({ name: `W${i + 1}`, paid: w.paid, due: w.due }))
                 : [],
               keys: ['paid', 'due'],
+               colors: [CHART_COLORS.teal, CHART_COLORS.danger],
             },
           ]}
         />
@@ -228,7 +232,7 @@ export default function AccDash() {
             </Typography>
           </Paper>
         </Box>
-      </DashboardTemplate>
+      </Box>
     </Box>
   );
 }

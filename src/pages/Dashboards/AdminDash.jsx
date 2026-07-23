@@ -1,48 +1,24 @@
 import DashboardTemplate from './DashboardTemplate';
-import PeopleIcon from '@mui/icons-material/People';
-import PaymentsIcon from '@mui/icons-material/Payments';
-import StoreIcon from '@mui/icons-material/Store';
 import ReceiptIcon from '@mui/icons-material/Receipt';
-import AssignmentIcon from '@mui/icons-material/Assignment';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import PeopleIcon from '@mui/icons-material/People';
 import EmailIcon from '@mui/icons-material/Email';
-import { buildSparkline } from '../../constants/chartData';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import StoreIcon from '@mui/icons-material/Store';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
+import { buildSparkline, revenueTrend, trafficData } from '../../constants/chartData';
+import { fetchStudentPaymentInstallments } from '../../api/Receivablesapi';
+import { fetchAllStudents } from '../../api/studentsApi';
+import GroupedBarChartCard from '../../components/charts/GroupedBarChartCard';
+import { CHART_COLORS } from '../../theme/chartTheme';
 
 import { useEffect, useState } from 'react';
+import { Box, Paper, Typography } from '@mui/material';
 import { fetchWeekChecklistStats } from '../../utils/checklistStats';
 import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
+import { fetchVendorRows } from '../../api/vendorsApi';
 
 const kpiStats = [
-  {
-    label: 'Total students',
-    value: '75,782',
-    trend: 2,
-    sparklineData: buildSparkline(2),
-    icon: <PeopleIcon />,
-    color: 'var(--primary)',
-    footer: [
-      { label: 'New this mo', value: '+842', sub: 'vs 798 prior' },
-      { label: 'Enrolled', value: '71.2k', sub: '94% active' },
-      { label: 'Waitlist', value: '1,204', sub: '12 institutes' },
-    ],
-  },
-  {
-    label: 'Active users',
-    value: '25,782',
-    trend: -1,
-    donutValue: 78,
-    icon: <StoreIcon />,
-    color: 'var(--teal)',
-    progressBars: [
-      { label: 'Daily logins', value: 78 },
-      { label: 'Weekly active', value: 64 },
-    ],
-    footer: [
-      { label: 'Online now', value: '312' },
-      { label: 'Sessions', value: '4.2k', sub: 'Today' },
-      { label: 'Avg duration', value: '18m' },
-    ],
-  },
-  
   {
     label: 'Open tasks',
     value: '',
@@ -54,26 +30,40 @@ const kpiStats = [
   },
 ];
 
-const miniStats = [
-  { icon: <ReceiptIcon fontSize="small" />, title: '132 Invoices', subtitle: '12 awaiting payment', color: 'var(--primary)', path: '/invoices' },
-  { icon: <PaymentsIcon fontSize="small" />, title: '$18.4k Due', subtitle: 'Vendor commissions', color: 'var(--teal)', bg: 'rgba(32, 201, 151, 0.1)', path: '/reports/dues' },
-  { icon: <PeopleIcon fontSize="small" />, title: '46 Enrolments', subtitle: 'In pipeline', color: 'var(--accent)', path: '/status/students' },
-  { icon: <EmailIcon fontSize="small" />, title: '38 Reminders', subtitle: 'Sent this week', color: 'var(--warning)', bg: 'rgba(245, 159, 0, 0.1)', path: '/reminders' },
-];
-
-const activity = [
-  { id: 'a1', title: 'Payment received', description: 'Student payment confirmed for INV-2041.', time: '12m ago', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80' },
-  { id: 'a2', title: 'Vendor approved', description: 'New vendor onboarding completed.', time: '1h ago', avatar: 'https://images.unsplash.com/photo-1547425260-76bcadfb4f2c?auto=format&fit=crop&w=200&q=80' },
-  { id: 'a3', title: 'Report generated', description: 'Anticipated receivables report exported.', time: '3h ago', initials: 'AR' },
-];
-
-const upcomingItems = [
-  { id: 'a1', title: 'Vendor payout batch', subtitle: 'Due for approval today', path: '/vendors' },
-  { id: 'a2', title: 'Receivables forecast', subtitle: 'Q3 report needs review', path: '/reports/receivables' },
-  { id: 'a3', title: 'User access audit', subtitle: '2 pending invitations', path: '/users' },
-];
-
 export default function AdminDash() {
+  const [vendorStats, setVendorStats] = useState({
+    total: 0,
+    newThisMonth: 0,
+    active: 0,
+    pending: 0,
+    loggedInToday: 0,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    fetchVendorRows()
+      .then((rows) => {
+        if (!mounted) return;
+        const list = Array.isArray(rows) ? rows : [];
+        const now = new Date();
+        const total = list.length;
+        const newThisMonth = list.filter((v) => {
+          if (!v.createdAt) return false;
+          const d = new Date(v.createdAt);
+          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+        }).length;
+        const active = list.filter((v) => v.isActive || v.active || (v.status || '').toLowerCase() === 'active').length;
+        const pending = list.filter((v) => (v.status || '').toLowerCase() === 'pending' || v.pending === true).length;
+        const loggedInToday = list.filter((v) => {
+          if (!v.lastLogin) return false;
+          const d = new Date(v.lastLogin);
+          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+        }).length;
+        setVendorStats({ total, newThisMonth, active, pending, loggedInToday });
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
   const [pending, setPending] = useState(null);
   const [completedThisWeek, setCompletedThisWeek] = useState(null);
   const [dueToday, setDueToday] = useState(null);
@@ -85,7 +75,6 @@ export default function AdminDash() {
       if (!mounted) return;
       setPending(res.pending);
       setCompletedThisWeek(res.completedThisWeek);
-      // also set dueToday and overdue if desired
       setDueToday(res.dueToday ?? 0);
       setOverdue(res.overdue ?? 0);
     }).catch(() => {});
@@ -102,61 +91,202 @@ export default function AdminDash() {
       .catch(() => {})
     return () => { mounted = false; };
   }, []);
+  // dynamic accounting/student data
+  const [studentStats, setStudentStats] = useState({ total: 0, newThisMonth: 0 });
+  const [installmentSummary, setInstallmentSummary] = useState({ totalFees: 0, totalPaid: 0, totalBalance: 0, countPaid: 0, countPending: 0, weeksThis: [], weeksPrev: [], weeksNext: [], upcomingNext: [] });
+
+  useEffect(() => {
+    let mounted = true;
+    fetchStudentPaymentInstallments()
+      .then((list) => {
+        if (!mounted) return;
+        if (!Array.isArray(list)) return;
+        const totals = list.reduce((acc, it) => {
+          acc.totalFees += Number(it.feesAmount || 0);
+          acc.totalPaid += Number(it.paidAmount || 0);
+          acc.totalBalance += Number(it.balanceAmount || 0);
+          if ((it.paymentStatus || '').toLowerCase() === 'paid') acc.countPaid += 1;
+          else acc.countPending += 1;
+          const key = `${it.studentId}::${it.fullName}`;
+          if (!acc.byStudentMap[key]) acc.byStudentMap[key] = { studentId: it.studentId, fullName: it.fullName, fees: 0, paid: 0, balance: 0, installments: 0 };
+          const s = acc.byStudentMap[key];
+          s.fees += Number(it.feesAmount || 0);
+          s.paid += Number(it.paidAmount || 0);
+          s.balance += Number(it.balanceAmount || 0);
+          s.installments += 1;
+          return acc;
+        }, { totalFees: 0, totalPaid: 0, totalBalance: 0, countPaid: 0, countPending: 0, byStudentMap: {} });
+        const byStudent = Object.values(totals.byStudentMap).sort((a,b) => b.balance - a.balance);
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const prevMonth = prevMonthDate.getMonth();
+        const prevYear = prevMonthDate.getFullYear();
+        const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const nextMonth = nextMonthDate.getMonth();
+        const nextYear = nextMonthDate.getFullYear();
+        const makeWeeks = (year, month) => {
+          const weeks = [];
+          const first = new Date(year, month, 1);
+          const last = new Date(year, month + 1, 0);
+          let start = new Date(first);
+          while (start <= last) {
+            const end = new Date(start);
+            end.setDate(end.getDate() + 6);
+            weeks.push({ start: new Date(start), end: end > last ? new Date(last) : end, paid: 0, due: 0 });
+            start.setDate(start.getDate() + 7);
+          }
+          return weeks;
+        };
+        const weeksThis = makeWeeks(currentYear, currentMonth);
+        const weeksPrev = makeWeeks(prevYear, prevMonth);
+        const weeksNext = makeWeeks(nextYear, nextMonth);
+        const addToWeeks = (arr, weeks) => {
+          arr.forEach((it) => {
+            const d = it.dueDate ? new Date(it.dueDate) : null;
+            if (!d) return;
+            for (const w of weeks) {
+              if (d >= w.start && d <= w.end) {
+                w.paid += Number(it.paidAmount || 0);
+                w.due += Number(it.balanceAmount || 0) + Number(it.paidAmount || 0);
+                break;
+              }
+            }
+          });
+        };
+        addToWeeks(list, weeksThis);
+        addToWeeks(list, weeksPrev);
+        addToWeeks(list, weeksNext);
+        const upcomingNext = list.filter((it) => {
+          if (!it.dueDate) return false;
+          const d = new Date(it.dueDate);
+          return d.getFullYear() === nextYear && d.getMonth() === nextMonth;
+        }).sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate));
+        setInstallmentSummary({ totalFees: totals.totalFees, totalPaid: totals.totalPaid, totalBalance: totals.totalBalance, countPaid: totals.countPaid, countPending: totals.countPending, byStudent, weeksThis, weeksPrev, weeksNext, upcomingNext });
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchAllStudents()
+      .then((list) => {
+        if (!mounted) return;
+        const total = Array.isArray(list) ? list.length : 0;
+        const now = new Date();
+        const newThisMonth = Array.isArray(list) ? list.filter((s) => { if (!s.createdAt) return false; const d = new Date(s.createdAt); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); }).length : 0;
+        setStudentStats({ total, newThisMonth });
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
   return (
+    <>
     <DashboardTemplate
       title="Admin Overview"
-      // subtitle="Full system overview across vendors, students, finance, and operations."
-      // welcomeSubtitle="You have 5 new messages and 2 new notifications across the platform."
       welcomeFooterStats={[
-        { label: "Today's collections", value: monthRevenue ? `$${Number(monthRevenue.collected || 0).toLocaleString()}` : '$0', trend: 7 },
-        { label: 'Growth rate', value: '78.4%', trend: -1 },
+        { label: "Today's collections", value: monthRevenue ? `$${Number(monthRevenue.collected || 0).toLocaleString()}` : '$0'},
       ]}
-      kpiStats={(function buildKpis() {
-        // start with base KPIs (Revenue removed)
-        const base = kpiStats.map((k) => {
-          if (k.label !== 'Open tasks') return k;
-          return {
-            ...k,
-            value: pending == null ? k.value : String(pending),
-            footer: [
-              { label: 'Due today', value: dueToday == null ? '0' : String(dueToday), sub: 'today' },
-              { label: 'Overdue', value: overdue == null ? '0' : String(overdue), color: 'var(--danger)' },
-              { label: 'Completed', value: completedThisWeek == null ? '0' : String(completedThisWeek), sub: 'This week' },
-            ],
-          };
-        });
-
-        // inject Revenue card after the second item (after Active users)
-        if (monthRevenue) {
-          const revenueCard = {
-            label: 'Revenue',
-            value: `$${Number(monthRevenue.revenue || 0).toLocaleString()}`,
-            trend: 0,
-            sparklineData: buildSparkline(4),
-            icon: <PaymentsIcon />,
-            color: 'var(--primary)',
-            footer: [
-              { label: 'Collected', value: `$${Number(monthRevenue.collected || 0).toLocaleString()}`, sub: 'This month' },
-              { label: 'Outstanding', value: `$${Number(monthRevenue.outstanding || 0).toLocaleString()}`, sub: 'Current' },
-              { label: 'Forecast', value: `$${Number(monthRevenue.forecast || 0).toLocaleString()}`, sub: 'Estimate' },
-            ],
-          };
-          const insertAt = 2; // after Active users
-          base.splice(insertAt, 0, revenueCard);
+      kpiStats={[
+        {
+          label: 'Total students',
+          value: studentStats.total.toLocaleString(),
+          sparklineData: buildSparkline(2),
+          icon: <PeopleIcon />,
+          color: 'var(--primary)',
+          footer: [ { label: 'New this mo', value: `+${studentStats.newThisMonth}`, sub: 'this month' } ],
+        },
+        {
+          label: 'Total Vendors',
+          value: vendorStats.total.toLocaleString(),
+          sparklineData: buildSparkline(2),
+          icon: <StoreIcon />,
+          color: 'var(--teal)',
+          footer: [
+            { label: 'New this month', value: `+${vendorStats.newThisMonth}`, sub: 'this month' },
+            { label: 'Active', value: vendorStats.active.toLocaleString() },
+            { label: 'Pending', value: vendorStats.pending.toLocaleString() },
+          ],
+        },
+        {
+          label: 'Currently Active Vendors',
+          value: vendorStats.loggedInToday.toLocaleString(),
+          sparklineData: buildSparkline(2),
+          icon: <HowToRegIcon />,
+          color: 'var(--teal)',
+          footer: [
+            { label: 'Logged in today', value: vendorStats.loggedInToday.toLocaleString() },
+            { label: 'Active total', value: vendorStats.active.toLocaleString() },
+            { label: 'Pending', value: vendorStats.pending.toLocaleString() },
+          ],
+        },
+        {
+          label: 'Receivables',
+          value: monthRevenue ? `$${Number(monthRevenue.revenue || 0).toLocaleString()}` : '$0',
+          sparklineData: buildSparkline(4),
+          icon: <PaymentsIcon />,
+          color: 'var(--teal)',
+          footer: [ { label: 'Collected', value: monthRevenue ? `$${Number(monthRevenue.collected || 0).toLocaleString()}` : '$0', sub: 'This month' }, { label: 'Outstanding', value: monthRevenue ? `$${Number(monthRevenue.outstanding || 0).toLocaleString()}` : '$0', sub: 'Current' } ],
+        },
+        {
+          label: 'Open tasks',
+          value: pending == null ? '' : String(pending),
+          sparklineData: buildSparkline(3),
+          icon: <AssignmentIcon />,
+          color: 'var(--warning)',
+          footer: [ { label: 'Due today', value: dueToday == null ? '0' : String(dueToday), sub: 'today' }, { label: 'Overdue', value: overdue == null ? '0' : String(overdue), color: 'var(--danger)' }, { label: 'Completed', value: completedThisWeek == null ? '0' : String(completedThisWeek), sub: 'This week' } ],
         }
-
-        return base;
-      })()}
-      miniStats={miniStats}
-      snapshotTitle="Revenue pulse"
-      snapshotSubtitle="Collections trend this week"
-      upcomingTitle="Priority actions"
-      upcomingItems={upcomingItems}
-      areaChartTitle="Revenue & receivables"
-      barChartTitle="Platform traffic"
-      tableTitle="Priority items"
-      activity={activity}
-      tableBasePath="/tasks"
+      ]}
+      showSnapshot={false}
+      showQuickInsights={false}
+      showUpcoming={false}
+      showCharts={false}
+      showMiniStats={false}
+      showTable={false}
+      rightExtra={null}
+      tableBasePath="/invoices"
+      miniStats={[]}
+      activity={[]}
+      upcomingItems={[]}
+      areaChartData={revenueTrend}
     />
+
+      <Box sx={{ mt: 1.5, width: '100%' }}>
+        <GroupedBarChartCard
+          items={[
+            {
+              title: 'Last Month - weekly paid vs due',
+              data: installmentSummary.weeksPrev
+                ? installmentSummary.weeksPrev.map((w, i) => ({ name: `W${i + 1}`, paid: w.paid, due: w.due }))
+                : [],
+              keys: ['paid', 'due'],
+               colors: [CHART_COLORS.teal, CHART_COLORS.danger],
+            },
+            {
+              title: 'This Month - weekly paid vs due',
+              data: installmentSummary.weeksThis
+                ? installmentSummary.weeksThis.map((w, i) => ({ name: `W${i + 1}`, paid: w.paid, due: w.due }))
+                : [],
+              keys: ['paid', 'due'],
+               colors: [CHART_COLORS.teal, CHART_COLORS.danger],
+            },
+          ]}
+        />
+        <Box sx={{ mt: 1.5 }}>
+          <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 } }}>
+            <Typography sx={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem' }}>
+              Next Month — Total Upcoming
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: 'var(--text)', mt: 1 }}>
+              {`$${(installmentSummary.upcomingNext || [])
+                .reduce((sum, it) => sum + Number(it.balanceAmount || 0), 0)
+                .toLocaleString()}`}
+            </Typography>
+          </Paper>
+        </Box>
+      </Box>
+    </>
   );
 }

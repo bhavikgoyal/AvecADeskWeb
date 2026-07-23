@@ -7,7 +7,6 @@ import { loadRecords } from '../../utils/resourceStorage';
 import StatCard from '../../components/StatCard';
 import WelcomeCard from '../../components/WelcomeCard';
 import MiniStatRow from '../../components/MiniStatRow';
-import QuickInsightsPanel from '../../components/dashboard/QuickInsightsPanel';
 import DashboardUpcomingPanel from '../../components/dashboard/DashboardUpcomingPanel';
 import ResponsiveTable from '../../components/ResponsiveTable';
 import { useAuth } from '../../hooks/useAuth';
@@ -156,7 +155,7 @@ export default function DashboardTemplate({
               <StatCard key={stat.label} {...stat} />
             ))}
             {rightExtra}
-            {showQuickInsights && <QuickInsightsPanel />}
+            {/* Quick insights panel removed for simplified dashboard */}
             {showUpcoming && (
               <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
                 <DashboardUpcomingPanel title={upcomingTitle} items={upcomingItems} fill />
