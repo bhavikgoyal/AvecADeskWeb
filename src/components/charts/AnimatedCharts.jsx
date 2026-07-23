@@ -105,7 +105,7 @@ export function AnimatedBarChart({ data, keys = ['visits', 'signups'], height = 
           <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
           <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} width={36} />
-          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: CHART_COLORS.primarySoft }} />
+          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: CHART_COLORS.primarySoft }} formatter={(value) => `$${Number(value).toLocaleString()}`} />
           {keys.map((key, index) => (
             <Bar
               key={key}

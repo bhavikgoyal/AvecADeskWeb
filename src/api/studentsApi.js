@@ -321,6 +321,11 @@ export async function fetchEnrolmentRows() {
   });
 }
 
+export async function fetchAllStudents() {
+  const { data } = await axiosClient.get('/api/students/all');
+  return data;
+}
+
 export async function updateStudentEnrolment(studentId, form) {
   if (!studentId) {
     throw new Error('Please select a student');

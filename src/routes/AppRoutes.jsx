@@ -20,6 +20,7 @@ const AdminDash = lazy(() => import('../pages/Dashboards/AdminDash'));
 const AccDash = lazy(() => import('../pages/Dashboards/AccDash'));
 const VendorDash = lazy(() => import('../pages/Dashboards/VendorDash'));
 const StudentDash = lazy(() => import('../pages/Dashboards/StudentDash'));
+const AdmissionDash = lazy(() => import('../pages/Dashboards/AdmissionDash'));
 const ResourceListPage = lazy(() => import('../pages/resources/ResourceListPage'));
 const NewResourcePage = lazy(() => import('../pages/resources/NewResourcePage'));
 const NewStudentPage = lazy(() => import('../pages/resources/NewStudentPage'));
@@ -247,6 +248,7 @@ export default function AppRoutes() {
 
           <Route path="dashboard/admin" element={<GuardedDashboard path="/dashboard/admin" element={<AdminDash />} />} />
           <Route path="dashboard/accounting" element={<GuardedDashboard path="/dashboard/accounting" element={<AccDash />} />} />
+          <Route path="dashboard/admission" element={<GuardedDashboard path="/dashboard/admission" element={<AdmissionDash />} />} />
           <Route path="dashboard/vendor" element={<GuardedDashboard path="/dashboard/vendor" element={<VendorDash />} />} />
           <Route path="dashboard/student" element={<GuardedDashboard path="/dashboard/student" element={<StudentDash />} />} />
           <Route path="work-history" element={<RequireRole path="/work-history"> <WorkHistoryPage /> </RequireRole>} />

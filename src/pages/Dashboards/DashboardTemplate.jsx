@@ -44,6 +44,17 @@ export default function DashboardTemplate({
   rows,
   activity = [],
   tableBasePath = '/tasks',
+  // section visibility flags (default: show)
+  showSnapshot = true,
+  showQuickInsights = true,
+  showUpcoming = true,
+  showCharts = true,
+  showMiniStats = true,
+  showTable = true,
+  // slot for extra content in right column (e.g., custom panels)
+  rightExtra = null,
+  // custom children to render in the main left area (optional)
+  children = null,
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -123,15 +134,19 @@ export default function DashboardTemplate({
               </Grid>
             )}
 
-            <Box sx={{ flex: 1, display: 'flex', minHeight: { xs: 280, lg: 0 }, alignSelf: 'stretch' }}>
-              <Suspense fallback={chartFallback}>
-                <DashboardTrendSnapshot
-                  title={snapshotTitle}
-                  subtitle={snapshotSubtitle}
-                  data={areaChartData.slice(-7)}
-                />
-              </Suspense>
-            </Box>
+            {showSnapshot && (
+              <Box sx={{ flex: 1, display: 'flex', minHeight: { xs: 280, lg: 0 }, alignSelf: 'stretch' }}>
+                <Suspense fallback={chartFallback}>
+                  <DashboardTrendSnapshot
+                    title={snapshotTitle}
+                    subtitle={snapshotSubtitle}
+                    data={areaChartData.slice(-7)}
+                  />
+                </Suspense>
+              </Box>
+            )}
+
+            {children}
           </Stack>
         </Grid>
 
@@ -140,30 +155,36 @@ export default function DashboardTemplate({
             {primaryKpis.map((stat) => (
               <StatCard key={stat.label} {...stat} />
             ))}
-            <QuickInsightsPanel />
-            <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              <DashboardUpcomingPanel title={upcomingTitle} items={upcomingItems} fill />
-            </Box>
+            {rightExtra}
+            {showQuickInsights && <QuickInsightsPanel />}
+            {showUpcoming && (
+              <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
+                <DashboardUpcomingPanel title={upcomingTitle} items={upcomingItems} fill />
+              </Box>
+            )}
           </Stack>
         </Grid>
       </Grid>
 
-      <MiniStatRow items={miniStats} />
+      {showMiniStats && <MiniStatRow items={miniStats} />}
 
-      <Suspense fallback={chartFallback}>
-        <DashboardMainCharts
-          areaChartData={areaChartData}
-          barChartData={barChartData}
-          barChartKeys={barChartKeys}
-          areaChartTitle={areaChartTitle}
-          barChartTitle={barChartTitle}
-          height={220}
-        />
-      </Suspense>
+      {showCharts && (
+        <Suspense fallback={chartFallback}>
+          <DashboardMainCharts
+            areaChartData={areaChartData}
+            barChartData={barChartData}
+            barChartKeys={barChartKeys}
+            areaChartTitle={areaChartTitle}
+            barChartTitle={barChartTitle}
+            height={220}
+          />
+        </Suspense>
+      )}
 
       <Grid container spacing={{ xs: 1, md: 1.25 }} sx={{ width: '100%' }}>
         <Grid size={{ xs: 12, lg: activity.length > 0 ? 8 : 12 }}>
-          <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          {showTable && (
+            <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, overflow: 'hidden' }}>
             <Box sx={{ px: { xs: 1.25, md: 1.5 }, py: 1.25, borderBottom: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
               <Typography sx={{ fontWeight: 700, color: 'var(--text)' }}>{tableTitle}</Typography>
               {canOpenDetail && (
@@ -187,7 +208,8 @@ export default function DashboardTemplate({
                 </Typography>
               </Box>
             )}
-          </Paper>
+            </Paper>
+          )}
         </Grid>
 
         {activity.length > 0 && (

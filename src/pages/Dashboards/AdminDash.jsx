@@ -7,6 +7,10 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import EmailIcon from '@mui/icons-material/Email';
 import { buildSparkline } from '../../constants/chartData';
 
+import { useEffect, useState } from 'react';
+import { fetchWeekChecklistStats } from '../../utils/checklistStats';
+import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
+
 const kpiStats = [
   {
     label: 'Total students',
@@ -38,31 +42,15 @@ const kpiStats = [
       { label: 'Avg duration', value: '18m' },
     ],
   },
-  {
-    label: 'Revenue',
-    value: '$214k',
-    trend: 8,
-    sparklineData: buildSparkline(4),
-    icon: <PaymentsIcon />,
-    color: 'var(--primary)',
-    footer: [
-      { label: 'Collected', value: '$186k', sub: 'This month' },
-      { label: 'Outstanding', value: '$28k', sub: '12 invoices' },
-      { label: 'Forecast', value: '$241k', sub: 'Q3 est.' },
-    ],
-  },
+  
   {
     label: 'Open tasks',
-    value: '37',
-    trend: 4,
+    value: '',
+    trend: 0,
     sparklineData: buildSparkline(3),
     icon: <AssignmentIcon />,
     color: 'var(--warning)',
-    footer: [
-      { label: 'Due today', value: '8', sub: '3 urgent' },
-      { label: 'Overdue', value: '2', color: 'var(--danger)' },
-      { label: 'Completed', value: '124', sub: 'This week' },
-    ],
+    footer: [],
   },
 ];
 
@@ -86,16 +74,79 @@ const upcomingItems = [
 ];
 
 export default function AdminDash() {
+  const [pending, setPending] = useState(null);
+  const [completedThisWeek, setCompletedThisWeek] = useState(null);
+  const [dueToday, setDueToday] = useState(null);
+  const [overdue, setOverdue] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchWeekChecklistStats().then((res) => {
+      if (!mounted) return;
+      setPending(res.pending);
+      setCompletedThisWeek(res.completedThisWeek);
+      // also set dueToday and overdue if desired
+      setDueToday(res.dueToday ?? 0);
+      setOverdue(res.overdue ?? 0);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+  const [monthRevenue, setMonthRevenue] = useState(null);
+  useEffect(() => {
+    let mounted = true;
+    fetchMonthRevenueDashboard()
+      .then((res) => {
+        if (!mounted) return;
+        setMonthRevenue(res);
+      })
+      .catch(() => {})
+    return () => { mounted = false; };
+  }, []);
   return (
     <DashboardTemplate
       title="Admin Overview"
       // subtitle="Full system overview across vendors, students, finance, and operations."
       // welcomeSubtitle="You have 5 new messages and 2 new notifications across the platform."
       welcomeFooterStats={[
-        { label: "Today's collections", value: '$6,782', trend: 7 },
+        { label: "Today's collections", value: monthRevenue ? `$${Number(monthRevenue.collected || 0).toLocaleString()}` : '$0', trend: 7 },
         { label: 'Growth rate', value: '78.4%', trend: -1 },
       ]}
-      kpiStats={kpiStats}
+      kpiStats={(function buildKpis() {
+        // start with base KPIs (Revenue removed)
+        const base = kpiStats.map((k) => {
+          if (k.label !== 'Open tasks') return k;
+          return {
+            ...k,
+            value: pending == null ? k.value : String(pending),
+            footer: [
+              { label: 'Due today', value: dueToday == null ? '0' : String(dueToday), sub: 'today' },
+              { label: 'Overdue', value: overdue == null ? '0' : String(overdue), color: 'var(--danger)' },
+              { label: 'Completed', value: completedThisWeek == null ? '0' : String(completedThisWeek), sub: 'This week' },
+            ],
+          };
+        });
+
+        // inject Revenue card after the second item (after Active users)
+        if (monthRevenue) {
+          const revenueCard = {
+            label: 'Revenue',
+            value: `$${Number(monthRevenue.revenue || 0).toLocaleString()}`,
+            trend: 0,
+            sparklineData: buildSparkline(4),
+            icon: <PaymentsIcon />,
+            color: 'var(--primary)',
+            footer: [
+              { label: 'Collected', value: `$${Number(monthRevenue.collected || 0).toLocaleString()}`, sub: 'This month' },
+              { label: 'Outstanding', value: `$${Number(monthRevenue.outstanding || 0).toLocaleString()}`, sub: 'Current' },
+              { label: 'Forecast', value: `$${Number(monthRevenue.forecast || 0).toLocaleString()}`, sub: 'Estimate' },
+            ],
+          };
+          const insertAt = 2; // after Active users
+          base.splice(insertAt, 0, revenueCard);
+        }
+
+        return base;
+      })()}
       miniStats={miniStats}
       snapshotTitle="Revenue pulse"
       snapshotSubtitle="Collections trend this week"
