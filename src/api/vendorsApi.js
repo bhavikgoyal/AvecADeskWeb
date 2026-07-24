@@ -34,6 +34,7 @@ function normalizeVendor(vendor) {
     email: vendor.email ?? vendor.Email ?? '',
     status: vendor.status ?? vendor.Status ?? '',
     createdAt: vendor.createdAt ?? vendor.CreatedAt,
+    lastLogin: vendor.lastLogin ?? vendor.LastLogin,
   };
 }
 
@@ -66,6 +67,8 @@ function mapVendorRow(vendor) {
     vendorStatus: status,
     status,
     email: vendor.email || '—',
+    createdAt: vendor.createdAt,
+    lastLogin:vendor.lastLogin,
     phone: vendor.phone || '—',
     contactPerson: vendor.contactPerson || '—',
     referral: deriveReferral(vendor),

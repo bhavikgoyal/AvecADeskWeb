@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Box, IconButton } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -55,12 +57,47 @@ const textareaStyle = {
 };
 
 export default function AgreementTemplateForm() {
+  const editorConfig = {
+    toolbar: {
+      items: [
+        'undo', 'redo', '|', 'heading', '|', 'bold', 'italic', 'underline', 'strikethrough', 'subscript', 'superscript',
+        '|', 'fontFamily', 'fontSize', 'fontColor', 'fontBackgroundColor', 'highlight',
+        '|', 'link', 'specialCharacters',
+        '|', 'bulletedList', 'numberedList', 'outdent', 'indent', 'alignment',
+        '|', 'insertTable', 'blockQuote', 'codeBlock',
+        '|', 'imageUpload', 'mediaEmbed',
+        '|', 'removeFormat'
+      ],
+      shouldNotGroupWhenFull: true
+    },
+    image: {
+      toolbar: ['imageTextAlternative', 'imageStyle:full', 'imageStyle:side']
+    },
+    extraPlugins: [function MyCustomUploadAdapterPlugin(editor) {
+      editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+        return {
+          upload() {
+            return loader.file.then(file => new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve({ default: reader.result });
+              reader.onerror = (err) => reject(err);
+              reader.readAsDataURL(file);
+            }));
+          },
+          abort() {
+            // no-op for base64
+          }
+        };
+      };
+    }]
+  };
   const { id } = useParams();
   const navigate = useNavigate();
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [error, setError] = useState('');
+  const [htmlMode, setHtmlMode] = useState(false);
   const isEdit = id && id !== 'new';
 
   useEffect(() => {
@@ -101,7 +138,7 @@ export default function AgreementTemplateForm() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const bodyHtml = (form.bodyHtml || '').split('\n').map((line) => line.trim()).filter(Boolean).map((line) => `<p>${line}</p>`).join('');
+    const bodyHtml = form.bodyHtml || '';
 
     const payload = {
       TemplateName: form.templateName,
@@ -207,14 +244,48 @@ export default function AgreementTemplateForm() {
               <label style={labelStyle}>
                 Body Content <span style={reqStyle}>*</span>
               </label>
-              <textarea
-                value={form.bodyHtml}
-                onChange={(e) => setForm({ ...form, bodyHtml: e.target.value })}
-                rows={10}
-                style={textareaStyle}
-              />
-            </Box>
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setHtmlMode((v) => !v)}
+                    style={{
+                      background: '#fff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: 6,
+                      padding: '6px 10px',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem'
+                    }}
+                  >
+                    {htmlMode ? 'Editor' : 'HTML Source'}
+                  </button>
+                </div>
 
+                {htmlMode ? (
+                  <textarea
+                    value={form.bodyHtml || ''}
+                    onChange={(e) => setForm((f) => ({ ...f, bodyHtml: e.target.value }))}
+                    style={textareaStyle}
+                  />
+                ) : (
+                  <CKEditor
+                    editor={ClassicEditor}
+                    data={form.bodyHtml || ''}
+                    config={editorConfig}
+                    onReady={(editor) => {
+                      console.log('CKEditor ready.', editor);
+                    }}
+                    onChange={(event, editor) => {
+                      const data = editor.getData();
+                      console.log('CKEditor data changed — length:', (data || '').length);
+                      console.log(data);
+                      setForm((f) => ({ ...f, bodyHtml: data }));
+                    }}
+                  />
+                )}
+              </div>
+            </Box>
             <Box sx={{ ...fieldWrapSx, display: 'flex', alignItems: 'flex-end', pb: 0.25 }}>
               <label
                 style={{

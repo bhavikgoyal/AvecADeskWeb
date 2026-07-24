@@ -28,3 +28,13 @@ export async function fetchReceived(filters = {}) {
   const { data } = await axiosClient.get('/api/receivables/received', { params: buildParams(filters) });
   return data; 
 }
+
+export async function fetchMonthRevenueDashboard(filters = {}) {
+  const { data } = await axiosClient.get('/api/receivables/month-revenue-dashboard', { params: buildParams(filters) });
+  return data;
+}
+
+export async function fetchStudentPaymentInstallments(filters = {}) {
+  const { data } = await axiosClient.get('/api/receivables/student-payment-installments', { params: buildParams(filters) });
+  return data;
+}

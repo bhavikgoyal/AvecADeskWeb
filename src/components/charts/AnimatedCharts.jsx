@@ -95,9 +95,13 @@ export function AnimatedAreaChart({ data, dataKey = 'value', height = 260, secon
   );
 }
 
-export function AnimatedBarChart({ data, keys = ['visits', 'signups'], height = 260 }) {
-  const colors = [CHART_COLORS.primary, CHART_COLORS.teal];
-
+export function AnimatedBarChart({
+  data,
+  keys = ['visits', 'signups'],
+  colors = [CHART_COLORS.primary, CHART_COLORS.teal],
+  height = 260,
+  maxBarSize = 28,
+}) {
   return (
     <Box sx={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -105,14 +109,14 @@ export function AnimatedBarChart({ data, keys = ['visits', 'signups'], height = 
           <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
           <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} width={36} />
-          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: CHART_COLORS.primarySoft }} />
+          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: CHART_COLORS.primarySoft }} formatter={(value) => `$${Number(value).toLocaleString()}`} />
           {keys.map((key, index) => (
             <Bar
               key={key}
               dataKey={key}
               fill={colors[index % colors.length]}
               radius={[6, 6, 0, 0]}
-              maxBarSize={28}
+              maxBarSize={maxBarSize}
               {...CHART_ANIMATION}
             />
           ))}

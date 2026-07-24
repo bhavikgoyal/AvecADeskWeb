@@ -12,7 +12,7 @@ import {
   Alert,
   IconButton,
 } from '@mui/material';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ResponsiveTable from '../ResponsiveTable';
 import { getMembers, deleteMember, resignMember } from '../../api/membersApi';
@@ -56,7 +56,7 @@ const scrollContainerSx = {
   },
 };
 
-function MemberActions({ row, onEdit, onDelete, onResign }) {
+function MemberActions({ row, onDelete, onResign }) {
   return (
     <Box
       sx={{
@@ -68,22 +68,6 @@ function MemberActions({ row, onEdit, onDelete, onResign }) {
         width: '100%',
       }}
     >
-      <IconButton
-        size="small"
-        aria-label="Edit member"
-        onClick={(event) => {
-          event.stopPropagation();
-          onEdit(row);
-        }}
-        sx={{
-          color: 'var(--primary)',
-          bgcolor: 'var(--primary-soft, #e8f2fb)',
-          flexShrink: 0,
-          '&:hover': { bgcolor: 'rgba(47, 128, 201, 0.18)' },
-        }}
-      >
-        <EditOutlinedIcon fontSize="small" />
-      </IconButton>
       <IconButton
         size="small"
         aria-label="Delete member"
@@ -420,7 +404,7 @@ export default function MembersTable({ searchQuery = '' }) {
         render: (row) => (
           <MemberActions
             row={row}
-            onEdit={handleEdit}
+            //onEdit={handleEdit}
             onDelete={handleDelete}
             onResign={handleResign}
           />
@@ -469,6 +453,7 @@ export default function MembersTable({ searchQuery = '' }) {
             alwaysTable
             tableMinWidth={TABLE_MIN_WIDTH}
             sx={membersTableSx}
+            onRowClick={handleEdit}
           />
         </Box>
       )}

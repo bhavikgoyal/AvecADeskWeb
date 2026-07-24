@@ -7,7 +7,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://demoavecapi.apphub.co.in',
+     //   target: 'https://demoavecapi.apphub.co.in',
+        target: 'https://localhost:7099',
         changeOrigin: true,
         secure: false,
         timeout: 660_000,

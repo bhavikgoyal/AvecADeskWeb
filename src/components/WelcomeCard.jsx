@@ -85,9 +85,17 @@ export default function WelcomeCard({ userName = 'User', subtitle, avatar, foote
                   {stat.label}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                  <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text)' }}>
-                    {stat.value}
-                  </Typography>
+                  <Box sx={{
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1,
+                    display: 'inline-block',
+                    bgcolor: stat.label === 'Received' ? 'rgba(32,201,151,0.12)' : stat.label === 'Due' ? 'rgba(214,57,57,0.08)' : 'transparent'
+                  }}>
+                    <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', color: stat.label === 'Received' ? 'var(--success)' : stat.label === 'Due' ? 'var(--danger)' : 'var(--text)' }}>
+                      {stat.value}
+                    </Typography>
+                  </Box>
                   {stat.trend !== undefined && <TrendBadge value={stat.trend} />}
                 </Box>
               </Grid>

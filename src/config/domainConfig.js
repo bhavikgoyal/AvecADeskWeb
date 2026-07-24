@@ -111,7 +111,7 @@ courseEndDate : { label: 'Course End Date', type: 'date', grid: grid.half,readOn
 
   templateName: { label: 'Template name', type: 'text', required: true, grid: grid.half },
   subject: { label: 'Email subject', type: 'text', grid: grid.half },
-  bodyHtml: { label: 'Body (HTML)', type: 'textarea', grid: grid.full },
+  bodyHtml: { label: 'Body (HTML)', type: 'editor', grid: grid.full },
   category: {
     label: 'Category',
     type: 'select',
@@ -395,8 +395,8 @@ vendors: {
     primaryField: 'templateName',
     requiredFields: ['templateName'],
     sections: [
-      { title: 'Template', description: 'Supports {{placeholders}} in subject and body.', fields: ['templateName', 'category', 'subject'] },
-      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml', 'notes'] },
+      { title: 'Template', description: 'Supports {{placeholders}} in subject and body.', fields: ['templateName', 'category', 'subject'],layout:'full' },
+      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml', 'notes'],layout:'full' },
     ],
     columns: [
       { id: 'templateName', label: 'Name', field: 'templateName' },
@@ -769,15 +769,15 @@ vendors: {
   primaryField: 'firstName',
 
   columns: [
-    { id: 'firstName', label: 'First Name', field: 'firstName' },
-    { id: 'lastName', label: 'Last Name', field: 'lastName' },
-    { id: 'email', label: 'Email', field: 'email' },
-    { id: 'phone', label: 'Phone', field: 'phone' },
-    { id: 'nationality', label: 'Nationality', field: 'nationality' },
-    { id: 'englishTestName', label: 'English Test', field: 'englishTestName' },
-    { id: 'englishTestScore', label: 'Test Score', field: 'englishTestScore' },
-    { id: 'highestQualification', label: 'Highest Qualification', field: 'highestQualification' },
-  ],
+  { id: 'firstName', label: 'First Name', field: 'firstName' },
+  { id: 'lastName', label: 'Last Name', field: 'lastName' },
+  { id: 'email', label: 'Email', field: 'email' },
+  { id: 'phone', label: 'Phone', field: 'phone' },                      
+  { id: 'nationality', label: 'Nationality', field: 'countryToApply' }, 
+  { id: 'englishTest', label: 'English Test', field: 'englishTest' },  
+  { id: 'testScore', label: 'Test Score', field: 'testScore' },       
+  { id: 'highestQualification', label: 'Highest Qualification', field: 'highestQualification' },
+],
 
   emptyForm: () => ({}),
   },
