@@ -98,7 +98,7 @@ export default function NewStudentPage({ basePath }) {
   async function loadData() {
     try {
       const data = await fetchStudentPaymentDetail(id);
-
+console.log(data);
       setForm({
         ...getEmptyForm(basePath),
         studentId: data.studentId,
@@ -139,6 +139,10 @@ export default function NewStudentPage({ basePath }) {
 setOriginalPaymentList(list);
 setPaymentList(list);
 setCommissionHistory(data.commissionHistory || []);
+
+if (data.bonusAmount > 0) {
+  setBonusApplied(true);
+}
     } catch (err) {
       setError(err.message || "Failed to load student.");
     }
@@ -459,6 +463,7 @@ else {
         scheduleId,
         commissionPercentage: Number(form.commissionPercentage),
         gstPercentage: Number(form.gstPercentage),
+        bonus: Number(form.bonus), 
         bonusType: form.bonusType,
         bonusOption: form.bonusOption,
       });
@@ -676,7 +681,7 @@ const historyRows = useMemo(() => {
             variant="contained"
             color="success"
             onClick={handleApplyBonus}
-            disabled={!form.bonus}
+             disabled={isEdit}
           >
             Apply Bonus
           </Button>
@@ -714,13 +719,13 @@ const historyRows = useMemo(() => {
                {historyRows.map(row => (
                     <TableRow key={row.installmentNo}>
                       <TableCell>{row.installmentNo}</TableCell>
-                      <TableCell>{row.dueDate ?? row.feesDate}</TableCell>
-                      <TableCell>{row.feesAmount ?? row.fees}</TableCell>
+                      <TableCell>{new Date(row.dueDate ?? row.feesDate).toISOString().split("T")[0]}</TableCell>
+                      <TableCell>  {Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
                       <TableCell>{row.paymentStatus}</TableCell>
-                      <TableCell>{row.commissionAmount ?? row.commission}</TableCell>
-                      <TableCell>{row.bonusAmount ?? row.bonus}</TableCell>
-                      <TableCell>{row.gstAmount ?? row.gst}</TableCell>
-                      <TableCell>{row.invoiceAmount ?? row.invoice}</TableCell>
+                      <TableCell>{Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
+                      <TableCell>{Number(row.bonusAmount ?? row.bonus).toFixed(2)}</TableCell>
+                      <TableCell>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
+                      <TableCell>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
                       <TableCell>{row.commissionStatus ?? row.status}</TableCell>
                     </TableRow>
                   ))}

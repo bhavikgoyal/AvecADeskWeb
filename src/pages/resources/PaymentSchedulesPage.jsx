@@ -13,7 +13,6 @@ import { useNavigate } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
 import ResponsiveTable from "../../components/ResponsiveTable";
 import { getResourceConfig } from "../../config/resourceConfig";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import {fetchStudentPaymentScheduleList,formatCurrency,formatDisplayDate,} from "../../api/schedulesApi";
 
 export default function PaymentSchedulesPage() {
@@ -230,15 +229,6 @@ return (
         ))}
       </TextField>
     </Box>
-
-    <Button
-      variant="contained"
-      color="success"
-      startIcon={<ReceiptLongIcon />}
-      onClick={() => navigate("/generate-invoice")} 
-    >
-      Generate Invoice
-    </Button>
   </Box>
 </Paper>
 
