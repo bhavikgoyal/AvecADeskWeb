@@ -11,6 +11,7 @@ export const RESOURCE_PATHS = [
   'institutes',
   'institutes-scrapping',
   'students',
+  'payment-schedules',
   'courses',
   'invoices',
   'reminders',
@@ -28,6 +29,7 @@ export const RESOURCE_PATHS = [
   'reports/student-Inquiry',
   'ai-tool',
   'vendor-portal',
+  
 ];
 
 export function pathToKey(path) {

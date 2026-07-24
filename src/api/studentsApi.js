@@ -163,15 +163,6 @@ export async function createStudentWithPaymentSchedule(form) {
     throw new Error('Phone is required');
   }
 
-  // const amountDue = Number(form.amountDue);
-  // if (Number.isNaN(amountDue) || amountDue < 0) {
-  //   throw new Error('Amount due must be zero or greater');
-  // }
-
-  // if (!form.dueDate) {
-  //   throw new Error('Due date is required');
-  // }
-
   const { data: student } = await axiosClient.post('/api/students', {
     instituteId,
     courseId,
@@ -180,25 +171,11 @@ export async function createStudentWithPaymentSchedule(form) {
     phone: form.phone.trim(),
     enrollmentNumber: form.enrollmentNumber?.trim() || null,
     enrolmentStatus: form.enrolmentStatus || 'Interested',
+    folderNo: form.FolderNo || null,
+    courseStartDate: form.courseStartDate || null,
+    courseEndDate: form.courseEndDate || null,
   });
-
-  // const { data: schedule } = await axiosClient.post('/api/schedules', {
-  //   studentId: student.studentId,
-  //   dueDate: form.dueDate,
-  //   amountDue,
-  //   notes: form.notes?.trim() || null,
-  // });
-
-//   if (schedule.scheduleId) {
-//     const paymentStatus = await applyPaymentStatus(schedule.scheduleId, amountDue, form.amountPaid);
-//     return mapStudentRow(student, {
-//       ...schedule,
-//       status: paymentStatus,
-//     });
-//   }
-
-//   return mapStudentRow(student, schedule);
-return normalizeStudent(student);
+  return normalizeStudent(student);
  }
 
 export async function deleteStudent(studentId) {
@@ -351,4 +328,48 @@ export async function updateStudentEnrolment(studentId, form) {
   });
 
   return normalizeStudent(updated);
+}
+export async function fetchStudentPaymentDetail(studentId) {
+  const { data } = await axiosClient.get(
+    `/api/students/GetStudentPaymentDetail/${studentId}`
+  );
+
+  return {
+    studentId: data.studentId ?? data.StudentId,
+
+    instituteId: data.instituteId ?? data.InstituteId,
+    instituteName: data.instituteName ?? data.InstituteName,
+
+    courseId: data.courseId ?? data.CourseId,
+    courseName: data.courseName ?? data.CourseName,
+    campus: data.campus ?? data.Campus,
+
+    fullName: data.fullName ?? data.FullName,
+    email: data.email ?? data.Email,
+    phone: data.phone ?? data.Phone,
+    folderNo: data.folderNo ?? data.FolderNo,
+
+    courseStartDate: data.courseStartDate ?? data.CourseStartDate,
+    courseEndDate: data.courseEndDate ?? data.CourseEndDate,
+    commissionAmount:data.commissionAmount ?? data.CommissionAmount,
+    gstAmount:data.gstAmount ?? data.GSTAmount,
+    bonusAmount:data.bonusAmount ?? data.BonusAmount,
+    dueDate:data.dueDate ?? data.DueDate,
+    remark: data.remark ?? data.Remark,
+
+    scheduleId: data.scheduleId ?? data.ScheduleId,
+    firstDueDate: data.firstDueDate ?? data.FirstDueDate,
+    totalCourseFee: data.totalCourseFee ?? data.TotalCourseFee,
+    noOfInstallments: data.noOfInstallments ?? data.NoOfInstallments,
+    frequency: data.frequency ?? data.Frequency,
+
+    commissionId: data.commissionId ?? data.CommissionId,
+    commissionPercentage:data.commissionPercentage ?? data.CommissionPercentage,
+    gstPercentage: data.gstPercentage ?? data.GSTPercentage,
+    bonusType: data.bonusType ?? data.BonusType,
+    bonusOption: data.bonusOption ?? data.BonusOption,
+
+    studentPaymentList:data.studentPaymentList ?? data.StudentPaymentList ?? [],
+    commissionHistory:data.commissionHistory ?? data.CommissionHistory ?? [],
+  };
 }

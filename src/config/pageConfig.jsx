@@ -41,23 +41,27 @@ export const PAGE_CONFIG = {
     ],
     rows: sampleRows('Institute'),
   },
-  '/students': {
-    title: 'Student Payments',
-    subtitle: 'Monitor enrolments, payment schedules, and outstanding balances.',
-    actionLabel: 'Add Payment',
-    stats: [
-      { label: 'Active students', value: '312', caption: '18 new this month', icon: <PeopleIcon fontSize="large" />, color: 'var(--primary)' },
-      { label: 'Collected', value: '$214k', caption: 'This quarter', icon: <PaymentsIcon fontSize="large" />, color: 'var(--teal)' },
-      { label: 'Outstanding', value: '$31k', caption: 'Across 24 students', icon: <ReceiptIcon fontSize="large" />, color: 'var(--amber)' },
-      { label: 'Overdue', value: '7', caption: 'Reminder sent', icon: <FactCheckIcon fontSize="large" />, color: 'var(--accent)' },
-    ],
-    columns: [
-      { id: 'name', label: 'Student', field: 'name' },
-      { id: 'status', label: 'Payment status', field: 'status' },
-      { id: 'updated', label: 'Last activity', field: 'updated' },
-    ],
-    rows: sampleRows('Student'),
-  },
+"/payment-schedules": {
+  title: "Payment Schedules",
+  subtitle: "Monitor student payment schedules and outstanding balances.",
+  actionLabel: "Add Payment Schedule",
+  showCharts: false,
+  stats: [],
+
+ columns: [
+  { id: "studentName", label: "Student", field: "studentName" },
+  { id: "instituteName", label: "Institute", field: "instituteName" },
+  { id: "courseName", label: "Course", field: "courseName" },
+  { id: "totalCourseFee", label: "Total Fee", field: "totalCourseFee" },
+  { id: "installments", label: "Installments", field: "installments" },
+  { id: "nextDueDate", label: "Next Due", field: "nextDueDate" },
+  { id: "collectedAmount", label: "Paid", field: "collectedAmount" },
+  { id: "balanceAmount", label: "Balance", field: "balanceAmount" },
+  { id: "paymentStatus", label: "Status", field: "paymentStatus" },
+],
+
+  rows: [],
+},
   '/courses': {
   title: 'Courses',
   subtitle: 'Manage courses offered across institutes.',

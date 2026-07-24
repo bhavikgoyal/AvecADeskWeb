@@ -227,3 +227,16 @@ export function getEmptyCourseForm(instituteId) {
     isAIFetched: false,
   };
 }
+
+export async function fetchCoursesByScrappingId(scrappingId) {
+  const { data } = await axiosClient.get("/api/courses", {
+    params: {
+      scrappingId,
+    },
+  });
+
+  return {
+    gstPercentage: data.gstPercentage,
+    courses: data.courses,
+  };
+}

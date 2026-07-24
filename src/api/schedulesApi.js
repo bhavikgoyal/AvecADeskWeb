@@ -2,13 +2,10 @@
 
 export function formatCurrency(amount) {
   const num = Number(amount) || 0;
-  if (num >= 1_000_000) {
-    return `$${(num / 1_000_000).toFixed(num % 1_000_000 === 0 ? 0 : 1)}M`;
-  }
-  if (num >= 1_000) {
-    return `$${(num / 1_000).toFixed(num % 1_000 === 0 ? 0 : 1)}k`;
-  }
-  return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+
+  return num.toLocaleString("en-IN", {
+    maximumFractionDigits: 0,
+  });
 }
 
 export function formatDisplayDate(value) {
@@ -80,24 +77,35 @@ export async function fetchScheduleRows(studentId) {
   });
 }
 
-export async function createPaymentSchedule({ studentId, dueDate, amountDue, notes, fees, commission }) {
-  if (!studentId) throw new Error('Please select a student');
-  if (!dueDate) throw new Error('Due date is required');
-  const due = Number(amountDue);
-  if (Number.isNaN(due) || due < 0) throw new Error('Amount due must be zero or greater');
+export async function createPaymentSchedule({
+  studentId,
+  totalCourseFee,
+  noOfInstallments,
+  frequency,
+  firstDueDate,
+}) {
+  if (!studentId) {
+    throw new Error("Please select a student");
+  }
 
   try {
-    const { data } = await axiosClient.post('/api/schedules', {
-      studentId,
-      dueDate,
-      amountDue,
-      notes: notes?.trim() || null,
-      fees,
-      commission,
-    });
-    return normalizeSchedule(data);
+    const { data } = await axiosClient.post(
+      "/api/schedules/CreatePaymentSchedule",
+      {
+        studentId,
+        totalCourseFee,
+        noOfInstallments,
+        frequency,
+        firstDueDate,
+      }
+    );
+
+    return data;
   } catch (err) {
-    throw new Error(extractErrorMessage(err, 'Failed to create payment schedule.'), { cause: err });
+    throw new Error(
+      extractErrorMessage(err, "Failed to create payment schedule."),
+      { cause: err }
+    );
   }
 }
 
@@ -113,6 +121,53 @@ export async function updatePaymentScheduleStatus(scheduleId, status, amountPaid
   }
 }
 
+export async function createStudentPaymentInstallment(request) {
+  try {
+    const { data } = await axiosClient.post(
+      "/api/schedules/CreateStudentPaymentInstallment",
+      request
+    );
+
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(err, "Failed to create student payment installment."),
+      { cause: err }
+    );
+  }
+}
+
+export async function createStudentCommission(request) {
+  try {
+    const { data } = await axiosClient.post(
+      "/api/schedules/CreateStudentCommission",
+      request
+    );
+
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(err, "Failed to create student commission."),
+      { cause: err }
+    );
+  }
+}
+
+export async function createStudentCommissionDetail(request) {
+  try {
+    const { data } = await axiosClient.post(
+      "/api/schedules/CreateStudentCommissionDetail",
+      request
+    );
+
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(err, "Failed to create student commission detail."),
+      { cause: err }
+    );
+  }
+}
 
 export async function bulkUpdatePaymentScheduleStatus(items) {
   if (!items?.length) throw new Error('Select at least one schedule to update');
@@ -128,5 +183,60 @@ export async function bulkUpdatePaymentScheduleStatus(items) {
     return data;
   } catch (err) {
     throw new Error(extractErrorMessage(err, 'Failed to update the selected schedules.'), { cause: err });
+  }
+}
+
+
+export async function fetchStudentPaymentScheduleList(studentId) {
+  try {
+    const params = studentId ? { studentId } : undefined;
+
+    const { data } = await axiosClient.get(
+      "/api/schedules/GetStudentPaymentScheduleList",
+      { params }
+    );
+
+    return data.map((item) => ({
+      scheduleId: item.scheduleId ?? item.ScheduleId,
+      studentId: item.studentId ?? item.StudentId,
+      studentName: item.studentName ?? item.StudentName,
+      instituteName: item.instituteName ?? item.InstituteName,
+      courseName: item.courseName ?? item.CourseName,
+      totalCourseFee: item.totalCourseFee ?? item.TotalCourseFee,
+      noOfInstallments: item.noOfInstallments ?? item.NoOfInstallments,
+      frequency: item.frequency ?? item.Frequency,
+      firstDueDate: item.firstDueDate ?? item.FirstDueDate,
+      totalInstallments: item.totalInstallments ?? item.TotalInstallments,
+      paidInstallments: item.paidInstallments ?? item.PaidInstallments,
+      pendingInstallments: item.pendingInstallments ?? item.PendingInstallments,
+      collectedAmount: item.collectedAmount ?? item.CollectedAmount,
+      balanceAmount: item.balanceAmount ?? item.BalanceAmount,
+      nextDueDate: item.nextDueDate ?? item.NextDueDate,
+      paymentStatus: item.paymentStatus ?? item.PaymentStatus,
+    }));
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(err, "Failed to fetch payment schedule list."),
+      { cause: err }
+    );
+  }
+}
+
+export async function updateStudentPaymentSchedule(request) {
+  try {
+    const { data } = await axiosClient.put(
+      "/api/schedules/UpdateStudentPaymentSchedule",
+      request
+    );
+
+    return {
+      scheduleId: data.scheduleId ?? data.ScheduleId,
+      commissionId: data.commissionId ?? data.CommissionId,
+    };
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(err, "Failed to update payment schedule."),
+      { cause: err }
+    );
   }
 }
