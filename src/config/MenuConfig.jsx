@@ -80,60 +80,42 @@ export const GET_MENU = (role) => {
       {
         category: 'CORE',
         items: [
-          // { title: 'Admin Overview', path: '/dashboard/admin', Icon: DashboardIcon },
           { title: 'Accounting Dashboard', path: '/dashboard/accounting', Icon: DashboardIcon },
         ],
       },
       {
         category: 'FINANCE',
         items: [
-          { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
-          { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
-          { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
-          // { title: 'Work History (View)', path: '/work-history', Icon: HistoryIcon },
-          { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
+          { title: 'Student Payments', path: '/students', Icon: PeopleIcon },      ],
+      },
+      {
+        category: 'REPORTS',
+        items: [
+          { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },       
+        ],
+      },
+    ],
+
+    'Admission': [
+      {
+        category: 'CORE',
+        items: [
+          { title: 'Admission Dashboard', path: '/dashboard/admission', Icon: DashboardIcon },
+        ],
+      },
+      {
+        category: 'MANAGEMENT',
+        items: [
+          { title: 'Student', path: '/students', Icon: PeopleIcon },
         ],
       },
       {
         category: 'STATUSES',
         items: [
-          { title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
-        ],
-      },
-      {
-        category: 'REPORTS',
-        items: [
-          { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
-          { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
-          { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
+              { title: 'Active Vendors', path: '/status/vendors', Icon: PeopleIcon },
         ],
       },
     ],
-
-    // Student: [
-    //   {
-    //     category: 'CORE',
-    //     items: [
-    //       { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
-    //     ],
-    //   },
-    //   {
-    //     category: 'MANAGEMENT',
-    //     items: [
-    //       { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
-    //       // { title: 'Work History (P)', path: '/work-history', Icon: HistoryIcon },
-    //       // { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
-    //     ],
-    //   },
-    //   {
-    //     category: 'STATUSES',
-    //     items: [
-    //       { title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
-    //       // { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
-    //       // { title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
-    //     ],
-    //   },
-    // ],
 
     Vendor: [
       {

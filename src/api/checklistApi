@@ -20,6 +20,11 @@ export async function createChecklistItem(payload) {
   return response.data;
 }
 
+export async function getWeekItems() {
+  const response = await axiosClient.get('/api/Checklist/week-items');
+  return response.data;
+}
+
 export async function toggleChecklistItem(itemId, isCompleted) {
   const response = await axiosClient.patch(`/api/Checklist/item/toggle/${itemId}`, { isCompleted });
   return response.data;
