@@ -180,7 +180,7 @@ function GuardedResourceDetail({ path }) {
   if (path === '/students') {
     return (
       <RequireRole path={path}>
-        <StudentDetailPage basePath={path} />
+        <NewStudentPage  basePath={path} />
       </RequireRole>
     );
   }
@@ -215,6 +215,7 @@ function GuardedResourceDetail({ path }) {
       </RequireRole>
     );
   }
+  
   return (
     <RequireRole path={path}>
       <ResourceDetailPage basePath={path} />

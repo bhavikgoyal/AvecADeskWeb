@@ -103,6 +103,7 @@ export async function fetchUniqueInstituteNames() {
   return (data ?? []).map((item) => ({
     id: item.scrappingId ?? item.ScrappingId,
     name: item.instituteName ?? item.InstituteName ?? '',
+    campusname: item.campus ?? item.Campus ?? '',
   }));
 }
 export async function fetchInstituteScrappingById(scrappingId) {

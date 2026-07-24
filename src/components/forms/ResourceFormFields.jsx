@@ -33,6 +33,8 @@ const defaultEditorConfig = {
   }]
 };
 import { Box,Button, Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography } from '@mui/material';
+import { Fragment } from 'react';
+import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography ,Radio,RadioGroup,} from '@mui/material';
 import { FIELD_DEFS } from '../../config/resourceConfig';
 import { FormGridItem } from './FormSection';
 import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
@@ -83,7 +85,7 @@ export default function ResourceFormFields({
     if (!def) return null;
     const isRequired = Boolean(def.required) || requiredFields.includes(fieldName);
     const isDate = def.type === 'date';
-    const isFieldDisabled = disabled || def.readOnly || disabledFields.includes(fieldName);
+   const isFieldDisabled = def.readOnly || (disabled && !disabledFields.includes(fieldName));
       if (def.type === "file") {
       const preview =
         form[fieldName] && typeof form[fieldName] === "string"
@@ -178,7 +180,15 @@ export default function ResourceFormFields({
     }
 
     if (def.type === 'select' || def.type === 'api-select') {
-      const options = def.type === 'api-select' ? selectOptions[fieldName] || [] : def.options.map((option) => ({ value: option, label: option }));
+     // const options = def.type === 'api-select' ? selectOptions[fieldName] || [] : def.options.map((option) => ({ value: option, label: option }));
+      const options =
+  def.type === 'api-select'
+    ? (selectOptions[fieldName] || [])
+    : (def.options || []).map((option) =>
+        typeof option === 'object'
+          ? option
+          : { value: option, label: option }
+      );
       const labelId = `${fieldName}-label`;
       const currentValue = form[fieldName] || '';
       const selectedLabel = options.find((option) => String(option.value) === String(currentValue))?.label;
@@ -243,7 +253,42 @@ export default function ResourceFormFields({
         </FormGridItem>
       );
     }
+    if (def.type === 'radio') {
+  return (
+    <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+    <Box
+      sx={{ display: 'flex', alignItems: 'center', mt: 0.25, mb: -1, }}>
+        <Typography
+          sx={{
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            mr: 2,
+            minWidth: 100,
+          }}
+        >
+          {def.label} :
+        </Typography>
 
+        <RadioGroup
+          row
+          value={form[fieldName] ?? ''}
+          onChange={handleChange(fieldName)}
+        >
+          {def.options.map((option) => (
+            <FormControlLabel
+              key={option.value}
+              value={option.value}
+              control={<Radio size="small" />}
+              label={option.label}
+              disabled={isFieldDisabled}
+              sx={{ mr: 3 }}
+            />
+          ))}
+        </RadioGroup>
+      </Box>
+    </FormGridItem>
+  );
+   }
     return (
       <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
         <TextField
