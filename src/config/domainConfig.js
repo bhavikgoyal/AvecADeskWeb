@@ -796,7 +796,7 @@ vendors: {
   { id: "installments", label: "Installments", field: "installments" },
   { id: "nextDueDate", label: "Next Due", field: "nextDueDate" },
   { id: "collectedAmount", label: "Paid", field: "collectedAmount" },
-  { id: "balanceAmount", label: "Balance", field: "balanceAmount" },
+  { id: "balanceAmount", label: "Partial Amount", field: "balanceAmount" },
   { id: "paymentStatus", label: "Status", field: "paymentStatus" },
 ],
 
