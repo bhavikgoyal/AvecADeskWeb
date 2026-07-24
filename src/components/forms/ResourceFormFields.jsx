@@ -1,6 +1,11 @@
-import { Fragment, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography ,Radio,RadioGroup,} from '@mui/material';
+import { Fragment } from 'react';
+import { FIELD_DEFS } from '../../config/resourceConfig';
+import { FormGridItem } from './FormSection';
+import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
 
 const defaultEditorConfig = {
   toolbar: {
@@ -32,12 +37,6 @@ const defaultEditorConfig = {
     };
   }]
 };
-import { Box,Button, Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography } from '@mui/material';
-import { Fragment } from 'react';
-import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography ,Radio,RadioGroup,} from '@mui/material';
-import { FIELD_DEFS } from '../../config/resourceConfig';
-import { FormGridItem } from './FormSection';
-import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
 
 const fieldProps = { size: 'small', fullWidth: true, sx: formFieldSx };
 
