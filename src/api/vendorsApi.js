@@ -189,7 +189,8 @@ function buildVendorForm(vendor, instituteFields = {}, onboardingFields = {}) {
 }
 
 export async function fetchVendorById(vendorId) {
-  const { data } = await axiosClient.get(`/api/vendors/${vendorId}`);
+  const id = Number(vendorId);
+  const { data } = await axiosClient.get(`/api/vendors/${id}`);
   return normalizeVendor(data);
 }
 
