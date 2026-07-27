@@ -5,11 +5,13 @@ import {
   Backdrop,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Link,
   Paper,
   Table,
@@ -25,11 +27,11 @@ import {
 import TableChartIcon from '@mui/icons-material/TableChart';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
+import SchoolIcon from '@mui/icons-material/School';
+import PeopleIcon from '@mui/icons-material/People';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import {
-  FormActions,
-  FormPageLayout,
   FormSectionsLayout,
-  formPaperSx,
 } from '../../components/forms';
 import {
   createInstituteScrappingManual,
@@ -38,10 +40,14 @@ import {
   getEmptyManualForm,
   runInstituteScrapping,
 } from '../../api/institutesScrappingApi';
-import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
-import { MANUAL_FORM_SECTIONS, MANUAL_REQUIRED_FIELDS, INSTITUTE_SCRAPPING_BASE_PATH } from './instituteScrappingFormConfig';
-
-const BASE_PATH = '/institutes-scrapping';
+import {
+  AUTO_FORM_SECTIONS,
+  AUTO_REQUIRED_FIELDS,
+  MANUAL_FORM_SECTIONS,
+  MANUAL_REQUIRED_FIELDS,
+  INSTITUTE_SCRAPPING_BASE_PATH,
+} from './instituteScrappingFormConfig';
+import { useAuth } from '../../hooks/useAuth';
 
 const LIST_COLUMNS = [
   { key: 'instituteName', label: 'Institute name' },
@@ -74,12 +80,11 @@ function renderCell(row, key) {
 
 export default function InstituteScrappingPage() {
   const navigate = useNavigate();
-  const resource = getResourceConfig(BASE_PATH);
-  const [form, setForm] = useState(() => getEmptyForm(BASE_PATH));
-  const [error, setError] = useState('');
+  const { user } = useAuth();
+  const isAccounting = user?.role === 'Accounting';
+
   const [success, setSuccess] = useState('');
   const [warning, setWarning] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState('');
   const [rows, setRows] = useState([]);
@@ -89,7 +94,7 @@ export default function InstituteScrappingPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [manualForm, setManualForm] = useState(() => getEmptyManualForm());
+  const [manualForm, setManualForm] = useState(() => ({ ...getEmptyManualForm(), autoDataCollection: false }));
   const [manualSaving, setManualSaving] = useState(false);
   const [manualError, setManualError] = useState('');
 
@@ -109,6 +114,7 @@ export default function InstituteScrappingPage() {
   }, [appliedInstituteNameFilter]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadList();
   }, [loadList]);
 
@@ -148,7 +154,7 @@ export default function InstituteScrappingPage() {
   };
 
   const openAddDialog = () => {
-    setManualForm(getEmptyManualForm());
+    setManualForm({ ...getEmptyManualForm(), autoDataCollection: false });
     setManualError('');
     setAddDialogOpen(true);
   };
@@ -164,78 +170,70 @@ export default function InstituteScrappingPage() {
     setManualError('');
   };
 
-  const isManualFormValid = MANUAL_REQUIRED_FIELDS.every((field) => String(manualForm[field] ?? '').trim());
+  const handleToggleAutoDataCollection = (event) => {
+    const checked = event.target.checked;
+    setManualForm((prev) => ({ ...prev, autoDataCollection: checked }));
+    setManualError('');
+  };
+
+  const activeRequiredFields = manualForm.autoDataCollection ? AUTO_REQUIRED_FIELDS : MANUAL_REQUIRED_FIELDS;
+  const activeSections = manualForm.autoDataCollection ? AUTO_FORM_SECTIONS : MANUAL_FORM_SECTIONS;
+  const isManualFormValid = activeRequiredFields.every((field) => String(manualForm[field] ?? '').trim());
 
   const handleManualSave = async () => {
     if (!isManualFormValid) {
-      setManualError('Institute name is required.');
+      setManualError(
+        manualForm.autoDataCollection
+          ? 'Institute name and Website URL are required.'
+          : 'Institute name is required.',
+      );
       return;
     }
 
     setManualSaving(true);
     setManualError('');
     setListError('');
+    setWarning('');
+    setSuccess('');
 
     try {
-      await createInstituteScrappingManual(manualForm);
-      setAddDialogOpen(false);
-      setManualForm(getEmptyManualForm());
-      setSuccess('Institute added successfully. Add its courses from the Courses page.');
+      if (manualForm.autoDataCollection) {
+        const response = await runInstituteScrapping({
+          instituteName: manualForm.instituteName,
+          websiteUrl: manualForm.websiteUrl,
+        });
+
+        setAddDialogOpen(false);
+        setManualForm({ ...getEmptyManualForm(), autoDataCollection: false });
+
+        if (response.usedAiFallback) {
+          setWarning(
+            response.message ||
+              'Website blocked scraping. ChatGPT generated data from institute name and URL — please verify before use.',
+          );
+        } else if ((response.recordsInserted ?? 0) === 0) {
+          setWarning(
+            response.message || 'Scraping finished but no institute/course records were saved. Check the website URL or API logs.',
+          );
+        } else {
+          setSuccess(
+            response.message ||
+              `Institute scraped successfully. ${response.recordsInserted} course(s) saved to Courses.`,
+          );
+        }
+      } else {
+        await createInstituteScrappingManual(manualForm);
+        setAddDialogOpen(false);
+        setManualForm({ ...getEmptyManualForm(), autoDataCollection: false });
+        setSuccess('Institute added successfully. Add its courses from the Courses page.');
+      }
+
       setPage(0);
       await loadList();
     } catch (err) {
-      setManualError(err.message || 'Failed to add manual record.');
+      setManualError(err.message || 'Failed to save institute.');
     } finally {
       setManualSaving(false);
-    }
-  };
-
-  if (!resource) return null;
-
-  const updateField = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    setSuccess('');
-    setWarning('');
-    setError('');
-  };
-
-  const handleReset = () => {
-    setForm(getEmptyForm(BASE_PATH));
-    setError('');
-    setSuccess('');
-    setWarning('');
-  };
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setError('');
-    setSuccess('');
-    setWarning('');
-
-    try {
-      const response = await runInstituteScrapping(form);
-      if (response.usedAiFallback) {
-        setWarning(
-          response.message ||
-            'Website blocked scraping. ChatGPT generated data from institute name and URL — please verify before use.',
-        );
-      } else if ((response.recordsInserted ?? 0) === 0) {
-        setWarning(
-          response.message || 'Scraping finished but no institute/course records were saved. Check the website URL or API logs.',
-        );
-      } else {
-        setSuccess(
-          response.message ||
-            `Institute scraped successfully. ${response.recordsInserted} course(s) saved to Courses.`,
-        );
-      }
-      setForm(getEmptyForm(BASE_PATH));
-      setPage(0);
-      await loadList();
-    } catch (err) {
-      setError(err.message || 'Failed to scrape institute website.');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -243,6 +241,23 @@ export default function InstituteScrappingPage() {
     if (row?.id) {
       navigate(`${INSTITUTE_SCRAPPING_BASE_PATH}/${row.id}`);
     }
+  };
+
+  const handleViewCourses = (event, row) => {
+    event.stopPropagation();
+    if (row?.instituteName) {
+      navigate(`/courses?institute=${encodeURIComponent(row.instituteName)}`);
+    }
+  };
+
+  const handleViewStudents = (event) => {
+    event.stopPropagation();
+    navigate('/students');
+  };
+
+  const handleViewInvoices = (event) => {
+    event.stopPropagation();
+    navigate('/invoices');
   };
 
   const handleChangePage = (_event, newPage) => {
@@ -255,9 +270,13 @@ export default function InstituteScrappingPage() {
   };
 
   return (
-    <FormPageLayout title="Institutes Scrapping">
+    <Box>
+      {/* <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>
+        Institutes Scrapping
+      </Typography> */}
+
       <Backdrop
-        open={submitting}
+        open={manualSaving && manualForm.autoDataCollection}
         sx={{
           color: '#fff',
           zIndex: (theme) => theme.zIndex.drawer + 1,
@@ -274,11 +293,6 @@ export default function InstituteScrappingPage() {
         </Typography>
       </Backdrop>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
       {warning && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {warning}
@@ -290,20 +304,9 @@ export default function InstituteScrappingPage() {
         </Alert>
       )}
 
-      <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
-        <FormSectionsLayout sections={resource.sections} form={form} onChange={updateField} />
-        <FormActions
-          onCancel={handleReset}
-          onSubmit={handleSubmit}
-          submitLabel={submitting ? 'Scraping live website…' : 'Start Scraping'}
-          cancelLabel="Clear"
-          submitDisabled={!isFormValid(resource, form) || submitting}
-        />
-      </Paper>
-
-      <Box sx={{ mt: 3, width: '100%' }}>
+      <Box sx={{ mt: 1, width: '100%' }}>
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
-          Institute Scrap List
+          Institutes
         </Typography>
 
         {listError && (
@@ -403,13 +406,13 @@ export default function InstituteScrappingPage() {
                   <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
                     {appliedInstituteNameFilter
                       ? 'No records match the institute name filter.'
-                      : 'No scrapping records yet. Use the form above to scrape an institute website.'}
+                      : 'No scrapping records yet. Click "Add" to create one.'}
                   </Typography>
                 </Box>
               ) : (
               <>
               <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                <Table size="small" sx={{ minWidth: 1000 }}>
+                <Table size="small" sx={{ minWidth: 1100 }}>
                   <TableHead>
                     <TableRow sx={{ backgroundColor: 'var(--muted-bg)' }}>
                       <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>S No</TableCell>
@@ -418,6 +421,7 @@ export default function InstituteScrappingPage() {
                           {column.label}
                         </TableCell>
                       ))}
+                      <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -434,6 +438,42 @@ export default function InstituteScrappingPage() {
                             {renderCell(row, column.key)}
                           </TableCell>
                         ))}
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<SchoolIcon />}
+                              onClick={(event) => handleViewCourses(event, row)}
+                              sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                            >
+                              View Courses
+                            </Button>
+
+                            {isAccounting && (
+                              <>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<PeopleIcon />}
+                                  onClick={handleViewStudents}
+                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                                >
+                                  View Student
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<ReceiptIcon />}
+                                  onClick={handleViewInvoices}
+                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                                >
+                                  View Invoice
+                                </Button>
+                              </>
+                            )}
+                          </Box>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -465,12 +505,25 @@ export default function InstituteScrappingPage() {
               {manualError}
             </Alert>
           )}
+
+          <FormControlLabel
+            sx={{ mb: 1.5 }}
+            control={
+              <Checkbox
+                checked={!!manualForm.autoDataCollection}
+                onChange={handleToggleAutoDataCollection}
+                disabled={manualSaving}
+              />
+            }
+            label="Auto Data Collection"
+          />
+
           <FormSectionsLayout
-            sections={MANUAL_FORM_SECTIONS}
+            sections={activeSections}
             form={manualForm}
             onChange={updateManualField}
             disabled={manualSaving}
-            requiredFields={MANUAL_REQUIRED_FIELDS}
+            requiredFields={activeRequiredFields}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
@@ -483,10 +536,12 @@ export default function InstituteScrappingPage() {
             disabled={!isManualFormValid || manualSaving}
             sx={{ textTransform: 'none' }}
           >
-            {manualSaving ? 'Saving…' : 'Save'}
+            {manualSaving
+              ? (manualForm.autoDataCollection ? 'Scraping…' : 'Saving…')
+              : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
-    </FormPageLayout>
+    </Box>
   );
 }

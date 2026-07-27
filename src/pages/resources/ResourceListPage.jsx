@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { deleteInstitute, fetchInstituteRows } from '../../api/institutesApi';
 import { fetchCommissionHistory } from '../../api/commissionsApi';
 import { fetchPaymentSummary, formatCurrency } from '../../api/schedulesApi';
@@ -23,7 +24,9 @@ import { PAGE_CONFIG } from '../../config/pageConfig';
 import { getResourceConfig } from '../../config/resourceConfig';
 import { deleteRecord, loadRecords } from '../../utils/resourceStorage';
 import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
-import { deleteCourse, fetchCourseList  } from '../../api/coursesApi';
+import { deleteCourse, fetchCourseList } from '../../api/coursesApi';
+
+const INSTITUTE_SCRAPPING_BASE_PATH = '/institutes-scrapping';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -65,7 +68,7 @@ async function fetchResourceRows({
   isEnrolment,
   isInstitutes,
   isVendors,
-  isCourses, 
+  isCourses,
   pageStats,
 }) {
   if (isEnrolment) {
@@ -79,17 +82,17 @@ async function fetchResourceRows({
   if (isVendors) {
     return { rows: await fetchVendorRows(), stats: pageStats ?? [] };
   }
-if (isCourses) {
-  const courses = await fetchCourseList();
+  if (isCourses) {
+    const courses = await fetchCourseList();
 
-  return {
-    rows: courses.map((item) => ({
-      ...item,
-      id: String(item.courseId ?? item.id),
-    })),
-    stats: pageStats ?? [],
-  };
-}
+    return {
+      rows: courses.map((item) => ({
+        ...item,
+        id: String(item.courseId ?? item.id),
+      })),
+      stats: pageStats ?? [],
+    };
+  }
   if (basePath === '/templates') {
     return { rows: await getEmailTemplates(), stats: pageStats ?? [] };
   }
@@ -136,6 +139,19 @@ export default function ResourceListPage({ basePath }) {
   const [error, setError] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
 
+  // Courses page: institute filter passed via ?institute=<name> from
+  // the "View Courses" button on the Institutes Scrapping list.
+  const instituteFilter = useMemo(() => {
+    if (!isCourses) return '';
+    return new URLSearchParams(location.search).get('institute')?.trim() || '';
+  }, [isCourses, location.search]);
+
+  const displayRows = useMemo(() => {
+    if (!isCourses || !instituteFilter) return rows;
+    const target = instituteFilter.toLowerCase();
+    return rows.filter((row) => (row.instituteName || '').trim().toLowerCase() === target);
+  }, [rows, isCourses, instituteFilter]);
+
   // Commission history dialog state (institutes only)
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -154,7 +170,7 @@ export default function ResourceListPage({ basePath }) {
         isEnrolment,
         isInstitutes,
         isVendors,
-        isCourses, 
+        isCourses,
         pageStats,
       });
       setRows(result.rows);
@@ -177,7 +193,7 @@ export default function ResourceListPage({ basePath }) {
       isEnrolment,
       isInstitutes,
       isVendors,
-      isCourses, 
+      isCourses,
       pageStats,
     })
       .then((result) => {
@@ -208,7 +224,7 @@ export default function ResourceListPage({ basePath }) {
     return () => {
       cancelled = true;
     };
-  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, isCourses,pageStats, usesApi]);
+  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, isCourses, pageStats, usesApi]);
 
   // Reset selection whenever the resource type or the underlying rows change
   useEffect(() => {
@@ -233,7 +249,7 @@ export default function ResourceListPage({ basePath }) {
         } else if (isTemplates) {
           await deleteEmailTemplate(row.id);
           await refreshRows();
-        } else if (isCourses) {                    
+        } else if (isCourses) {
         await deleteCourse(row.id);
         await refreshRows();
       } else {
@@ -335,15 +351,14 @@ export default function ResourceListPage({ basePath }) {
     exportInstituteCommissionPdf(selectedRows);
   }, [rows, selectedIds]);
 
-  const headerExtra = isInstitutes ? (
-    <Tooltip title={selectedIds.length === 0 ? 'Select at least one institute' : ''}>
-      <span>
+  const headerExtra = (
+    <>
+      {isCourses && instituteFilter && (
         <Button
           variant="outlined"
           size="small"
-          startIcon={<PictureAsPdfOutlinedIcon />}
-          onClick={handleExportPdf}
-          disabled={selectedIds.length === 0}
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)}
           sx={{
             textTransform: 'none',
             height: 40,
@@ -353,11 +368,34 @@ export default function ResourceListPage({ basePath }) {
             px: 2,
           }}
         >
-          Export PDF{selectedIds.length ? ` (${selectedIds.length})` : ''}
+          Back to Institute
         </Button>
-      </span>
-    </Tooltip>
-  ) : null;
+      )}
+      {isInstitutes && (
+        <Tooltip title={selectedIds.length === 0 ? 'Select at least one institute' : ''}>
+          <span>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PictureAsPdfOutlinedIcon />}
+              onClick={handleExportPdf}
+              disabled={selectedIds.length === 0}
+              sx={{
+                textTransform: 'none',
+                height: 40,
+                borderRadius: 2,
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                px: 2,
+              }}
+            >
+              Export PDF{selectedIds.length ? ` (${selectedIds.length})` : ''}
+            </Button>
+          </span>
+        </Tooltip>
+      )}
+    </>
+  );
 
   if (!resource || !page) return null;
 
@@ -369,12 +407,12 @@ export default function ResourceListPage({ basePath }) {
         </Alert>
       )}
       <PageShell
-        title={page.title}
+        title={isCourses && instituteFilter ? `${page.title} — ${instituteFilter}` : page.title}
         subtitle={page.subtitle}
         stats={stats}
         showCharts={!isTemplates && (page.showCharts !== false)}
         columns={columnsWithSelect}
-        rows={loading ? [] : rows}
+        rows={loading ? [] : displayRows}
         actionLabel={resource.actionLabel}
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
         headerExtra={headerExtra}

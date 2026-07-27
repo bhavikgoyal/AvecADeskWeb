@@ -19,7 +19,18 @@ export const MANUAL_FORM_SECTIONS = [
   },
 ];
 
+
+export const AUTO_FORM_SECTIONS = [
+  {
+    title: 'Institute details',
+    fields: ['instituteName', 'websiteUrl'],
+  },
+];
+
 export const MANUAL_REQUIRED_FIELDS = ['instituteName'];
+
+
+export const AUTO_REQUIRED_FIELDS = ['instituteName'];
 
 export function recordToManualForm(record = {}) {
   return {
