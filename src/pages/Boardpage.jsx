@@ -1,16 +1,98 @@
 import { useEffect, useState, useCallback } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
+import { Box, Paper, Skeleton, Stack } from '@mui/material';
 import BoardColumn from '../components/board/BoardColumn';
 import AddCardModal from '../components/board/AddCardModal';
 import CardDetailModal from '../components/board/CardDetailModal';
 import { getBoardCards, moveCard, createCard, deleteCard, getUsers } from '../api/cardApi';
+
+function BoardCardSkeleton() {
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 1.25,
+        borderRadius: '10px',
+        border: '1px solid #e5e7eb',
+        bgcolor: '#fff',
+        position: 'relative',
+      }}
+    >
+      <Skeleton variant="circular" width={14} height={14} sx={{ position: 'absolute', top: 10, right: 10 }} />
+      <Stack spacing={0.9}>
+        <Skeleton variant="text" width="82%" height={18} />
+        <Skeleton variant="rounded" width={120} height={22} sx={{ borderRadius: 999 }} />
+        <Skeleton variant="text" width="45%" height={14} />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 0.25 }}>
+          <Skeleton variant="rounded" width={48} height={20} sx={{ borderRadius: 1 }} />
+          <Skeleton variant="circular" width={26} height={26} />
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
+function BoardColumnSkeleton({ cardCount = 4 }) {
+  return (
+    <Box
+      sx={{
+        minWidth: 260,
+        maxWidth: 260,
+        width: 260,
+        flex: '0 0 260px',
+        bgcolor: '#f3f4f6',
+        border: '1px solid #e5e7eb',
+        borderRadius: '10px',
+        p: '10px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        height: '78vh',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+    >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', px: '4px', gap: 1 }}>
+        <Skeleton variant="text" width="68%" height={22} />
+        <Skeleton variant="rounded" width={32} height={22} sx={{ borderRadius: 999, flexShrink: 0 }} />
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {Array.from({ length: cardCount }).map((_, i) => (
+          <BoardCardSkeleton key={i} />
+        ))}
+      </Box>
+      <Skeleton variant="text" width={100} height={18} sx={{ ml: 0.5 }} />
+    </Box>
+  );
+}
+
+function TasksBoardSkeleton() {
+  const cardsPerColumn = [4, 5, 3, 4, 3];
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '12px',
+        width: '100%',
+        overflowX: 'auto',
+        p: '12px',
+        boxSizing: 'border-box',
+      }}
+    >
+      {cardsPerColumn.map((count, i) => (
+        <BoardColumnSkeleton key={i} cardCount={count} />
+      ))}
+    </Box>
+  );
+}
 
 export default function BoardPage() {
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addModalStatusId, setAddModalStatusId] = useState(null);
-  const [selectedCardId, setSelectedCardId] = useState(null); 
+  const [selectedCardId, setSelectedCardId] = useState(null);
 
   const [searchText, setSearchText] = useState('');
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -48,10 +130,8 @@ export default function BoardPage() {
   }, [searchText, selectedUserId, fromDate, toDate]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadBoard();
   }, [loadBoard]);
-
 
   const selectedCard = selectedCardId
     ? columns.flatMap((col) => col.cards).find((c) => c.cardID === selectedCardId) || null
@@ -110,7 +190,6 @@ export default function BoardPage() {
 
   return (
     <div>
-      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Tasks</h1>
 
@@ -154,13 +233,17 @@ export default function BoardPage() {
             onClick={loadBoard}
             disabled={loading}
             style={{
-              padding: '6px 14px', background: '#2563eb', color: '#fff',
-              border: 'none', borderRadius: 6,
+              padding: '6px 14px',
+              background: '#2563eb',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
               cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: 14, opacity: loading ? 0.7 : 1,
+              fontSize: 14,
+              opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? '...' : '⟳ Refresh'}
+            ⟳ Refresh
           </button>
         </div>
       </div>
@@ -172,15 +255,21 @@ export default function BoardPage() {
       )}
 
       {loading ? (
-        <p style={{ color: '#6b7280' }}>Loading board...</p>
+        <TasksBoardSkeleton />
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
           <div
             className="board-scroll"
             style={{
-              display: 'flex', alignItems: 'flex-start', gap: '12px',
-              width: '100%', overflowX: 'auto', overflowY: 'hidden',
-              padding: '12px', boxSizing: 'border-box', whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px',
+              width: '100%',
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              padding: '12px',
+              boxSizing: 'border-box',
+              whiteSpace: 'nowrap',
             }}
           >
             {columns.map((col) => (
@@ -206,7 +295,7 @@ export default function BoardPage() {
       {selectedCard && (
         <CardDetailModal
           card={selectedCard}
-          onClose={() => setSelectedCardId(null)} 
+          onClose={() => setSelectedCardId(null)}
           onUpdated={loadBoard}
         />
       )}

@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   MenuItem,
   Paper,
   TextField,
@@ -12,6 +11,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
 import ResponsiveTable from "../../components/ResponsiveTable";
+import TableContentSkeleton from "../../components/TableContentSkeleton";
 import { getResourceConfig } from "../../config/resourceConfig";
 import {fetchStudentPaymentScheduleList,formatCurrency,formatDisplayDate,} from "../../api/schedulesApi";
 
@@ -235,15 +235,20 @@ return (
     {/* Payment Schedule List */}
     <Paper variant="outlined">
       {loading ? (
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            py: 6,
-          }}
-        >
-          <CircularProgress />
-        </Box>
+        <TableContentSkeleton
+          rows={8}
+          columns={[
+            { id: 'student', label: 'Student', flex: 1.2 },
+            { id: 'institute', label: 'Institute', flex: 1.6 },
+            { id: 'course', label: 'Course', flex: 1.3 },
+            { id: 'totalFee', label: 'Total Fee', flex: 0.8 },
+            { id: 'installments', label: 'Installments', flex: 0.7, skeletonWidth: '40%' },
+            { id: 'nextDue', label: 'Next Due', flex: 0.9 },
+            { id: 'paid', label: 'Paid', flex: 0.7 },
+            { id: 'partial', label: 'Partial Amount', flex: 0.9 },
+            { id: 'status', label: 'Status', flex: 0.7, skeletonWidth: '50%' },
+          ]}
+        />
       ) : rows.length === 0 ? (
         <Box
           sx={{

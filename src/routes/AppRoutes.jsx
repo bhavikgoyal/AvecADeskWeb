@@ -33,7 +33,7 @@ const NewEnrolmentPage = lazy(() => import('../pages/resources/NewEnrolmentPage'
 const EnrolmentDetailPage = lazy(() => import('../pages/resources/EnrolmentDetailPage'));
 const StudentDetailPage = lazy(() => import('../pages/resources/StudentDetailPage'));
 const ResourceDetailPage = lazy(() => import('../pages/resources/ResourceDetailPage'));
-const BoardPage = lazy(() => import('../pages/BoardPage'));
+const BoardPage = lazy(() => import('../pages/Boardpage'));
 const MembersContent = lazy(() => import('../components/Member/MembersContent'));
 const MembersCreate = lazy(() => import('../components/Member/MembersCreate'));
 const MembersEdit = lazy(() => import('../components/Member/MembersEdit'));

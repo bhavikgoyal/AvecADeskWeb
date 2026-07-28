@@ -474,6 +474,7 @@ export default function ResourceListPage({ basePath }) {
         showCharts={!isTemplates && !isInvoices && (page.showCharts !== false)}
         columns={columnsWithSelect}
         rows={loading ? [] : displayRows}
+        loading={(isVendors || isCourses) && loading}
         actionLabel={resource.actionLabel}
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
         headerExtra={headerExtra}

@@ -30,7 +30,7 @@ export async function fetchReceived(filters = {}) {
 }
 
 export async function fetchMonthRevenueDashboard(filters = {}) {
-  const { data } = await axiosClient.get('/api/receivables/month-revenue-dashboard', { params: buildParams(filters) });
+  const { data } = await axiosClient.get('/api/receivables/student-commission-installment-details', { params: buildParams(filters) });
   return data;
 }
 
