@@ -778,6 +778,7 @@ vendors: {
   { id: 'englishTest', label: 'English Test', field: 'englishTest' },  
   { id: 'testScore', label: 'Test Score', field: 'testScore' },       
   { id: 'highestQualification', label: 'Highest Qualification', field: 'highestQualification' },
+  { id: 'vendorName', label: 'Vendor Name', field: 'vendorName' },
 ],
 
   emptyForm: () => ({}),
