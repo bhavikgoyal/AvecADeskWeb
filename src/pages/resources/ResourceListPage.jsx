@@ -322,7 +322,39 @@ export default function ResourceListPage({ basePath }) {
   }, []);
 
   const columnsWithSelect = useMemo(() => {
-    if (!isInstitutes || !resource) return resource?.columns ?? [];
+    if (!resource) return [];
+
+    if (isVendors) {
+      return [
+        ...resource.columns,
+        {
+          id: '__view_students__',
+          label: 'Students',
+          align: 'center',
+          headerSx: { width: 120 },
+          render: (row) => (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={(e) => {
+                e.stopPropagation();
+                const id = row.vendorId ?? row.id;
+                const name = row.businessName || '';
+                navigate(
+                  `/reports/student-Inquiry?vendorId=${encodeURIComponent(id)}&vendorName=${encodeURIComponent(name)}`,
+                );
+              }}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            >
+              View
+            </Button>
+          ),
+        },
+      ];
+    }
+
+    if (!isInstitutes) return resource.columns ?? [];
+
     return [
       {
         id: '__select__',
@@ -367,7 +399,7 @@ export default function ResourceListPage({ basePath }) {
         ),
       },
     ];
-  }, [isInstitutes, resource, selectedIds, allSelected, someSelected, toggleAll, toggleRow, openHistory]);
+  }, [isInstitutes, isVendors, resource, selectedIds, allSelected, someSelected, toggleAll, toggleRow, openHistory, navigate]);
 
   const handleExportPdf = useCallback(() => {
     const selectedRows = rows.filter((r) => selectedIds.includes(r.id));

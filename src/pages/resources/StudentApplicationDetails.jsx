@@ -1,15 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Alert, Box, Paper, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress,
+  Alert, Box, Button, Paper, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress,
   TextField, InputAdornment
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { FormPageLayout, formPaperSx } from '../../components/forms';
 import { getStudentApplications } from '../../api/StudentApplicationApi';
 import { getResourceConfig } from '../../config/resourceConfig';
 
 export default function StudentApplicationDetailsPage() {
   const resource = getResourceConfig('/reports/student-Inquiry');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const vendorId = searchParams.get('vendorId');
+  const vendorNameFromQuery = searchParams.get('vendorName');
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,23 +27,34 @@ export default function StudentApplicationDetailsPage() {
 
   const totalPages = Math.ceil(totalRecords / pageSize) || 1;
 
-  const start = totalRecords === 0 ? 0 : (pageNumber - 1) * pageSize + 1; 
+  const start = totalRecords === 0 ? 0 : (pageNumber - 1) * pageSize + 1;
   const end = Math.min(pageNumber * pageSize, totalRecords);
 
   const startPage = Math.floor((pageNumber - 1) / 5) * 5 + 1;
 
+  const filteredVendorName = useMemo(() => {
+    if (vendorNameFromQuery) return vendorNameFromQuery;
+    return rows.find((r) => r.vendorName)?.vendorName || '';
+  }, [vendorNameFromQuery, rows]);
+
   useEffect(() => {
-    loadData(search, pageNumber, pageSize);
-  }, []);
+    setPageNumber(1);
+    loadData(search, 1, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorId]);
 
   const loadData = async (searchText = '', pageNo = pageNumber, size = pageSize) => {
     try {
       setLoading(true);
       setError('');
 
-      const response = await getStudentApplications(searchText, pageNo, size);
-      
-      // ASP.NET Core sends response with lowercase 'data' / 'totalRecords'
+      const response = await getStudentApplications(
+        searchText,
+        pageNo,
+        size,
+        vendorId || null,
+      );
+
       setRows(response.data || response.Data || []);
       setTotalRecords(response.totalRecords ?? response.TotalRecords ?? 0);
     } catch (err) {
@@ -64,7 +81,11 @@ export default function StudentApplicationDetailsPage() {
   return (
     <FormPageLayout
       title={resource?.plural || "Student Applications"}
-      subtitle="Student Application Details"
+      subtitle={
+        vendorId
+          ? `Students for vendor${filteredVendorName ? `: ${filteredVendorName}` : ''}`
+          : "Student Application Details"
+      }
       metaItems={[
         {
           label: 'Total Records',
@@ -85,32 +106,47 @@ export default function StudentApplicationDetailsPage() {
             justifyContent: "space-between",
             alignItems: "center",
             mb: 2,
+            gap: 1,
+            flexWrap: 'wrap',
           }}
         >
-          <TextField
-            size="small"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSearch(value);
-              setPageNumber(1);
-              loadData(value, 1, pageSize);
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              width: "350px",
-              minWidth: "180px",
-              maxWidth: "350px",
-              flex: "0 0 350px",
-            }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            {vendorId && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ArrowBackIcon />}
+                onClick={() => navigate('/vendors')}
+                sx={{ textTransform: 'none', fontWeight: 600, height: 40 }}
+              >
+                Back to Vendors
+              </Button>
+            )}
+            <TextField
+              size="small"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearch(value);
+                setPageNumber(1);
+                loadData(value, 1, pageSize);
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                width: "350px",
+                minWidth: "180px",
+                maxWidth: "350px",
+                flex: "0 0 350px",
+              }}
+            />
+          </Box>
 
           <Box
             sx={{
@@ -136,7 +172,6 @@ export default function StudentApplicationDetailsPage() {
                 background: "#fff",
               }}
             >
-              {/* Previous Button */}
               <Box
                 component="button"
                 onClick={() => {
@@ -151,7 +186,6 @@ export default function StudentApplicationDetailsPage() {
                 ‹
               </Box>
 
-              {/* Page Numbers */}
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const page = startPage + i;
                 if (page > totalPages) return null;
@@ -179,7 +213,6 @@ export default function StudentApplicationDetailsPage() {
                 );
               })}
 
-              {/* Next Button */}
               <Box
                 component="button"
                 onClick={() => {
@@ -249,7 +282,7 @@ export default function StudentApplicationDetailsPage() {
                     <TableRow key={row.studentID || row.id || idx} hover>
                       {resource?.columns?.map((column) => (
                         <TableCell key={column.id || column.field}>
-                          {row[column.field] ?? '-'}
+                          {row[column.field] || '-'}
                         </TableCell>
                       ))}
                     </TableRow>

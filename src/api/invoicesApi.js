@@ -88,11 +88,11 @@ export async function downloadInvoiceDocument(invoiceId) {
   });
   const contentDisposition = headers['content-disposition'] || '';
   const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
-  const fileName = match?.[1]?.replace(/['"]/g, '') || `invoice-${invoiceId}.pdf`;
-  const url = window.URL.createObjectURL(data);
+  const fileName = match?.[1]?.replace(/['"]/g, '') || `invoice-${invoiceId}.txt`;
+  const url = window.URL.createObjectURL(new Blob([data], { type: 'text/plain' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = fileName;
+  link.download = fileName.endsWith('.txt') ? fileName : `${fileName.replace(/\.(pdf|doc|docx)$/i, '')}.txt`;
   document.body.appendChild(link);
   link.click();
   link.remove();
