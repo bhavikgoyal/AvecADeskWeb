@@ -349,11 +349,11 @@ vendors: {
   invoices: {
     singular: 'Invoice',
     plural: 'Invoices',
-    actionLabel: 'Create Invoice',
+    actionLabel: 'Add Invoice',
     primaryField: 'invoiceNumber',
     requiredFields: ['invoiceNumber'],
     sections: [
-      { title: 'Invoice header', description: 'Generated from institute Excel upload.', fields: ['invoiceNumber', 'instituteNameRef', 'invoiceStatus', 'totalAmount'] },
+      { title: 'Invoice header', description: 'Generated from paid student installments.', fields: ['invoiceNumber', 'instituteNameRef', 'invoiceStatus', 'totalAmount'] },
       { title: 'Approval', description: 'Workflow and rejection details.', fields: ['assignedTo', 'rejectionReason', 'notes'] },
     ],
     columns: [
@@ -361,6 +361,7 @@ vendors: {
       { id: 'instituteNameRef', label: 'Institute', field: 'instituteNameRef' },
       { id: 'invoiceStatus', label: 'Status', field: 'invoiceStatus' },
       { id: 'totalAmount', label: 'Amount', field: 'totalAmount' },
+      { id: 'createdAt', label: 'Created', field: 'createdAt' },
     ],
     emptyForm: () => ({
       invoiceNumber: '', instituteNameRef: '', invoiceStatus: 'Draft', totalAmount: '',
