@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Card,
-  CircularProgress,
   Typography,
   Alert,
   IconButton,
@@ -15,6 +14,7 @@ import {
 
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ResponsiveTable from '../ResponsiveTable';
+import TableContentSkeleton from '../TableContentSkeleton';
 import { getMembers, deleteMember, resignMember } from '../../api/membersApi';
 import { Session } from '../../utils/session';
 
@@ -424,9 +424,25 @@ export default function MembersTable({ searchQuery = '' }) {
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-          <CircularProgress />
-        </Box>
+        <TableContentSkeleton
+          rows={12}
+          columns={[
+            { id: 'roll', label: 'Roll', width: '64px', skeletonWidth: 20 },
+            { id: 'username', label: 'Username', flex: 1.3, skeletonWidth: '70%' },
+            { id: 'fullName', label: 'Full name', flex: 1.2 },
+            { id: 'email', label: 'Email', flex: 1.5 },
+            { id: 'phone', label: 'Phone', flex: 1 },
+            { id: 'role', label: 'Role Name', flex: 1 },
+            { id: 'active', label: 'Active', width: '80px', skeletonWidth: 28 },
+            {
+              id: 'action',
+              label: 'Action',
+              flex: 1.1,
+              skeletonWidth: 96,
+              skeletonHeight: 28,
+            },
+          ]}
+        />
       ) : error ? (
         <Box sx={{ p: 2 }}>
           <Alert severity="error">{error}</Alert>

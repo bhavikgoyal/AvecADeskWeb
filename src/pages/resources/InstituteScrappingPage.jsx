@@ -28,6 +28,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import SchoolIcon from '@mui/icons-material/School';
+import TableContentSkeleton from '../../components/TableContentSkeleton';
 import PeopleIcon from '@mui/icons-material/People';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import {
@@ -324,12 +325,7 @@ export default function InstituteScrappingPage() {
             width: '100%',
           }}
         >
-          {listLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-              <CircularProgress size={36} sx={{ color: 'var(--primary)' }} />
-            </Box>
-          ) : (
-            <>
+          <>
               <Box
                 sx={{
                   display: 'flex',
@@ -356,6 +352,7 @@ export default function InstituteScrappingPage() {
                       }
                     }}
                     sx={{ minWidth: 240, maxWidth: 360 }}
+                    disabled={listLoading}
                   />
                   <Button
                     variant="contained"
@@ -363,6 +360,7 @@ export default function InstituteScrappingPage() {
                     startIcon={<SearchIcon />}
                     onClick={handleApplyFilter}
                     sx={{ textTransform: 'none', height: 40 }}
+                    disabled={listLoading}
                   >
                     Search
                   </Button>
@@ -372,6 +370,7 @@ export default function InstituteScrappingPage() {
                       size="small"
                       onClick={handleClearFilter}
                       sx={{ textTransform: 'none', height: 40 }}
+                      disabled={listLoading}
                     >
                       Clear
                     </Button>
@@ -384,6 +383,7 @@ export default function InstituteScrappingPage() {
                     startIcon={<AddIcon />}
                     onClick={openAddDialog}
                     sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                    disabled={listLoading}
                   >
                     Add
                   </Button>
@@ -393,7 +393,7 @@ export default function InstituteScrappingPage() {
                     color="success"
                     startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <TableChartIcon />}
                     onClick={handleExportExcel}
-                    disabled={exporting || rows.length === 0}
+                    disabled={exporting || listLoading || rows.length === 0}
                     sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
                   >
                     Export to Excel
@@ -401,7 +401,23 @@ export default function InstituteScrappingPage() {
                 </Box>
               </Box>
 
-              {rows.length === 0 ? (
+              {listLoading ? (
+                <TableContentSkeleton
+                  rows={10}
+                  columns={[
+                    { id: 'sno', label: 'S No', width: '64px', skeletonWidth: 24 },
+                    { id: 'instituteName', label: 'Institute name', flex: 1.8 },
+                    { id: 'logo', label: 'Logo', flex: 0.7, skeletonWidth: 48 },
+                    { id: 'websiteUrl', label: 'Website URL', flex: 0.8, skeletonWidth: 64 },
+                    { id: 'country', label: 'Country', flex: 0.9 },
+                    { id: 'city', label: 'City', flex: 0.9 },
+                    { id: 'campus', label: 'Campus', flex: 1.2 },
+                    { id: 'state', label: 'State', flex: 0.8 },
+                    { id: 'countryRanking', label: 'Country ranking', flex: 1.6 },
+                    { id: 'actions', label: 'Actions', flex: 1.1, skeletonWidth: 110, skeletonHeight: 28 },
+                  ]}
+                />
+              ) : rows.length === 0 ? (
                 <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
                   <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
                     {appliedInstituteNameFilter
@@ -493,7 +509,6 @@ export default function InstituteScrappingPage() {
               </>
               )}
             </>
-          )}
         </Paper>
       </Box>
 

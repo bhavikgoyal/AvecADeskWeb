@@ -4,6 +4,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import StatCard from './StatCard';
 import ResponsiveTable from './ResponsiveTable';
+import TableContentSkeleton from './TableContentSkeleton';
 import { buildSparkline } from '../constants/chartData';
 
 
@@ -19,6 +20,7 @@ export default function PageShell({
   searchPlaceholder = 'Search...',
   showCharts = true,
   headerExtra = null,
+  loading = false,
   onAdd,
   onRowClick,
   onDelete,
@@ -158,7 +160,7 @@ useEffect(() => {
               {actionLabel}
             </Button>
           </Stack>
-          {rows.length > 0 && (
+          {rows.length > 0 && !loading && (
             <Typography sx={{ fontSize: '0.72rem', color: 'var(--muted)', mt: 1, fontWeight: 600 }}>
               Showing {filteredRows.length} of {rows.length} records
               {query.trim() ? ` matching "${query.trim()}"` : ''}
@@ -166,7 +168,35 @@ useEffect(() => {
           )}
         </Box>
 
-        {tableColumns.length > 0 && rows.length > 0 ? (
+        {loading ? (
+          <TableContentSkeleton
+            rows={8}
+            columns={[
+              ...tableColumns.map((col, index) => ({
+                id: col.id || index,
+                label: typeof col.label === 'string' ? col.label : '',
+                flex:
+                  index === 0
+                    ? 1.6
+                    : String(col.label || '').toLowerCase().includes('email') ||
+                        String(col.label || '').toLowerCase().includes('institute') ||
+                        String(col.label || '').toLowerCase().includes('course') ||
+                        String(col.label || '').toLowerCase().includes('campus') ||
+                        String(col.label || '').toLowerCase().includes('ranking')
+                      ? 1.4
+                      : String(col.label || '').toLowerCase().includes('status') ||
+                          String(col.label || '').toLowerCase().includes('link') ||
+                          String(col.label || '').toLowerCase().includes('fees')
+                        ? 0.7
+                        : 1,
+                skeletonWidth:
+                  col.id === '__delete__' || col.id === 'actions' ? 28 : undefined,
+                skeletonHeight: col.id === '__delete__' || col.id === 'actions' ? 28 : 14,
+                round: col.id === '__delete__' || col.id === 'actions',
+              })),
+            ]}
+          />
+        ) : tableColumns.length > 0 && rows.length > 0 ? (
           filteredRows.length > 0 ? (
             <ResponsiveTable columns={tableColumns} rows={paginatedRows} getRowKey={(row) => row.id} variant="resource" alwaysTable onRowClick={onRowClick} />
           ) : (

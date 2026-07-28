@@ -6,6 +6,7 @@ import {
 import ExcelIcon from '@mui/icons-material/TableView';
 // or another icon you're using
 import ResponsiveTable from '../../components/ResponsiveTable';
+import TableContentSkeleton from '../../components/TableContentSkeleton';
 import { primaryButtonSx } from '../../components/forms';
 import { createInstituteCommissionRate, fetchCommissionRates, fetchCommissionHistory, getEmptyCommissionRateForm, } from '../../api/commissionsApi';
 import { fetchInstitutes, fetchCoursesByInstitute, } from '../../api/lookupApi';
@@ -403,7 +404,28 @@ export default function InstituteCommissionPage() {
       {error && <Alert severity="error" sx={{ mb: 1.5 }} onClose={() => setError('')}>{error}</Alert>}
 
       {loading ? (
-        <Typography sx={{ color: 'var(--muted)', py: 2 }}>Loading...</Typography>
+        <Box
+          sx={{
+            border: '1px solid var(--card-border)',
+            borderRadius: 2,
+            overflow: 'hidden',
+            bgcolor: '#fff',
+          }}
+        >
+          <TableContentSkeleton
+            rows={10}
+            columns={[
+              { id: 'select', label: '', width: '48px', skeletonWidth: 18, skeletonHeight: 18 },
+              { id: 'institute', label: 'Institute', flex: 1.3 },
+              { id: 'course', label: 'Course', flex: 1.6 },
+              { id: 'rateType', label: 'Rate Type', flex: 0.9 },
+              { id: 'rate', label: 'Rate', flex: 0.6 },
+              { id: 'from', label: 'From', flex: 0.9 },
+              { id: 'to', label: 'To', flex: 0.9 },
+              { id: 'actions', label: 'Actions', flex: 0.7, skeletonWidth: 64 },
+            ]}
+          />
+        </Box>
       ) : rates.length ? (
         <>
           <Stack direction="row" spacing={2} sx={{ mb: 2 }} style={{justifyContent:'space-between'}}>
