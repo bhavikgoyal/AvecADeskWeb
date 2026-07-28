@@ -74,7 +74,8 @@ export const PAGE_CONFIG = {
   '/invoices': {
     title: 'Invoices',
     //subtitle: 'Create, review, and track invoices across vendors and students.',
-    actionLabel: 'Create Invoice',
+    actionLabel: 'Add Invoice',
+    showCharts: false,
     // stats: [
     //   { label: 'Open invoices', value: '56', caption: '12 due this week', icon: <ReceiptIcon fontSize="large" />, color: 'var(--primary)' },
     //   { label: 'Paid', value: '$142k', caption: 'Last 30 days', icon: <PaymentsIcon fontSize="large" />, color: 'var(--teal)' },
@@ -82,11 +83,13 @@ export const PAGE_CONFIG = {
     //   { label: 'Overdue', value: '9', caption: 'Escalated', icon: <FactCheckIcon fontSize="large" />, color: 'var(--accent)' },
     // ],
     columns: [
-      { id: 'name', label: 'Invoice', field: 'name' },
-      { id: 'status', label: 'Status', field: 'status' },
-      { id: 'updated', label: 'Updated', field: 'updated' },
+      { id: 'invoiceNumber', label: 'Invoice #', field: 'invoiceNumber' },
+      { id: 'instituteNameRef', label: 'Institute', field: 'instituteNameRef' },
+      { id: 'invoiceStatus', label: 'Status', field: 'invoiceStatus' },
+      { id: 'totalAmount', label: 'Amount', field: 'totalAmount' },
+      { id: 'createdAt', label: 'Created', field: 'createdAt' },
     ],
-    rows: sampleRows('Invoice'),
+    rows: [],
   },
   '/reminders': {
     title: 'Reminder Rules',

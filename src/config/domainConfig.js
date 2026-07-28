@@ -61,7 +61,7 @@ export const DOMAIN_FIELD_DEFS = {
 
   studentId: { label: 'Select student', type: 'api-select', required: true, grid: grid.full },
   fullName: { label: 'Full name', type: 'text', required: true, grid: grid.half },
-  FolderNo: { label: 'Folder number', type: 'text', grid: grid.half },
+  FolderNo: { label: 'Folder number', type: 'number', grid: grid.half },
   enrollmentNumber: { label: 'Enrolment number', type: 'text', grid: grid.half },
   instituteId: { label: 'Institute', type: 'api-select', required: true, grid: grid.half },
   campusname: { label: 'Campus', type: 'text', required: true, grid: grid.half,readOnly: true, },
@@ -349,11 +349,11 @@ vendors: {
   invoices: {
     singular: 'Invoice',
     plural: 'Invoices',
-    actionLabel: 'Create Invoice',
+    actionLabel: 'Add Invoice',
     primaryField: 'invoiceNumber',
     requiredFields: ['invoiceNumber'],
     sections: [
-      { title: 'Invoice header', description: 'Generated from institute Excel upload.', fields: ['invoiceNumber', 'instituteNameRef', 'invoiceStatus', 'totalAmount'] },
+      { title: 'Invoice header', description: 'Generated from paid student installments.', fields: ['invoiceNumber', 'instituteNameRef', 'invoiceStatus', 'totalAmount'] },
       { title: 'Approval', description: 'Workflow and rejection details.', fields: ['assignedTo', 'rejectionReason', 'notes'] },
     ],
     columns: [
@@ -361,6 +361,7 @@ vendors: {
       { id: 'instituteNameRef', label: 'Institute', field: 'instituteNameRef' },
       { id: 'invoiceStatus', label: 'Status', field: 'invoiceStatus' },
       { id: 'totalAmount', label: 'Amount', field: 'totalAmount' },
+      { id: 'createdAt', label: 'Created', field: 'createdAt' },
     ],
     emptyForm: () => ({
       invoiceNumber: '', instituteNameRef: '', invoiceStatus: 'Draft', totalAmount: '',

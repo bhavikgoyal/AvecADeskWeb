@@ -12,7 +12,7 @@ import { fetchAllStudents } from '../../api/studentsApi';
 import GroupedBarChartCard from '../../components/charts/GroupedBarChartCard';
 import { CHART_COLORS } from '../../theme/chartTheme';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import { fetchWeekChecklistStats } from '../../utils/checklistStats';
 import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
@@ -83,9 +83,12 @@ export default function AdminDash() {
   const [monthRevenue, setMonthRevenue] = useState(null);
   useEffect(() => {
     let mounted = true;
-    fetchMonthRevenueDashboard()
+    const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+    fetchMonthRevenueDashboard({ fromDate: from, toDate: to })
       .then((res) => {
         if (!mounted) return;
+        try { console.log('Admin fetchMonthRevenueDashboard response:', res); } catch (e) {}
         setMonthRevenue(res);
       })
       .catch(() => {})
@@ -93,81 +96,81 @@ export default function AdminDash() {
   }, []);
   // dynamic accounting/student data
   const [studentStats, setStudentStats] = useState({ total: 0, newThisMonth: 0 });
-  const [installmentSummary, setInstallmentSummary] = useState({ totalFees: 0, totalPaid: 0, totalBalance: 0, countPaid: 0, countPending: 0, weeksThis: [], weeksPrev: [], weeksNext: [], upcomingNext: [] });
+  const [installmentSummary, setInstallmentSummary] = useState({ weeksPrev: [], weeksThis: [], weeksNext: [], upcomingNext: [] });
+
+  const now = useMemo(() => new Date(), []);
 
   useEffect(() => {
-    let mounted = true;
-    fetchStudentPaymentInstallments()
-      .then((list) => {
-        if (!mounted) return;
-        if (!Array.isArray(list)) return;
-        const totals = list.reduce((acc, it) => {
-          acc.totalFees += Number(it.feesAmount || 0);
-          acc.totalPaid += Number(it.paidAmount || 0);
-          acc.totalBalance += Number(it.balanceAmount || 0);
-          if ((it.paymentStatus || '').toLowerCase() === 'paid') acc.countPaid += 1;
-          else acc.countPending += 1;
-          const key = `${it.studentId}::${it.fullName}`;
-          if (!acc.byStudentMap[key]) acc.byStudentMap[key] = { studentId: it.studentId, fullName: it.fullName, fees: 0, paid: 0, balance: 0, installments: 0 };
-          const s = acc.byStudentMap[key];
-          s.fees += Number(it.feesAmount || 0);
-          s.paid += Number(it.paidAmount || 0);
-          s.balance += Number(it.balanceAmount || 0);
-          s.installments += 1;
-          return acc;
-        }, { totalFees: 0, totalPaid: 0, totalBalance: 0, countPaid: 0, countPending: 0, byStudentMap: {} });
-        const byStudent = Object.values(totals.byStudentMap).sort((a,b) => b.balance - a.balance);
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const prevMonth = prevMonthDate.getMonth();
-        const prevYear = prevMonthDate.getFullYear();
-        const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        const nextMonth = nextMonthDate.getMonth();
-        const nextYear = nextMonthDate.getFullYear();
-        const makeWeeks = (year, month) => {
-          const weeks = [];
-          const first = new Date(year, month, 1);
-          const last = new Date(year, month + 1, 0);
-          let start = new Date(first);
-          while (start <= last) {
-            const end = new Date(start);
-            end.setDate(end.getDate() + 6);
-            weeks.push({ start: new Date(start), end: end > last ? new Date(last) : end, paid: 0, due: 0 });
-            start.setDate(start.getDate() + 7);
+    // derive weekly buckets from monthRevenue (commission+bonus) similar to AccDash
+    const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
+    const cur = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const makeWeeks = (year, month) => {
+      const weeks = [];
+      const first = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      let start = new Date(first);
+      while (start <= lastDay) {
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        weeks.push({ start: new Date(start), end: end > lastDay ? new Date(lastDay) : end, paid: 0, due: 0 });
+        start.setDate(start.getDate() + 7);
+      }
+      return weeks;
+    };
+
+    const weeksThis = makeWeeks(cur.getFullYear(), cur.getMonth());
+    const weeksPrev = makeWeeks(last.getFullYear(), last.getMonth());
+    const weeksNext = makeWeeks(next.getFullYear(), next.getMonth());
+    const upcomingNext = [];
+
+    for (const it of rows) {
+      const due = it.dueDate ? new Date(it.dueDate) : null;
+      if (!due) continue;
+      const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
+      const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
+      const amount = comm + bonus;
+      const status = (it.commissionStatus || it.paymentStatus || '').toString().toLowerCase();
+
+      const add = (weeks) => {
+        for (const w of weeks) {
+          if (due >= w.start && due <= w.end) {
+            if (status === 'paid') w.paid += amount; else w.due += amount;
+            break;
           }
-          return weeks;
-        };
-        const weeksThis = makeWeeks(currentYear, currentMonth);
-        const weeksPrev = makeWeeks(prevYear, prevMonth);
-        const weeksNext = makeWeeks(nextYear, nextMonth);
-        const addToWeeks = (arr, weeks) => {
-          arr.forEach((it) => {
-            const d = it.dueDate ? new Date(it.dueDate) : null;
-            if (!d) return;
-            for (const w of weeks) {
-              if (d >= w.start && d <= w.end) {
-                w.paid += Number(it.paidAmount || 0);
-                w.due += Number(it.balanceAmount || 0) + Number(it.paidAmount || 0);
-                break;
-              }
-            }
-          });
-        };
-        addToWeeks(list, weeksThis);
-        addToWeeks(list, weeksPrev);
-        addToWeeks(list, weeksNext);
-        const upcomingNext = list.filter((it) => {
-          if (!it.dueDate) return false;
-          const d = new Date(it.dueDate);
-          return d.getFullYear() === nextYear && d.getMonth() === nextMonth;
-        }).sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate));
-        setInstallmentSummary({ totalFees: totals.totalFees, totalPaid: totals.totalPaid, totalBalance: totals.totalBalance, countPaid: totals.countPaid, countPending: totals.countPending, byStudent, weeksThis, weeksPrev, weeksNext, upcomingNext });
-      })
-      .catch(() => {});
-    return () => { mounted = false; };
-  }, []);
+        }
+      };
+
+      if (due.getFullYear() === last.getFullYear() && due.getMonth() === last.getMonth()) add(weeksPrev);
+      else if (due.getFullYear() === cur.getFullYear() && due.getMonth() === cur.getMonth()) add(weeksThis);
+      else if (due.getFullYear() === next.getFullYear() && due.getMonth() === next.getMonth()) { add(weeksNext); upcomingNext.push(it); }
+    }
+
+    setInstallmentSummary({ weeksPrev, weeksThis, weeksNext, upcomingNext });
+  }, [monthRevenue, now]);
+
+  // compute paid/due totals for current month for KPI footer
+  const { paidThisMonth, dueThisMonth } = (() => {
+    const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
+    const nowDate = new Date();
+    const cur = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
+    let paid = 0;
+    let due = 0;
+    for (const it of rows) {
+      const dueDate = it.dueDate ? new Date(it.dueDate) : null;
+      if (!dueDate) continue;
+      if (dueDate.getFullYear() === cur.getFullYear() && dueDate.getMonth() === cur.getMonth()) {
+        const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
+        const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
+        const amount = comm + bonus;
+        const status = (it.commissionStatus || it.paymentStatus || '').toString().toLowerCase();
+        if (status === 'paid') paid += amount; else due += amount;
+      }
+    }
+    return { paidThisMonth: paid, dueThisMonth: due };
+  })();
 
   useEffect(() => {
     let mounted = true;
@@ -186,9 +189,28 @@ export default function AdminDash() {
     <>
     <DashboardTemplate
       title="Admin Overview"
-      welcomeFooterStats={[
-        { label: "Today's collections", value: monthRevenue ? `$${Number(monthRevenue.collected || 0).toLocaleString()}` : '$0'},
-      ]}
+      welcomeFooterStats={(() => {
+        const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
+        const now = new Date();
+        const cur = new Date(now.getFullYear(), now.getMonth(), 1);
+        const buckets = { cur: { paid: 0, due: 0 } };
+        for (const it of rows) {
+          const due = it.dueDate ? new Date(it.dueDate) : null;
+          if (!due) continue;
+          if (due.getFullYear() === cur.getFullYear() && due.getMonth() === cur.getMonth()) {
+            const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
+            const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
+            const amount = comm + bonus;
+            const status = (it.commissionStatus || it.paymentStatus || '').toString().toLowerCase();
+            if (status === 'paid') buckets.cur.paid += amount; else buckets.cur.due += amount;
+          }
+        }
+        const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
+        return [
+          { label: 'This Month Paid', value: fmt(buckets.cur.paid) },
+          { label: 'This Month Due', value: fmt(buckets.cur.due) },
+        ];
+      })()}
       kpiStats={[
         {
           label: 'Total students',
@@ -224,11 +246,11 @@ export default function AdminDash() {
         },
         {
           label: 'Receivables',
-          value: monthRevenue ? `$${Number(monthRevenue.revenue || 0).toLocaleString()}` : '$0',
+          value: `$${Number(paidThisMonth || 0).toLocaleString()}`,
           sparklineData: buildSparkline(4),
           icon: <PaymentsIcon />,
           color: 'var(--teal)',
-          footer: [ { label: 'Collected', value: monthRevenue ? `$${Number(monthRevenue.collected || 0).toLocaleString()}` : '$0', sub: 'This month' }, { label: 'Outstanding', value: monthRevenue ? `$${Number(monthRevenue.outstanding || 0).toLocaleString()}` : '$0', sub: 'Current' } ],
+          footer: [ { label: 'Paid', value: `$${Number(paidThisMonth || 0).toLocaleString()}`, sub: 'This month' }, { label: 'Due', value: `$${Number(dueThisMonth || 0).toLocaleString()}`, sub: 'Current' } ],
         },
         {
           label: 'Open tasks',
@@ -253,26 +275,34 @@ export default function AdminDash() {
       areaChartData={revenueTrend}
     />
 
-      <Box sx={{ mt: 1.5, width: '100%' }}>
+      <Box sx={{ mt: 1.5, width: '100%', minHeight: 280 }}>
         <GroupedBarChartCard
-          items={[
-            {
-              title: 'Last Month - weekly paid vs due',
-              data: installmentSummary.weeksPrev
-                ? installmentSummary.weeksPrev.map((w, i) => ({ name: `W${i + 1}`, paid: w.paid, due: w.due }))
-                : [],
-              keys: ['paid', 'due'],
-               colors: [CHART_COLORS.teal, CHART_COLORS.danger],
-            },
-            {
-              title: 'This Month - weekly paid vs due',
-              data: installmentSummary.weeksThis
-                ? installmentSummary.weeksThis.map((w, i) => ({ name: `W${i + 1}`, paid: w.paid, due: w.due }))
-                : [],
-              keys: ['paid', 'due'],
-               colors: [CHART_COLORS.teal, CHART_COLORS.danger],
-            },
-          ]}
+          items={(() => {
+            const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
+            const cur = new Date(now.getFullYear(), now.getMonth(), 1);
+            const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            const buckets = { last: { paid: 0, due: 0 }, cur: { paid: 0, due: 0 }, next: { paid: 0, due: 0 } };
+            for (const it of rows) {
+              const due = it.dueDate ? new Date(it.dueDate) : null;
+              if (!due) continue;
+              const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
+              const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
+              const amount = comm + bonus;
+              const status = (it.commissionStatus || it.paymentStatus || '').toString().toLowerCase();
+              if (due.getFullYear() === last.getFullYear() && due.getMonth() === last.getMonth()) {
+                if (status === 'paid') buckets.last.paid += amount; else buckets.last.due += amount;
+              } else if (due.getFullYear() === cur.getFullYear() && due.getMonth() === cur.getMonth()) {
+                if (status === 'paid') buckets.cur.paid += amount; else buckets.cur.due += amount;
+              } else if (due.getFullYear() === next.getFullYear() && due.getMonth() === next.getMonth()) {
+                if (status === 'paid') buckets.next.paid += amount; else buckets.next.due += amount;
+              }
+            }
+            return [
+              { title: 'Last Month', data: [{ name: '', paid: buckets.last.paid, due: buckets.last.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
+              { title: 'This Month', data: [{ name: '', paid: buckets.cur.paid, due: buckets.cur.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
+              ];
+          })()}
         />
         <Box sx={{ mt: 1.5 }}>
           <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 } }}>
@@ -281,7 +311,14 @@ export default function AdminDash() {
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 800, color: 'var(--text)', mt: 1 }}>
               {`$${(installmentSummary.upcomingNext || [])
-                .reduce((sum, it) => sum + Number(it.balanceAmount || 0), 0)
+                .reduce((sum, it) => {
+                  const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
+                  const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
+                  const balance = Number(it.balanceAmount ?? 0) || 0;
+                  // prefer commission+bonus if present, else fallback to balanceAmount
+                  const value = (comm || bonus) ? (comm + bonus) : balance;
+                  return sum + value;
+                }, 0)
                 .toLocaleString()}`}
             </Typography>
           </Paper>
