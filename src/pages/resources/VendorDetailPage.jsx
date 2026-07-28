@@ -36,7 +36,9 @@ export default function VendorDetailPage({ basePath }) {
       }
     } catch (err) {
       if (active) {
-        setError(err.message || 'Vendor not found.');
+        const msg = err?.response?.data?.message || err?.message || 'Vendor not found.';
+        setError(msg);
+        console.error('fetchVendorForm error', err);
       }
     } finally {
       if (active) {
@@ -53,7 +55,9 @@ export default function VendorDetailPage({ basePath }) {
   if (!resource) return null;
 
   const updateField = (field, value) => {
-    setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
+    setForm((prev) => ({ ...(prev || {}), [field]: value }));
+    // eslint-disable-next-line no-console
+    console.log('updateField', field, value);
     if (error) setError('');
   };
 
@@ -63,7 +67,7 @@ export default function VendorDetailPage({ basePath }) {
     submittingRef.current = true;
     setSubmitting(true);
     setError('');
-
+debugger;
     try {
       await updateVendor(id, form);
       navigate(basePath);

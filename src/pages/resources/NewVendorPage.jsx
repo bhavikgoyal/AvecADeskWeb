@@ -25,7 +25,7 @@ export default function NewVendorPage({ basePath }) {
   if (!resource) return null;
 
   const updateField = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => ({ ...(prev || {}), [field]: value }));
     if (error) setError('');
   };
 
