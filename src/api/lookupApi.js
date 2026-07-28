@@ -8,7 +8,9 @@ export async function fetchInstitutes() {
 
 export async function fetchCoursesByInstitute(instituteId) {
   if (!instituteId) return [];
-  const { data } = await axiosClient.get('/api/courses', { params: { instituteId } });
+  const { data } = await axiosClient.get('/api/courses/scrapping', {
+    params: { instituteId },
+  });
   return data;
 }
 

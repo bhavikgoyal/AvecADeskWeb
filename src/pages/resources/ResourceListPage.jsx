@@ -18,6 +18,8 @@ import { fetchPaymentSummary, formatCurrency } from '../../api/schedulesApi';
 import { deleteStudent, fetchEnrolmentRows, fetchStudentRows } from '../../api/studentsApi';
 import { deleteVendor, fetchVendorRows } from '../../api/vendorsApi';
 import { getEmailTemplates, deleteEmailTemplate } from '../../api/EmailtemplatesApi';
+import { downloadInvoiceDocument, fetchInvoices } from '../../api/invoicesApi';
+import AddInvoiceDialog from '../../components/invoices/AddInvoiceDialog';
 import PageShell from '../../components/PageShell';
 import ResponsiveTable from '../../components/ResponsiveTable';
 import { PAGE_CONFIG } from '../../config/pageConfig';
@@ -69,6 +71,7 @@ async function fetchResourceRows({
   isInstitutes,
   isVendors,
   isCourses,
+  isInvoices,
   pageStats,
 }) {
   if (isEnrolment) {
@@ -97,6 +100,10 @@ async function fetchResourceRows({
     return { rows: await getEmailTemplates(), stats: pageStats ?? [] };
   }
 
+  if (isInvoices) {
+    return { rows: await fetchInvoices(), stats: pageStats ?? [] };
+  }
+
   if (!isStudents) {
     return { rows: loadRecords(basePath), stats: pageStats ?? [] };
   }
@@ -117,6 +124,7 @@ function getLoadErrorMessage(basePath) {
   if (basePath === '/vendors') return 'Failed to load vendors from the API.';
   if (basePath === '/students') return 'Failed to load students from the API.';
   if (basePath === '/courses') return 'Failed to load courses from the API.';
+  if (basePath === '/invoices') return 'Failed to load invoices from the API.';
   return 'Failed to load records.';
 }
 
@@ -132,11 +140,14 @@ export default function ResourceListPage({ basePath }) {
   const isTemplates = basePath === '/templates';
   const pageStats = useMemo(() => page?.stats ?? [], [page]);
   const isCourses = basePath === '/courses';
-  const usesApi = isStudents || isEnrolment || isInstitutes || isVendors || isTemplates || isCourses;;
+  const isInvoices = basePath === '/invoices';
+  const usesApi = isStudents || isEnrolment || isInstitutes || isVendors || isTemplates || isCourses || isInvoices;
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState(pageStats);
   const [loading, setLoading] = useState(usesApi);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [addInvoiceOpen, setAddInvoiceOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
 
   // Courses page: institute filter passed via ?institute=<name> from
@@ -171,6 +182,7 @@ export default function ResourceListPage({ basePath }) {
         isInstitutes,
         isVendors,
         isCourses,
+        isInvoices,
         pageStats,
       });
       setRows(result.rows);
@@ -182,7 +194,7 @@ export default function ResourceListPage({ basePath }) {
     } finally {
       if (usesApi) setLoading(false);
     }
-  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, pageStats, usesApi]);
+  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isCourses, isInvoices, pageStats, usesApi]);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,6 +206,7 @@ export default function ResourceListPage({ basePath }) {
       isInstitutes,
       isVendors,
       isCourses,
+      isInvoices,
       pageStats,
     })
       .then((result) => {
@@ -224,12 +237,23 @@ export default function ResourceListPage({ basePath }) {
     return () => {
       cancelled = true;
     };
-  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, isCourses, pageStats, usesApi]);
+  }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, isCourses, isInvoices, pageStats, usesApi]);
 
   // Reset selection whenever the resource type or the underlying rows change
   useEffect(() => {
     setSelectedIds([]);
   }, [basePath, rows]);
+
+  const handleOpenAddInvoice = useCallback(() => {
+    setError('');
+    setSuccess('');
+    setAddInvoiceOpen(true);
+  }, []);
+
+  const handleInvoiceGenerated = useCallback(async (result) => {
+    setSuccess(result?.message || 'Invoice generated successfully.');
+    await refreshRows();
+  }, [refreshRows]);
 
   const handleDelete = useCallback(async (row) => {
     const label = row.fullName || row.businessName || row.instituteName || row.name || row.id;
@@ -402,24 +426,48 @@ export default function ResourceListPage({ basePath }) {
   return (
     <>
       {error && (
-        <Alert severity="error" sx={{ mb: 1.5 }}>
-          {error}
+        <Alert severity="error" sx={{ mb: 1.5 }} onClose={() => setError('')}>
+          {typeof error === 'string' ? error : 'Something went wrong.'}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 1.5 }} onClose={() => setSuccess('')}>
+          {success}
         </Alert>
       )}
       <PageShell
         title={isCourses && instituteFilter ? `${page.title} — ${instituteFilter}` : page.title}
         subtitle={page.subtitle}
         stats={stats}
-        showCharts={!isTemplates && (page.showCharts !== false)}
+        showCharts={!isTemplates && !isInvoices && (page.showCharts !== false)}
         columns={columnsWithSelect}
         rows={loading ? [] : displayRows}
         actionLabel={resource.actionLabel}
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
         headerExtra={headerExtra}
-        onAdd={() => navigate(`${basePath}/new`)}
-        onRowClick={(row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })}
-        onDelete={handleDelete}
+        onAdd={isInvoices ? handleOpenAddInvoice : () => navigate(`${basePath}/new`)}
+        onRowClick={
+          isInvoices
+            ? async (row) => {
+                try {
+                  setError('');
+                  await downloadInvoiceDocument(row.invoiceId || row.id);
+                } catch (err) {
+                  setError(err.message || 'Failed to download invoice.');
+                }
+              }
+            : (row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })
+        }
+        onDelete={isInvoices ? undefined : handleDelete}
       />
+
+      {isInvoices && (
+        <AddInvoiceDialog
+          open={addInvoiceOpen}
+          onClose={() => setAddInvoiceOpen(false)}
+          onGenerated={handleInvoiceGenerated}
+        />
+      )}
 
       {isInstitutes && (
         <Dialog open={historyOpen} onClose={closeHistory} fullWidth maxWidth="md">

@@ -299,7 +299,14 @@ export default function ResourceFormFields({
           multiline={def.type === 'textarea'}
           minRows={def.type === 'textarea' ? textareaRows : undefined}
           value={form[fieldName] ?? ''}
-          onChange={handleChange(fieldName)}
+          onChange={(e) => {
+          const value = e.target.value;
+          if (fieldName === "FolderNo" && !/^\d*$/.test(value)) {
+            return;
+          }
+          handleChange(fieldName)(e);
+        }}
+        helperText={fieldName === "FolderNo" ? "Only integer values are allowed." : undefined}
           disabled={isFieldDisabled}
         />
       </FormGridItem>
