@@ -61,7 +61,7 @@ export const DOMAIN_FIELD_DEFS = {
 
   studentId: { label: 'Select student', type: 'api-select', required: true, grid: grid.full },
   fullName: { label: 'Full name', type: 'text', required: true, grid: grid.half },
-  FolderNo: { label: 'Folder number', type: 'text', grid: grid.half },
+  FolderNo: { label: 'Folder number', type: 'number', grid: grid.half },
   enrollmentNumber: { label: 'Enrolment number', type: 'text', grid: grid.half },
   instituteId: { label: 'Institute', type: 'api-select', required: true, grid: grid.half },
   campusname: { label: 'Campus', type: 'text', required: true, grid: grid.half,readOnly: true, },
