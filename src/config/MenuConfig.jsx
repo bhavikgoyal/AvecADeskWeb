@@ -106,13 +106,17 @@ export const GET_MENU = (role) => {
       {
         category: 'MANAGEMENT',
         items: [
-          { title: 'Student', path: '/students', Icon: PeopleIcon },
+          { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
+          { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
+          { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
+          { title: 'Courses', path: '/courses', Icon: SchoolIcon },
+         
         ],
       },
       {
-        category: 'STATUSES',
+        category: 'REPORTS',
         items: [
-              { title: 'Active Vendors', path: '/status/vendors', Icon: PeopleIcon },
+              { title: 'Student Inquiry', path: '/reports/student-Inquiry', Icon: PeopleIcon },
         ],
       },
     ],
