@@ -13,6 +13,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  LabelList,
 } from 'recharts';
 import { Box } from '@mui/material';
 import { CHART_ANIMATION, CHART_COLORS } from '../../theme/chartTheme';
@@ -118,7 +119,15 @@ export function AnimatedBarChart({
               radius={[6, 6, 0, 0]}
               maxBarSize={maxBarSize}
               {...CHART_ANIMATION}
-            />
+            >
+                <LabelList
+                  dataKey={key}
+                  position="top"
+                  formatter={(val) => `$${Number(val).toLocaleString()}`}
+                  style={{ fill: '#102030', fontSize: 12, fontWeight: 700 }}
+                  offset={8}
+                />
+            </Bar>
           ))}
         </BarChart>
       </ResponsiveContainer>
