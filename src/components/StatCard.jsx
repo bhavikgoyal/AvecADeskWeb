@@ -11,22 +11,39 @@ function FooterMetrics({ items = [], color }) {
         display: 'grid',
         gridTemplateColumns: `repeat(${Math.min(items.length, 3)}, 1fr)`,
         gap: 0.75,
-        mt: 1,
+        mt: 'auto',
         pt: 1,
         borderTop: '1px solid var(--card-border)',
       }}
     >
       {items.map((item) => (
-        <Box key={item.label} sx={{ minWidth: 0 }}>
+        <Box
+          key={item.label}
+          sx={{ minWidth: 0, cursor: item.onClick ? 'pointer' : 'default' }}
+          onClick={(e) => {
+            if (item.onClick) {
+              e.stopPropagation();
+              item.onClick(e);
+            }
+          }}
+        >
           <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.3 }}>
             {item.label}
           </Typography>
           <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: item.color || color || 'var(--text)', mt: 0.15, lineHeight: 1.2 }}>
             {item.value}
           </Typography>
-          {item.sub && (
-            <Typography sx={{ fontSize: '0.65rem', color: 'var(--muted-light)', lineHeight: 1.2 }}>{item.sub}</Typography>
-          )}
+          <Typography
+            sx={{
+              fontSize: '0.65rem',
+              color: 'var(--muted-light)',
+              lineHeight: 1.2,
+              minHeight: '0.85rem',
+              visibility: item.sub ? 'visible' : 'hidden',
+            }}
+          >
+            {item.sub || '\u00A0'}
+          </Typography>
         </Box>
       ))}
     </Box>
@@ -61,6 +78,8 @@ export default function StatCard({
   chart,
   footer,
   progressBars,
+  sx,
+  onClick,
 }) {
   const footerItems =
     footer ||
@@ -76,11 +95,17 @@ export default function StatCard({
     <Paper
       elevation={0}
       className="dashboard-card stat-card"
+      onClick={onClick}
       sx={{
         p: 1.25,
         borderRadius: 2,
         display: 'flex',
         flexDirection: 'column',
+        height: '100%',
+        minHeight: 168,
+        boxSizing: 'border-box',
+        ...(onClick ? { cursor: 'pointer' } : {}),
+        ...sx,
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>

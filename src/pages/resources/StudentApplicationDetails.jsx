@@ -71,7 +71,7 @@ export default function StudentApplicationDetailsPage() {
     borderRight: "1px solid #e5e7eb",
     background: "#fff",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: "0.8125rem",
 
     "&:last-child": {
       borderRight: "none",
@@ -256,7 +256,7 @@ export default function StudentApplicationDetailsPage() {
                         backgroundColor: '#eef2f6',
                         color: '#23395d',
                         fontWeight: 700,
-                        fontSize: '14px',
+                        fontSize: '0.8125rem',
                         borderBottom: '1px solid #d7dde5',
                         padding: '12px 16px',
                       }}

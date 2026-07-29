@@ -29,6 +29,12 @@ import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import SchoolIcon from '@mui/icons-material/School';
 import TableContentSkeleton from '../../components/TableContentSkeleton';
+import {
+  resourceTableBodyCellSx,
+  resourceTableBodyRowSx,
+  resourceTableHeadCellSx,
+  resourceTableHeadRowSx,
+} from '../../components/resourceTableStyles';
 import PeopleIcon from '@mui/icons-material/People';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import {
@@ -430,14 +436,14 @@ export default function InstituteScrappingPage() {
               <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
                 <Table size="small" sx={{ minWidth: 1100 }}>
                   <TableHead>
-                    <TableRow sx={{ backgroundColor: 'var(--muted-bg)' }}>
-                      <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>S No</TableCell>
+                    <TableRow sx={resourceTableHeadRowSx}>
+                      <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>S No</TableCell>
                       {LIST_COLUMNS.map((column) => (
-                        <TableCell key={column.key} sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        <TableCell key={column.key} sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>
                           {column.label}
                         </TableCell>
                       ))}
-                      <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Actions</TableCell>
+                      <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -446,22 +452,25 @@ export default function InstituteScrappingPage() {
                         key={row.id || `${page}-${index}`}
                         hover
                         onClick={() => handleRowClick(row)}
-                        sx={{ cursor: 'pointer' }}
+                        sx={{ cursor: 'pointer', ...resourceTableBodyRowSx }}
                       >
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
+                        <TableCell sx={resourceTableBodyCellSx}>{page * rowsPerPage + index + 1}</TableCell>
                         {LIST_COLUMNS.map((column) => (
-                          <TableCell key={column.key} sx={{ maxWidth: 220, whiteSpace: 'normal' }}>
+                          <TableCell
+                            key={column.key}
+                            sx={{ ...resourceTableBodyCellSx, maxWidth: 220, whiteSpace: 'normal' }}
+                          >
                             {renderCell(row, column.key)}
                           </TableCell>
                         ))}
-                        <TableCell>
+                        <TableCell sx={resourceTableBodyCellSx}>
                           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                             <Button
                               size="small"
                               variant="outlined"
                               startIcon={<SchoolIcon />}
                               onClick={(event) => handleViewCourses(event, row)}
-                              sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                              sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
                             >
                               View Courses
                             </Button>
@@ -473,7 +482,7 @@ export default function InstituteScrappingPage() {
                                   variant="outlined"
                                   startIcon={<PeopleIcon />}
                                   onClick={handleViewStudents}
-                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
                                 >
                                   View Student
                                 </Button>
@@ -482,7 +491,7 @@ export default function InstituteScrappingPage() {
                                   variant="outlined"
                                   startIcon={<ReceiptIcon />}
                                   onClick={handleViewInvoices}
-                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
                                 >
                                   View Invoice
                                 </Button>
