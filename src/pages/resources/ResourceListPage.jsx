@@ -157,11 +157,84 @@ export default function ResourceListPage({ basePath }) {
     return new URLSearchParams(location.search).get('institute')?.trim() || '';
   }, [isCourses, location.search]);
 
+  const invoiceView = useMemo(() => {
+    if (!isInvoices) return '';
+    return new URLSearchParams(location.search).get('view')?.trim().toLowerCase() || '';
+  }, [isInvoices, location.search]);
+
+ const invoiceYear = useMemo(() => {
+    if (!isInvoices) return null;
+    const v = new URLSearchParams(location.search).get('year');
+    return v ? Number(v) : null;
+  }, [isInvoices, location.search]);
+  const invoiceMonth = useMemo(() => {
+    if (!isInvoices) return null;
+    const v = new URLSearchParams(location.search).get('month');
+    return v ? Number(v) : null;
+  }, [isInvoices, location.search]);
+
+  const studentYear = useMemo(() => {
+    if (!isStudents) return null;
+    const v = new URLSearchParams(location.search).get('year');
+    return v ? Number(v) : null;
+  }, [isStudents, location.search]);
+  const studentMonth = useMemo(() => {
+    if (!isStudents) return null;
+    const v = new URLSearchParams(location.search).get('month');
+    return v ? Number(v) : null;
+  }, [isStudents, location.search]);
+
   const displayRows = useMemo(() => {
-    if (!isCourses || !instituteFilter) return rows;
-    const target = instituteFilter.toLowerCase();
-    return rows.filter((row) => (row.instituteName || '').trim().toLowerCase() === target);
-  }, [rows, isCourses, instituteFilter]);
+    if (isStudents) {
+      if (studentYear || studentMonth) {
+        return rows.filter((r) => {
+          const dateVal = r.studentCreatedAt ?? r.createdAt ?? r.createdOn ?? r.createdDate ?? r.created_at;
+          const d = dateVal ? new Date(dateVal) : null;
+          if (!d || isNaN(d.getTime())) return false;
+          const y = d.getFullYear();
+          const m = d.getMonth() + 1;
+          if (studentYear && studentMonth) return y === studentYear && m === studentMonth;
+          if (studentYear) return y === studentYear;
+          if (studentMonth) return m === studentMonth;
+          return true;
+        });
+      }
+      return rows;
+    }
+
+   if (isCourses) {
+      if (!instituteFilter) return rows;
+      const target = instituteFilter.toLowerCase();
+      return rows.filter((row) => (row.instituteName || '').trim().toLowerCase() === target);
+    }
+
+   if (isInvoices) {
+      let filtered = rows;
+      if (invoiceView) {
+        if (invoiceView === 'paid') filtered = filtered.filter((r) => (((r.invoiceStatus || r.status || '') + '').toLowerCase()) === 'approved');
+        else if (invoiceView === 'due') filtered = filtered.filter((r) => {
+          const s = (((r.invoiceStatus || r.status || '') + '').toLowerCase());
+          return s === 'pending' || s === 'invoiced';
+        });
+      }
+      if (invoiceYear || invoiceMonth) {
+        filtered = filtered.filter((r) => {
+          const dateVal = r.createdAt ?? r.createdOn ?? r.createdDate ?? r.created_at;
+          const d = dateVal ? new Date(dateVal) : null;
+          if (!d || isNaN(d.getTime())) return false;
+          const y = d.getFullYear();
+          const m = d.getMonth() + 1;
+          if (invoiceYear && invoiceMonth) return y === invoiceYear && m === invoiceMonth;
+          if (invoiceYear) return y === invoiceYear;
+          if (invoiceMonth) return m === invoiceMonth;
+          return true;
+        });
+      }
+      return filtered;
+    }
+
+    return rows;
+  }, [rows, isCourses, instituteFilter, isInvoices, invoiceView, invoiceYear, invoiceMonth, isStudents, studentYear, studentMonth]);
 
   // Commission history dialog state (institutes only)
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -267,23 +340,23 @@ export default function ResourceListPage({ basePath }) {
       } else if (isVendors) {
         await deleteVendor(row.id);
         await refreshRows();
-        } else if (isInstitutes) {
-          await deleteInstitute(row.id);
-          await refreshRows();
-        } else if (isTemplates) {
-          await deleteEmailTemplate(row.id);
-          await refreshRows();
-        } else if (isCourses) {
+      } else if (isInstitutes) {
+        await deleteInstitute(row.id);
+        await refreshRows();
+      } else if (isTemplates) {
+        await deleteEmailTemplate(row.id);
+        await refreshRows();
+      } else if (isCourses) {
         await deleteCourse(row.id);
         await refreshRows();
       } else {
         deleteRecord(basePath, row.id);
         setRows((prev) => prev.filter((r) => String(r.id) !== String(row.id)));
       }
-      } catch (err) {
+    } catch (err) {
       setError(err.message || 'Failed to delete record.');
     }
-    }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, isTemplates, isCourses, refreshRows]);
+  }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, isTemplates, isCourses, refreshRows]);
 
   // ---- Selection (institutes only) ----
   const allSelected = isInstitutes && rows.length > 0 && selectedIds.length === rows.length;
@@ -478,23 +551,23 @@ export default function ResourceListPage({ basePath }) {
         actionLabel={resource.actionLabel}
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
         headerExtra={headerExtra}
-        onAdd={isInvoices ? handleOpenAddInvoice : () => navigate(`${basePath}/new`)}
+        onAdd={isInvoices ? (invoiceView ? undefined : handleOpenAddInvoice) : () => navigate(`${basePath}/new`)}
         onRowClick={
           isInvoices
             ? async (row) => {
-                try {
-                  setError('');
-                  await downloadInvoiceDocument(row.invoiceId || row.id);
-                } catch (err) {
-                  setError(err.message || 'Failed to download invoice.');
-                }
+              try {
+                setError('');
+                await downloadInvoiceDocument(row.invoiceId || row.id);
+              } catch (err) {
+                setError(err.message || 'Failed to download invoice.');
               }
+            }
             : (row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })
         }
         onDelete={isInvoices ? undefined : handleDelete}
       />
 
-      {isInvoices && (
+      {isInvoices && !invoiceView && (
         <AddInvoiceDialog
           open={addInvoiceOpen}
           onClose={() => setAddInvoiceOpen(false)}

@@ -92,25 +92,6 @@ export default function DashboardTemplate({
             {subtitle}
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => navigate('/reports/receivables')}
-            sx={{ textTransform: 'none', borderRadius: 2, borderColor: 'var(--card-border)', color: 'var(--text)' }}
-          >
-            New view
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/reports/receivables/new')}
-            sx={{ textTransform: 'none', borderRadius: 2, bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' } }}
-          >
-            Create report
-          </Button>
-        </Box>
       </Box>
 
       <Grid container spacing={{ xs: 1, md: 1.25 }} sx={{ mb: { xs: 1.25, md: 1.5 }, alignItems: 'stretch' }}>

@@ -103,13 +103,38 @@ export function AnimatedBarChart({
   height = 260,
   maxBarSize = 28,
 }) {
+  const formatAxisTick = (value) => {
+    const n = Number(value) || 0;
+    if (Math.abs(n) >= 1000) {
+      const k = n / 1000;
+      return `$${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}k`;
+    }
+    return `$${n.toLocaleString()}`;
+  };
+
   return (
-    <Box sx={{ width: '100%', height }}>
+    <Box sx={{ width: '100%', height, overflow: 'hidden' }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barGap={4}>
+        <BarChart
+          data={data}
+          margin={{ top: 28, right: 12, left: 8, bottom: 4 }}
+          barGap={4}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
           <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} width={36} />
+          <YAxis
+            tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+            axisLine={false}
+            tickLine={false}
+            width={52}
+            tickFormatter={formatAxisTick}
+            domain={[0, (dataMax) => {
+              const max = Number(dataMax) || 0;
+              if (max <= 0) return 10;
+              return Math.ceil(max * 1.2);
+            }]}
+            allowDataOverflow={false}
+          />
           <Tooltip contentStyle={tooltipStyle} cursor={{ fill: CHART_COLORS.primarySoft }} formatter={(value) => `$${Number(value).toLocaleString()}`} />
           {keys.map((key, index) => (
             <Bar
@@ -120,13 +145,13 @@ export function AnimatedBarChart({
               maxBarSize={maxBarSize}
               {...CHART_ANIMATION}
             >
-                <LabelList
-                  dataKey={key}
-                  position="top"
-                  formatter={(val) => `$${Number(val).toLocaleString()}`}
-                  style={{ fill: '#102030', fontSize: 12, fontWeight: 700 }}
-                  offset={8}
-                />
+              <LabelList
+                dataKey={key}
+                position="top"
+                formatter={(val) => `$${Number(val).toLocaleString()}`}
+                style={{ fill: '#102030', fontSize: 11, fontWeight: 700 }}
+                offset={6}
+              />
             </Bar>
           ))}
         </BarChart>

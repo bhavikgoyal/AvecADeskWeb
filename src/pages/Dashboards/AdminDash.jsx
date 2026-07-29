@@ -10,14 +10,15 @@ import { buildSparkline, revenueTrend, trafficData } from '../../constants/chart
 import { fetchStudentPaymentInstallments } from '../../api/Receivablesapi';
 import { fetchAllStudents } from '../../api/studentsApi';
 import GroupedBarChartCard from '../../components/charts/GroupedBarChartCard';
+import StatCard from '../../components/StatCard';
 import { CHART_COLORS } from '../../theme/chartTheme';
-
 import { useEffect, useState, useMemo } from 'react';
-import { Box, Paper, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { Box, Grid, Paper, Typography, Button } from '@mui/material';
 import { fetchWeekChecklistStats } from '../../utils/checklistStats';
 import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
+import { fetchInvoicesWithMonthlyTotals } from '../../api/invoicesApi';
 import { fetchVendorRows } from '../../api/vendorsApi';
-
 const kpiStats = [
   {
     label: 'Open tasks',
@@ -29,8 +30,9 @@ const kpiStats = [
     footer: [],
   },
 ];
-
 export default function AdminDash() {
+  const navigate = useNavigate();
+  
   const [vendorStats, setVendorStats] = useState({
     total: 0,
     newThisMonth: 0,
@@ -38,7 +40,6 @@ export default function AdminDash() {
     pending: 0,
     loggedInToday: 0,
   });
-
   useEffect(() => {
     let mounted = true;
     fetchVendorRows()
@@ -68,7 +69,6 @@ export default function AdminDash() {
   const [completedThisWeek, setCompletedThisWeek] = useState(null);
   const [dueToday, setDueToday] = useState(null);
   const [overdue, setOverdue] = useState(null);
-
   useEffect(() => {
     let mounted = true;
     fetchWeekChecklistStats().then((res) => {
@@ -88,7 +88,6 @@ export default function AdminDash() {
     fetchMonthRevenueDashboard({ fromDate: from, toDate: to })
       .then((res) => {
         if (!mounted) return;
-        try { console.log('Admin fetchMonthRevenueDashboard response:', res); } catch (e) {}
         setMonthRevenue(res);
       })
       .catch(() => {})
@@ -97,16 +96,14 @@ export default function AdminDash() {
   // dynamic accounting/student data
   const [studentStats, setStudentStats] = useState({ total: 0, newThisMonth: 0 });
   const [installmentSummary, setInstallmentSummary] = useState({ weeksPrev: [], weeksThis: [], weeksNext: [], upcomingNext: [] });
-
+  const [invoiceTotals, setInvoiceTotals] = useState(null);
   const now = useMemo(() => new Date(), []);
-
   useEffect(() => {
     // derive weekly buckets from monthRevenue (commission+bonus) similar to AccDash
     const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
     const cur = new Date(now.getFullYear(), now.getMonth(), 1);
     const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
     const makeWeeks = (year, month) => {
       const weeks = [];
       const first = new Date(year, month, 1);
@@ -120,12 +117,10 @@ export default function AdminDash() {
       }
       return weeks;
     };
-
     const weeksThis = makeWeeks(cur.getFullYear(), cur.getMonth());
     const weeksPrev = makeWeeks(last.getFullYear(), last.getMonth());
     const weeksNext = makeWeeks(next.getFullYear(), next.getMonth());
     const upcomingNext = [];
-
     for (const it of rows) {
       const due = it.dueDate ? new Date(it.dueDate) : null;
       if (!due) continue;
@@ -133,7 +128,6 @@ export default function AdminDash() {
       const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
       const amount = comm + bonus;
       const status = (it.commissionStatus || it.paymentStatus || '').toString().toLowerCase();
-
       const add = (weeks) => {
         for (const w of weeks) {
           if (due >= w.start && due <= w.end) {
@@ -142,15 +136,24 @@ export default function AdminDash() {
           }
         }
       };
-
       if (due.getFullYear() === last.getFullYear() && due.getMonth() === last.getMonth()) add(weeksPrev);
       else if (due.getFullYear() === cur.getFullYear() && due.getMonth() === cur.getMonth()) add(weeksThis);
       else if (due.getFullYear() === next.getFullYear() && due.getMonth() === next.getMonth()) { add(weeksNext); upcomingNext.push(it); }
     }
-
     setInstallmentSummary({ weeksPrev, weeksThis, weeksNext, upcomingNext });
   }, [monthRevenue, now]);
-
+  useEffect(() => {
+    let mounted = true;
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1; 
+    fetchInvoicesWithMonthlyTotals({ year: y, month: m })
+      .then((res) => {
+        if (!mounted) return;
+        setInvoiceTotals(res?.summary || null);
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
   // compute paid/due totals for current month for KPI footer
   const { paidThisMonth, dueThisMonth } = (() => {
     const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
@@ -171,7 +174,6 @@ export default function AdminDash() {
     }
     return { paidThisMonth: paid, dueThisMonth: due };
   })();
-
   useEffect(() => {
     let mounted = true;
     fetchAllStudents()
@@ -179,8 +181,10 @@ export default function AdminDash() {
         if (!mounted) return;
         const total = Array.isArray(list) ? list.length : 0;
         const now = new Date();
-        const newThisMonth = Array.isArray(list) ? list.filter((s) => { if (!s.createdAt) return false; const d = new Date(s.createdAt); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); }).length : 0;
+        const newList = Array.isArray(list) ? list.filter((s) => { if (!s.createdAt) return false; const d = new Date(s.createdAt); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); }) : [];
+        const newThisMonth = newList.length;
         setStudentStats({ total, newThisMonth });
+        setNewStudents(newList);
       })
       .catch(() => {});
     return () => { mounted = false; };
@@ -190,6 +194,16 @@ export default function AdminDash() {
     <DashboardTemplate
       title="Admin Overview"
       welcomeFooterStats={(() => {
+        if (invoiceTotals) {
+          const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
+          const now = new Date();
+          const y = now.getFullYear();
+          const m = now.getMonth() + 1;
+          return [
+            { label: 'This Month Paid', value: fmt(invoiceTotals.thisMonth?.paid ?? 0), path: `/invoices?view=paid&year=${y}&month=${m}` },
+            { label: 'This Month Due', value: fmt(invoiceTotals.thisMonth?.due ?? 0), path: `/invoices?view=due&year=${y}&month=${m}` },
+          ];
+        }
         const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
         const now = new Date();
         const cur = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -206,59 +220,22 @@ export default function AdminDash() {
           }
         }
         const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
+        const now2 = new Date();
+        const y2 = now2.getFullYear();
+        const m2 = now2.getMonth() + 1;
         return [
-          { label: 'This Month Paid', value: fmt(buckets.cur.paid) },
-          { label: 'This Month Due', value: fmt(buckets.cur.due) },
+          { label: 'This Month Paid', value: fmt(buckets.cur.paid), path: `/invoices?view=paid&year=${y2}&month=${m2}` },
+          { label: 'This Month Due', value: fmt(buckets.cur.due), path: `/invoices?view=due&year=${y2}&month=${m2}` },
         ];
       })()}
-      kpiStats={[
-        {
-          label: 'Total students',
-          value: studentStats.total.toLocaleString(),
-          sparklineData: buildSparkline(2),
-          icon: <PeopleIcon />,
-          color: 'var(--primary)',
-          footer: [ { label: 'New this mo', value: `+${studentStats.newThisMonth}`, sub: 'this month' } ],
-        },
-        {
-          label: 'Total Vendors',
-          value: vendorStats.total.toLocaleString(),
-          sparklineData: buildSparkline(2),
-          icon: <StoreIcon />,
-          color: 'var(--teal)',
-          footer: [
-            { label: 'New this month', value: `+${vendorStats.newThisMonth}`, sub: 'this month' },
-            { label: 'Active', value: vendorStats.active.toLocaleString() },
-            { label: 'Pending', value: vendorStats.pending.toLocaleString() },
-          ],
-        },
-        {
-          label: 'Currently Active Vendors',
-          value: vendorStats.loggedInToday.toLocaleString(),
-          sparklineData: buildSparkline(2),
-          icon: <HowToRegIcon />,
-          color: 'var(--teal)',
-          footer: [
-            { label: 'Logged in today', value: vendorStats.loggedInToday.toLocaleString() },
-            { label: 'Active total', value: vendorStats.active.toLocaleString() },
-            { label: 'Pending', value: vendorStats.pending.toLocaleString() },
-          ],
-        },
+          kpiStats={[
         {
           label: 'Receivables',
-          value: `$${Number(paidThisMonth || 0).toLocaleString()}`,
+          value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`,
           sparklineData: buildSparkline(4),
           icon: <PaymentsIcon />,
           color: 'var(--teal)',
-          footer: [ { label: 'Paid', value: `$${Number(paidThisMonth || 0).toLocaleString()}`, sub: 'This month' }, { label: 'Due', value: `$${Number(dueThisMonth || 0).toLocaleString()}`, sub: 'Current' } ],
-        },
-        {
-          label: 'Open tasks',
-          value: pending == null ? '' : String(pending),
-          sparklineData: buildSparkline(3),
-          icon: <AssignmentIcon />,
-          color: 'var(--warning)',
-          footer: [ { label: 'Due today', value: dueToday == null ? '0' : String(dueToday), sub: 'today' }, { label: 'Overdue', value: overdue == null ? '0' : String(overdue), color: 'var(--danger)' }, { label: 'Completed', value: completedThisWeek == null ? '0' : String(completedThisWeek), sub: 'This week' } ],
+          footer: [ { label: 'Paid', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`, sub: 'This month' }, { label: 'Due', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.due || 0).toLocaleString()}` : `$${Number(dueThisMonth || 0).toLocaleString()}`, sub: 'Current' } ],
         }
       ]}
       showSnapshot={false}
@@ -274,7 +251,6 @@ export default function AdminDash() {
       upcomingItems={[]}
       areaChartData={revenueTrend}
     />
-
       <Box sx={{ mt: 1.5, width: '100%', minHeight: 280 }}>
         <GroupedBarChartCard
           items={(() => {
@@ -298,6 +274,14 @@ export default function AdminDash() {
                 if (status === 'paid') buckets.next.paid += amount; else buckets.next.due += amount;
               }
             }
+           if (invoiceTotals) {
+              try {
+                buckets.last.paid = Number(invoiceTotals.lastMonth?.paid ?? buckets.last.paid) || 0;
+                buckets.last.due = Number(invoiceTotals.lastMonth?.due ?? buckets.last.due) || 0;
+                buckets.cur.paid = Number(invoiceTotals.thisMonth?.paid ?? buckets.cur.paid) || 0;
+                buckets.cur.due = Number(invoiceTotals.thisMonth?.due ?? buckets.cur.due) || 0;
+              } catch (e) {}
+            }
             return [
               { title: 'Last Month', data: [{ name: '', paid: buckets.last.paid, due: buckets.last.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
               { title: 'This Month', data: [{ name: '', paid: buckets.cur.paid, due: buckets.cur.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
@@ -315,13 +299,62 @@ export default function AdminDash() {
                   const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
                   const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
                   const balance = Number(it.balanceAmount ?? 0) || 0;
-                  // prefer commission+bonus if present, else fallback to balanceAmount
                   const value = (comm || bonus) ? (comm + bonus) : balance;
                   return sum + value;
                 }, 0)
                 .toLocaleString()}`}
             </Typography>
           </Paper>
+        </Box>
+       <Box sx={{ mt: 1.5 }}>
+          <Grid container spacing={1.25} sx={{ alignItems: 'stretch' }}>
+            <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+              <StatCard
+                label="Currently Active Vendors"
+                value={vendorStats.loggedInToday.toLocaleString()}
+                sparklineData={buildSparkline(2)}
+                icon={<HowToRegIcon />}
+                color="var(--teal)"
+                footer={[
+                  { label: 'Logged in today', value: vendorStats.loggedInToday.toLocaleString() },
+                  { label: 'Active total', value: vendorStats.active.toLocaleString() },
+                  { label: 'Pending', value: vendorStats.pending.toLocaleString() },
+                ]}
+                sx={{ flex: 1, width: '100%' }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+              <StatCard
+                label="Total students"
+                value={studentStats.total.toLocaleString()}
+                sparklineData={buildSparkline(2)}
+                icon={<PeopleIcon />}
+                color="var(--primary)"
+                footer={[{ label: 'New this mo', value: `+${studentStats.newThisMonth}`, sub: 'this month', onClick: () => {
+                  const d = new Date();
+                  const y = d.getFullYear();
+                  const m = d.getMonth() + 1;
+                  navigate(`/students?year=${y}&month=${m}`);
+                } }]}
+                sx={{ flex: 1, width: '100%' }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+              <StatCard
+                label="Total Vendors"
+                value={vendorStats.total.toLocaleString()}
+                sparklineData={buildSparkline(2)}
+                icon={<StoreIcon />}
+                color="var(--teal)"
+                footer={[
+                  { label: 'New this month', value: `+${vendorStats.newThisMonth}`, sub: 'this month' },
+                  { label: 'Active', value: vendorStats.active.toLocaleString() },
+                  { label: 'Pending', value: vendorStats.pending.toLocaleString() },
+                ]}
+                sx={{ flex: 1, width: '100%' }}
+              />
+            </Grid>
+          </Grid>
         </Box>
       </Box>
     </>
