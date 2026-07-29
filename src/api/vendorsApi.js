@@ -35,6 +35,7 @@ function normalizeVendor(vendor) {
     status: vendor.status ?? vendor.Status ?? '',
     createdAt: vendor.createdAt ?? vendor.CreatedAt,
     lastLogin: vendor.lastLogin ?? vendor.LastLogin,
+    studentCount: vendor.studentCount ?? vendor.StudentCount ?? 0,
   };
 }
 
@@ -74,6 +75,7 @@ function mapVendorRow(vendor) {
     referral: deriveReferral(vendor),
     updated: formatDate(vendor.createdAt),
     name: vendor.businessName,
+    studentCount: vendor.studentCount,
   };
 }
 
@@ -115,6 +117,7 @@ function normalizeInstituteFromRaw(institute) {
 
 export async function fetchVendorRows() {
   const { data } = await axiosClient.get('/api/vendors');
+ 
   return data.map((raw) => mapVendorRow(normalizeVendor(raw)));
 }
 

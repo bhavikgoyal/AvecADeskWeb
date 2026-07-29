@@ -120,46 +120,33 @@ useEffect(() => {
 
       <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, overflow: 'hidden', width: '100%' }}>
         <Box sx={{ px: { xs: 1.25, md: 1.5 }, py: 1.25, borderBottom: '1px solid var(--card-border)' }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} alignItems={{ xs: 'stretch', md: 'center' }} sx={{ width: '100%' }}>
-            <TextField
-              size="small"
-              placeholder={searchPlaceholder}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: 'var(--muted)' }} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                flex: 1,
-                minWidth: { xs: '100%', md: '200px' },
-                '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'var(--muted-bg)' },
-              }}
-            />
+        <Stack direction={{ xs: 'column', md: 'row' }}  spacing={1.25}  alignItems={{ xs: 'stretch', md: 'center' }}  sx={{ width: '100%' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flex: 1 }}>
+    <TextField
+      size="small"
+      placeholder={searchPlaceholder}
+      value={query}
+      onChange={(event) => setQuery(event.target.value)}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <SearchIcon sx={{ color: 'var(--muted)' }} />
+          </InputAdornment>
+        ),
+      }}
+      sx={{ flex: 1, maxWidth: 600, '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'var(--muted-bg)', },}} />
+    {headerExtra}
+  </Box>
 
-            {headerExtra}
-
-            <Button
-              variant="contained"
-              size="small"
-              onClick={onAdd}
-              sx={{
-                textTransform: 'none',
-                bgcolor: 'var(--primary)',
-                '&:hover': { bgcolor: 'var(--primary-dark)' },
-                width: { xs: '100%', md: 'auto' },
-                height: 40,
-                px: 3,
-                borderRadius: 2,
-                fontWeight: 600,
-              }}
-            >
-              {actionLabel}
-            </Button>
-          </Stack>
+   <Button
+            variant="contained" size="small" onClick={onAdd}
+            sx={{
+              ml: 'auto', textTransform: 'none', bgcolor: 'var(--primary)',
+              '&:hover': { bgcolor: 'var(--primary-dark)', },
+              height: 40,  px: 3, borderRadius: 2, fontWeight: 600,flexShrink: 0, }}>
+            {actionLabel}
+          </Button>
+        </Stack>
           {rows.length > 0 && !loading && (
             <Typography sx={{ fontSize: '0.72rem', color: 'var(--muted)', mt: 1, fontWeight: 600 }}>
               Showing {filteredRows.length} of {rows.length} records

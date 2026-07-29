@@ -280,11 +280,22 @@ export default function StudentApplicationDetailsPage() {
                 ) : (
                   rows.map((row, idx) => (
                     <TableRow key={row.studentID || row.id || idx} hover>
-                      {resource?.columns?.map((column) => (
-                        <TableCell key={column.id || column.field}>
-                          {row[column.field] || '-'}
-                        </TableCell>
-                      ))}
+                     {resource?.columns?.map((column) => (
+                      <TableCell key={column.id || column.field}>
+                        {column.id === 'action' ? (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            sx={{ textTransform: 'none' }}
+                           onClick={() => navigate(`/application-details/${row.studentID}`)}
+                          >
+                            View
+                          </Button>
+                        ) : (
+                          row[column.field] || '-'
+                        )}
+                      </TableCell>
+                    ))}
                     </TableRow>
                   ))
                 )}
