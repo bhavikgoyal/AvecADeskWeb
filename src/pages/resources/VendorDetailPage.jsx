@@ -127,6 +127,7 @@ debugger;
               form={form}
               onChange={updateField}
               requiredFields={requiredFields}
+              fixSelectLabels
             />
             <FormActions
               onCancel={() => navigate(basePath)}
