@@ -72,6 +72,8 @@ export default function ResourceFormFields({
   stretch = false,
   selectOptions = {},
   requiredFields = [],
+  /** When true: empty selects keep label inside; focus/value floats it to the top (Edit Vendor). */
+  fixSelectLabels = false,
 }) {
   const handleChange = (field) => (event) => {
     onChange(field, event.target.value);
@@ -189,13 +191,41 @@ export default function ResourceFormFields({
           : { value: option, label: option }
       );
       const labelId = `${fieldName}-label`;
-      const currentValue = form[fieldName] || '';
-      const selectedLabel = options.find((option) => String(option.value) === String(currentValue))?.label;
+      const rawValue = form[fieldName];
+      const currentValue =
+        rawValue === '' || rawValue == null ? '' : String(rawValue);
+      const selectedLabel = options.find((option) => String(option.value) === currentValue)?.label;
+      const hasSelectValue = currentValue !== '';
+
+      const selectSx = fixSelectLabels
+        ? {
+            ...formFieldSx,
+            '& .MuiInputLabel-root': {
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              transition: 'none',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            },
+          }
+        : formFieldSx;
 
       return (
         <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
-          <FormControl {...fieldProps} disabled={isFieldDisabled || (def.type === 'api-select' && options.length === 0)}>
-            <InputLabel id={labelId} shrink required={isRequired}>
+          <FormControl
+            size="small"
+            fullWidth
+            sx={selectSx}
+            disabled={isFieldDisabled || (def.type === 'api-select' && options.length === 0)}
+          >
+            <InputLabel
+              id={labelId}
+              {...(fixSelectLabels
+                ? (hasSelectValue ? { shrink: true } : {})
+                : { shrink: true })}
+              required={isRequired}
+            >
               {def.label}
             </InputLabel>
             <Select

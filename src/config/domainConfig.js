@@ -1,5 +1,5 @@
 /** Field definitions aligned with Project_Architecture_v2 (18 SQL tables). */
-
+import React from 'react';
 import { VENDOR_EDIT_SECTIONS } from './vendorOnboardingEditConfig';
 
 /** xs: 1 col | md: 2 cols | lg: 3 cols */
@@ -261,7 +261,22 @@ vendors: {
       { id: 'contactPerson', label: 'Contact person', field: 'contactPerson' },
       { id: 'email', label: 'Email', field: 'email' },
       { id: 'phone', label: 'Phone', field: 'phone' },
-      { id: 'status', label: 'Status', field: 'status' },
+     {
+  id: 'status',
+  label: 'Status',
+  field: 'status',
+  render: (row) =>
+    React.createElement(
+      'span',
+      {
+        style: {
+          color: (row.vendorStatus ?? row.status) === 'Active' ? 'green' : (row.vendorStatus ?? row.status) === 'Pending' ? 'red' : 'inherit',
+          fontWeight: 600,
+        },
+      },
+      row.vendorStatus ?? row.status
+    ),
+},
     ],
     emptyForm: () => ({
       businessName: '',
@@ -779,6 +794,7 @@ vendors: {
   { id: 'testScore', label: 'Test Score', field: 'testScore' },       
   { id: 'highestQualification', label: 'Highest Qualification', field: 'highestQualification' },
   { id: 'vendorName', label: 'Vendor Name', field: 'vendorName' },
+  { id: 'action', label: 'Action', field: 'action' },
 ],
 
   emptyForm: () => ({}),

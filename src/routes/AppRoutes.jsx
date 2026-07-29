@@ -50,6 +50,8 @@ const AgreementTemplate = lazy(() => import('../pages/AgreementTemplate/Agreemen
 const AgreementTemplateForm = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateForm'));
 const AgreementTemplateView = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateView'));
 const NewCoursePage = lazy(() => import('../pages/resources/NewCoursePage'));
+const ApplicationDetailPage = lazy(() => import('../pages/resources/ApplicationDetailPage'));
+
 // const CourseDetailPage = lazy(() => import('../pages/resources/CourseDetailPage'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 
@@ -253,9 +255,8 @@ export default function AppRoutes() {
           <Route path="dashboard/vendor" element={<GuardedDashboard path="/dashboard/vendor" element={<VendorDash />} />} />
           <Route path="dashboard/student" element={<GuardedDashboard path="/dashboard/student" element={<StudentDash />} />} />
           <Route path="work-history" element={<RequireRole path="/work-history"> <WorkHistoryPage /> </RequireRole>} />
-          <Route path="work-history/:id" element={<RequireRole path="/work-history"> <WorkHistoryDetailPage /> </RequireRole>
-          }
-          />
+          <Route path="work-history/:id" element={<RequireRole path="/work-history"> <WorkHistoryDetailPage /> </RequireRole>} />
+          <Route path="application-details/:studentId" element={<ApplicationDetailPage />}/>
           <Route
             path="tasks"
             element={

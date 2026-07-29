@@ -79,11 +79,11 @@ function SimpleTable({ columns, rows, loading }) {
 
   return (
     <Box sx={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', fontFamily: 'inherit' }}>
         <thead>
           <tr>
             {columns.map((col) => (
-              <th key={col.key} style={{ textAlign: col.align || 'left', padding: '10px 12px', borderBottom: '2px solid var(--border, #e0e0e0)', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--text-secondary, #666)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+              <th key={col.key} style={{ textAlign: col.align || 'left', padding: '10px 12px', borderBottom: '2px solid var(--border, #e0e0e0)', whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--text-secondary, #666)', fontSize: '0.8125rem', letterSpacing: '0.2px' }}>
                 {col.label}
               </th>
             ))}

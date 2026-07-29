@@ -34,7 +34,8 @@ function renderTextCell(value, column, columnIndex, onRowClick) {
           color: isPrimaryLink ? LIST_PRIMARY_COLUMN_COLOR : 'var(--text)',
           fontWeight: isPrimaryLink ? 600 : 400,
           wordBreak: 'break-word',
-          fontSize: 'inherit',
+          fontSize: '0.8125rem',
+          lineHeight: 1.45,
           ...column.cellSx,
         }}
       >
@@ -231,7 +232,7 @@ if (column.field === 'programLogo') {
                     : {
                         color: 'var(--muted)',
                         fontWeight: 700,
-                        fontSize: '0.75rem',
+                        fontSize: '0.8125rem',
                         py: 0.75,
                         px: 1.25,
                         whiteSpace: 'normal',
@@ -272,12 +273,16 @@ if (column.field === 'programLogo') {
                     ...(isResource
                       ? resourceTableBodyCellSx
                       : {
-                          fontSize: '0.82rem',
+                          fontSize: '0.8125rem',
+                          fontWeight: 400,
                           py: 0.85,
                           px: 1.25,
                           whiteSpace: 'normal',
                           wordBreak: 'break-word',
                           verticalAlign: 'top',
+                          '& .MuiTypography-root, & .MuiLink-root, & a': {
+                            fontSize: 'inherit',
+                          },
                         }),
                     ...column.cellSx,
                   }}

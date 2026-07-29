@@ -8,7 +8,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Tooltip,
+  Tooltip,FormControl, Select, MenuItem
 } from '@mui/material';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -149,7 +149,7 @@ export default function ResourceListPage({ basePath }) {
   const [success, setSuccess] = useState('');
   const [addInvoiceOpen, setAddInvoiceOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
-
+  const [statusFilter, setStatusFilter] = useState('All');
   // Courses page: institute filter passed via ?institute=<name> from
   // the "View Courses" button on the Institutes Scrapping list.
   const instituteFilter = useMemo(() => {
@@ -236,6 +236,18 @@ export default function ResourceListPage({ basePath }) {
     return rows;
   }, [rows, isCourses, instituteFilter, isInvoices, invoiceView, invoiceYear, invoiceMonth, isStudents, studentYear, studentMonth]);
 
+  const filteredDisplayRows = useMemo(() => {
+  if (!isVendors || statusFilter === 'All') {
+    return displayRows;
+  }
+
+  return displayRows.filter(
+    (row) =>
+      String(row.status || '')
+        .toLowerCase()
+        .trim() === statusFilter.toLowerCase()
+  );
+}, [displayRows, isVendors, statusFilter]);
   // Commission history dialog state (institutes only)
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -419,7 +431,7 @@ export default function ResourceListPage({ basePath }) {
               }}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             >
-              View
+               Student ({row.studentCount ?? 0})
             </Button>
           ),
         },
@@ -546,12 +558,27 @@ export default function ResourceListPage({ basePath }) {
         stats={stats}
         showCharts={!isTemplates && !isInvoices && (page.showCharts !== false)}
         columns={columnsWithSelect}
-        rows={loading ? [] : displayRows}
+        rows={loading ? [] : filteredDisplayRows}
         loading={(isVendors || isCourses) && loading}
         actionLabel={resource.actionLabel}
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
-        headerExtra={headerExtra}
-        onAdd={isInvoices ? (invoiceView ? undefined : handleOpenAddInvoice) : () => navigate(`${basePath}/new`)}
+       headerExtra={isVendors ? (
+  <>
+    <FormControl size="small" sx={{ minWidth: 130 }}>
+      <Select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+      >
+        <MenuItem value="All">All</MenuItem>
+        <MenuItem value="Active">Active</MenuItem>
+        <MenuItem value="Pending">Pending</MenuItem>
+      </Select>
+    </FormControl>
+
+    {headerExtra}
+  </>
+) : headerExtra}
+        onAdd={isInvoices ? handleOpenAddInvoice : () => navigate(`${basePath}/new`)}
         onRowClick={
           isInvoices
             ? async (row) => {
