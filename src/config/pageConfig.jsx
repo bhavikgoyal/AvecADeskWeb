@@ -24,7 +24,7 @@ export const PAGE_CONFIG = {
     stats: [],
     columns: [
       { id: 'name', label: 'Vendor', field: 'name' },
-      { id: 'status', label: 'Status', field: 'status' },
+      { id: 'status', label: 'Status', field: 'status', },
       { id: 'updated', label: 'Last updated', field: 'updated' },
     ],
     rows: sampleRows('Vendor'),
