@@ -197,6 +197,7 @@ export async function fetchStudentPaymentScheduleList(studentId) {
     );
 
     return data.map((item) => ({
+      studentCreatedAt: item.studentCreatedAt ?? item.StudentCreatedAt,
       scheduleId: item.scheduleId ?? item.ScheduleId,
       studentId: item.studentId ?? item.StudentId,
       studentName: item.studentName ?? item.StudentName,

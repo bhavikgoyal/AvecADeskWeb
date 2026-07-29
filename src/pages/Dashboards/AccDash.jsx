@@ -8,6 +8,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { fetchAllStudents } from '../../api/studentsApi';
 import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
 import { Box, Paper, Typography } from '@mui/material';
+import { fetchInvoicesWithMonthlyTotals } from '../../api/invoicesApi';
 import GroupedBarChartCard from '../../components/charts/GroupedBarChartCard';
 import DashboardUpcomingPanel from '../../components/dashboard/DashboardUpcomingPanel';
 import { CHART_COLORS } from '../../theme/chartTheme';
@@ -19,6 +20,7 @@ export default function AccDash() {
   const [studentStats, setStudentStats] = useState({ total: 0, enrolled: 0, waitlist: 0, newThisMonth: 0 });
   const [monthRevenue, setMonthRevenue] = useState(null);
   const [installmentSummary, setInstallmentSummary] = useState({ weeksPrev: [], weeksThis: [], weeksNext: [], upcomingNext: [] });
+  const [invoiceTotals, setInvoiceTotals] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -47,11 +49,21 @@ export default function AccDash() {
     fetchMonthRevenueDashboard({ fromDate: from, toDate: to })
       .then((data) => {
         if (!mounted) return;
-        // log full API response for debugging
         try { console.log('fetchMonthRevenueDashboard response:', data); } catch (e) {}
         setMonthRevenue(data || null);
       })
       .catch(() => {});
+
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    fetchInvoicesWithMonthlyTotals({ year: y, month: m })
+      .then((res) => {
+        if (!mounted) return;
+        try { console.log('AccDash fetchInvoicesWithMonthlyTotals result:', res); } catch (e) {}
+        setInvoiceTotals(res?.summary || null);
+      })
+      .catch(() => {});
+
     return () => { mounted = false; };
   }, [now]);
 
@@ -141,8 +153,13 @@ export default function AccDash() {
           }
 
           const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
-          items.push({ label: 'This Month Paid', value: fmt(buckets.get('cur').paid) });
-          items.push({ label: 'This Month Due', value: fmt(buckets.get('cur').due) });
+          if (invoiceTotals) {
+            items.push({ label: 'This Month Paid', value: fmt(invoiceTotals.thisMonth?.paid ?? 0) });
+            items.push({ label: 'This Month Due', value: fmt(invoiceTotals.thisMonth?.due ?? 0) });
+          } else {
+            items.push({ label: 'This Month Paid', value: fmt(buckets.get('cur').paid) });
+            items.push({ label: 'This Month Due', value: fmt(buckets.get('cur').due) });
+          }
           return items;
         })()}
         kpiStats={(() => {
@@ -175,6 +192,14 @@ export default function AccDash() {
       <Box sx={{ mt: 1.5, width: '100%', minHeight: 280 }}>
         <GroupedBarChartCard
           items={(() => {
+            if (invoiceTotals) {
+              const last = invoiceTotals.lastMonth || { paid: 0, due: 0, count: 0 };
+              const cur = invoiceTotals.thisMonth || { paid: 0, due: 0, count: 0 };
+              return [
+                { title: `Last Month`, data: [{ name: '', paid: last.paid, due: last.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
+                { title: `This Month`, data: [{ name: '', paid: cur.paid, due: cur.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
+              ];
+            }
             const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
             const cur = new Date(now.getFullYear(), now.getMonth(), 1);
             const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -198,7 +223,6 @@ export default function AccDash() {
             return [
               { title: 'Last Month', data: [{ name: '', paid: buckets.last.paid, due: buckets.last.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
               { title: 'This Month', data: [{ name: '', paid: buckets.cur.paid, due: buckets.cur.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
-              // { title: 'Next Month', data: [{ name: '', paid: buckets.next.paid, due: buckets.next.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
             ];
           })()}
         />
