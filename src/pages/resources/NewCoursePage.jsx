@@ -6,10 +6,12 @@ import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig } from '../../config/resourceConfig';
 
-
 function toCourseForm(data, emptyForm) {
   return {
     ...emptyForm,
+    // NOTE: instituteId here temporarily holds the raw value from the DB.
+    // It gets resolved into the institute NAME (for the select) right after
+    // load, once we know the institute rows (see loadPageData below).
     instituteId: data?.instituteId != null ? String(data.instituteId) : '',
     courseName: data?.courseName || '',
     CourseCategory: data?.CourseCategory || data?.Category || '',
@@ -44,7 +46,9 @@ export default function NewCoursePage({ basePath = '/courses' }) {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEditMode);
   const [error, setError] = useState('');
-  const [instituteNames, setInstituteNames] = useState([]);
+  // Raw scrapping rows: [{ id, name, campusname }, ...]
+  // One row per institute+campus combination.
+  const [instituteRows, setInstituteRows] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,7 +61,8 @@ export default function NewCoursePage({ basePath = '/courses' }) {
         const instituteData = await fetchUniqueInstituteNames();
         if (cancelled) return;
 
-        setInstituteNames(Array.isArray(instituteData) ? instituteData : []);
+        const rows = Array.isArray(instituteData) ? instituteData : [];
+        setInstituteRows(rows);
 
         if (isEditMode) {
           const courseData = await fetchCourseById(courseId);
@@ -66,6 +71,19 @@ export default function NewCoursePage({ basePath = '/courses' }) {
           if (!courseData) throw new Error('Course not found.');
 
           const courseForm = toCourseForm(courseData, getEmptyForm(basePath));
+
+          // Resolve the saved instituteId (a scrappingId) back into the
+          // institute NAME (for the institute select) + keep the
+          // scrappingId in `campus` (for the campus select).
+          const matchedRow = rows.find(
+            (item) => String(item.id) === String(courseData?.instituteId)
+          );
+
+          if (matchedRow) {
+            courseForm.instituteId = matchedRow.name;
+            courseForm.campus = String(matchedRow.id);
+          }
+
           setForm(courseForm);
           setOriginalForm(courseForm);
         } else {
@@ -94,7 +112,14 @@ export default function NewCoursePage({ basePath = '/courses' }) {
   if (!resource) return null;
 
   const updateField = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      if (field === 'instituteId') {
+        // Selecting a different institute invalidates the previously
+        // chosen campus, since campuses are scoped to one institute.
+        return { ...prev, instituteId: value, campus: '' };
+      }
+      return { ...prev, [field]: value };
+    });
     if (error) setError('');
   };
 
@@ -120,6 +145,23 @@ const isCourseFormValid = () => {
   const hasChanges =
     originalForm !== null &&
     JSON.stringify(form) !== JSON.stringify(originalForm);
+
+  // Resolves the UI-level selection (institute name + campus scrappingId)
+  // back into the real payload shape the backend expects:
+  //   instituteId -> the scrappingId of the chosen institute+campus row
+  //   campus      -> the actual campus name text
+  const buildSubmissionPayload = () => {
+    const matchedRow =
+      instituteRows.find((item) => String(item.id) === String(form.campus)) ||
+      instituteRows.find((item) => item.name === form.instituteId);
+
+    return {
+      ...form,
+      instituteId: matchedRow ? matchedRow.id : form.instituteId,
+      campus: matchedRow ? (matchedRow.campusname || '') : form.campus,
+    };
+  };
+
 const handleSave = async () => {
   if (submittingRef.current) return;
 
@@ -135,10 +177,12 @@ const handleSave = async () => {
   setError('');
 
   try {
+    const payload = buildSubmissionPayload();
+
     if (isEditMode) {
-      await updateCourse(courseId, form);
+      await updateCourse(courseId, payload);
     } else {
-      await createCourse(form);
+      await createCourse(payload);
     }
 
     navigate(basePath, {
@@ -158,13 +202,33 @@ const handleSave = async () => {
   }
 };
 
+  // Unique institute names for the first dropdown.
+  const uniqueInstituteNames = Array.from(
+    new Set(instituteRows.map((item) => item.name).filter(Boolean))
+  );
+
   const instituteOptions = [
     { value: '', label: 'Please select institute' },
-    ...instituteNames.map((item) => ({
-      value: String(item.id),
-      label: item.name,
-    })),
+    ...uniqueInstituteNames.map((name) => ({ value: name, label: name })),
   ];
+
+  // Campus dropdown is scoped to whichever institute name is selected.
+  const campusOptions = [
+    {
+      value: '',
+      label: form.instituteId ? 'Please select campus' : 'Select institute first',
+    },
+    ...instituteRows
+      .filter((item) => item.name === form.instituteId)
+      .map((item) => ({
+        value: String(item.id),
+        label: item.campusname || 'Main Campus',
+      })),
+  ];
+
+  const disabledFields = isEditMode
+    ? ['instituteId', 'campus']
+    : (!form.instituteId ? ['campus'] : []);
 
   if (loading) {
     return (
@@ -191,9 +255,9 @@ const handleSave = async () => {
           sections={resource.sections ?? []}
           form={form}
           onChange={updateField}
-          selectOptions={{ instituteId: instituteOptions }}
+          selectOptions={{ instituteId: instituteOptions, campus: campusOptions }}
           requiredFields={resource.requiredFields ?? []}
-          disabledFields={isEditMode ? ['instituteId'] : []}
+          disabledFields={disabledFields}
         />
 
         <FormActions

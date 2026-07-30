@@ -24,6 +24,7 @@ export const DOMAIN_FIELD_DEFS = {
 
   instituteName: { label: 'Institute name', type: 'text', required: true, grid: grid.half },
   vendorId: { label: 'Vendor name', type: 'api-select', required: true, grid: grid.half },
+  linkedScrappingId: { label: 'Linked scrapping ID', type: 'number', grid: grid.half },
   primaryColour: { label: 'Primary colour', type: 'text', grid: grid.quarter },
   secondaryColour: { label: 'Secondary colour', type: 'text', grid: grid.quarter },
   primaryColor: { label: 'Primary color', type: 'text', grid: grid.half },
@@ -36,6 +37,7 @@ export const DOMAIN_FIELD_DEFS = {
   address: { label: 'Address', type: 'textarea', grid: grid.wide },
   serviceTypes: { label: 'Service types', type: 'text', grid: grid.half },
   serviceType: { label: 'Service type', type: 'text', grid: grid.half },
+  instituteCommissionRate: { label: 'Institute Commission Rate', type: 'number', grid: grid.half },
   isPublic: { label: 'Is public', type: 'checkbox', grid: grid.half },
   contactEmail: { label: 'Contact email', type: 'email', grid: grid.half },
   contactPhone: { label: 'Contact phone', type: 'text', grid: grid.half },
@@ -46,7 +48,7 @@ export const DOMAIN_FIELD_DEFS = {
   fees: { label: 'Fees', type: 'number', grid: grid.half },
   duration: { label: 'Duration', type: 'text', grid: grid.half },
   eligibility: { label: 'Eligibility', type: 'text', grid: grid.half },
-  campus: { label: 'Campus', type: 'text', grid: grid.half },
+  campus: { label: 'Campus', type: 'api-select', grid: grid.half },
   level: { label: 'Level', type: 'text', grid: grid.half },
   programLink: { label: 'Program link', type: 'text', grid: grid.half },
   cricosCode: { label: 'CRICOS code', type: 'text', grid: grid.half },
@@ -215,7 +217,7 @@ courseEndDate : { label: 'Course End Date', type: 'date', grid: grid.half,readOn
   duration: { label: 'Duration', type: 'text', grid: grid.half },
   intake: { label: 'Intake', type: 'text', grid: grid.half },
   feesYearly: { label: 'Fees yearly', type: 'text', grid: grid.half },
-  campus: { label: 'Campus', type: 'text', grid: grid.half },
+  campus: { label: 'Campus', type: 'api-select', grid: grid.half },
   logo: { label: 'Logo URL', type: 'text', grid: grid.half },
   name: { label: 'Name', type: 'text', grid: grid.half },
   country: { label: 'Country', type: 'text', grid: grid.half },
@@ -297,7 +299,8 @@ vendors: {
       {
         title: 'Institute details',
         description: 'Vendor link, identity, and publishing.',
-        fields: ['vendorId', 'instituteName', 'websiteUrl', 'instituteStatus', 'isPublished'],
+        //fields: ['vendorId', 'instituteName', 'websiteUrl', 'instituteStatus', 'isPublished'],
+        fields: ['vendorId', 'instituteName', 'websiteUrl', 'linkedScrappingId', 'instituteCommissionRate', 'instituteStatus', 'isPublished']
       },
       {
         title: 'Location & services',
@@ -320,6 +323,8 @@ vendors: {
       vendorId: '',
       instituteName: '',
       websiteUrl: '',
+      linkedScrappingId: '',
+      instituteCommissionRate: '',
       instituteStatus: 'Active',
       isPublished: 'No',
       address: '',

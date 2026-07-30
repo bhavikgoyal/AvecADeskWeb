@@ -12,6 +12,8 @@ import {
   DialogTitle,
   Paper,
   Stack,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import {
@@ -19,6 +21,7 @@ import {
   FormSectionsLayout,
   formPaperSx,
 } from '../../components/forms';
+import InstituteCommissionRatesPanel from '../../components/institutes/InstituteCommissionRatesPanel';
 import {
   deleteInstituteScrapping,
   fetchInstituteScrappingById,
@@ -41,6 +44,7 @@ export default function InstituteScrappingEditPage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -71,6 +75,10 @@ export default function InstituteScrappingEditPage() {
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setError('');
+  };
+
+  const handleTabChange = (_event, value) => {
+    setActiveTab(value);
   };
 
   const handleSave = async () => {
@@ -120,6 +128,13 @@ export default function InstituteScrappingEditPage() {
       title="Edit Institute Scrapping Record"
       subtitle={form.instituteName || `Record #${id}`}
     >
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
+        <Tabs value={activeTab} onChange={handleTabChange}>
+          <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Commission rate" sx={{ textTransform: 'none', fontWeight: 600 }} />
+        </Tabs>
+      </Box>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -127,50 +142,60 @@ export default function InstituteScrappingEditPage() {
       )}
 
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
-        <FormSectionsLayout
-          sections={MANUAL_FORM_SECTIONS}
-          form={form}
-          onChange={updateField}
-          disabled={saving || deleting}
-          requiredFields={MANUAL_REQUIRED_FIELDS}
-        />
-
-        <Stack
-          direction={{ xs: 'column-reverse', sm: 'row' }}
-          spacing={1.5}
-          justifyContent="space-between"
-          sx={{ px: { xs: 2, md: 3 }, pb: 3, pt: 1 }}
-        >
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteOutlinedIcon />}
-            onClick={() => setDeleteDialogOpen(true)}
-            disabled={saving || deleting}
-            sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
-          >
-            Delete
-          </Button>
-
-          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5}>
-            <Button
-              variant="outlined"
-              onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)}
+        {activeTab === 0 && (
+          <>
+            <FormSectionsLayout
+              sections={MANUAL_FORM_SECTIONS}
+              form={form}
+              onChange={updateField}
               disabled={saving || deleting}
-              sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+              requiredFields={MANUAL_REQUIRED_FIELDS}
+            />
+
+            <Stack
+              direction={{ xs: 'column-reverse', sm: 'row' }}
+              spacing={1.5}
+              justifyContent="space-between"
+              sx={{ px: { xs: 2, md: 3 }, pb: 3, pt: 1 }}
             >
-              Back
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSave}
-              disabled={!isManualFormValid(form) || saving || deleting}
-              sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-          </Stack>
-        </Stack>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteOutlinedIcon />}
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={saving || deleting}
+                sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+              >
+                Delete
+              </Button>
+
+              <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5}>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)}
+                  disabled={saving || deleting}
+                  sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleSave}
+                  disabled={!isManualFormValid(form) || saving || deleting}
+                  sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+              </Stack>
+            </Stack>
+          </>
+        )}
+
+        {activeTab === 1 && (
+          <Box sx={{ px: { xs: 2, md: 3 }, py: 3 }}>
+            <InstituteCommissionRatesPanel instituteId={id} courseLookupId={id} instituteName={form.instituteName} />
+          </Box>
+        )}
       </Paper>
 
       <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
