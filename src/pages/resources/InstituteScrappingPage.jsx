@@ -66,6 +66,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 
 const PENDING_SCRAPES_STORAGE_KEY = 'institutes-scrapping-pending';
+const PENDING_SCRAPE_TTL_MS = 30 * 60 * 1000;
 
 const LIST_COLUMNS = [
   { key: 'instituteName', label: 'Institute name' },
@@ -100,6 +101,7 @@ function buildPendingScrapeRow(form, pendingId) {
   return {
     id: pendingId,
     scrappingId: pendingId,
+    pendingStartedAt: new Date().toISOString(),
     instituteName: form.instituteName?.trim() || '',
     websiteUrl: form.websiteUrl?.trim() || '',
     campus: '',
@@ -112,13 +114,39 @@ function buildPendingScrapeRow(form, pendingId) {
   };
 }
 
+function getScrapeRowKey(row) {
+  return `${(row?.instituteName || '').trim().toLowerCase()}|${(row?.websiteUrl || '').trim().toLowerCase()}`;
+}
+
+function isPendingScrapeFresh(row) {
+  const startedAt = Date.parse(row?.pendingStartedAt || '');
+  if (!Number.isFinite(startedAt)) {
+    return false;
+  }
+
+  return Date.now() - startedAt < PENDING_SCRAPE_TTL_MS;
+}
+
+function reconcilePendingScrapes(pendingRows, persistedRows) {
+  const persistedKeys = new Set(persistedRows.map((row) => getScrapeRowKey(row)));
+
+  return pendingRows.filter((row) => {
+    const rowKey = getScrapeRowKey(row);
+    if (persistedKeys.has(rowKey)) {
+      return false;
+    }
+
+    return isPendingScrapeFresh(row);
+  });
+}
+
 function loadPendingScrapes() {
   try {
     const rawValue = window.localStorage.getItem(PENDING_SCRAPES_STORAGE_KEY);
     if (!rawValue) return [];
 
     const parsed = JSON.parse(rawValue);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.filter(isPendingScrapeFresh) : [];
   } catch {
     return [];
   }
@@ -225,6 +253,11 @@ export default function InstituteScrappingPage() {
     try {
       const data = await fetchInstituteScrappingRows({ instituteName });
       setRows(data);
+      setBackgroundScrapes((prev) => {
+        const next = reconcilePendingScrapes(prev, data);
+        savePendingScrapes(next);
+        return next;
+      });
     } catch (err) {
       setListError(err.message || 'Failed to load institute scrapping records.');
       setRows([]);
@@ -601,16 +634,12 @@ export default function InstituteScrappingPage() {
             width: '100%',
           }}
         >
-<<<<<<< Updated upstream
-          <>
-=======
           {listLoading && displayRows.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
               <CircularProgress size={36} sx={{ color: 'var(--primary)' }} />
             </Box>
           ) : (
             <>
->>>>>>> Stashed changes
               <Box
                 sx={{
                   display: 'flex',
@@ -686,7 +715,6 @@ export default function InstituteScrappingPage() {
                 </Box>
               </Box>
 
-<<<<<<< Updated upstream
               {listLoading ? (
                 <TableContentSkeleton
                   rows={10}
@@ -703,10 +731,7 @@ export default function InstituteScrappingPage() {
                     { id: 'actions', label: 'Actions', flex: 1.1, skeletonWidth: 110, skeletonHeight: 28 },
                   ]}
                 />
-              ) : rows.length === 0 ? (
-=======
-              {displayRows.length === 0 ? (
->>>>>>> Stashed changes
+              ) : displayRows.length === 0 ? (
                 <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
                   <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
                     {appliedInstituteNameFilter
@@ -715,102 +740,99 @@ export default function InstituteScrappingPage() {
                   </Typography>
                 </Box>
               ) : (
-              <>
-              <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                <Table size="small" sx={{ minWidth: 1100 }}>
-                  <TableHead>
-                    <TableRow sx={resourceTableHeadRowSx}>
-                      <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>S No</TableCell>
-                      {LIST_COLUMNS.map((column) => (
-                        <TableCell key={column.key} sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>
-                          {column.label}
-                        </TableCell>
-                      ))}
-                      <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {paginatedRows.map((row, index) => {
-                      const courseLookupId = row.scrappingId ?? row.id;
-                      const courseCount = courseCounts[String(courseLookupId)] ?? 0;
+                <>
+                  <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+                    <Table size="small" sx={{ minWidth: 1100 }}>
+                      <TableHead>
+                        <TableRow sx={resourceTableHeadRowSx}>
+                          <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>S No</TableCell>
+                          {LIST_COLUMNS.map((column) => (
+                            <TableCell key={column.key} sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>
+                              {column.label}
+                            </TableCell>
+                          ))}
+                          <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {paginatedRows.map((row, index) => {
+                          const courseLookupId = row.scrappingId ?? row.id;
+                          const courseCount = courseCounts[String(courseLookupId)] ?? 0;
 
-                      return (
-                      <TableRow
-                        key={row.id || `${page}-${index}`}
-                        hover
-                        onClick={() => handleRowClick(row)}
-                        sx={{ cursor: 'pointer', ...resourceTableBodyRowSx }}
-                      >
-                        <TableCell sx={resourceTableBodyCellSx}>{page * rowsPerPage + index + 1}</TableCell>
-                        {LIST_COLUMNS.map((column) => (
-                          <TableCell
-                            key={column.key}
-                            sx={{ ...resourceTableBodyCellSx, maxWidth: 220, whiteSpace: 'normal' }}
-                          >
-                            {renderCell(row, column.key)}
-                          </TableCell>
-                        ))}
-                        <TableCell sx={resourceTableBodyCellSx}>
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              startIcon={<SchoolIcon />}
-                              onClick={(event) => handleViewCourses(event, row)}
-<<<<<<< Updated upstream
-                              sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
-=======
-                              disabled={row.isPendingScrape}
-                              sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
->>>>>>> Stashed changes
+                          return (
+                            <TableRow
+                              key={row.id || `${page}-${index}`}
+                              hover
+                              onClick={() => handleRowClick(row)}
+                              sx={{ cursor: 'pointer', ...resourceTableBodyRowSx }}
                             >
-                              {getCoursesButtonLabel(row, courseCount)}
-                            </Button>
-
-                            {isAccounting && (
-                              <>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<PeopleIcon />}
-                                  onClick={handleViewStudents}
-                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                              <TableCell sx={resourceTableBodyCellSx}>{page * rowsPerPage + index + 1}</TableCell>
+                              {LIST_COLUMNS.map((column) => (
+                                <TableCell
+                                  key={column.key}
+                                  sx={{ ...resourceTableBodyCellSx, maxWidth: 220, whiteSpace: 'normal' }}
                                 >
-                                  View Student
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<ReceiptIcon />}
-                                  onClick={handleViewInvoices}
-                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
-                                >
-                                  View Invoice
-                                </Button>
-                              </>
-                            )}
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                                  {renderCell(row, column.key)}
+                                </TableCell>
+                              ))}
+                              <TableCell sx={resourceTableBodyCellSx}>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<SchoolIcon />}
+                                    onClick={(event) => handleViewCourses(event, row)}
+                                    disabled={row.isPendingScrape}
+                                    sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                                  >
+                                    {getCoursesButtonLabel(row, courseCount)}
+                                  </Button>
 
-              <TablePagination
-                component="div"
-                count={displayRows.length}
-                page={page}
-                onPageChange={handleChangePage}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                rowsPerPageOptions={[5, 10, 25, 50]}
-                labelRowsPerPage="Rows per page:"
-              />
-              </>
+                                  {isAccounting && (
+                                    <>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<PeopleIcon />}
+                                        onClick={handleViewStudents}
+                                        sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                                      >
+                                        View Student
+                                      </Button>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<ReceiptIcon />}
+                                        onClick={handleViewInvoices}
+                                        sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                                      >
+                                        View Invoice
+                                      </Button>
+                                    </>
+                                  )}
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <TablePagination
+                    component="div"
+                    count={displayRows.length}
+                    page={page}
+                    onPageChange={handleChangePage}
+                    rowsPerPage={rowsPerPage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                    labelRowsPerPage="Rows per page:"
+                  />
+                </>
               )}
             </>
+          )}
         </Paper>
       </Box>
 

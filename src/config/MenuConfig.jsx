@@ -36,7 +36,7 @@ export const GET_MENU = (role) => {
         items: [
           { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
           // { title: 'Institute Commission old', path: '/institutes', Icon: AccountBalanceIcon },
-          { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
+          //{ title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
           { title: 'Courses', path: '/courses', Icon: SchoolIcon },
