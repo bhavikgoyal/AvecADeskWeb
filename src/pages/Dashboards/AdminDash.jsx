@@ -330,7 +330,7 @@ export default function AdminDash() {
                 sparklineData={buildSparkline(2)}
                 icon={<PeopleIcon />}
                 color="var(--primary)"
-                footer={[{ label: 'New this mo', value: `+${studentStats.newThisMonth}`, sub: 'this month', onClick: () => {
+                footer={[{ label: 'New this month', value: `+${studentStats.newThisMonth}`, sub: 'this month', onClick: () => {
                   const d = new Date();
                   const y = d.getFullYear();
                   const m = d.getMonth() + 1;
