@@ -1,7 +1,14 @@
 import { Avatar, Box, Divider, Grid, Paper, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import TrendBadge from './TrendBadge';
 
 export default function WelcomeCard({ userName = 'User', subtitle, avatar, footerStats = [] }) {
+  const navigate = useNavigate();
+  const handleClick = (stat) => {
+    if (stat?.path) navigate(stat.path);
+    else if (typeof stat?.onClick === 'function') stat.onClick();
+  };
+
   return (
     <Paper elevation={0} className="dashboard-card welcome-card" sx={{ borderRadius: 3, overflow: 'hidden' }}>
       <Box sx={{ p: { xs: 1.5, md: 1.75 }, display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
@@ -76,9 +83,11 @@ export default function WelcomeCard({ userName = 'User', subtitle, avatar, foote
               <Grid
                 key={stat.label}
                 size={{ xs: 6 }}
+                onClick={() => handleClick(stat)}
                 sx={{
                   p: 1.25,
                   borderRight: index % 2 === 0 ? '1px solid var(--card-border)' : 'none',
+                  cursor: stat?.path || stat?.onClick ? 'pointer' : 'default',
                 }}
               >
                 <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
