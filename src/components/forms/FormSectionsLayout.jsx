@@ -51,7 +51,7 @@ export function assignSectionLayouts(sections) {
   });
 }
 
-export default function FormSectionsLayout({ sections = [], form, onChange, disabled = false,disabledFields = [], selectOptions = {}, requiredFields = [], fixSelectLabels = false }) {
+export default function FormSectionsLayout({ sections = [], form, onChange, disabled = false,disabledFields = [], selectOptions = {}, requiredFields = [], fieldDefsOverride = {} }) {
   const layouts = assignSectionLayouts(sections);
 
   return (
@@ -83,7 +83,7 @@ export default function FormSectionsLayout({ sections = [], form, onChange, disa
               stretch={stretch}
               selectOptions={selectOptions}
               requiredFields={requiredFields}
-              fixSelectLabels={fixSelectLabels}
+              fieldDefsOverride={fieldDefsOverride}
             />
           </FormSection>
         </Grid>

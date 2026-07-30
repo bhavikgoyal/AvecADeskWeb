@@ -39,6 +39,7 @@ async function buildVendorNameMap() {
 function normalizeInstitute(institute) {
   return {
     instituteId: institute.instituteId ?? institute.InstituteId,
+    linkedScrappingId: institute.linkedScrappingId ?? institute.LinkedScrappingId ?? null,
     vendorId: institute.vendorId ?? institute.VendorId,
     instituteName: institute.instituteName ?? institute.InstituteName ?? '',
     websiteUrl: institute.websiteUrl ?? institute.WebsiteUrl ?? '',
@@ -53,6 +54,7 @@ function normalizeInstitute(institute) {
     contactPhone: institute.contactPhone ?? institute.ContactPhone ?? '',
     status: institute.status ?? institute.Status ?? '',
     isPublished: institute.isPublished ?? institute.IsPublished ?? false,
+    instituteCommissionRate: institute.instituteCommissionRate ?? institute.InstituteCommissionRate ?? null,
     createdAt: institute.createdAt ?? institute.CreatedAt,
   };
 }
@@ -74,6 +76,7 @@ export async function fetchInstituteRows() {
     return {
       id: String(institute.instituteId),
       instituteId: institute.instituteId,
+      linkedScrappingId: institute.linkedScrappingId,
       vendorId: institute.vendorId,
       vendorName: vendorMap[String(institute.vendorId)] || '—',
       instituteName: institute.instituteName,
@@ -97,6 +100,11 @@ export async function fetchInstituteRows() {
 
 export async function createInstitute(form) {
   const vendorId = Number(form.vendorId);
+  const linkedScrappingId =
+    form.linkedScrappingId !== '' && form.linkedScrappingId != null
+      ? Number(form.linkedScrappingId)
+      : null;
+
   if (!vendorId) {
     throw new Error('Please select a vendor');
   }
@@ -115,9 +123,12 @@ export async function createInstitute(form) {
     address: form.address?.trim() || null,
     city: form.city?.trim() || null,
     state: form.state?.trim() || null,
+    linkedScrappingId,
     serviceTypes: form.serviceType?.trim() || form.serviceTypes?.trim() || null,
     contactEmail: form.contactEmail?.trim() || null,
     contactPhone: form.contactPhone?.trim() || null,
+    instituteCommissionRate: form.instituteCommissionRate !== '' && form.instituteCommissionRate != null
+    ? Number(form.instituteCommissionRate) : null,
   });
 
   const institute = normalizeInstitute(data);
@@ -140,6 +151,7 @@ function buildInstituteForm(institute) {
     vendorId: institute.vendorId ? String(institute.vendorId) : '',
     instituteName: institute.instituteName,
     websiteUrl: institute.websiteUrl || '',
+    linkedScrappingId: institute.linkedScrappingId != null ? String(institute.linkedScrappingId) : '',
     instituteStatus: institute.status || 'Active',
     isPublished: institute.isPublished ? 'Yes' : 'No',
     address: institute.address || '',
@@ -148,6 +160,7 @@ function buildInstituteForm(institute) {
     serviceType: institute.serviceTypes || '',
     contactEmail: institute.contactEmail || '',
     contactPhone: institute.contactPhone || '',
+    instituteCommissionRate: institute.instituteCommissionRate ?? '',
     notes: '',
   };
 }
@@ -171,6 +184,11 @@ export async function fetchInstituteForm(instituteId) {
 
 export async function updateInstitute(instituteId, form) {
   const vendorId = Number(form.vendorId);
+  const linkedScrappingId =
+    form.linkedScrappingId !== '' && form.linkedScrappingId != null
+      ? Number(form.linkedScrappingId)
+      : null;
+
   if (!vendorId) {
     throw new Error('Please select a vendor');
   }
@@ -191,9 +209,11 @@ export async function updateInstitute(instituteId, form) {
     address: form.address?.trim() || null,
     city: form.city?.trim() || null,
     state: form.state?.trim() || null,
+    linkedScrappingId,
     serviceTypes: form.serviceType?.trim() || form.serviceTypes?.trim() || null,
     contactEmail: form.contactEmail?.trim() || null,
     contactPhone: form.contactPhone?.trim() || null,
+    instituteCommissionRate: form.instituteCommissionRate !== '' && form.instituteCommissionRate != null ? Number(form.instituteCommissionRate)    : null,
   });
 
   let institute = normalizeInstitute(data);

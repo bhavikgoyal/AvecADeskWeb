@@ -34,6 +34,7 @@ export const AUTO_REQUIRED_FIELDS = ['instituteName'];
 
 export function recordToManualForm(record = {}) {
   return {
+    instituteId: record.instituteId ?? null,
     instituteName: record.instituteName ?? '',
     websiteUrl: record.websiteUrl ?? '',
     campus: record.campus ?? '',

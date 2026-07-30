@@ -106,3 +106,19 @@ export async function fetchCommissionHistory(vendorId, instituteId, courseId) {
   );
   return (Array.isArray(data) ? data : []).map(normalizeCommissionRate);
 }
+
+export async function fetchInstituteCommissionRates(instituteId) {
+  const { data } = await axiosClient.get(`/api/commissions/institute/${instituteId}`);
+  return (data ?? []).map(normalizeCommissionRate);
+}
+
+export async function fetchInstituteCommissionHistory(instituteId, courseId) {
+  const params = {};
+  if (courseId) params.courseId = courseId;
+
+  const { data } = await axiosClient.get(
+    `/api/commissions/institute/${instituteId}/history`,
+    { params }
+  );
+  return (Array.isArray(data) ? data : []).map(normalizeCommissionRate);
+}

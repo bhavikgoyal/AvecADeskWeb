@@ -3,6 +3,8 @@ import axiosClient from './axiosClient';
 function normalizeRecord(raw) {
   return {
     scrappingId: raw.scrappingId ?? raw.ScrappingId,
+    instituteId: raw.instituteId ?? raw.InstituteId ?? null,
+    createdAt: raw.createdAt ?? raw.CreatedAt ?? null,
     instituteName: raw.instituteName ?? raw.InstituteName ?? '',
     websiteUrl: raw.websiteURL ?? raw.WebsiteURL ?? raw.websiteUrl ?? '',
     campus: raw.campus ?? raw.Campus ?? '',
@@ -25,6 +27,10 @@ function normalizeRecord(raw) {
     programDescription: raw.programDescription ?? raw.ProgramDescription ?? '',
     programLogo: raw.programLogo ?? raw.ProgramLogo ?? '',
     addmissionRequirements: raw.addmissionRequirements ?? raw.AddmissionRequirements ?? '',
+    isScrap: raw.isScrap ?? raw.IsScrap ?? null,
+    scrapeStatus: raw.scrapeStatus ?? raw.ScrapeStatus ?? '',
+    scrapingStatus: raw.scrapingStatus ?? raw.ScrapingStatus ?? '',
+    status: raw.status ?? raw.Status ?? '',
   };
 }
 
