@@ -72,8 +72,7 @@ export default function ResourceFormFields({
   stretch = false,
   selectOptions = {},
   requiredFields = [],
-  /** When true: empty selects keep label inside; focus/value floats it to the top (Edit Vendor). */
-  fixSelectLabels = false,
+  fieldDefsOverride = {},
 }) {
   const handleChange = (field) => (event) => {
     onChange(field, event.target.value);
@@ -82,7 +81,9 @@ export default function ResourceFormFields({
   const textareaRows = stretch ? 5 : 3;
 
   const renderField = (fieldName) => {
-    const def = FIELD_DEFS[fieldName];
+    const baseDef = FIELD_DEFS[fieldName];
+    const overrideDef = fieldDefsOverride[fieldName] || {};
+    const def = baseDef ? { ...baseDef, ...overrideDef } : null;
     if (!def) return null;
     const isRequired = Boolean(def.required) || requiredFields.includes(fieldName);
     const isDate = def.type === 'date';

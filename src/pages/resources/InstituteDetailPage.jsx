@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Box, Button, Paper, Tab, Tabs, Typography } from '@mui/material';
+import { Alert, Box, Button, MenuItem, Paper, Tab, Tabs, TextField, Typography } from '@mui/material';
 import { fetchInstituteForm, updateInstitute } from '../../api/institutesApi';
 import { fetchVendors } from '../../api/lookupApi';
-import VendorCommissionRatesPanel from '../../components/vendors/VendorCommissionRatesPanel';
+import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
+import InstituteCommissionRatesPanel from '../../components/institutes/InstituteCommissionRatesPanel';
 import {
   FormActions,
   FormPageLayout,
@@ -18,6 +19,7 @@ export default function InstituteDetailPage({ basePath }) {
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(null);
   const [vendors, setVendors] = useState([]);
+  const [scrapOptions, setScrapOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -27,18 +29,18 @@ export default function InstituteDetailPage({ basePath }) {
 
   useEffect(() => {
     let active = true;
-
     fetchVendors()
-      .then((data) => {
-        if (active) setVendors(data);
-      })
-      .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load vendors.');
-      });
+      .then((data) => { if (active) setVendors(data); })
+      .catch((err) => { if (active) setLoadError(err.message || 'Failed to load vendors.'); });
+    return () => { active = false; };
+  }, []);
 
-    return () => {
-      active = false;
-    };
+  useEffect(() => {
+    let active = true;
+    fetchUniqueInstituteNames()
+      .then((data) => { if (active) setScrapOptions(data || []); })
+      .catch(() => { if (active) setScrapOptions([]); });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -57,9 +59,7 @@ export default function InstituteDetailPage({ basePath }) {
         if (active) setLoading(false);
       });
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [id]);
 
   const selectOptions = useMemo(
@@ -149,6 +149,26 @@ export default function InstituteDetailPage({ basePath }) {
               onChange={updateField}
               selectOptions={selectOptions}
             />
+
+            <Box sx={{ px: { xs: 2, md: 3 }, mt: 1, mb: 2 }}>
+              <TextField
+                select
+                label="Linked scraped institute (for commission course lookup)"
+                value={form.linkedScrappingId || ''}
+                onChange={(e) => updateField('linkedScrappingId', e.target.value)}
+                fullWidth
+                size="small"
+                helperText="Optional. Link this institute to its scraped record so commission rates can pull the correct course list."
+              >
+                <MenuItem value="">None</MenuItem>
+                {scrapOptions.map((opt) => (
+                  <MenuItem key={opt.id} value={String(opt.id)}>
+                    {opt.name}{opt.campusname ? ` — ${opt.campusname}` : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
+
             <FormActions
               onCancel={() => navigate(basePath)}
               onSubmit={handleUpdate}
@@ -159,7 +179,11 @@ export default function InstituteDetailPage({ basePath }) {
         )}
 
         {activeTab === 1 && (
-          <VendorCommissionRatesPanel defaultVendorId={form.vendorId ? Number(form.vendorId) : null} />
+          <InstituteCommissionRatesPanel
+            instituteId={id}
+            courseLookupId={form.linkedScrappingId ? Number(form.linkedScrappingId) : null}
+             instituteName={form.instituteName}
+          />
         )}
       </Paper>
     </FormPageLayout>
