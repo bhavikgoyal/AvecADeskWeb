@@ -60,7 +60,16 @@ export default function AdminDash() {
           const d = new Date(v.lastLogin);
           return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
         }).length;
-        setVendorStats({ total, newThisMonth, active, pending, loggedInToday });
+        // Idle = logged in during current calendar month/year (local time)
+        const idleOneMonth = list.filter((v) => {
+          if (!v.lastLogin) return false;
+          const parsed = Date.parse(v.lastLogin);
+          if (Number.isNaN(parsed)) return false;
+          const d = new Date(parsed);
+          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+        }).length;
+        const neverLoggedIn = total - idleOneMonth;
+        setVendorStats({ total, newThisMonth, active, pending, loggedInToday, idleOneMonth, neverLoggedIn });
       })
       .catch(() => {});
     return () => { mounted = false; };
@@ -316,9 +325,8 @@ export default function AdminDash() {
                 icon={<HowToRegIcon />}
                 color="var(--teal)"
                 footer={[
-                  { label: 'Logged in today', value: vendorStats.loggedInToday.toLocaleString() },
-                  { label: 'Active total', value: vendorStats.active.toLocaleString() },
-                  { label: 'Pending', value: vendorStats.pending.toLocaleString() },
+                  { label: 'Active today', value: vendorStats.loggedInToday.toLocaleString() },
+                  { label: 'Idle', value: vendorStats.neverLoggedIn ? vendorStats.neverLoggedIn.toLocaleString() : '0', color: 'var(--error, #d32f2f)' },
                 ]}
                 sx={{ flex: 1, width: '100%' }}
               />
@@ -330,7 +338,7 @@ export default function AdminDash() {
                 sparklineData={buildSparkline(2)}
                 icon={<PeopleIcon />}
                 color="var(--primary)"
-                footer={[{ label: 'New this mo', value: `+${studentStats.newThisMonth}`, sub: 'this month', onClick: () => {
+                footer={[{ label: 'New this month', value: `+${studentStats.newThisMonth}`, sub: 'this month', onClick: () => {
                   const d = new Date();
                   const y = d.getFullYear();
                   const m = d.getMonth() + 1;

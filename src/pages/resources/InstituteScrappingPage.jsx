@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
-  Backdrop,
   Box,
   Button,
   Checkbox,
@@ -13,7 +12,11 @@ import {
   DialogTitle,
   FormControlLabel,
   Link,
+  MenuItem,
   Paper,
+  Stack,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -48,6 +51,12 @@ import {
   runInstituteScrapping,
 } from '../../api/institutesScrappingApi';
 import {
+  createInstituteCommissionRate,
+  getEmptyCommissionRateForm,
+} from '../../api/commissionsApi';
+import { fetchCourseList } from '../../api/coursesApi';
+import { fetchCoursesByInstitute } from '../../api/lookupApi';
+import {
   AUTO_FORM_SECTIONS,
   AUTO_REQUIRED_FIELDS,
   MANUAL_FORM_SECTIONS,
@@ -56,8 +65,12 @@ import {
 } from './instituteScrappingFormConfig';
 import { useAuth } from '../../hooks/useAuth';
 
+const PENDING_SCRAPES_STORAGE_KEY = 'institutes-scrapping-pending';
+const PENDING_SCRAPE_TTL_MS = 30 * 60 * 1000;
+
 const LIST_COLUMNS = [
   { key: 'instituteName', label: 'Institute name' },
+  { key: 'scrapingType', label: 'Scraping Type' },
   { key: 'logo', label: 'Logo' },
   { key: 'websiteUrl', label: 'Website URL' },
   { key: 'country', label: 'Country' },
@@ -67,7 +80,108 @@ const LIST_COLUMNS = [
   { key: 'countryRanking', label: 'Country ranking' },
 ];
 
+function normalizeScrapeFlag(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'true' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === '0') return false;
+  return null;
+}
+
+function getScrapingType(row) {
+  if (row.isPendingScrape) return 'Auto';
+  const isScrap = normalizeScrapeFlag(row.isScrap);
+  if (isScrap === true) return 'Auto';
+  return 'Manual';
+}
+
+function buildPendingScrapeRow(form, pendingId) {
+  return {
+    id: pendingId,
+    scrappingId: pendingId,
+    pendingStartedAt: new Date().toISOString(),
+    instituteName: form.instituteName?.trim() || '',
+    websiteUrl: form.websiteUrl?.trim() || '',
+    campus: '',
+    state: '',
+    country: '',
+    city: '',
+    countryRanking: '',
+    isPendingScrape: true,
+    scrapingType: 'Auto',
+  };
+}
+
+function getScrapeRowKey(row) {
+  return `${(row?.instituteName || '').trim().toLowerCase()}|${(row?.websiteUrl || '').trim().toLowerCase()}`;
+}
+
+function isPendingScrapeFresh(row) {
+  const startedAt = Date.parse(row?.pendingStartedAt || '');
+  if (!Number.isFinite(startedAt)) {
+    return false;
+  }
+
+  return Date.now() - startedAt < PENDING_SCRAPE_TTL_MS;
+}
+
+function reconcilePendingScrapes(pendingRows, persistedRows) {
+  const persistedKeys = new Set(persistedRows.map((row) => getScrapeRowKey(row)));
+
+  return pendingRows.filter((row) => {
+    const rowKey = getScrapeRowKey(row);
+    if (persistedKeys.has(rowKey)) {
+      return false;
+    }
+
+    return isPendingScrapeFresh(row);
+  });
+}
+
+function loadPendingScrapes() {
+  try {
+    const rawValue = window.localStorage.getItem(PENDING_SCRAPES_STORAGE_KEY);
+    if (!rawValue) return [];
+
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? parsed.filter(isPendingScrapeFresh) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePendingScrapes(rows) {
+  try {
+    if (!rows.length) {
+      window.localStorage.removeItem(PENDING_SCRAPES_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(PENDING_SCRAPES_STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // Ignore storage failures and keep runtime behavior intact.
+  }
+}
+
+function addPendingScrape(row) {
+  const nextRows = [row, ...loadPendingScrapes().filter((item) => item.id !== row.id)];
+  savePendingScrapes(nextRows);
+  return nextRows;
+}
+
+function removePendingScrape(pendingId) {
+  const nextRows = loadPendingScrapes().filter((row) => row.id !== pendingId);
+  savePendingScrapes(nextRows);
+  return nextRows;
+}
+
 function renderCell(row, key) {
+  if (key === 'scrapingType') {
+    return getScrapingType(row);
+  }
+
   const value = row[key] || '—';
   if ((key === 'websiteUrl' || key === 'logo') && value !== '—') {
     return (
@@ -85,6 +199,14 @@ function renderCell(row, key) {
   return value;
 }
 
+function getCoursesButtonLabel(row, courseCount) {
+  if (row.isPendingScrape) {
+    return 'Processing';
+  }
+
+  return `Courses (${courseCount})`;
+}
+
 export default function InstituteScrappingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -95,39 +217,165 @@ export default function InstituteScrappingPage() {
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState('');
   const [rows, setRows] = useState([]);
+  const [backgroundScrapes, setBackgroundScrapes] = useState(() => loadPendingScrapes());
+  const [courseCounts, setCourseCounts] = useState({});
   const [instituteNameFilter, setInstituteNameFilter] = useState('');
   const [appliedInstituteNameFilter, setAppliedInstituteNameFilter] = useState('');
   const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Add Institute dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [activeDialogTab, setActiveDialogTab] = useState(0);
   const [manualForm, setManualForm] = useState(() => ({ ...getEmptyManualForm(), autoDataCollection: false }));
   const [manualSaving, setManualSaving] = useState(false);
   const [manualError, setManualError] = useState('');
+  const [createdInstituteId, setCreatedInstituteId] = useState(null);
+  const [showSaveFirst, setShowSaveFirst] = useState(false);
 
-  const loadList = useCallback(async (instituteName = appliedInstituteNameFilter) => {
-    setListLoading(true);
+  // Commission rate (tab 2) state
+  const [commissionForm, setCommissionForm] = useState(() => getEmptyCommissionRateForm());
+  const [commissionCourses, setCommissionCourses] = useState([]);
+  const [commissionSaving, setCommissionSaving] = useState(false);
+  const [commissionError, setCommissionError] = useState('');
+  const [commissionSuccess, setCommissionSuccess] = useState('');
+
+  const loadList = useCallback(async (
+    instituteName = appliedInstituteNameFilter,
+    { showLoader = rows.length === 0 && backgroundScrapes.length === 0 } = {},
+  ) => {
+    if (showLoader) {
+      setListLoading(true);
+    }
     setListError('');
 
     try {
       const data = await fetchInstituteScrappingRows({ instituteName });
       setRows(data);
+      setBackgroundScrapes((prev) => {
+        const next = reconcilePendingScrapes(prev, data);
+        savePendingScrapes(next);
+        return next;
+      });
     } catch (err) {
       setListError(err.message || 'Failed to load institute scrapping records.');
       setRows([]);
     } finally {
       setListLoading(false);
     }
-  }, [appliedInstituteNameFilter]);
+  }, [appliedInstituteNameFilter, backgroundScrapes.length, rows.length]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadList();
   }, [loadList]);
 
+  useEffect(() => {
+    const hasActiveBackgroundScrape = backgroundScrapes.some((row) => row.isPendingScrape);
+    if (!hasActiveBackgroundScrape) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      void loadList(appliedInstituteNameFilter, { showLoader: false });
+    }, 15000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [appliedInstituteNameFilter, backgroundScrapes, loadList]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCourseCounts = async () => {
+      const courseLookupIds = new Set(
+        rows
+          .map((row) => row.scrappingId ?? row.id)
+          .filter((lookupId) => lookupId != null && lookupId !== ''),
+      );
+
+      if (courseLookupIds.size === 0) {
+        if (active) setCourseCounts({});
+        return;
+      }
+
+      try {
+        const courses = await fetchCourseList();
+        const counts = {};
+
+        for (const lookupId of courseLookupIds) {
+          counts[String(lookupId)] = 0;
+        }
+
+        for (const course of courses ?? []) {
+          const lookupId = course.instituteId;
+          const key = String(lookupId ?? '');
+
+          if (!courseLookupIds.has(lookupId) && !courseLookupIds.has(key)) {
+            continue;
+          }
+
+          counts[key] = (counts[key] ?? 0) + 1;
+        }
+
+        if (active) {
+          setCourseCounts(counts);
+        }
+      } catch {
+        if (active) setCourseCounts({});
+      }
+    };
+
+    void loadCourseCounts();
+
+    return () => {
+      active = false;
+    };
+  }, [rows]);
+
+  // Load courses for the commission-rate tab once an institute has been created/saved
+  useEffect(() => {
+    let active = true;
+
+    const loadCourses = async () => {
+      if (!createdInstituteId) {
+        if (active) setCommissionCourses([]);
+        return;
+      }
+
+      try {
+        const data = await fetchCoursesByInstitute(createdInstituteId);
+        if (active) setCommissionCourses(data?.courses ?? []);
+      } catch {
+        if (active) setCommissionCourses([]);
+      }
+    };
+
+    void loadCourses();
+
+    return () => {
+      active = false;
+    };
+  }, [createdInstituteId]);
+
+  const displayRows = useMemo(() => {
+    const filterValue = appliedInstituteNameFilter.trim().toLowerCase();
+    const persistedKeys = new Set(
+      rows.map((row) => `${(row.instituteName || '').trim().toLowerCase()}|${(row.websiteUrl || '').trim().toLowerCase()}`),
+    );
+    const filteredBackgroundRows = backgroundScrapes.filter((row) => {
+      const rowKey = `${(row.instituteName || '').trim().toLowerCase()}|${(row.websiteUrl || '').trim().toLowerCase()}`;
+      if (persistedKeys.has(rowKey)) return false;
+      if (!filterValue) return true;
+      return (row.instituteName || '').toLowerCase().includes(filterValue);
+    });
+
+    return [...filteredBackgroundRows, ...rows];
+  }, [appliedInstituteNameFilter, backgroundScrapes, rows]);
+
   const paginatedRows = useMemo(
-    () => rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [rows, page, rowsPerPage],
+    () => displayRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [displayRows, page, rowsPerPage],
   );
 
   const handleInstituteNameFilterChange = (event) => {
@@ -163,13 +411,36 @@ export default function InstituteScrappingPage() {
   const openAddDialog = () => {
     setManualForm({ ...getEmptyManualForm(), autoDataCollection: false });
     setManualError('');
+    setActiveDialogTab(0);
+    setCreatedInstituteId(null);
+    setShowSaveFirst(false);
+    setCommissionForm(getEmptyCommissionRateForm());
+    setCommissionCourses([]);
+    setCommissionError('');
+    setCommissionSuccess('');
     setAddDialogOpen(true);
   };
 
   const closeAddDialog = () => {
-    if (manualSaving) return;
+    if (manualSaving || commissionSaving) return;
     setAddDialogOpen(false);
     setManualError('');
+    setActiveDialogTab(0);
+    setCreatedInstituteId(null);
+    setShowSaveFirst(false);
+    setCommissionForm(getEmptyCommissionRateForm());
+    setCommissionCourses([]);
+    setCommissionError('');
+    setCommissionSuccess('');
+  };
+
+  const handleDialogTabChange = (_event, value) => {
+    if (value === 1 && !createdInstituteId) {
+      setShowSaveFirst(true);
+      return;
+    }
+    setShowSaveFirst(false);
+    setActiveDialogTab(value);
   };
 
   const updateManualField = (field, value) => {
@@ -205,34 +476,58 @@ export default function InstituteScrappingPage() {
 
     try {
       if (manualForm.autoDataCollection) {
-        const response = await runInstituteScrapping({
+        const scrapeRequest = {
           instituteName: manualForm.instituteName,
           websiteUrl: manualForm.websiteUrl,
-        });
+        };
+        const pendingId = `pending-${Date.now()}`;
+        const pendingRow = buildPendingScrapeRow(scrapeRequest, pendingId);
 
+        setBackgroundScrapes(addPendingScrape(pendingRow));
         setAddDialogOpen(false);
         setManualForm({ ...getEmptyManualForm(), autoDataCollection: false });
+        setManualSaving(false);
+        setSuccess('Scraping started in the background. You can track its status in the records list.');
 
-        if (response.usedAiFallback) {
-          setWarning(
-            response.message ||
-              'Website blocked scraping. ChatGPT generated data from institute name and URL — please verify before use.',
-          );
-        } else if ((response.recordsInserted ?? 0) === 0) {
-          setWarning(
-            response.message || 'Scraping finished but no institute/course records were saved. Check the website URL or API logs.',
-          );
-        } else {
-          setSuccess(
-            response.message ||
-              `Institute scraped successfully. ${response.recordsInserted} course(s) saved to Courses.`,
-          );
-        }
+        void (async () => {
+          try {
+            const response = await runInstituteScrapping(scrapeRequest);
+            setBackgroundScrapes(removePendingScrape(pendingId));
+            await loadList();
+
+            if (response.usedAiFallback) {
+              setWarning(
+                response.message ||
+                  'Website blocked scraping. ChatGPT generated data from institute name and URL — please verify before use.',
+              );
+            } else if ((response.recordsInserted ?? 0) === 0) {
+              setWarning(
+                response.message || 'Scraping finished but no institute/course records were saved. Check the website URL or API logs.',
+              );
+            } else {
+              setSuccess(
+                response.message ||
+                  `Institute scraped successfully. ${response.recordsInserted} course(s) saved to Courses.`,
+              );
+            }
+          } catch (err) {
+            setBackgroundScrapes(removePendingScrape(pendingId));
+            setListError(err.message || 'Failed to save institute.');
+          }
+        })();
+
+        return;
       } else {
-        await createInstituteScrappingManual(manualForm);
-        setAddDialogOpen(false);
-        setManualForm({ ...getEmptyManualForm(), autoDataCollection: false });
-        setSuccess('Institute added successfully. Add its courses from the Courses page.');
+        const created = await createInstituteScrappingManual(manualForm);
+        const newInstituteId = created?.instituteId ?? created?.InstituteId ?? created?.id ?? null;
+        setCreatedInstituteId(newInstituteId);
+        setSuccess('Institute added successfully. You can add its commission rate below, or add courses later from the Courses page.');
+
+        if (newInstituteId) {
+          setActiveDialogTab(1);
+        } else {
+          setAddDialogOpen(false);
+        }
       }
 
       setPage(0);
@@ -244,7 +539,37 @@ export default function InstituteScrappingPage() {
     }
   };
 
+  const updateCommissionField = (field, value) => {
+    setCommissionForm((prev) => ({ ...prev, [field]: value }));
+    setCommissionError('');
+  };
+
+  const handleAddCommission = async () => {
+    if (!commissionForm.rateType || !commissionForm.rate || !commissionForm.effectiveFrom) {
+      setCommissionError('Rate type, rate and effective from are required.');
+      return;
+    }
+
+    setCommissionSaving(true);
+    setCommissionError('');
+    setCommissionSuccess('');
+
+    try {
+      await createInstituteCommissionRate({
+        ...commissionForm,
+        instituteId: createdInstituteId,
+      });
+      setCommissionSuccess('Commission rate added successfully.');
+      setCommissionForm(getEmptyCommissionRateForm());
+    } catch (err) {
+      setCommissionError(err.message || 'Failed to save commission rate.');
+    } finally {
+      setCommissionSaving(false);
+    }
+  };
+
   const handleRowClick = (row) => {
+    if (row?.isPendingScrape) return;
     if (row?.id) {
       navigate(`${INSTITUTE_SCRAPPING_BASE_PATH}/${row.id}`);
     }
@@ -278,28 +603,6 @@ export default function InstituteScrappingPage() {
 
   return (
     <Box>
-      {/* <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>
-        Institutes Scrapping
-      </Typography> */}
-
-      <Backdrop
-        open={manualSaving && manualForm.autoDataCollection}
-        sx={{
-          color: '#fff',
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          flexDirection: 'column',
-          gap: 2,
-        }}
-      >
-        <CircularProgress color="inherit" size={56} />
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Scraping website…
-        </Typography>
-        <Typography variant="body2" sx={{ opacity: 0.9 }}>
-          Discovering program pages — usually 3–10 minutes. Do not close this tab.
-        </Typography>
-      </Backdrop>
-
       {warning && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {warning}
@@ -331,7 +634,12 @@ export default function InstituteScrappingPage() {
             width: '100%',
           }}
         >
-          <>
+          {listLoading && displayRows.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+              <CircularProgress size={36} sx={{ color: 'var(--primary)' }} />
+            </Box>
+          ) : (
+            <>
               <Box
                 sx={{
                   display: 'flex',
@@ -423,7 +731,7 @@ export default function InstituteScrappingPage() {
                     { id: 'actions', label: 'Actions', flex: 1.1, skeletonWidth: 110, skeletonHeight: 28 },
                   ]}
                 />
-              ) : rows.length === 0 ? (
+              ) : displayRows.length === 0 ? (
                 <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
                   <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
                     {appliedInstituteNameFilter
@@ -432,138 +740,275 @@ export default function InstituteScrappingPage() {
                   </Typography>
                 </Box>
               ) : (
-              <>
-              <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                <Table size="small" sx={{ minWidth: 1100 }}>
-                  <TableHead>
-                    <TableRow sx={resourceTableHeadRowSx}>
-                      <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>S No</TableCell>
-                      {LIST_COLUMNS.map((column) => (
-                        <TableCell key={column.key} sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>
-                          {column.label}
-                        </TableCell>
-                      ))}
-                      <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {paginatedRows.map((row, index) => (
-                      <TableRow
-                        key={row.id || `${page}-${index}`}
-                        hover
-                        onClick={() => handleRowClick(row)}
-                        sx={{ cursor: 'pointer', ...resourceTableBodyRowSx }}
-                      >
-                        <TableCell sx={resourceTableBodyCellSx}>{page * rowsPerPage + index + 1}</TableCell>
-                        {LIST_COLUMNS.map((column) => (
-                          <TableCell
-                            key={column.key}
-                            sx={{ ...resourceTableBodyCellSx, maxWidth: 220, whiteSpace: 'normal' }}
-                          >
-                            {renderCell(row, column.key)}
-                          </TableCell>
-                        ))}
-                        <TableCell sx={resourceTableBodyCellSx}>
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              startIcon={<SchoolIcon />}
-                              onClick={(event) => handleViewCourses(event, row)}
-                              sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                <>
+                  <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+                    <Table size="small" sx={{ minWidth: 1100 }}>
+                      <TableHead>
+                        <TableRow sx={resourceTableHeadRowSx}>
+                          <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>S No</TableCell>
+                          {LIST_COLUMNS.map((column) => (
+                            <TableCell key={column.key} sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>
+                              {column.label}
+                            </TableCell>
+                          ))}
+                          <TableCell sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}>Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {paginatedRows.map((row, index) => {
+                          const courseLookupId = row.scrappingId ?? row.id;
+                          const courseCount = courseCounts[String(courseLookupId)] ?? 0;
+
+                          return (
+                            <TableRow
+                              key={row.id || `${page}-${index}`}
+                              hover
+                              onClick={() => handleRowClick(row)}
+                              sx={{ cursor: 'pointer', ...resourceTableBodyRowSx }}
                             >
-                              View Courses
-                            </Button>
-
-                            {isAccounting && (
-                              <>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<PeopleIcon />}
-                                  onClick={handleViewStudents}
-                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                              <TableCell sx={resourceTableBodyCellSx}>{page * rowsPerPage + index + 1}</TableCell>
+                              {LIST_COLUMNS.map((column) => (
+                                <TableCell
+                                  key={column.key}
+                                  sx={{ ...resourceTableBodyCellSx, maxWidth: 220, whiteSpace: 'normal' }}
                                 >
-                                  View Student
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<ReceiptIcon />}
-                                  onClick={handleViewInvoices}
-                                  sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
-                                >
-                                  View Invoice
-                                </Button>
-                              </>
-                            )}
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                                  {renderCell(row, column.key)}
+                                </TableCell>
+                              ))}
+                              <TableCell sx={resourceTableBodyCellSx}>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<SchoolIcon />}
+                                    onClick={(event) => handleViewCourses(event, row)}
+                                    disabled={row.isPendingScrape}
+                                    sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                                  >
+                                    {getCoursesButtonLabel(row, courseCount)}
+                                  </Button>
 
-              <TablePagination
-                component="div"
-                count={rows.length}
-                page={page}
-                onPageChange={handleChangePage}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                rowsPerPageOptions={[5, 10, 25, 50]}
-                labelRowsPerPage="Rows per page:"
-              />
-              </>
+                                  {isAccounting && (
+                                    <>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<PeopleIcon />}
+                                        onClick={handleViewStudents}
+                                        sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                                      >
+                                        View Student
+                                      </Button>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<ReceiptIcon />}
+                                        onClick={handleViewInvoices}
+                                        sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                                      >
+                                        View Invoice
+                                      </Button>
+                                    </>
+                                  )}
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <TablePagination
+                    component="div"
+                    count={displayRows.length}
+                    page={page}
+                    onPageChange={handleChangePage}
+                    rowsPerPage={rowsPerPage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                    labelRowsPerPage="Rows per page:"
+                  />
+                </>
               )}
             </>
+          )}
         </Paper>
       </Box>
 
       <Dialog open={addDialogOpen} onClose={closeAddDialog} fullWidth maxWidth="md">
-        <DialogTitle>Add Institute</DialogTitle>
+        <DialogTitle sx={{ pb: 0 }}>Add Institute</DialogTitle>
+
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
+          <Tabs value={activeDialogTab} onChange={handleDialogTabChange}>
+            <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            <Tab label="Commission rate" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          </Tabs>
+        </Box>
+
         <DialogContent dividers>
-          {manualError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {manualError}
-            </Alert>
+          {activeDialogTab === 0 && (
+            <>
+              {manualError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {manualError}
+                </Alert>
+              )}
+
+              {showSaveFirst && !createdInstituteId && (
+                <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setShowSaveFirst(false)}>
+                  Please save institute details first before adding a commission rate.
+                </Alert>
+              )}
+
+              {createdInstituteId && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  Institute saved. Switch to the "Commission rate" tab to add a rate, or close this dialog.
+                </Alert>
+              )}
+
+              <FormControlLabel
+                sx={{ mb: 1.5 }}
+                control={
+                  <Checkbox
+                    checked={!!manualForm.autoDataCollection}
+                    onChange={handleToggleAutoDataCollection}
+                    disabled={manualSaving || !!createdInstituteId}
+                  />
+                }
+                label="Auto Data Collection"
+              />
+
+              <FormSectionsLayout
+                sections={activeSections}
+                form={manualForm}
+                onChange={updateManualField}
+                disabled={manualSaving || !!createdInstituteId}
+                requiredFields={activeRequiredFields}
+                fieldDefsOverride={{ campus: { type: 'text' } }}
+              />
+            </>
           )}
 
-          <FormControlLabel
-            sx={{ mb: 1.5 }}
-            control={
-              <Checkbox
-                checked={!!manualForm.autoDataCollection}
-                onChange={handleToggleAutoDataCollection}
-                disabled={manualSaving}
-              />
-            }
-            label="Auto Data Collection"
-          />
+          {activeDialogTab === 1 && (
+            <>
+              {commissionError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {commissionError}
+                </Alert>
+              )}
+              {commissionSuccess && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  {commissionSuccess}
+                </Alert>
+              )}
 
-          <FormSectionsLayout
-            sections={activeSections}
-            form={manualForm}
-            onChange={updateManualField}
-            disabled={manualSaving}
-            requiredFields={activeRequiredFields}
-          />
+              <Stack spacing={1.5} sx={{ mt: 0.5 }}>
+                <TextField
+                  select
+                  label="Course"
+                  value={commissionForm.courseId}
+                  fullWidth
+                  disabled={commissionSaving}
+                  onChange={(e) => updateCommissionField('courseId', e.target.value)}
+                >
+                  <MenuItem value="">Select Course</MenuItem>
+                  {commissionCourses.map((c) => (
+                    <MenuItem key={c.courseId} value={c.courseId}>
+                      {c.courseName}
+                    </MenuItem>
+                  ))}
+                  {commissionCourses.length === 0 && (
+                    <MenuItem value="" disabled>
+                      No courses available yet
+                    </MenuItem>
+                  )}
+                </TextField>
+
+                <TextField
+                  select
+                  label="Rate Type"
+                  value={commissionForm.rateType}
+                  fullWidth
+                  required
+                  disabled={commissionSaving}
+                  onChange={(e) => updateCommissionField('rateType', e.target.value)}
+                >
+                  <MenuItem value="Fixed">Fixed</MenuItem>
+                  <MenuItem value="Percentage">Percentage</MenuItem>
+                </TextField>
+
+                <TextField
+                  label="Rate"
+                  type="number"
+                  value={commissionForm.rate}
+                  fullWidth
+                  required
+                  disabled={commissionSaving}
+                  onChange={(e) => updateCommissionField('rate', e.target.value)}
+                />
+
+                <TextField
+                  label="Effective From"
+                  type="date"
+                  value={commissionForm.effectiveFrom}
+                  fullWidth
+                  required
+                  disabled={commissionSaving}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  onChange={(e) => updateCommissionField('effectiveFrom', e.target.value)}
+                />
+
+                <TextField
+                  label="Effective To"
+                  type="date"
+                  value={commissionForm.effectiveTo}
+                  fullWidth
+                  disabled={commissionSaving}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  onChange={(e) => updateCommissionField('effectiveTo', e.target.value)}
+                />
+              </Stack>
+            </>
+          )}
         </DialogContent>
+
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={closeAddDialog} disabled={manualSaving} sx={{ textTransform: 'none' }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleManualSave}
-            disabled={!isManualFormValid || manualSaving}
-            sx={{ textTransform: 'none' }}
-          >
-            {manualSaving
-              ? (manualForm.autoDataCollection ? 'Scraping…' : 'Saving…')
-              : 'Save'}
-          </Button>
+          {activeDialogTab === 0 && (
+            <>
+              <Button onClick={closeAddDialog} disabled={manualSaving} sx={{ textTransform: 'none' }}>
+                {createdInstituteId ? 'Done' : 'Cancel'}
+              </Button>
+              {!createdInstituteId && (
+                <Button
+                  variant="contained"
+                  onClick={handleManualSave}
+                  disabled={!isManualFormValid || manualSaving}
+                  sx={{ textTransform: 'none' }}
+                >
+                  {manualSaving
+                    ? (manualForm.autoDataCollection ? 'Scraping…' : 'Saving…')
+                    : 'Save'}
+                </Button>
+              )}
+            </>
+          )}
+
+          {activeDialogTab === 1 && (
+            <>
+              <Button onClick={closeAddDialog} disabled={commissionSaving} sx={{ textTransform: 'none' }}>
+                Done
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleAddCommission}
+                disabled={commissionSaving}
+                sx={{ textTransform: 'none' }}
+              >
+                {commissionSaving ? 'Saving…' : 'Add Commission Rate'}
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

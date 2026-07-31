@@ -32,6 +32,7 @@ export default function InstituteCommissionPage() {
   const [rates, setRates] = useState([]);
   const [institutes, setInstitutes] = useState([]);
   const [allCourses, setAllCourses] = useState([]);
+  const [selectedInstituteCourses, setSelectedInstituteCourses] = useState([]);
   const [dialogCourses, setDialogCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -121,6 +122,30 @@ export default function InstituteCommissionPage() {
       }),
     ).then((results) => setAllCourses(results.flat()));
   }, [institutes]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadSelectedInstituteCourses = async () => {
+      if (!selectedInstitute) {
+        if (active) setSelectedInstituteCourses([]);
+        return;
+      }
+
+      try {
+        const data = await fetchCoursesByInstitute(selectedInstitute);
+        if (active) setSelectedInstituteCourses(data?.courses ?? []);
+      } catch {
+        if (active) setSelectedInstituteCourses([]);
+      }
+    };
+
+    void loadSelectedInstituteCourses();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedInstitute]);
 
   useEffect(() => {
     let active = true;
@@ -450,11 +475,12 @@ export default function InstituteCommissionPage() {
                 <TextField
                   select
                   label="Course" size="small" value={selectedCourse}
+                  disabled={!selectedInstitute}
                   onChange={(e) => setSelectedCourse(e.target.value)}
                   sx={{ minWidth: 250 }}
                 >
                   <MenuItem value="">All Courses</MenuItem>
-                  {allCourses.filter( (c) => !selectedInstitute || String(c.instituteId) === String(selectedInstitute) )
+                  {selectedInstituteCourses
                     .map((c) => (<MenuItem key={c.courseId} value={c.courseId}> {c.courseName} </MenuItem>))}
                 </TextField>
             </div>

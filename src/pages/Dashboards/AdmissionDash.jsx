@@ -27,6 +27,8 @@ export default function AdmissionDash() {
     active: 0,
     pending: 0,
     loggedInToday: 0,
+    idleOneMonth: 0,
+    neverLoggedIn: 0,
   });
 
   useEffect(() => {
@@ -47,6 +49,8 @@ export default function AdmissionDash() {
       try {
         const studentList = await fetchAllStudents();
         const vendorList = await fetchVendorRows();
+        
+        console.log('Fetched vendorList:', vendorList);
 
         if (Array.isArray(studentList)) {
           setStudentStats({
@@ -75,13 +79,39 @@ export default function AdmissionDash() {
             );
           }).length;
 
+          const now = new Date();
+
+          // Idle = logged in during current calendar month/year (local time)
+          const idleOneMonth = vendorList.filter((v) => {
+            if (!v.lastLogin) return false;
+            const parsed = Date.parse(v.lastLogin);
+            if (Number.isNaN(parsed)) return false;
+            const d = new Date(parsed);
+            return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+          }).length;
+          // Everyone else (no lastLogin or older than current month) is treated as "never logged in"
+          const neverLoggedIn = vendorList.length - idleOneMonth;
+
           setVendorStats({
             total: vendorList.length,
             newThisMonth: getNewThisMonthCount(vendorList),
             active,
             pending,
             loggedInToday,
+            idleOneMonth,
+            neverLoggedIn,
           });
+          // debug: verify vendorStats values after setting
+          try {
+            console.log('vendorStats set:', {
+              total: vendorList.length,
+              idleOneMonth,
+              neverLoggedIn,
+              loggedInToday,
+              active,
+              pending,
+            });
+          } catch (e) {}
         }
       } catch (error) {
         console.error('Dashboard Error:', error);
@@ -136,7 +166,7 @@ export default function AdmissionDash() {
           value: vendorStats.active.toLocaleString(),
         },
         {
-          label: 'Pending',
+          label: 'Pending Status',
           value: vendorStats.pending.toLocaleString(),
         },
       ],
@@ -149,16 +179,13 @@ export default function AdmissionDash() {
       color: 'var(--teal)',
       footer: [
         {
-          label: 'Logged in today',
+          label: 'Active today',
           value: vendorStats.loggedInToday.toLocaleString(),
         },
         {
-          label: 'Active total',
-          value: vendorStats.active.toLocaleString(),
-        },
-        {
-          label: 'Pending',
-          value: vendorStats.pending.toLocaleString(),
+          label: 'Idle',
+          value: vendorStats.neverLoggedIn.toLocaleString(),
+          color: 'var(--error, #d32f2f)',
         },
       ],
     },
@@ -194,35 +221,6 @@ export default function AdmissionDash() {
           <Typography variant="body2" sx={{ color: 'var(--muted)', mt: 0.5, maxWidth: 560 }}>
             Admissions overview across students and vendors
           </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => navigate('/status/students')}
-            sx={{
-              textTransform: 'none',
-              borderRadius: 2,
-              borderColor: 'var(--card-border)',
-              color: 'var(--text)',
-            }}
-          >
-            View students
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/vendors')}
-            sx={{
-              textTransform: 'none',
-              borderRadius: 2,
-              bgcolor: 'var(--primary)',
-              '&:hover': { bgcolor: 'var(--primary-dark)' },
-            }}
-          >
-            Manage vendors
-          </Button>
         </Box>
       </Box>
 
