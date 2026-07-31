@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import FormSection, { FormGridItem } from '../forms/FormSection';
-import { compactFieldGrid, formFieldSx } from '../forms/formStyles';
+import { compactFieldGrid, formFieldSx, selectMenuProps } from '../forms/formStyles';
 
 const fieldProps = { size: 'small', fullWidth: true, sx: formFieldSx };
 
@@ -52,6 +52,7 @@ function MemberSelectField({ name, label, value, onChange, error, required, opti
           value={value ?? ''}
           onChange={onChange}
           displayEmpty
+          MenuProps={selectMenuProps}
           renderValue={(selected) => {
             if (!selected) {
               return (
@@ -64,7 +65,7 @@ function MemberSelectField({ name, label, value, onChange, error, required, opti
           }}
         >
           {options.map((option) => (
-            <MenuItem key={option.value} value={String(option.value)}>
+            <MenuItem key={option.value} value={String(option.value)} title={option.label}>
               {option.label}
             </MenuItem>
           ))}
