@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
-import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography ,Radio,RadioGroup,} from '@mui/material';
+import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography ,Radio,RadioGroup,InputAdornment } from '@mui/material';
 import { Fragment } from 'react';
 import { FIELD_DEFS } from '../../config/resourceConfig';
 import { FormGridItem } from './FormSection';
@@ -82,7 +82,9 @@ export default function ResourceFormFields({
   const textareaRows = stretch ? 5 : 3;
 
   const renderField = (fieldName) => {
+  
     const def = FIELD_DEFS[fieldName];
+    
     if (!def) return null;
     const isRequired = Boolean(def.required) || requiredFields.includes(fieldName);
     const isDate = def.type === 'date';
@@ -320,25 +322,39 @@ export default function ResourceFormFields({
    }
     return (
       <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
-        <TextField
-          {...fieldProps}
-          {...(isDate ? dateFieldProps : {})}
-          label={def.label}
-          required={isRequired}
-          type={def.type === 'textarea' ? undefined : def.type}
-          multiline={def.type === 'textarea'}
-          minRows={def.type === 'textarea' ? textareaRows : undefined}
-          value={form[fieldName] ?? ''}
-          onChange={(e) => {
-          const value = e.target.value;
-          if (fieldName === "FolderNo" && !/^\d*$/.test(value)) {
-            return;
-          }
-          handleChange(fieldName)(e);
-        }}
-        helperText={fieldName === "FolderNo" ? "Only integer values are allowed." : undefined}
-          disabled={isFieldDisabled}
-        />
+<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+  <TextField
+    {...fieldProps}
+    label={def.label}
+    value={form[fieldName] ?? ""}
+    InputProps={{
+      readOnly: true,
+    }}
+    sx={{ flex: 1 }}
+  />
+
+  {def.showViewButton && form[`${fieldName}Url`] && (
+   <Button
+  variant="outlined"
+  size="small"
+  onClick={() => {
+    const fileUrl = form[`${fieldName}Url`];
+
+    const relativePath = fileUrl
+      .replace(/\\/g, "/")
+      .replace(/^.*\/uploads\//i, "uploads/");
+
+    const url = `${import.meta.env.VITE_API_BASE_URL}/${relativePath}`;
+
+    console.log("Opening URL:", url);
+
+    window.open(url, "_blank");
+  }}
+>
+  View
+</Button>
+  )}
+</Box>
       </FormGridItem>
     );
   };

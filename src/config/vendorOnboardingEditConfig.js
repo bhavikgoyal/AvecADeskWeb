@@ -86,11 +86,11 @@ export const VENDOR_ONBOARDING_FIELD_DEFS = {
   swiftCode: { label: 'SWIFT code', type: 'text', grid: grid.half },
   bankCountry: { label: 'Bank country', type: 'text', grid: grid.half },
 
-  companyRegistrationCertificate: { label: 'Company registration certificate (uploaded)', type: 'text', grid: grid.half, readOnly: true },
-  directorIdPassport: { label: 'Director ID / passport (uploaded)', type: 'text', grid: grid.half, readOnly: true },
-  officePhotos: { label: 'Office photos (uploaded)', type: 'text', grid: grid.half, readOnly: true },
-  businessProfileDoc: { label: 'Business profile / brochure (uploaded)', type: 'text', grid: grid.half, readOnly: true },
-  existingPartnerAgreements: { label: 'Existing partner agreements (uploaded)', type: 'text', grid: grid.half, readOnly: true },
+  companyRegistrationCertificate: { label: 'Company registration certificate (uploaded)', type: 'text', grid: grid.half, readOnly: true,showViewButton: true, },
+  directorIdPassport: { label: 'Director ID / passport (uploaded)', type: 'text', grid: grid.half, readOnly: true ,showViewButton: true,},
+  officePhotos: { label: 'Office photos (uploaded)', type: 'text', grid: grid.half, readOnly: true,showViewButton: true, },
+  businessProfileDoc: { label: 'Business profile / brochure (uploaded)', type: 'text', grid: grid.half, readOnly: true,showViewButton: true, },
+  existingPartnerAgreements: { label: 'Existing partner agreements (uploaded)', type: 'text', grid: grid.half, readOnly: true,showViewButton: true, },
 
   authorizedSignatoryName: { label: 'Authorized signatory name', type: 'text', grid: grid.half },
   signature: { label: 'Signature', type: 'text', grid: grid.half },

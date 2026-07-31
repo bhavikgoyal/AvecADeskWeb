@@ -84,11 +84,20 @@ export function normalizeOnboardingData(data) {
     swiftCode: pick(data, 'swiftCode', 'SwiftCode'),
     bankCountry: pick(data, 'bankCountry', 'BankCountry'),
 
-    companyRegistrationCertificate: docs.companyRegistrationCertificate ?? '',
-    directorIdPassport: docs.directorIdPassport ?? '',
-    officePhotos: docs.officePhotos ?? '',
-    businessProfileDoc: docs.businessProfile ?? '',
-    existingPartnerAgreements: docs.existingPartnerAgreements ?? '',
+    companyRegistrationCertificate: docs.companyRegistrationCertificate?.fileName ?? '',
+    companyRegistrationCertificateUrl: docs.companyRegistrationCertificate?.fileUrl ?? '',
+
+    directorIdPassport: docs.directorIdPassport?.fileName ?? '',
+    directorIdPassportUrl: docs.directorIdPassport?.fileUrl ?? '',
+
+    officePhotos: docs.officePhotos?.fileName ?? '',
+    officePhotosUrl: docs.officePhotos?.fileUrl ?? '',
+
+    businessProfileDoc: docs.businessProfile?.fileName ?? '',
+    businessProfileDocUrl: docs.businessProfile?.fileUrl ?? '',
+
+    existingPartnerAgreements: docs.existingPartnerAgreements?.fileName ?? '',
+    existingPartnerAgreementsUrl: docs.existingPartnerAgreements?.fileUrl ?? '',
 
     authorizedSignatoryName: pick(data, 'authorizedSignatoryName', 'AuthorizedSignatoryName'),
     signature: pick(data, 'signature', 'Signature'),
@@ -173,6 +182,7 @@ export function buildOnboardingSavePayload(form) {
 export async function fetchVendorOnboarding(vendorId) {
   try {
     const { data } = await axiosClient.get(`/api/vendor-onboarding/${vendorId}`);
+  console.log('fetchVendorOnboarding data', data);
     return normalizeOnboardingData(data);
   } catch (err) {
     if (err.message?.toLowerCase().includes('not found')) {

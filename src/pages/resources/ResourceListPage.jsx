@@ -27,6 +27,7 @@ import { getResourceConfig } from '../../config/resourceConfig';
 import { deleteRecord, loadRecords } from '../../utils/resourceStorage';
 import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
 import { deleteCourse, fetchCourseList } from '../../api/coursesApi';
+import connection from '../../services/signalR';
 
 const INSTITUTE_SCRAPPING_BASE_PATH = '/institutes-scrapping';
 
@@ -280,7 +281,43 @@ export default function ResourceListPage({ basePath }) {
       if (usesApi) setLoading(false);
     }
   }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isCourses, isInvoices, pageStats, usesApi]);
+useEffect(() => {
+  if (!isVendors) return;
 
+  const startConnection = async () => {
+    try {
+      if (connection.state === "Disconnected") {
+        await connection.start();
+      }
+
+      connection.off("VendorStudentCreated");
+
+      connection.on("VendorStudentCreated", (data) => {
+        setRows((prev) =>
+          prev.map((row) =>
+            Number(row.vendorId) === Number(data.vendorId)
+              ? {
+                  ...row,
+                  todayRegisterStudent:
+                    (row.todayRegisterStudent || 0) + 1,
+                  studentCount:
+                    (row.studentCount || 0) + 1,
+                }
+              : row
+          )
+        );
+      });
+    } catch (err) {
+      console.error("SignalR error:", err);
+    }
+  };
+
+  startConnection();
+
+  return () => {
+    connection.off("VendorStudentCreated");
+  };
+}, [isVendors]);
   useEffect(() => {
     let cancelled = false;
 
