@@ -142,19 +142,82 @@ export async function generateMonthlyInvoice({ year, month, instituteId, campus 
   return data;
 }
 
+// export async function downloadInvoiceDocument(invoiceId) {
+//   const { data, headers } = await axiosClient.get(`/api/invoices/${invoiceId}/pdf`, {
+//     responseType: 'blob',
+//   });
+//   const contentDisposition = headers['content-disposition'] || '';
+//   const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+//   const fileName = match?.[1]?.replace(/['"]/g, '') || `invoice-${invoiceId}.txt`;
+//   const url = window.URL.createObjectURL(new Blob([data], { type: 'text/plain' }));
+//   const link = document.createElement('a');
+//   link.href = url;
+//   link.download = fileName.endsWith('.txt') ? fileName : `${fileName.replace(/\.(pdf|doc|docx)$/i, '')}.txt`;
+//   document.body.appendChild(link);
+//   link.click();
+//   link.remove();
+//   window.URL.revokeObjectURL(url);
+// }
+
 export async function downloadInvoiceDocument(invoiceId) {
   const { data, headers } = await axiosClient.get(`/api/invoices/${invoiceId}/pdf`, {
     responseType: 'blob',
   });
   const contentDisposition = headers['content-disposition'] || '';
   const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
-  const fileName = match?.[1]?.replace(/['"]/g, '') || `invoice-${invoiceId}.txt`;
-  const url = window.URL.createObjectURL(new Blob([data], { type: 'text/plain' }));
+  const fileName = match?.[1]?.replace(/['"]/g, '') || `invoice-${invoiceId}.pdf`;
+  const blob = new Blob([data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = fileName.endsWith('.txt') ? fileName : `${fileName.replace(/\.(pdf|doc|docx)$/i, '')}.txt`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
+}
+
+export async function fetchInvoiceById(invoiceId) {
+  const { data } = await axiosClient.get(`/api/invoices/${invoiceId}`);
+  return mapInvoiceRow(data);
+}
+
+export async function fetchInvoiceLineItems(invoiceId) {
+  const { data } = await axiosClient.get(`/api/invoices/${invoiceId}/line-items`);
+  const list = Array.isArray(data) ? data : [];
+  return list.map((item) => ({
+    id: String(item.lineItemId ?? item.LineItemId),
+    studentId: item.studentId ?? item.StudentId,
+    studentName: item.studentName ?? item.StudentName ?? '—',
+    description: item.description ?? item.Description ?? '',
+    amount: formatCurrencyAUD(item.amount ?? item.Amount),
+  }));
+}
+
+function formatCurrencyAUD(value) {
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return '—';
+  return amount.toLocaleString('en-AU', { style: 'currency', currency: 'AUD', minimumFractionDigits: 2 });
+}
+
+export async function approveInvoice(invoiceId) {
+  const { data } = await axiosClient.put(`/api/invoices/${invoiceId}/approve`);
+  return data;
+}
+
+export async function rejectInvoice(invoiceId, rejectionReason) {
+  const { data } = await axiosClient.put(`/api/invoices/${invoiceId}/reject`, { rejectionReason });
+  return data;
+}
+
+export async function submitInvoice(invoiceId) {
+  const { data } = await axiosClient.put(`/api/invoices/${invoiceId}/submit`);
+  return data;
+}
+
+export async function downloadInvoiceDocuments(invoiceIds = []) {
+  for (const id of invoiceIds) {
+    // eslint-disable-next-line no-await-in-loop
+    await downloadInvoiceDocument(id);
+  }
 }

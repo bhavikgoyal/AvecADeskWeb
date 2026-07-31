@@ -20,6 +20,7 @@ export default function PageShell({
   searchPlaceholder = 'Search...',
   showCharts = true,
   headerExtra = null,
+   headerActionsAfterAdd = null,
   loading = false,
   onAdd,
   onRowClick,
@@ -146,6 +147,7 @@ useEffect(() => {
               height: 40,  px: 3, borderRadius: 2, fontWeight: 600,flexShrink: 0, }}>
             {actionLabel}
           </Button>
+          {headerActionsAfterAdd}
         </Stack>
           {rows.length > 0 && !loading && (
             <Typography sx={{ fontSize: '0.72rem', color: 'var(--muted)', mt: 1, fontWeight: 600 }}>
