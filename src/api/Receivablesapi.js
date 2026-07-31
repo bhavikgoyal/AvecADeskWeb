@@ -38,3 +38,13 @@ export async function fetchStudentPaymentInstallments(filters = {}) {
   const { data } = await axiosClient.get('/api/receivables/student-payment-installments', { params: buildParams(filters) });
   return data;
 }
+
+export async function fetchReceivedInvoices() {
+  const { data } = await axiosClient.get('/api/receivables/received-invoices');
+  return data;
+}
+
+export async function fetchInvoiceLineItems(invoiceId) {
+  const { data } = await axiosClient.get(`/api/invoices/${invoiceId}/line-items`);
+  return data;
+}
