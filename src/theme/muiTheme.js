@@ -1,4 +1,5 @@
 import { createTheme } from '@mui/material/styles';
+import { selectMenuProps } from '../components/forms/formStyles';
 
 export const FONT_FAMILY =
   "'Plus Jakarta Sans', Inter, Roboto, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
@@ -22,6 +23,11 @@ const muiTheme = createTheme({
         body: {
           fontFamily: FONT_FAMILY,
         },
+      },
+    },
+    MuiSelect: {
+      defaultProps: {
+        MenuProps: selectMenuProps,
       },
     },
     MuiTableCell: {

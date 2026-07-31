@@ -125,6 +125,26 @@ body {
   min-width: 0;
 }
 
+/* Compact Select menus: ~5 rows, width matches the input field */
+.select-menu-paper.MuiPaper-root {
+  max-height: 196px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.select-menu-paper .MuiMenuItem-root {
+  min-height: 36px !important;
+  max-height: 36px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 36px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  font-size: 0.875rem;
+}
+
 .app-card {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
