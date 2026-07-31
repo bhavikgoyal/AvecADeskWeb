@@ -11,6 +11,8 @@ import {
 } from '../../components/forms';
 import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
 import { VENDOR_EDIT_SECTIONS } from '../../config/vendorOnboardingEditConfig';
+import DownloadIcon from "@mui/icons-material/Download";
+import { exportVendorDeclarationPdf } from '../../utils/vendorDeclarationPdf';
 
 export default function VendorDetailPage({ basePath }) {
   const navigate = useNavigate();
@@ -25,32 +27,32 @@ export default function VendorDetailPage({ basePath }) {
   const submittingRef = useRef(false);
 
   useEffect(() => {
-  let active = true;
+    let active = true;
 
-  (async () => {
-    try {
-      const { form: loadedForm } = await fetchVendorForm(id);
+    (async () => {
+      try {
+        const { form: loadedForm } = await fetchVendorForm(id);
 
-      if (active) {
-        setForm(loadedForm);
+        if (active) {
+          setForm(loadedForm);
+        }
+      } catch (err) {
+        if (active) {
+          const msg = err?.response?.data?.message || err?.message || 'Vendor not found.';
+          setError(msg);
+          console.error('fetchVendorForm error', err);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      if (active) {
-        const msg = err?.response?.data?.message || err?.message || 'Vendor not found.';
-        setError(msg);
-        console.error('fetchVendorForm error', err);
-      }
-    } finally {
-      if (active) {
-        setLoading(false);
-      }
-    }
-  })();
+    })();
 
-  return () => {
-    active = false;
-  };
-}, [id]);
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   if (!resource) return null;
 
@@ -67,7 +69,7 @@ export default function VendorDetailPage({ basePath }) {
     submittingRef.current = true;
     setSubmitting(true);
     setError('');
-debugger;
+    debugger;
     try {
       await updateVendor(id, form);
       navigate(basePath);
@@ -129,6 +131,21 @@ debugger;
               requiredFields={requiredFields}
               fixSelectLabels
             />
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "flex-end",
+                mt: 2,
+                mb: 2,
+              }}
+            >
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={() => exportVendorDeclarationPdf(form)}
+              > Declaration Form
+              </Button>
+            </Box>
             <FormActions
               onCancel={() => navigate(basePath)}
               onSubmit={handleUpdate}

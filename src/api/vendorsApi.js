@@ -36,6 +36,7 @@ function normalizeVendor(vendor) {
     createdAt: vendor.createdAt ?? vendor.CreatedAt,
     lastLogin: vendor.lastLogin ?? vendor.LastLogin,
     studentCount: vendor.studentCount ?? vendor.StudentCount ?? 0,
+    todayRegisterStudent:vendor.todayRegisterStudent ?? vendor.TodayRegisterStudent ?? 0,
   };
 }
 
@@ -76,6 +77,7 @@ function mapVendorRow(vendor) {
     updated: formatDate(vendor.createdAt),
     name: vendor.businessName,
     studentCount: vendor.studentCount,
+    todayRegisterStudent: vendor.todayRegisterStudent,
   };
 }
 

@@ -1,5 +1,8 @@
+
 /** Field definitions aligned with Project_Architecture_v2 (18 SQL tables). */
 import React from 'react';
+import Badge from "@mui/material/Badge";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import { VENDOR_EDIT_SECTIONS } from './vendorOnboardingEditConfig';
 
 /** xs: 1 col | md: 2 cols | lg: 3 cols */
@@ -55,7 +58,7 @@ export const DOMAIN_FIELD_DEFS = {
   scholarshipsDetails: { label: 'Scholarships details', type: 'textarea', grid: grid.full },
   programDescription: { label: 'Program description', type: 'textarea', grid: grid.full },
   addmissionRequirements: { label: 'Admission requirements', type: 'textarea', grid: grid.full },
-  programLogo: {label: 'Program logo',type: 'file', accept: 'image/*', grid: grid.full,},
+  programLogo: { label: 'Program logo', type: 'file', accept: 'image/*', grid: grid.full, },
   isApproved: { label: 'Approved', type: 'select', options: ['Yes', 'No'], grid: grid.half },
   isActive: { label: 'Active', type: 'select', options: ['Yes', 'No'], grid: grid.half },
 
@@ -64,38 +67,46 @@ export const DOMAIN_FIELD_DEFS = {
   FolderNo: { label: 'Folder number', type: 'number', grid: grid.half },
   enrollmentNumber: { label: 'Enrolment number', type: 'text', grid: grid.half },
   instituteId: { label: 'Institute', type: 'api-select', required: true, grid: grid.half },
-  campusname: { label: 'Campus', type: 'text', required: true, grid: grid.half,readOnly: true, },
-  courseId: { label: 'Course', type: 'api-select', required: true, grid: grid.full  },
-  courseFee: { label: 'Course Fee', type: 'number', grid: grid.full ,readOnly: true  },
-  PaymentStatus: { label: 'Payment Status', type: 'radio',  options: [
-              { value: 'Paid', label: 'Paid' },
-              { value: 'Partial', label: 'Partial' },
-              { value: 'Pending', label: 'Pending' }], grid: grid.full },
-  feesdate: { label: 'Fees Date', type: 'date', grid: grid.quarter, grid: grid.half  },
-  noOfInstallment: { label: 'Number of Installments', type: 'number', grid: grid.full  },
-  frequency: { label: 'Frequency', type: 'radio',grid: grid.half,
-            options: [
-              { value: 'Monthly', label: 'Monthly' },
-              { value: 'Quarterly', label: 'Quarterly' }],},
-startDate : { label: 'Installment Start Date', type: 'date', grid: grid.half,},
-courseStartDate : { label: 'Course Start Date', type: 'date', grid: grid.half,readOnly: true,},
-courseEndDate : { label: 'Course End Date', type: 'date', grid: grid.half,readOnly: true, },
+  campusname: { label: 'Campus', type: 'text', required: true, grid: grid.half, readOnly: true, },
+  courseId: { label: 'Course', type: 'api-select', required: true, grid: grid.full },
+  courseFee: { label: 'Course Fee', type: 'number', grid: grid.full, readOnly: true },
+  PaymentStatus: {
+    label: 'Payment Status', type: 'radio', options: [
+      { value: 'Paid', label: 'Paid' },
+      { value: 'Partial', label: 'Partial' },
+      { value: 'Pending', label: 'Pending' }], grid: grid.full
+  },
+  feesdate: { label: 'Fees Date', type: 'date', grid: grid.quarter, grid: grid.half },
+  noOfInstallment: { label: 'Number of Installments', type: 'number', grid: grid.full },
+  frequency: {
+    label: 'Frequency', type: 'radio', grid: grid.half,
+    options: [
+      { value: 'Monthly', label: 'Monthly' },
+      { value: 'Quarterly', label: 'Quarterly' }],
+  },
+  startDate: { label: 'Installment Start Date', type: 'date', grid: grid.half, },
+  courseStartDate: { label: 'Course Start Date', type: 'date', grid: grid.half, readOnly: true, },
+  courseEndDate: { label: 'Course End Date', type: 'date', grid: grid.half, readOnly: true, },
   enrolmentStatus: {
     label: 'Enrolment status',
     type: 'select',
     options: ['Interested', 'Applied', 'Enrolled', 'Dropped'],
     grid: grid.third,
-  }, 
-  bonusOption: { label: 'Bonus Option', type: 'radio', grid: grid.full,
-     options:
-     [{ value: 'Everytime', label: 'Everytime' }, { value: 'Quarterly', label: 'Quarterly' }, 
-      { value: 'HalfYearly', label: 'Half Yearly' }, { value: 'Yearly', label: 'Yearly' }] },
+  },
+  bonusOption: {
+    label: 'Bonus Option', type: 'radio', grid: grid.full,
+    options:
+      [{ value: 'Everytime', label: 'Everytime' }, { value: 'Quarterly', label: 'Quarterly' },
+      { value: 'HalfYearly', label: 'Half Yearly' }, { value: 'Yearly', label: 'Yearly' }]
+  },
   invoiceNumber: { label: 'Invoice number', type: 'text', required: true, grid: grid.half },
-  bonusAmount: {label: 'Bonus Amount',type: 'number',grid: grid.half,},
-  bonusType: { label: 'Bonus Type', type: 'radio',grid: grid.full,
-            options: [
-              { value: 'Fixed', label: 'Fixed' },
-              { value: 'Percentage', label: 'Percentage' }],},
+  bonusAmount: { label: 'Bonus Amount', type: 'number', grid: grid.half, },
+  bonusType: {
+    label: 'Bonus Type', type: 'radio', grid: grid.full,
+    options: [
+      { value: 'Fixed', label: 'Fixed' },
+      { value: 'Percentage', label: 'Percentage' }],
+  },
   totalAmount: { label: 'Total amount', type: 'number', grid: grid.quarter },
   rejectionReason: { label: 'Rejection reason', type: 'textarea', grid: grid.wide },
 
@@ -115,7 +126,7 @@ courseEndDate : { label: 'Course End Date', type: 'date', grid: grid.half,readOn
   category: {
     label: 'Category',
     type: 'select',
-    options: ['Reminder', 'Invoice', 'OTP', 'General', 'Forgate password', 'Registration user', 'Admission', 'Onboarding' ],
+    options: ['Reminder', 'Invoice', 'OTP', 'General', 'Forgate password', 'Registration user', 'Admission', 'Onboarding'],
     grid: grid.third,
   },
 
@@ -224,26 +235,26 @@ courseEndDate : { label: 'Course End Date', type: 'date', grid: grid.half,readOn
   programDescription: { label: 'Program description', type: 'textarea', grid: grid.full },
   englishReq: { label: 'English requirement', type: 'text', grid: grid.half },
   addmissionRequirements: { label: 'Admission requirements', type: 'textarea', grid: grid.full },
-  campusname: { label: 'Campus', type: 'text', grid: grid.half,readOnly: true },
+  campusname: { label: 'Campus', type: 'text', grid: grid.half, readOnly: true },
   commissionPercentage: { label: 'Commission %', type: 'number', grid: grid.half, },
   gstPercentage: { label: 'GST %', type: 'number', grid: grid.half, readOnly: true },
-  bonus: { label: 'Bonus', type: 'number', grid: grid.quarter},
+  bonus: { label: 'Bonus', type: 'number', grid: grid.quarter },
 
   commissionAmount: { label: 'Commission Amount', type: 'number', grid: grid.half, readOnly: true },
   gstAmount: { label: 'GST Amount', type: 'number', grid: grid.half, readOnly: true },
   remark: { label: 'Remark', type: 'text', grid: grid.half, },
   receivedDate: { label: 'Received Date', type: 'date', grid: grid.quarter },
 
-commissionStatus: {
-  label: 'Commission Status',
-  type: 'select',
-  options: ['Pending', 'Received'],
-  grid: grid.quarter,
-},
+  commissionStatus: {
+    label: 'Commission Status',
+    type: 'select',
+    options: ['Pending', 'Received'],
+    grid: grid.quarter,
+  },
 };
 
 export const DOMAIN_RESOURCES = {
-vendors: {
+  vendors: {
     singular: 'Vendor',
     plural: 'Vendors',
     actionLabel: 'Add Vendor',
@@ -261,22 +272,61 @@ vendors: {
       { id: 'contactPerson', label: 'Contact person', field: 'contactPerson' },
       { id: 'email', label: 'Email', field: 'email' },
       { id: 'phone', label: 'Phone', field: 'phone' },
-     {
-  id: 'status',
-  label: 'Status',
-  field: 'status',
-  render: (row) =>
-    React.createElement(
-      'span',
       {
-        style: {
-          color: (row.vendorStatus ?? row.status) === 'Active' ? 'green' : (row.vendorStatus ?? row.status) === 'Pending' ? 'red' : 'inherit',
-          fontWeight: 600,
-        },
-      },
-      row.vendorStatus ?? row.status
-    ),
-},
+        id: "status",
+        label: "Status",
+        field: "status",
+        render: (row) =>
+          React.createElement(
+            "div",
+            {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              },
+            },
+            React.createElement(
+              "span",
+              {
+                style: {
+                  color:
+                    (row.vendorStatus ?? row.status) === "Active"
+                      ? "green"
+                      : (row.vendorStatus ?? row.status) === "Pending"
+                        ? "red"
+                        : "inherit",
+                  fontWeight: 600,
+                },
+              },
+              row.vendorStatus ?? row.status
+            ),
+            row.todayRegisterStudent > 0
+              ? React.createElement(
+                Badge,
+                {
+                  badgeContent: row.todayRegisterStudent,
+                  color: "error",
+                  sx: {
+                    "& .MuiBadge-badge": {
+                      fontSize: "10px !important", // number size
+                      minWidth: "14px",    // badge width
+                      height: "14px",      // badge height
+                      padding: "5px 5px",
+                      lineHeight: 1,
+                    },
+                  },
+                },
+                React.createElement(NotificationsActiveIcon, {
+                  sx: {
+                    color: "#ffc107",
+                    fontSize: 23,
+                  },
+                })
+              )
+              : null
+          ),
+      }
     ],
     emptyForm: () => ({
       businessName: '',
@@ -311,10 +361,10 @@ vendors: {
       { id: 'instituteName', label: 'Institute name', field: 'instituteName' },
       { id: 'address', label: 'Address', field: 'address' },
       { id: 'serviceType', label: 'Service type', field: 'serviceType' },
-       { id: 'rateType', label: 'Rate type', field: 'rateType' },
-  { id: 'rate', label: 'Rate', field: 'rate' },
-  { id: 'effectiveFrom', label: 'From', field: 'effectiveFrom' },
-  { id: 'effectiveTo', label: 'To', field: 'effectiveTo' },
+      { id: 'rateType', label: 'Rate type', field: 'rateType' },
+      { id: 'rate', label: 'Rate', field: 'rate' },
+      { id: 'effectiveFrom', label: 'From', field: 'effectiveFrom' },
+      { id: 'effectiveTo', label: 'To', field: 'effectiveTo' },
     ],
     emptyForm: () => ({
       vendorId: '',
@@ -336,13 +386,13 @@ vendors: {
     plural: 'Students',
     actionLabel: 'Add Student',
     primaryField: 'fullName',
-    requiredFields: ['fullName', 'phone',  'email','instituteId', 'courseId'],
+    requiredFields: ['fullName', 'phone', 'email', 'instituteId', 'courseId'],
     sections: [
-      { title: 'Student Details', description: 'Registered student details', fields: ['fullName','email','phone','FolderNo'] },
-     // { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
-      { title: 'Student Payment schedule', description: 'Institute and course details.', fields: ['instituteId', 'campusname', 'courseId', 'courseFee','noOfInstallment','frequency','startDate', 'courseStartDate', 'courseEndDate'] },
-      { title: 'Commission', description: 'Commission & GST information.', fields: ['commissionPercentage', 'commissionAmount','gstPercentage','gstAmount','dueDate','remark',] },
-      { title: 'Bonus', description: 'Bonus details.', fields: ['bonusOption','bonusType','bonus',] },
+      { title: 'Student Details', description: 'Registered student details', fields: ['fullName', 'email', 'phone', 'FolderNo'] },
+      // { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
+      { title: 'Student Payment schedule', description: 'Institute and course details.', fields: ['instituteId', 'campusname', 'courseId', 'courseFee', 'noOfInstallment', 'frequency', 'startDate', 'courseStartDate', 'courseEndDate'] },
+      { title: 'Commission', description: 'Commission & GST information.', fields: ['commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'dueDate', 'remark',] },
+      { title: 'Bonus', description: 'Bonus details.', fields: ['bonusOption', 'bonusType', 'bonus',] },
     ],
 
     columns: [
@@ -354,11 +404,11 @@ vendors: {
       { id: 'paymentStatus', label: 'Payment', field: 'paymentStatus' },
     ],
     emptyForm: () => ({
-      fullName: '', email: '',phone: '',
-      instituteId: '', courseId: '', courseFee: '', FolderNo: '',courseStartDate: '',courseEndDate: '',
+      fullName: '', email: '', phone: '',
+      instituteId: '', courseId: '', courseFee: '', FolderNo: '', courseStartDate: '', courseEndDate: '',
       amountDue: '', amountPaid: '', paymentStatus: 'Pending', startDate: '',
-      commissionPercentage: '',gstPercentage: '',bonus: '',           
-      commissionAmount: '', gstAmount: '',invoiceAmount: '', remark: '',
+      commissionPercentage: '', gstPercentage: '', bonus: '',
+      commissionAmount: '', gstAmount: '', invoiceAmount: '', remark: '',
     }),
   },
   invoices: {
@@ -411,8 +461,8 @@ vendors: {
     primaryField: 'templateName',
     requiredFields: ['templateName'],
     sections: [
-      { title: 'Template', description: 'Supports {{placeholders}} in subject and body.', fields: ['templateName', 'category', 'subject'],layout:'full' },
-      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml', 'notes'],layout:'full' },
+      { title: 'Template', description: 'Supports {{placeholders}} in subject and body.', fields: ['templateName', 'category', 'subject'], layout: 'full' },
+      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml', 'notes'], layout: 'full' },
     ],
     columns: [
       { id: 'templateName', label: 'Name', field: 'templateName' },
@@ -433,52 +483,52 @@ vendors: {
     requiredFields: ['instituteId', 'courseName'],
 
     sections: [
-    {
-      title: 'Course details',
-      description: 'Institute link and basic course information.',
-      fields: [
-        'instituteId',
-        'courseName',
-        'CourseCategory',
-        'fees',
-        'duration',
-        'campus',
-        'level',
-        'cricosCode',
-        'intake',
-        'description',
-        'scholarshipsDetails',
-      ],
-    },
-    {
-      title: 'Course information',
-      description: 'Eligibility and additional course information.',
-      fields: [
-        'programLink',
-        'englishReq',
-        'eligibility',
-        'programDescription',
-        'addmissionRequirements',
-        'isApproved',
-        'isActive',
-        'programLogo',
-      ],
-    },
-  ],
+      {
+        title: 'Course details',
+        description: 'Institute link and basic course information.',
+        fields: [
+          'instituteId',
+          'courseName',
+          'CourseCategory',
+          'fees',
+          'duration',
+          'campus',
+          'level',
+          'cricosCode',
+          'intake',
+          'description',
+          'scholarshipsDetails',
+        ],
+      },
+      {
+        title: 'Course information',
+        description: 'Eligibility and additional course information.',
+        fields: [
+          'programLink',
+          'englishReq',
+          'eligibility',
+          'programDescription',
+          'addmissionRequirements',
+          'isApproved',
+          'isActive',
+          'programLogo',
+        ],
+      },
+    ],
 
-  columns: [
-    { id: 'courseName', label: 'Course name', field: 'courseName' },
-    { id: 'instituteName', label: 'Institute name', field: 'instituteName' },
-    { id: 'programLink', label: 'Program link', field: 'programLink' },
-    { id: 'CourseCategory', label: 'CourseCategory', field: 'CourseCategory' },
-    { id: 'programLogo', label: 'Program logo', field: 'programLogo' },
-    { id: 'level', label: 'Level', field: 'level' },
-    { id: 'campus', label: 'Campus', field: 'campus' },
-    { id: 'intake', label: 'Intake', field: 'intake' },
-    { id: 'fees', label: 'Fees', field: 'fees' },
-    { id: 'duration', label: 'Duration', field: 'duration' },
-    { id: 'status', label: 'Status', field: 'isActive', render: (row) => row.isActive ? 'Active' : 'Inactive' },
-  ],
+    columns: [
+      { id: 'courseName', label: 'Course name', field: 'courseName' },
+      { id: 'instituteName', label: 'Institute name', field: 'instituteName' },
+      { id: 'programLink', label: 'Program link', field: 'programLink' },
+      { id: 'CourseCategory', label: 'CourseCategory', field: 'CourseCategory' },
+      { id: 'programLogo', label: 'Program logo', field: 'programLogo' },
+      { id: 'level', label: 'Level', field: 'level' },
+      { id: 'campus', label: 'Campus', field: 'campus' },
+      { id: 'intake', label: 'Intake', field: 'intake' },
+      { id: 'fees', label: 'Fees', field: 'fees' },
+      { id: 'duration', label: 'Duration', field: 'duration' },
+      { id: 'status', label: 'Status', field: 'isActive', render: (row) => row.isActive ? 'Active' : 'Inactive' },
+    ],
 
     emptyForm: () => ({
       instituteId: '',
@@ -502,7 +552,7 @@ vendors: {
       isActive: 'Yes',
       isAIFetched: 'No',
     }),
-  },               
+  },
   users: {
     singular: 'User',
     plural: 'Users',
@@ -779,45 +829,45 @@ vendors: {
     }),
   },
   'reports_student-Inquiry': {
-  singular: 'Student Inquiry',
-  plural: 'Student Inquiry',
-  actionLabel: '',
-  primaryField: 'firstName',
+    singular: 'Student Inquiry',
+    plural: 'Student Inquiry',
+    actionLabel: '',
+    primaryField: 'firstName',
 
-  columns: [
-  { id: 'firstName', label: 'First Name', field: 'firstName' },
-  { id: 'lastName', label: 'Last Name', field: 'lastName' },
-  { id: 'email', label: 'Email', field: 'email' },
-  { id: 'phone', label: 'Phone', field: 'phone' },                      
-  { id: 'nationality', label: 'Nationality', field: 'countryToApply' }, 
-  { id: 'englishTest', label: 'English Test', field: 'englishTest' },  
-  { id: 'testScore', label: 'Test Score', field: 'testScore' },       
-  { id: 'highestQualification', label: 'Highest Qualification', field: 'highestQualification' },
-  { id: 'vendorName', label: 'Vendor Name', field: 'vendorName' },
-  { id: 'action', label: 'Action', field: 'action' },
-],
+    columns: [
+      { id: 'firstName', label: 'First Name', field: 'firstName' },
+      { id: 'lastName', label: 'Last Name', field: 'lastName' },
+      { id: 'email', label: 'Email', field: 'email' },
+      { id: 'phone', label: 'Phone', field: 'phone' },
+      { id: 'nationality', label: 'Nationality', field: 'countryToApply' },
+      { id: 'englishTest', label: 'English Test', field: 'englishTest' },
+      { id: 'testScore', label: 'Test Score', field: 'testScore' },
+      { id: 'highestQualification', label: 'Highest Qualification', field: 'highestQualification' },
+      { id: 'vendorName', label: 'Vendor Name', field: 'vendorName' },
+      { id: 'action', label: 'Action', field: 'action' },
+    ],
 
-  emptyForm: () => ({}),
+    emptyForm: () => ({}),
   },
   'payment-schedules': {
-  singular: "Payment Schedule",
-  plural: "Payment Schedules",
-  actionLabel: "Add Payment Schedule",
-  primaryField: "studentName",
-  requiredFields: [],
+    singular: "Payment Schedule",
+    plural: "Payment Schedules",
+    actionLabel: "Add Payment Schedule",
+    primaryField: "studentName",
+    requiredFields: [],
 
- columns: [
-  { id: "studentName", label: "Student", field: "studentName" },
-  { id: "instituteName", label: "Institute", field: "instituteName" },
-  { id: "courseName", label: "Course", field: "courseName" },
-  { id: "totalCourseFee", label: "Total Fee", field: "totalCourseFee" },
-  { id: "installments", label: "Installments", field: "installments" },
-  { id: "nextDueDate", label: "Next Due", field: "nextDueDate" },
-  { id: "collectedAmount", label: "Paid", field: "collectedAmount" },
-  { id: "balanceAmount", label: "Partial Amount", field: "balanceAmount" },
-  { id: "paymentStatus", label: "Status", field: "paymentStatus" },
-],
+    columns: [
+      { id: "studentName", label: "Student", field: "studentName" },
+      { id: "instituteName", label: "Institute", field: "instituteName" },
+      { id: "courseName", label: "Course", field: "courseName" },
+      { id: "totalCourseFee", label: "Total Fee", field: "totalCourseFee" },
+      { id: "installments", label: "Installments", field: "installments" },
+      { id: "nextDueDate", label: "Next Due", field: "nextDueDate" },
+      { id: "collectedAmount", label: "Paid", field: "collectedAmount" },
+      { id: "balanceAmount", label: "Partial Amount", field: "balanceAmount" },
+      { id: "paymentStatus", label: "Status", field: "paymentStatus" },
+    ],
 
-  emptyForm: () => ({}),
+    emptyForm: () => ({}),
   },
 };

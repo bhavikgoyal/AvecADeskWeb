@@ -14,6 +14,11 @@ export default defineConfig({
         timeout: 660_000,
         proxyTimeout: 660_000,
       },
+      '/uploads': {
+      target: 'https://localhost:7099',
+      changeOrigin: true,
+      secure: false,
+    },
     },
   },
   build: {
