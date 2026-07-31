@@ -28,7 +28,8 @@ import { deleteRecord, loadRecords } from '../../utils/resourceStorage';
 import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
 import { deleteCourse, fetchCourseList } from '../../api/coursesApi';
 import connection from '../../services/signalR';
-
+import { downloadInvoiceDocuments } from '../../api/invoicesApi';
+import EditInvoiceDialog from '../../components/invoices/EditInvoiceDialog';
 const INSTITUTE_SCRAPPING_BASE_PATH = '/institutes-scrapping';
 
 function formatDate(value) {
@@ -149,8 +150,11 @@ export default function ResourceListPage({ basePath }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [addInvoiceOpen, setAddInvoiceOpen] = useState(false);
+    const [editInvoiceOpen, setEditInvoiceOpen] = useState(false);
+const [editInvoiceId, setEditInvoiceId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [statusFilter, setStatusFilter] = useState('All');
+
   // Courses page: institute filter passed via ?institute=<name> from
   // the "View Courses" button on the Institutes Scrapping list.
   const instituteFilter = useMemo(() => {
@@ -408,8 +412,8 @@ useEffect(() => {
   }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, isTemplates, isCourses, refreshRows]);
 
   // ---- Selection (institutes only) ----
-  const allSelected = isInstitutes && rows.length > 0 && selectedIds.length === rows.length;
-  const someSelected = isInstitutes && selectedIds.length > 0 && !allSelected;
+const allSelected = (isInstitutes || isInvoices) && rows.length > 0 && selectedIds.length === rows.length;
+const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !allSelected;
 
   const toggleRow = useCallback((id) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -474,7 +478,34 @@ useEffect(() => {
         },
       ];
     }
-
+if (isInvoices) {
+  return [
+    {
+      id: '__select__',
+      label: (
+        <Checkbox
+          size="small"
+          checked={allSelected}
+          indeterminate={someSelected}
+          onChange={toggleAll}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+      align: 'center',
+      headerSx: { width: 44, px: 0.5 },
+      cellSx: { width: 44, px: 0.5 },
+      render: (row) => (
+        <Checkbox
+          size="small"
+          checked={selectedIds.includes(row.id)}
+          onChange={() => toggleRow(row.id)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
+    ...resource.columns,
+  ];
+}
     if (!isInstitutes) return resource.columns ?? [];
 
     return [
@@ -521,13 +552,23 @@ useEffect(() => {
         ),
       },
     ];
-  }, [isInstitutes, isVendors, resource, selectedIds, allSelected, someSelected, toggleAll, toggleRow, openHistory, navigate]);
+  }, [isInstitutes, isInvoices, isVendors, resource, selectedIds, allSelected, someSelected, toggleAll, toggleRow, openHistory, navigate]);
 
   const handleExportPdf = useCallback(() => {
     const selectedRows = rows.filter((r) => selectedIds.includes(r.id));
     if (!selectedRows.length) return;
     exportInstituteCommissionPdf(selectedRows);
   }, [rows, selectedIds]);
+
+const handleExportInvoicesPdf = useCallback(async () => {
+  if (!selectedIds.length) return;
+  try {
+    setError('');
+    await downloadInvoiceDocuments(selectedIds);
+  } catch (err) {
+    setError(err.message || 'Failed to download invoice PDF(s).');
+  }
+}, [selectedIds]);
 
   const headerExtra = (
     <>
@@ -615,19 +656,42 @@ useEffect(() => {
     {headerExtra}
   </>
 ) : headerExtra}
+ headerActionsAfterAdd={
+    isInvoices ? (
+      <Tooltip title={selectedIds.length === 0 ? 'Select at least one invoice' : ''}>
+        <span>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<PictureAsPdfOutlinedIcon />}
+            onClick={handleExportInvoicesPdf}
+            disabled={selectedIds.length === 0}
+            sx={{
+              textTransform: 'none',
+              height: 40,
+              borderRadius: 2,
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              px: 2,
+              ml: 1.25,
+            }}
+          >
+            Download PDF{selectedIds.length ? ` (${selectedIds.length})` : ''}
+          </Button>
+        </span>
+      </Tooltip>
+    ) : null
+  }
         onAdd={isInvoices ? handleOpenAddInvoice : () => navigate(`${basePath}/new`)}
-        onRowClick={
-          isInvoices
-            ? async (row) => {
-              try {
-                setError('');
-                await downloadInvoiceDocument(row.invoiceId || row.id);
-              } catch (err) {
-                setError(err.message || 'Failed to download invoice.');
-              }
-            }
-            : (row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })
-        }
+     onRowClick={
+  isInvoices
+    ? (row) => {
+        setError('');
+        setEditInvoiceId(row.invoiceId || row.id);
+        setEditInvoiceOpen(true);
+      }
+    : (row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })
+}
         onDelete={isInvoices ? undefined : handleDelete}
       />
 
@@ -638,7 +702,20 @@ useEffect(() => {
           onGenerated={handleInvoiceGenerated}
         />
       )}
-
+{isInvoices && !invoiceView && (
+  <EditInvoiceDialog
+    open={editInvoiceOpen}
+    invoiceId={editInvoiceId}
+    onClose={() => {
+      setEditInvoiceOpen(false);
+      setEditInvoiceId(null);
+    }}
+    onUpdated={async () => {
+      setSuccess('Invoice status updated.');
+      await refreshRows();
+    }}
+  />
+)}
       {isInstitutes && (
         <Dialog open={historyOpen} onClose={closeHistory} fullWidth maxWidth="md">
           <DialogTitle>Commission History — {historyInstituteName}</DialogTitle>
