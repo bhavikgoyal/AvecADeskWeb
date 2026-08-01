@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link , useNavigate} from 'react-router-dom';
 import {
   Box,
   Card,
   CircularProgress,
   IconButton,
+  TablePagination,
   Typography,
 } from '@mui/material';
 //import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -172,6 +173,8 @@ function TemplateActions({ templateId, onDelete }) {
 
 export default function AgreementTemplateTable({ templates = [], onDelete, loading = false }) {
    const navigate = useNavigate();
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const tableRows = useMemo(
     () =>
       templates.map((t, index) => ({
@@ -187,6 +190,15 @@ export default function AgreementTemplateTable({ templates = [], onDelete, loadi
       })),
     [templates],
   );
+
+  const paginatedRows = useMemo(
+    () => tableRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [page, rowsPerPage, tableRows],
+  );
+
+  useEffect(() => {
+    setPage(0);
+  }, [templates, rowsPerPage]);
 
   const tableColumns = useMemo(
     () => [
@@ -318,13 +330,25 @@ export default function AgreementTemplateTable({ templates = [], onDelete, loadi
         >
           <ResponsiveTable
             columns={tableColumns}
-            rows={tableRows}
+            rows={paginatedRows}
             getRowKey={(row) => row.templateId}
             variant="resource"
             alwaysTable
             tableMinWidth={TABLE_MIN_WIDTH}
             sx={agreementTableSx}
             onRowClick={handleRowClick}
+          />
+          <TablePagination
+            component="div"
+            count={tableRows.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={(_event, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50]}
           />
         </Box>
       )}
