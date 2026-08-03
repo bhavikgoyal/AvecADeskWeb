@@ -355,9 +355,31 @@ export default function AdminDash() {
                 icon={<StoreIcon />}
                 color="var(--teal)"
                 footer={[
-                  { label: 'New this month', value: `+${vendorStats.newThisMonth}`, sub: 'this month' },
-                  { label: 'Active', value: vendorStats.active.toLocaleString() },
-                  { label: 'Pending', value: vendorStats.pending.toLocaleString() },
+                  {
+                    label: 'New this month',
+                    value: `+${vendorStats.newThisMonth}`,
+                    sub: 'this month',
+                    onClick: () => {
+                      const d = new Date();
+                      const y = d.getFullYear();
+                      const m = d.getMonth() + 1;
+                      navigate(`/vendors?year=${y}&month=${m}`);
+                    },
+                  },
+                  {
+                    label: 'Active',
+                    value: vendorStats.active.toLocaleString(),
+                    onClick: () => {
+                      navigate('/vendors?status=active');
+                    },
+                  },
+                  {
+                    label: 'Pending',
+                    value: vendorStats.pending.toLocaleString(),
+                    onClick: () => {
+                      navigate('/vendors?status=pending');
+                    },
+                  },
                 ]}
                 sx={{ flex: 1, width: '100%' }}
               />

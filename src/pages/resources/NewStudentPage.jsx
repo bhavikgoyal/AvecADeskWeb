@@ -158,6 +158,36 @@ export default function NewStudentPage({ basePath }) {
 
     loadData();
   }, [id, isEdit, basePath]);
+
+  const parseIsoDate = (value) => {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return null;
+    }
+
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+
+    if (
+      Number.isNaN(date.getTime()) ||
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return date;
+  };
+
+  const formatDateCell = (value) => {
+    if (!value) {
+      return "-";
+    }
+
+    const isoValue = String(value).split("T")[0];
+    return parseIsoDate(isoValue) ? isoValue : "-";
+  };
+
   const generateInstallments = (data) => {
     const fee = Number(data.courseFee || 0);
     const count = Number(data.noOfInstallment || 0);
@@ -194,9 +224,12 @@ export default function NewStudentPage({ basePath }) {
 
     }
 
-    // Parse Local Date
-    const [year, month, day] = data.startDate.split("-").map(Number);
-    const startDate = new Date(year, month - 1, day);
+    const startDate = parseIsoDate(data.startDate);
+
+    if (!startDate) {
+      setPaymentList([]);
+      return;
+    }
 
     const today = new Date();
 
@@ -861,7 +894,7 @@ export default function NewStudentPage({ basePath }) {
                   {historyRows.map((row, index) => (
                     <TableRow key={row.installmentNo}>
                       <TableCell>{row.installmentNo}</TableCell>
-                      <TableCell>{new Date(row.dueDate ?? row.feesDate).toISOString().split("T")[0]}</TableCell>
+                      <TableCell>{formatDateCell(row.dueDate ?? row.feesDate)}</TableCell>
                       <TableCell>  {Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
                       <TableCell>{row.paymentStatus}</TableCell>
                       <TableCell>{Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
