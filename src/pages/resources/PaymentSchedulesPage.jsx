@@ -15,7 +15,9 @@ import AddIcon from "@mui/icons-material/Add";
 import ResponsiveTable from "../../components/ResponsiveTable";
 import TableContentSkeleton from "../../components/TableContentSkeleton";
 import { getResourceConfig } from "../../config/resourceConfig";
+import { TablePagination } from "@mui/material";
 import { fetchStudentPaymentScheduleList, formatCurrency, formatDisplayDate } from "../../api/schedulesApi";
+
 
 export default function PaymentSchedulesPage() {
   const navigate = useNavigate();
@@ -28,7 +30,8 @@ export default function PaymentSchedulesPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   // init currentMonthOnly from URL (presence of ?currentMonth or ?currentMonth=true)
   const initParams = new URLSearchParams(location.search);
   const initCurrent = initParams.has("currentMonth") || initParams.get("currentMonth") === "true";
@@ -41,7 +44,22 @@ export default function PaymentSchedulesPage() {
     const currentFlag = params.has("currentMonth") || params.get("currentMonth") === "true";
     return { y: y ? Number(y) : null, m: m ? Number(m) : null, currentFlag };
   };
+const paginatedRows = useMemo(
+  () =>
+    rows.slice(
+      page * rowsPerPage,
+      page * rowsPerPage + rowsPerPage
+    ),
+  [rows, page, rowsPerPage]
+);
+const handleChangePage = (_event, newPage) => {
+  setPage(newPage);
+};
 
+const handleChangeRowsPerPage = (event) => {
+  setRowsPerPage(parseInt(event.target.value, 10));
+  setPage(0);
+};
   const loadRows = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -184,7 +202,17 @@ export default function PaymentSchedulesPage() {
             <Typography color="text.secondary">No payment schedules found.</Typography>
           </Box>
         ) : (
-          <ResponsiveTable variant="resource" alwaysTable rows={rows} columns={columns} getRowKey={(row) => row.scheduleId} onRowClick={handleRowClick} />
+          <>
+          <ResponsiveTable variant="resource" alwaysTable rows={paginatedRows} columns={columns} getRowKey={(row) => row.scheduleId} onRowClick={handleRowClick} />
+          <TablePagination
+            component="div"
+            count={rows.length}
+            page={page}
+            onPageChange={handleChangePage}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+          /></>
         )}
       </Paper>
     </Box>

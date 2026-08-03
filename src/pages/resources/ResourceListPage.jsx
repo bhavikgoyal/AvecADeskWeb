@@ -470,7 +470,7 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
                   `/reports/student-Inquiry?vendorId=${encodeURIComponent(id)}&vendorName=${encodeURIComponent(name)}`,
                 );
               }}
-              sx={{ textTransform: 'none', fontWeight: 600 }}
+              sx={{ textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap', minWidth: 110,}}
             >
                Student ({row.studentCount ?? 0})
             </Button>

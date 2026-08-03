@@ -172,7 +172,7 @@ export const DOMAIN_FIELD_DEFS = {
   vendorStatus: {
     label: 'Status',
     type: 'select',
-    options: ['Pending', 'Active', 'Disabled', 'Suspended'],
+    options: ['Pending', 'Active',],
     grid: grid.third,
   },
   instituteStatus: {
