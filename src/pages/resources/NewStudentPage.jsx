@@ -129,15 +129,15 @@ export default function NewStudentPage({ basePath }) {
           remark: data.remark,
         });
         setOriginalSchedule({
-            noOfInstallment: Number(data.noOfInstallments),
-            frequency: data.frequency,
-            startDate: data.firstDueDate?.substring(0, 10),
+          noOfInstallment: Number(data.noOfInstallments),
+          frequency: data.frequency,
+          startDate: data.firstDueDate?.substring(0, 10),
         });
         const list = (data.studentPaymentList || []).map(x => ({
           studentPaymentInstallmentId: x.studentPaymentInstallmentId,
           installmentNo: x.installmentNo,
           dueDate: x.dueDate?.substring(0, 10),
-          paidDate: x.paidDate?.substring(0, 10), 
+          paidDate: x.paidDate?.substring(0, 10),
           amount: x.feesAmount,
           paidAmount: x.paidAmount,
           balance: x.balanceAmount,
@@ -260,28 +260,28 @@ export default function NewStudentPage({ basePath }) {
     next.invoiceAmount = (commission + gst).toFixed(2);
   }
   const updateField = (field, value) => {
-    
-  if (field === "noOfInstallment" && isEdit) {
 
-    const paidCount = paymentList.filter(x => x.status === "Paid").length;
+    if (field === "noOfInstallment" && isEdit) {
 
-    const paidAmount = paymentList
-      .filter(x => x.status === "Paid")
-      .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
+      const paidCount = paymentList.filter(x => x.status === "Paid").length;
 
-    const remainingAmount = Number(form.courseFee || 0) - paidAmount;
+      const paidAmount = paymentList
+        .filter(x => x.status === "Paid")
+        .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
 
-    const minInstallments =
-      remainingAmount > 0 ? paidCount + 1 : paidCount;
+      const remainingAmount = Number(form.courseFee || 0) - paidAmount;
 
-    if (
-      value !== "" &&
-      Number(value) < minInstallments
-    ) {
-      alert(`Minimum allowed installments is ${minInstallments}.`);
-      return;
+      const minInstallments =
+        remainingAmount > 0 ? paidCount + 1 : paidCount;
+
+      if (
+        value !== "" &&
+        Number(value) < minInstallments
+      ) {
+        alert(`Minimum allowed installments is ${minInstallments}.`);
+        return;
+      }
     }
-  }
 
     setForm((prev) => {
       const next = { ...prev, [field]: value };
@@ -418,7 +418,7 @@ export default function NewStudentPage({ basePath }) {
           applyBonus = item.installmentNo % 6 === 0;
           break;
 
-        case "Yearly":                    
+        case "Yearly":
           applyBonus = item.installmentNo === paymentList.length;
           break;
 
@@ -460,140 +460,140 @@ export default function NewStudentPage({ basePath }) {
     bonusApplied,
   ]);
 
- const handleCreate = async () => {
+  const handleCreate = async () => {
 
-  if (submittingRef.current) return;
+    if (submittingRef.current) return;
 
-  submittingRef.current = true;
-  setSubmitting(true);
-  setError("");
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError("");
 
-  try {
-    let studentId;
-    let scheduleId;
-    let commissionId;
-    let scheduleChanged = false;
+    try {
+      let studentId;
+      let scheduleId;
+      let commissionId;
+      let scheduleChanged = false;
 
-    if (!isEdit) {
+      if (!isEdit) {
 
-      const student = await createStudentWithPaymentSchedule(form);
-      studentId = student.studentId ?? student.StudentId;
+        const student = await createStudentWithPaymentSchedule(form);
+        studentId = student.studentId ?? student.StudentId;
 
-      const schedule = await createPaymentSchedule({
-        studentId,
-        totalCourseFee: Number(form.courseFee),
-        noOfInstallments: Number(form.noOfInstallment),
-        frequency: form.frequency,
-        firstDueDate: form.startDate,
-      });
+        const schedule = await createPaymentSchedule({
+          studentId,
+          totalCourseFee: Number(form.courseFee),
+          noOfInstallments: Number(form.noOfInstallment),
+          frequency: form.frequency,
+          firstDueDate: form.startDate,
+        });
 
-      scheduleId = schedule.scheduleId ?? schedule.ScheduleId;
+        scheduleId = schedule.scheduleId ?? schedule.ScheduleId;
 
-      const commission = await createStudentCommission({
-        scheduleId,
-        commissionPercentage: Number(form.commissionPercentage),
-        gstPercentage: Number(form.gstPercentage),
-        bonus: Number(form.bonus),
-        bonusType: form.bonusType,
-        bonusOption: form.bonusOption,
-      });
-
-      commissionId = commission.commissionId ?? commission.CommissionId;
-
-    } else {
-
-      scheduleChanged =
-        originalSchedule.noOfInstallment !== Number(form.noOfInstallment) ||
-        originalSchedule.frequency !== form.frequency ||
-        originalSchedule.startDate !== form.startDate;
-
-      const result = await updateStudentPaymentSchedule({
-        studentId: form.studentId,
-        noOfInstallments: Number(form.noOfInstallment),
-        frequency: form.frequency,
-        firstDueDate: form.startDate,
-
-        paymentList: paymentList.map(x => ({
-          studentPaymentInstallmentId: x.studentPaymentInstallmentId,
-          paymentStatus: x.status,
-        })),
-       commissionHistory: commissionHistory.map(x => ({
-    CommissionDetailId: x.commissionDetailId,
-    commissionStatus: x.commissionStatus,
-})),
-      });
-      console.log("CommissionHistory", commissionHistory);
-
-      scheduleId = result.scheduleId;
-      commissionId = result.commissionId;
-    }
-
-    if (!isEdit || scheduleChanged) {
-
-      const installmentIds = [];
-
-      for (const item of paymentList) {
-
-        if (isEdit && item.status === "Paid")
-          continue;
-
-        const installment = await createStudentPaymentInstallment({
+        const commission = await createStudentCommission({
           scheduleId,
-          installmentNo: item.installmentNo,
-          dueDate: item.dueDate,
-          feesAmount: Number(item.amount),
-          paidAmount: Number(item.paidAmount),
-          balanceAmount: Number(item.balance),
-          paymentStatus: item.status,
+          commissionPercentage: Number(form.commissionPercentage),
+          gstPercentage: Number(form.gstPercentage),
+          bonus: Number(form.bonus),
+          bonusType: form.bonusType,
+          bonusOption: form.bonusOption,
         });
 
-        installmentIds.push(
-          installment.studentPaymentInstallmentId ??
-          installment.StudentPaymentInstallmentId
-        );
-      }
+        commissionId = commission.commissionId ?? commission.CommissionId;
 
-      let index = 0;
+      } else {
 
-      for (const row of commissionRows) {
+        scheduleChanged =
+          originalSchedule.noOfInstallment !== Number(form.noOfInstallment) ||
+          originalSchedule.frequency !== form.frequency ||
+          originalSchedule.startDate !== form.startDate;
 
-        if (isEdit && row.paymentStatus === "Paid")
-          continue;
+        const result = await updateStudentPaymentSchedule({
+          studentId: form.studentId,
+          noOfInstallments: Number(form.noOfInstallment),
+          frequency: form.frequency,
+          firstDueDate: form.startDate,
 
-        await createStudentCommissionDetail({
-          commissionId,
-          studentPaymentInstallmentId: installmentIds[index],
-          commissionAmount: Number(row.commission),
-          gstAmount: Number(row.gst),
-          bonusAmount: Number(row.bonus),
-          invoiceAmount: Number(row.invoice),
-          invoiceNo: null,
-          receivedDate: null,
-          commissionStatus: row.status,
-          remark: form.remark ?? "",
+          paymentList: paymentList.map(x => ({
+            studentPaymentInstallmentId: x.studentPaymentInstallmentId,
+            paymentStatus: x.status,
+          })),
+          commissionHistory: commissionHistory.map(x => ({
+            CommissionDetailId: x.commissionDetailId,
+            commissionStatus: x.commissionStatus,
+          })),
         });
+        console.log("CommissionHistory", commissionHistory);
 
-        index++;
+        scheduleId = result.scheduleId;
+        commissionId = result.commissionId;
       }
+
+      if (!isEdit || scheduleChanged) {
+
+        const installmentIds = [];
+
+        for (const item of paymentList) {
+
+          if (isEdit && item.status === "Paid")
+            continue;
+
+          const installment = await createStudentPaymentInstallment({
+            scheduleId,
+            installmentNo: item.installmentNo,
+            dueDate: item.dueDate,
+            feesAmount: Number(item.amount),
+            paidAmount: Number(item.paidAmount),
+            balanceAmount: Number(item.balance),
+            paymentStatus: item.status,
+          });
+
+          installmentIds.push(
+            installment.studentPaymentInstallmentId ??
+            installment.StudentPaymentInstallmentId
+          );
+        }
+
+        let index = 0;
+
+        for (const row of commissionRows) {
+
+          if (isEdit && row.paymentStatus === "Paid")
+            continue;
+
+          await createStudentCommissionDetail({
+            commissionId,
+            studentPaymentInstallmentId: installmentIds[index],
+            commissionAmount: Number(row.commission),
+            gstAmount: Number(row.gst),
+            bonusAmount: Number(row.bonus),
+            invoiceAmount: Number(row.invoice),
+            invoiceNo: null,
+            receivedDate: null,
+            commissionStatus: row.status,
+            remark: form.remark ?? "",
+          });
+
+          index++;
+        }
+      }
+
+      alert(isEdit ? "Student updated successfully." : "Student created successfully.");
+
+      setForm(getEmptyForm(basePath));
+      setPaymentList([]);
+      setCourses([]);
+      setBonusApplied(false);
+      setGstPercentage(0);
+
+      navigate(basePath);
+
+    } catch (err) {
+      setError(err.message || "Failed to save student.");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
-
-    alert(isEdit ? "Student updated successfully." : "Student created successfully.");
-
-    setForm(getEmptyForm(basePath));
-    setPaymentList([]);
-    setCourses([]);
-    setBonusApplied(false);
-    setGstPercentage(0);
-
-    navigate(basePath);
-
-  } catch (err) {
-    setError(err.message || "Failed to save student.");
-  } finally {
-    submittingRef.current = false;
-    setSubmitting(false);
-  }
-};
+  };
   const handleApplyBonus = () => {
     if (!form.bonus || Number(form.bonus) <= 0) {
       alert("Please enter Bonus.");
@@ -631,15 +631,15 @@ export default function NewStudentPage({ basePath }) {
 
     return paymentList[index - 1]?.status === "Paid";
   };
-const canEditCommissionStatus = (installmentNo) => {
-  if (installmentNo === 1) return true;
+  const canEditCommissionStatus = (installmentNo) => {
+    if (installmentNo === 1) return true;
 
-  const previous = historyRows.find(
-    x => x.installmentNo === installmentNo - 1
-  );
+    const previous = historyRows.find(
+      x => x.installmentNo === installmentNo - 1
+    );
 
-  return previous?.commissionStatus === "Paid";
-};
+    return previous?.commissionStatus === "Paid";
+  };
   return (
     <FormPageLayout title={isEdit ? `Edit ${resource.singular}` : `Add new ${resource.singular.toLowerCase()}`}>
       <Paper elevation={0} sx={{ ...formPaperSx, width: "100%" }}>
@@ -708,7 +708,7 @@ const canEditCommissionStatus = (installmentNo) => {
                     <TableCell>{item.installmentNo}</TableCell>
                     <TableCell>{item.amount}</TableCell>
                     <TableCell>{String(item.dueDate || "").split("T")[0]}</TableCell>
-                    <TableCell> {item.paidDate? String(item.paidDate).split("T")[0] : "-"}</TableCell>
+                    <TableCell> {item.paidDate ? String(item.paidDate).split("T")[0] : "-"}</TableCell>
                     <TableCell>
                       {isEdit ? (
                         <Select
@@ -868,39 +868,39 @@ const canEditCommissionStatus = (installmentNo) => {
                       <TableCell>{Number(row.bonusAmount ?? row.bonus).toFixed(2)}</TableCell>
                       <TableCell>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
                       <TableCell>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
-                    <TableCell>
-  {isEdit ? (
-    <Select
-      size="small"
-      value={row.commissionStatus ?? row.status}
-      onChange={(e) => {
-        const value = e.target.value;
+                      <TableCell>
+                        {isEdit ? (
+                          <Select
+                            size="small"
+                            value={row.commissionStatus ?? row.status}
+                            onChange={(e) => {
+                              const value = e.target.value;
 
-        setCommissionHistory((prev) =>
-          prev.map((x) =>
-            x.installmentNo === row.installmentNo
-              ? {
-                  ...x,
-                  commissionStatus: value,
-                }
-              : x
-          )
-        );
-      }}
-    >
-      <MenuItem value="Pending">Pending</MenuItem>
+                              setCommissionHistory((prev) =>
+                                prev.map((x) =>
+                                  x.installmentNo === row.installmentNo
+                                    ? {
+                                      ...x,
+                                      commissionStatus: value,
+                                    }
+                                    : x
+                                )
+                              );
+                            }}
+                          >
+                            <MenuItem value="Pending">Pending</MenuItem>
 
-      <MenuItem
-        value="Paid"
-        disabled={!canEditCommissionStatus(row.installmentNo)}
-      >
-        Paid
-      </MenuItem>
-    </Select>
-  ) : (
-    row.commissionStatus ?? row.status
-  )}
-</TableCell>
+                            <MenuItem
+                              value="Paid"
+                              disabled={!canEditCommissionStatus(row.installmentNo)}
+                            >
+                              Paid
+                            </MenuItem>
+                          </Select>
+                        ) : (
+                          row.commissionStatus ?? row.status
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
 

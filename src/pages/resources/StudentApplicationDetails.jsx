@@ -22,7 +22,7 @@ export default function StudentApplicationDetailsPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
-  const pageSize = 200;
+  const pageSize = 10;
   const [totalRecords, setTotalRecords] = useState(0);
 
   const totalPages = Math.ceil(totalRecords / pageSize) || 1;

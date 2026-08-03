@@ -323,15 +323,16 @@ export default function ResourceFormFields({
     return (
       <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
 <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-  <TextField
-    {...fieldProps}
-    label={def.label}
-    value={form[fieldName] ?? ""}
-    InputProps={{
-      readOnly: true,
-    }}
-    sx={{ flex: 1 }}
-  />
+ <TextField
+  {...fieldProps}
+  label={def.label}
+  value={form[fieldName] ?? ""}
+  onChange={handleChange(fieldName)}
+  InputProps={{
+    readOnly: isFieldDisabled,
+  }}
+  sx={{ flex: 1 }}
+/>
 
   {def.showViewButton && form[`${fieldName}Url`] && (
    <Button
