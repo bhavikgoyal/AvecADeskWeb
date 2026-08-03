@@ -20,6 +20,11 @@ function formatDate(value) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatRate(rateType, rate) {
+  if (rate == null || rate === '') return '—';
+  return String(rateType).toLowerCase() === 'percentage' ? `${rate}%` : rate;
+}
+
 export default function VendorCommissionRatesPanel({ defaultVendorId = null }) {
   const [rates, setRates] = useState([]);
   const [institutes, setInstitutes] = useState([]);
@@ -200,7 +205,7 @@ const openHistoryDialog = async (row) => {
     { id: 'institute', label: 'Institute', render: (row) => row.instituteId ? (instituteMap[String(row.instituteId)] || '—') : '—' },
     { id: 'course', label: 'Course', render: (row) => row.courseId ? (courseMap[String(row.courseId)] || '—') : '—' },
     { id: 'rateType', label: 'Rate type', field: 'rateType' },
-    { id: 'rate', label: 'Rate', field: 'rate' },
+    { id: 'rate', label: 'Rate', render: (row) => formatRate(row.rateType, row.rate) },
     { id: 'effectiveFrom', label: 'From', render: (r) => formatDate(r.effectiveFrom) },
     {
       id: 'actions', label: 'Actions', align: 'right',
@@ -306,7 +311,7 @@ const openHistoryDialog = async (row) => {
           <ResponsiveTable
             columns={[
               { id: 'rateType', label: 'Rate Type', field: 'rateType' },
-              { id: 'rate', label: 'Rate', field: 'rate' },
+              { id: 'rate', label: 'Rate', render: (row) => formatRate(row.rateType, row.rate) },
               { id: 'effectiveFrom', label: 'From', render: (r) => formatDate(r.effectiveFrom) },
               { id: 'effectiveTo', label: 'To', render: (r) => formatDate(r.effectiveTo) },
             ]}

@@ -189,6 +189,39 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
     return v ? Number(v) : null;
   }, [isStudents, location.search]);
 
+  const vendorStatusParam = useMemo(() => {
+    if (!isVendors) return '';
+    return new URLSearchParams(location.search).get('status')?.trim().toLowerCase() || '';
+  }, [isVendors, location.search]);
+
+  const vendorYear = useMemo(() => {
+    if (!isVendors) return null;
+    const v = new URLSearchParams(location.search).get('year');
+    return v ? Number(v) : null;
+  }, [isVendors, location.search]);
+
+  const vendorMonth = useMemo(() => {
+    if (!isVendors) return null;
+    const v = new URLSearchParams(location.search).get('month');
+    return v ? Number(v) : null;
+  }, [isVendors, location.search]);
+
+  useEffect(() => {
+    if (!isVendors) return;
+
+    if (vendorStatusParam === 'active') {
+      setStatusFilter('Active');
+      return;
+    }
+
+    if (vendorStatusParam === 'pending') {
+      setStatusFilter('Pending');
+      return;
+    }
+
+    setStatusFilter('All');
+  }, [isVendors, vendorStatusParam]);
+
   const displayRows = useMemo(() => {
     if (isStudents) {
       if (studentYear || studentMonth) {
@@ -238,8 +271,26 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
       return filtered;
     }
 
+    if (isVendors) {
+      if (vendorYear || vendorMonth) {
+        return rows.filter((row) => {
+          const dateVal = row.createdAt ?? row.createdOn ?? row.createdDate ?? row.created_at;
+          const d = dateVal ? new Date(dateVal) : null;
+          if (!d || isNaN(d.getTime())) return false;
+          const y = d.getFullYear();
+          const m = d.getMonth() + 1;
+          if (vendorYear && vendorMonth) return y === vendorYear && m === vendorMonth;
+          if (vendorYear) return y === vendorYear;
+          if (vendorMonth) return m === vendorMonth;
+          return true;
+        });
+      }
+
+      return rows;
+    }
+
     return rows;
-  }, [rows, isCourses, instituteFilter, isInvoices, invoiceView, invoiceYear, invoiceMonth, isStudents, studentYear, studentMonth]);
+  }, [rows, isCourses, instituteFilter, isInvoices, invoiceView, invoiceYear, invoiceMonth, isStudents, studentYear, studentMonth, isVendors, vendorYear, vendorMonth]);
 
   const filteredDisplayRows = useMemo(() => {
   if (!isVendors || statusFilter === 'All') {

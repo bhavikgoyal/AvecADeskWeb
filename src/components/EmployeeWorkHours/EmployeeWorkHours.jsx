@@ -21,21 +21,22 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 
+const ExcelIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="5" fill="#1d6f42"/>
+    <rect x="16" y="2" width="14" height="18" rx="2" fill="#2ea35a"/>
+    <rect x="17" y="3" width="12" height="3" fill="#3cbf6a"/>
+    <rect x="17" y="7" width="12" height="2" fill="#2ea35a"/>
+    <rect x="17" y="10" width="12" height="2" fill="#3cbf6a"/>
+    <rect x="17" y="13" width="12" height="2" fill="#2ea35a"/>
+    <rect x="17" y="16" width="12" height="2" fill="#3cbf6a"/>
+    <rect x="2" y="8" width="18" height="22" rx="2" fill="#185c37"/>
+    <text x="11" y="24" fontSize="13" fontWeight="900" fill="white" textAnchor="middle" fontFamily="Arial, sans-serif">X</text>
+  </svg>
+);
+
 const EmployeeWorkHours = () => {
   const todayStr = new Date().toISOString().split('T')[0];
-
-  const minStartDefault = (() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 2);
-    return d.toISOString().split('T')[0];
-  })();
-
-  const sevenDaysAgoDefault = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    const s = d.toISOString().split('T')[0];
-    return s < minStartDefault ? minStartDefault : s;
-  })();
 
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +45,8 @@ const EmployeeWorkHours = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [employeeInput, setEmployeeInput] = useState('All Users');
-  const [startInput, setStartInput] = useState(sevenDaysAgoDefault);
-  const [endInput, setEndInput] = useState(todayStr);
+  const [startInput, setStartInput] = useState('');
+  const [endInput, setEndInput] = useState('');
 
   useEffect(() => {
     const fetchList = async () => {
@@ -178,20 +179,6 @@ const EmployeeWorkHours = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Employee Work Hours');
     XLSX.writeFile(workbook, `Employee_Work_Hours_${todayStr}.xlsx`);
   };
-
-  const ExcelIcon = () => (
-    <svg width="18" height="18" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-      <rect width="32" height="32" rx="5" fill="#1d6f42"/>
-      <rect x="16" y="2" width="14" height="18" rx="2" fill="#2ea35a"/>
-      <rect x="17" y="3" width="12" height="3" fill="#3cbf6a"/>
-      <rect x="17" y="7" width="12" height="2" fill="#2ea35a"/>
-      <rect x="17" y="10" width="12" height="2" fill="#3cbf6a"/>
-      <rect x="17" y="13" width="12" height="2" fill="#2ea35a"/>
-      <rect x="17" y="16" width="12" height="2" fill="#3cbf6a"/>
-      <rect x="2" y="8" width="18" height="22" rx="2" fill="#185c37"/>
-      <text x="11" y="24" fontSize="13" fontWeight="900" fill="white" textAnchor="middle" fontFamily="Arial, sans-serif">X</text>
-    </svg>
-  );
 
   const uniqueUsers = [
     ...new Set(
