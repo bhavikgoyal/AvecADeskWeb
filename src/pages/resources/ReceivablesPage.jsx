@@ -17,10 +17,11 @@ import {
   fetchReceivedInvoices,
   fetchInvoiceLineItems,
 } from '../../api/receivablesApi';
-import { fetchInstitutes, fetchStudentsLookup } from '../../api/lookupApi';
+import { fetchInstitutesForReceivables, fetchStudentsLookup } from '../../api/lookupApi';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function fmt(amount) {
@@ -491,7 +492,7 @@ export default function ReceivablesPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchInstitutes().then((data) => setInstitutes(data || [])).catch(() => setInstitutes([]));
+    fetchInstitutesForReceivables().then((data) => setInstitutes(data || [])).catch(() => setInstitutes([]));
     fetchStudentsLookup().then((data) => setStudents(data || [])).catch(() => setStudents([]));
   }, []);
 
@@ -615,11 +616,11 @@ export default function ReceivablesPage() {
         <FormControl size="small" sx={{ minWidth: 180 }}>
           <InputLabel>Institute</InputLabel>
           <Select value={filters.instituteId} onChange={handleFilterChange('instituteId')} label="Institute">
-            <MenuItem value="">All Institutes</MenuItem>
-            {institutes.map((inst) => (
-              <MenuItem key={inst.instituteId} value={inst.instituteId}>{inst.instituteName}</MenuItem>
-            ))}
-          </Select>
+  <MenuItem value="">All Institutes</MenuItem>
+  {institutes.map((inst) => (
+    <MenuItem key={inst.instituteId} value={inst.instituteId}>{inst.instituteName}</MenuItem>
+  ))}
+</Select>
         </FormControl>
 
         {/* Student filter */}

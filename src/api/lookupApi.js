@@ -31,3 +31,11 @@ export async function fetchStudentsLookup() {
     fullName: s.fullName ?? s.FullName ?? '',
   }));
 }
+
+export async function fetchInstitutesForReceivables() {
+  const { data } = await axiosClient.get('/api/institutes-scrapping/institutenames');
+  return data.map((i) => ({
+    instituteId: i.scrappingId ?? i.ScrappingId,
+    instituteName: i.instituteName ?? i.InstituteName,
+  }));
+}

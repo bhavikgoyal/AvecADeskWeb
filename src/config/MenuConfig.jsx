@@ -52,11 +52,11 @@ export const GET_MENU = (role) => {
         ],
       },
       {
-        category: 'STATUSES',
+        //category: 'STATUSES',
         items: [
-          { title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
-          { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
-          { title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
+          //{ title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
+         // { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
+          //{ title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
         ],
       },
       {

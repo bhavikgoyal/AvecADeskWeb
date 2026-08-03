@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getAllStartStops } from '../../api/EmployeeWorkHours';
 import * as XLSX from 'xlsx';
 
@@ -42,7 +42,7 @@ const EmployeeWorkHours = () => {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(null);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [employeeInput, setEmployeeInput] = useState('All Users');
   const [startInput, setStartInput] = useState(sevenDaysAgoDefault);
   const [endInput, setEndInput] = useState(todayStr);
@@ -109,21 +109,24 @@ const EmployeeWorkHours = () => {
     setFilters(newFilters);
   };
 
-  const filteredActivity = !filters
-    ? activity
-    : activity.filter((item) => {
-        if (filters.employeeName) {
-          const selectedUser = filters.employeeName.trim().replace(/\s+/g, " ").toLowerCase();
-          const currentUser = (item.userName || "").trim().replace(/\s+/g, " ").toLowerCase();
-          if (!currentUser.includes(selectedUser)) return false;
-        }
-        if (!filters.startDate && !filters.endDate) return true;
-        const itemDateStr = toLocalDateStr(item.startTime);
-        if (!itemDateStr) return false;
-        if (filters.startDate && itemDateStr < filters.startDate) return false;
-        if (filters.endDate && itemDateStr > filters.endDate) return false;
-        return true;
-      });
+  const filteredActivity = useMemo(
+    () => (!filters
+      ? activity
+      : activity.filter((item) => {
+          if (filters.employeeName) {
+            const selectedUser = filters.employeeName.trim().replace(/\s+/g, " ").toLowerCase();
+            const currentUser = (item.userName || "").trim().replace(/\s+/g, " ").toLowerCase();
+            if (!currentUser.includes(selectedUser)) return false;
+          }
+          if (!filters.startDate && !filters.endDate) return true;
+          const itemDateStr = toLocalDateStr(item.startTime);
+          if (!itemDateStr) return false;
+          if (filters.startDate && itemDateStr < filters.startDate) return false;
+          if (filters.endDate && itemDateStr > filters.endDate) return false;
+          return true;
+        })),
+    [activity, filters],
+  );
 
   useEffect(() => {
     if (filters) {
@@ -132,7 +135,10 @@ const EmployeeWorkHours = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
-  const paginatedActivity = filteredActivity.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedActivity = useMemo(
+    () => filteredActivity.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [filteredActivity, page, rowsPerPage],
+  );
 
   const formatMinutes = (m) => {
     const mins = Number(m);
@@ -294,21 +300,6 @@ const EmployeeWorkHours = () => {
         <Alert severity="error">{error}</Alert>
       ) : (
         <>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-            <TablePagination
-              component="div"
-              count={filteredActivity.length}
-              page={page}
-              onPageChange={(_, newPage) => setPage(newPage)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[50]}
-            />
-          </Box>
-
           <TableContainer component={Paper} variant="outlined">
             <Table size="small">
               <TableHead>
@@ -355,6 +346,19 @@ const EmployeeWorkHours = () => {
               </TableBody>
             </Table>
           </TableContainer>
+
+          <TablePagination
+            component="div"
+            count={filteredActivity.length}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50]}
+          />
         </>
       )}
     </Box>

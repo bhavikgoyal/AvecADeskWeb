@@ -5,7 +5,7 @@ import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLab
 import { Fragment } from 'react';
 import { FIELD_DEFS } from '../../config/resourceConfig';
 import { FormGridItem } from './FormSection';
-import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
+import { compactFieldGrid, defaultFieldGrid, formFieldSx, selectMenuProps } from './formStyles';
 
 const defaultEditorConfig = {
   toolbar: {
@@ -236,6 +236,7 @@ export default function ResourceFormFields({
               value={currentValue}
               onChange={handleChange(fieldName)}
               displayEmpty={def.type === 'api-select'}
+              MenuProps={selectMenuProps}
               renderValue={
                 def.type === 'api-select'
                   ? (selected) => {
@@ -255,7 +256,7 @@ export default function ResourceFormFields({
               }
             >
               {options.map((option) => (
-                <MenuItem key={option.value} value={String(option.value)}>
+                <MenuItem key={option.value} value={String(option.value)} title={option.label}>
                   {option.label}
                 </MenuItem>
               ))}

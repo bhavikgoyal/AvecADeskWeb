@@ -10,6 +10,7 @@ import {
   Typography,
   Alert,
   IconButton,
+  TablePagination,
 } from '@mui/material';
 
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
@@ -216,6 +217,8 @@ export default function MembersTable({ searchQuery = '' }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const navigate = useNavigate();
   const role = Session.getRole();
@@ -323,6 +326,15 @@ export default function MembersTable({ searchQuery = '' }) {
       })),
     [filteredRows],
   );
+
+  const paginatedRows = useMemo(
+    () => tableRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [page, rowsPerPage, tableRows],
+  );
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, rowsPerPage]);
 
   const tableColumns = useMemo(() => {
     const columns = [
@@ -463,13 +475,25 @@ export default function MembersTable({ searchQuery = '' }) {
         >
           <ResponsiveTable
             columns={tableColumns}
-            rows={tableRows}
+            rows={paginatedRows}
             getRowKey={(row) => row.UserId}
             variant="resource"
             alwaysTable
             tableMinWidth={TABLE_MIN_WIDTH}
             sx={membersTableSx}
             onRowClick={handleEdit}
+          />
+          <TablePagination
+            component="div"
+            count={tableRows.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={(_event, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50]}
           />
         </Box>
       )}
