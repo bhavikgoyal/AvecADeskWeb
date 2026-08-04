@@ -14,6 +14,8 @@ const LoginForm = lazy(() => import('../pages/Login/LoginForm'));
 const OtpLoginForm = lazy(() => import('../pages/Login/OtpLoginForm'));
 const RegisterForm = lazy(() => import('../pages/Login/RegisterForm'));
 const StudentLoginForm = lazy(() => import('../pages/Login/StudentLoginForm'));
+const ForgotPasswordForm = lazy(() => import('../pages/Login/ForgotPasswordForm'));
+const ResetPasswordForm = lazy(() => import('../pages/Login/ResetPasswordForm'));
 const UserPortal = lazy(() => import('../pages/UserPortal/UserPortal'));
 const DashboardLayout = lazy(() => import('../layouts/DashboardLayout'));
 const AdminDash = lazy(() => import('../pages/Dashboards/AdminDash'));
@@ -238,7 +240,8 @@ export default function AppRoutes() {
         <Route path="/phone-verified" element={<OtpLoginForm />} />
         <Route path="/register" element={<RegisterForm />} />
        <Route path="/student-login" element={<StudentLoginRoute />} />
-
+<Route path="/forgot-password" element={<ForgotPasswordForm />} />
+<Route path="/reset-password" element={<ResetPasswordForm />} />
         <Route
           path="/"
           element={

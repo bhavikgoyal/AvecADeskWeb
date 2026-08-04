@@ -62,11 +62,25 @@ export default function CardItem({ card, index, onDelete, onCardClick }) {
           </div>
 
           {tags.length > 0 && (
-            <div style={{ marginBottom: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <div style={{ marginBottom: 8, display: 'flex', gap: 4, flexWrap: 'wrap', minWidth: 0 }}>
               {tags.map((tag) => {
                 const style = tagStyle(tag);
                 return (
-                  <span key={tag} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: style.bg, color: style.color }}>
+                  <span
+                    key={tag}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      background: style.bg,
+                      color: style.color,
+                      maxWidth: '100%',
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'normal',
+                    }}
+                  >
                     {tag}
                   </span>
                 );

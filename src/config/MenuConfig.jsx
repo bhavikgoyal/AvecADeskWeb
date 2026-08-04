@@ -25,30 +25,47 @@ export const GET_MENU = (role) => {
       {
         category: 'CORE',
         items: [
-          { title: 'Admin Overview', path: '/dashboard/admin', Icon: DashboardIcon },
+          { title: 'DashBoard', path: '/dashboard/admin', Icon: DashboardIcon },
           // { title: 'Vendor Dashboard', path: '/dashboard/vendor', Icon: DashboardIcon },
           // { title: 'Accounting Dashboard', path: '/dashboard/accounting', Icon: DashboardIcon },
           // { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
         ],
       },
       {
-        category: 'MANAGEMENT',
+        category: 'INSTITUTE MANAGEMENT',
         items: [
-          { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
+          
           // { title: 'Institute Commission old', path: '/institutes', Icon: AccountBalanceIcon },
           //{ title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
-          { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
-          { title: 'Courses', path: '/courses', Icon: SchoolIcon },
-          { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
-          { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
-          { title: 'Email Templates', path: '/templates', Icon: EmailIcon },
-          { title: 'Agreement Template', path: '/agreement-template', Icon: DescriptionIcon },
+           { title: 'Courses', path: '/courses', Icon: SchoolIcon },
+           { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
+            { title: 'Student Inquiry', path: '/reports/student-Inquiry', Icon: PeopleIcon },
           //{ title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
           // { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
-          { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
-          { title: 'Members', path: '/Members', Icon: PeopleIcon },
-          { title: 'Employee Work Hours', path: '/EmployeeWorkHours', Icon: AssignmentIcon },
+        ],
+      },
+       {
+        category: 'Tasks',
+        items: [
+            { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
+        
+        ],
+      },
+         {
+        category: 'Accounting',
+        items: [
+           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
+         { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
+        ],
+      },
+       {
+        category: 'Settings',
+        items: [
+         { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
+         { title: 'Email Templates', path: '/templates', Icon: EmailIcon },
+          { title: 'Agreement Template', path: '/agreement-template', Icon: DescriptionIcon },
+           { title: 'Members', path: '/Members', Icon: PeopleIcon },
         ],
       },
       {
@@ -64,10 +81,11 @@ export const GET_MENU = (role) => {
         items: [
           // { title: 'AI Scraping Jobs', path: '/reports/ai-scraping', Icon: SmartToyIcon },
           { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
+           { title: 'Employee Work Hours', path: '/EmployeeWorkHours', Icon: AssignmentIcon },
           // { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
           // { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
           // { title: 'Work Hours', path: '/reports/work-hours', Icon: HistoryIcon },
-          { title: 'Student Inquiry', path: '/reports/student-Inquiry', Icon: PeopleIcon },
+         
         ],
       },
       // {

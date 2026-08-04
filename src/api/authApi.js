@@ -119,3 +119,17 @@ export async function studentLoginWithApi(email, password) {
     token,
   };
 }
+
+export async function forgotPasswordApi(email) {
+  const { data } = await axiosClient.post('/api/auth/forgot-password', { email });
+  return data;
+}
+
+export async function resetPasswordApi(token, newPassword, confirmPassword) {
+  const { data } = await axiosClient.post('/api/auth/reset-password', {
+    token,
+    newPassword,
+    confirmPassword,
+  });
+  return data;
+}
