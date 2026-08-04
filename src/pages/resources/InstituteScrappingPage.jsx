@@ -28,7 +28,6 @@ import {
   Typography,
 } from '@mui/material';
 import TableChartIcon from '@mui/icons-material/TableChart';
-import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import SchoolIcon from '@mui/icons-material/School';
 import TableContentSkeleton from '../../components/TableContentSkeleton';
@@ -220,7 +219,6 @@ export default function InstituteScrappingPage() {
   const [backgroundScrapes, setBackgroundScrapes] = useState(() => loadPendingScrapes());
   const [courseCounts, setCourseCounts] = useState({});
   const [instituteNameFilter, setInstituteNameFilter] = useState('');
-  const [appliedInstituteNameFilter, setAppliedInstituteNameFilter] = useState('');
   const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -241,17 +239,14 @@ export default function InstituteScrappingPage() {
   const [commissionError, setCommissionError] = useState('');
   const [commissionSuccess, setCommissionSuccess] = useState('');
 
-  const loadList = useCallback(async (
-    instituteName = appliedInstituteNameFilter,
-    { showLoader = rows.length === 0 && backgroundScrapes.length === 0 } = {},
-  ) => {
+  const loadList = useCallback(async ({ showLoader = rows.length === 0 && backgroundScrapes.length === 0 } = {}) => {
     if (showLoader) {
       setListLoading(true);
     }
     setListError('');
 
     try {
-      const data = await fetchInstituteScrappingRows({ instituteName });
+      const data = await fetchInstituteScrappingRows();
       setRows(data);
       setBackgroundScrapes((prev) => {
         const next = reconcilePendingScrapes(prev, data);
@@ -264,7 +259,7 @@ export default function InstituteScrappingPage() {
     } finally {
       setListLoading(false);
     }
-  }, [appliedInstituteNameFilter, backgroundScrapes.length, rows.length]);
+  }, [backgroundScrapes.length, rows.length]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -276,13 +271,13 @@ export default function InstituteScrappingPage() {
     if (!hasActiveBackgroundScrape) return undefined;
 
     const intervalId = window.setInterval(() => {
-      void loadList(appliedInstituteNameFilter, { showLoader: false });
+      void loadList({ showLoader: false });
     }, 15000);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [appliedInstituteNameFilter, backgroundScrapes, loadList]);
+  }, [backgroundScrapes, loadList]);
 
   useEffect(() => {
     let active = true;
@@ -359,7 +354,7 @@ export default function InstituteScrappingPage() {
   }, [createdInstituteId]);
 
   const displayRows = useMemo(() => {
-    const filterValue = appliedInstituteNameFilter.trim().toLowerCase();
+    const filterValue = instituteNameFilter.trim().toLowerCase();
     const persistedKeys = new Set(
       rows.map((row) => `${(row.instituteName || '').trim().toLowerCase()}|${(row.websiteUrl || '').trim().toLowerCase()}`),
     );
@@ -370,8 +365,12 @@ export default function InstituteScrappingPage() {
       return (row.instituteName || '').toLowerCase().includes(filterValue);
     });
 
-    return [...filteredBackgroundRows, ...rows];
-  }, [appliedInstituteNameFilter, backgroundScrapes, rows]);
+    const filteredRows = !filterValue
+      ? rows
+      : rows.filter((row) => (row.instituteName || '').toLowerCase().includes(filterValue));
+
+    return [...filteredBackgroundRows, ...filteredRows];
+  }, [backgroundScrapes, instituteNameFilter, rows]);
 
   const paginatedRows = useMemo(
     () => displayRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
@@ -380,19 +379,7 @@ export default function InstituteScrappingPage() {
 
   const handleInstituteNameFilterChange = (event) => {
     setInstituteNameFilter(event.target.value);
-  };
-
-  const handleApplyFilter = async () => {
-    setAppliedInstituteNameFilter(instituteNameFilter.trim());
     setPage(0);
-    await loadList(instituteNameFilter.trim());
-  };
-
-  const handleClearFilter = async () => {
-    setInstituteNameFilter('');
-    setAppliedInstituteNameFilter('');
-    setPage(0);
-    await loadList('');
   };
 
   const handleExportExcel = async () => {
@@ -400,7 +387,7 @@ export default function InstituteScrappingPage() {
     setListError('');
 
     try {
-      await exportInstituteScrappingExcel({ instituteName: appliedInstituteNameFilter });
+      await exportInstituteScrappingExcel({ instituteName: instituteNameFilter.trim() });
     } catch (err) {
       setListError(err.message || 'Failed to export institute scrapping records.');
     } finally {
@@ -659,36 +646,9 @@ export default function InstituteScrappingPage() {
                     size="small"
                     value={instituteNameFilter}
                     onChange={handleInstituteNameFilterChange}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        handleApplyFilter();
-                      }
-                    }}
                     sx={{ minWidth: 240, maxWidth: 360 }}
                     disabled={listLoading}
                   />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<SearchIcon />}
-                    onClick={handleApplyFilter}
-                    sx={{ textTransform: 'none', height: 40 }}
-                    disabled={listLoading}
-                  >
-                    Search
-                  </Button>
-                  {appliedInstituteNameFilter && (
-                    <Button
-                      variant="text"
-                      size="small"
-                      onClick={handleClearFilter}
-                      sx={{ textTransform: 'none', height: 40 }}
-                      disabled={listLoading}
-                    >
-                      Clear
-                    </Button>
-                  )}
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Button
@@ -734,7 +694,7 @@ export default function InstituteScrappingPage() {
               ) : displayRows.length === 0 ? (
                 <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
                   <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
-                    {appliedInstituteNameFilter
+                    {instituteNameFilter.trim()
                       ? 'No records match the institute name filter.'
                       : 'No scrapping records yet. Click "Add" to create one.'}
                   </Typography>

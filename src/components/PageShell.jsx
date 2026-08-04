@@ -30,13 +30,25 @@ export default function PageShell({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  const searchableFields = useMemo(() => {
+    const fields = columns
+      .map((column) => column.field || column.id)
+      .filter((field) => typeof field === 'string' && !field.startsWith('__'));
+
+    return fields.length > 0 ? fields : null;
+  }, [columns]);
+
   const filteredRows = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return rows;
-    return rows.filter((row) =>
-      Object.values(row).some((value) => String(value ?? '').toLowerCase().includes(term)),
-    );
-  }, [rows, query]);
+    return rows.filter((row) => {
+      const values = searchableFields
+        ? searchableFields.map((field) => row?.[field])
+        : Object.values(row);
+
+      return values.some((value) => String(value ?? '').toLowerCase().includes(term));
+    });
+  }, [rows, query, searchableFields]);
 
   
 const paginatedRows = useMemo(() => {

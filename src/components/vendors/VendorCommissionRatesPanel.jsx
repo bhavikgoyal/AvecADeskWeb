@@ -32,6 +32,7 @@ export default function VendorCommissionRatesPanel({ defaultVendorId = null }) {
   const [dialogCourses, setDialogCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [dialogError, setDialogError] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(() => getEmptyCommissionRateForm(defaultVendorId));
   const [saving, setSaving] = useState(false);
@@ -156,27 +157,29 @@ useEffect(() => {
 
   const openCreateDialog = () => {
     setForm(getEmptyCommissionRateForm(defaultVendorId));
+    setDialogError('');
     setDialogOpen(true);
   };
 
   const closeDialog = () => {
     if (saving) return;
+    setDialogError('');
     setDialogOpen(false);
   };
 
   const handleSave = async () => {
     if (!form.rateType || !form.rate || !form.effectiveFrom) {
-      setError('Rate type, rate, and effective from are required.');
+      setDialogError('Rate type, rate, and effective from are required.');
       return;
     }
     setSaving(true);
-    setError('');
+    setDialogError('');
     try {
       await createVendorCommissionRate(defaultVendorId, form);
       setDialogOpen(false);
       await loadRates();
     } catch (err) {
-      setError(err.message || 'Failed to save commission rate.');
+      setDialogError(err.message || 'Failed to save commission rate.');
     } finally {
       setSaving(false);
     }
@@ -188,7 +191,7 @@ const openHistoryDialog = async (row) => {
     const data = await fetchCommissionHistory(
       row.vendorId,
       row.instituteId,
-      row.courseId
+      row.courseId,
     );
     setHistoryData(data);
     setHistoryOpen(true);
@@ -200,15 +203,25 @@ const openHistoryDialog = async (row) => {
   }
 };
 
-
   const columns = [
-    { id: 'institute', label: 'Institute', render: (row) => row.instituteId ? (instituteMap[String(row.instituteId)] || '—') : '—' },
-    { id: 'course', label: 'Course', render: (row) => row.courseId ? (courseMap[String(row.courseId)] || '—') : '—' },
+    {
+      id: 'institute',
+      label: 'Institute',
+      render: (row) => (row.instituteId ? (instituteMap[String(row.instituteId)] || '—') : '—'),
+    },
+    {
+      id: 'course',
+      label: 'Course',
+      render: (row) => (row.courseId ? (courseMap[String(row.courseId)] || '—') : '—'),
+    },
     { id: 'rateType', label: 'Rate type', field: 'rateType' },
     { id: 'rate', label: 'Rate', render: (row) => formatRate(row.rateType, row.rate) },
     { id: 'effectiveFrom', label: 'From', render: (r) => formatDate(r.effectiveFrom) },
+    { id: 'effectiveTo', label: 'To', render: (r) => formatDate(r.effectiveTo) },
     {
-      id: 'actions', label: 'Actions', align: 'right',
+      id: 'actions',
+      label: 'Actions',
+      align: 'right',
       render: (row) => (
         <Button size="small" onClick={() => openHistoryDialog(row)}>History</Button>
       ),
@@ -259,7 +272,10 @@ const openHistoryDialog = async (row) => {
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             <TextField select label="Institute" value={form.instituteId} fullWidth
-              onChange={(e) => setForm((prev) => ({ ...prev, instituteId: e.target.value, courseId: '' }))}>
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, instituteId: e.target.value, courseId: '' }));
+                setDialogError('');
+              }}>
               <MenuItem value="">None</MenuItem>
               {institutes.map((i) => {
                 const id = i.instituteId ?? i.InstituteId;
@@ -269,7 +285,10 @@ const openHistoryDialog = async (row) => {
             </TextField>
 
             <TextField select label="Course" value={form.courseId} fullWidth disabled={!form.instituteId}
-              onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value }))}>
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, courseId: e.target.value }));
+                setDialogError('');
+              }}>
               <MenuItem value="">None</MenuItem>
               {(dialogCourses ?? []).map((c) => {
                 const id = c.courseId ?? c.CourseId;
@@ -279,21 +298,39 @@ const openHistoryDialog = async (row) => {
             </TextField>
 
             <TextField select label="Rate type" value={form.rateType} fullWidth required
-              onChange={(e) => setForm((prev) => ({ ...prev, rateType: e.target.value }))}>
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, rateType: e.target.value }));
+                setDialogError('');
+              }}>
               <MenuItem value="Fixed">Fixed</MenuItem>
               <MenuItem value="Percentage">Percentage</MenuItem>
             </TextField>
 
             <TextField label="Rate" type="number" value={form.rate} fullWidth required
-              onChange={(e) => setForm((prev) => ({ ...prev, rate: e.target.value }))} />
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, rate: e.target.value }));
+                setDialogError('');
+              }} />
 
             <TextField label="Effective from" type="date" value={form.effectiveFrom} fullWidth required
-              onChange={(e) => setForm((prev) => ({ ...prev, effectiveFrom: e.target.value }))}
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, effectiveFrom: e.target.value }));
+                setDialogError('');
+              }}
               slotProps={{ inputLabel: { shrink: true } }} />
 
             <TextField label="Effective to" type="date" value={form.effectiveTo} fullWidth
-              onChange={(e) => setForm((prev) => ({ ...prev, effectiveTo: e.target.value }))}
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, effectiveTo: e.target.value }));
+                setDialogError('');
+              }}
               slotProps={{ inputLabel: { shrink: true } }} />
+
+            {dialogError && (
+              <Alert severity="error" onClose={() => setDialogError('')}>
+                {dialogError}
+              </Alert>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

@@ -235,8 +235,15 @@ export async function fetchCoursesByScrappingId(scrappingId) {
     },
   });
 
+  const rawCourses = Array.isArray(data)
+    ? data
+    : (data?.courses ?? data?.Courses ?? []);
+
   return {
-    gstPercentage: data.gstPercentage,
-    courses: data.courses,
+    gstPercentage: data?.gstPercentage ?? data?.GstPercentage ?? 0,
+    courses: rawCourses.map((course) => ({
+      ...normalizeCourse(course),
+      id: String(course.courseId ?? course.CourseId ?? ''),
+    })),
   };
 }
