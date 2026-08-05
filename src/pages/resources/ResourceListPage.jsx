@@ -2,14 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Alert,
+   Badge,
+  Box,
   Button,
   Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   Tooltip,FormControl, Select, MenuItem
 } from '@mui/material';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { deleteInstitute, fetchInstituteRows } from '../../api/institutesApi';
@@ -508,24 +512,75 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
           id: '__view_students__',
           label: 'Students',
           align: 'center',
-          headerSx: { width: 120 },
-          render: (row) => (
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={(e) => {
-                e.stopPropagation();
-                const id = row.vendorId ?? row.id;
-                const name = row.businessName || '';
-                navigate(
-                  `/reports/student-Inquiry?vendorId=${encodeURIComponent(id)}&vendorName=${encodeURIComponent(name)}`,
-                );
-              }}
-              sx={{ textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap', minWidth: 110,}}
-            >
-               Student ({row.studentCount ?? 0})
-            </Button>
-          ),
+          headerSx: { width: 160 },
+          render: (row) => {
+            const id = row.vendorId ?? row.id;
+            const name = row.businessName || '';
+            const newCount = Number(row.todayRegisterStudent ?? 0);
+
+            const goToStudents = (newOnly) => {
+              const params = new URLSearchParams({
+                vendorId: id,
+                vendorName: name,
+              });
+              if (newOnly) params.set('newOnly', 'true');
+              navigate(`/reports/student-Inquiry?${params.toString()}`);
+            };
+
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToStudents(false);
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap', minWidth: 110 }}
+                >
+                  Student ({row.studentCount ?? 0})
+                </Button>
+
+               {newCount > 0 && (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRows((prev) =>
+                        prev.map((r) =>
+                          (r.vendorId ?? r.id) === id
+                            ? { ...r, todayRegisterStudent: 0 }
+                            : r
+                        )
+                      );
+                      goToStudents(true);
+                    }}
+                  >
+                    <Badge
+                      badgeContent={newCount}
+                      color="error"
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          fontSize: '10px !important',
+                          minWidth: '14px',
+                          height: '14px',
+                          padding: '5px 5px',
+                          lineHeight: 1,
+                        },
+                      }}
+                    >
+                      <NotificationsActiveIcon
+                        sx={{
+                          color: '#ffc107',
+                          fontSize: 23,
+                        }}
+                      />
+                    </Badge>
+                  </IconButton>
+                )}
+              </Box>
+            );
+          },
         },
       ];
     }
@@ -603,7 +658,7 @@ if (isInvoices) {
         ),
       },
     ];
-  }, [isInstitutes, isInvoices, isVendors, resource, selectedIds, allSelected, someSelected, toggleAll, toggleRow, openHistory, navigate]);
+  }, [isInstitutes, isInvoices, isVendors, resource, selectedIds, allSelected, someSelected, toggleAll, toggleRow, openHistory, navigate, setRows]);
 
   const handleExportPdf = useCallback(() => {
     const selectedRows = rows.filter((r) => selectedIds.includes(r.id));

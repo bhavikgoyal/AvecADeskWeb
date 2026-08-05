@@ -19,11 +19,12 @@ export default function ForgotPasswordForm() {
       await forgotPasswordApi(email);
       setSent(true);
     } catch (err) {
-      setError(
-        err.message === 'Request failed'
-          ? 'Cannot reach AvecADeskApi. Make sure the API is running on https://localhost:7099 and try again.'
-          : err.message || 'Something went wrong. Please try again.',
-      );
+     setError( 
+  err.message === 'Request failed'
+    ? 'Cannot reach AvecADeskApi. Make sure the API is running and try again.' 
+    : err.message || 'Something went wrong. Please try again.',
+);
+
     } finally {
       setSubmitting(false);
     }
