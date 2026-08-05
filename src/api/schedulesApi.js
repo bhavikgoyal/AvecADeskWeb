@@ -187,9 +187,16 @@ export async function bulkUpdatePaymentScheduleStatus(items) {
 }
 
 
-export async function fetchStudentPaymentScheduleList(studentId) {
+export async function fetchStudentPaymentScheduleList(studentId,isNextMonth = false) {
   try {
-    const params = studentId ? { studentId } : undefined;
+    const params = {};
+    if (studentId) {
+      params.studentId = studentId;
+    }
+
+    if (isNextMonth) {
+      params.isNextMonth = true;
+    }
 
     const { data } = await axiosClient.get(
       "/api/schedules/GetStudentPaymentScheduleList",
@@ -212,6 +219,7 @@ export async function fetchStudentPaymentScheduleList(studentId) {
       pendingInstallments: item.pendingInstallments ?? item.PendingInstallments,
       collectedAmount: item.collectedAmount ?? item.CollectedAmount,
       balanceAmount: item.balanceAmount ?? item.BalanceAmount,
+      installmentAmount:item.installmentAmount ?? item.InstallmentAmount,
       nextDueDate: item.nextDueDate ?? item.NextDueDate,
       paymentStatus: item.paymentStatus ?? item.PaymentStatus,
     }));

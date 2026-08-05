@@ -230,9 +230,6 @@ export default function NewStudentPage({ basePath }) {
       setPaymentList([]);
       return;
     }
-
-    const today = new Date();
-
     const formatDate = (date) => {
       const y = date.getFullYear();
       const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -262,15 +259,15 @@ export default function NewStudentPage({ basePath }) {
         dueDate.setMonth(startDate.getMonth() + (i * 3));
       }
 
-      const isPaid = !isEdit && dueDate < today;
+    //  const isPaid = !isEdit && dueDate < today;
 
       list.push({
         installmentNo: i + 1,
         dueDate: formatDate(dueDate),
         amount: installmentAmount.toFixed(2),
-        paidAmount: isPaid ? installmentAmount.toFixed(2) : "0.00",
-        balance: isPaid ? "0.00" : installmentAmount.toFixed(2),
-        status: isPaid ? "Paid" : "Pending",
+        paidAmount:"0.00",
+        balance: installmentAmount.toFixed(2),
+        status: "Pending",
       });
     }
 
