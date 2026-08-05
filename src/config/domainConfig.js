@@ -1,4 +1,3 @@
-
 /** Field definitions aligned with Project_Architecture_v2 (18 SQL tables). */
 import React from 'react';
 import Badge from "@mui/material/Badge";
@@ -274,59 +273,25 @@ export const DOMAIN_RESOURCES = {
       { id: 'contactPerson', label: 'Contact person', field: 'contactPerson' },
       { id: 'email', label: 'Email', field: 'email' },
       { id: 'phone', label: 'Phone', field: 'phone' },
-      {
+   {
         id: "status",
         label: "Status",
         field: "status",
         render: (row) =>
           React.createElement(
-            "div",
+            "span",
             {
               style: {
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
+                color:
+                  (row.vendorStatus ?? row.status) === "Active"
+                    ? "green"
+                    : (row.vendorStatus ?? row.status) === "Pending"
+                      ? "red"
+                      : "inherit",
+                fontWeight: 600,
               },
             },
-            React.createElement(
-              "span",
-              {
-                style: {
-                  color:
-                    (row.vendorStatus ?? row.status) === "Active"
-                      ? "green"
-                      : (row.vendorStatus ?? row.status) === "Pending"
-                        ? "red"
-                        : "inherit",
-                  fontWeight: 600,
-                },
-              },
-              row.vendorStatus ?? row.status
-            ),
-            row.todayRegisterStudent > 0
-              ? React.createElement(
-                Badge,
-                {
-                  badgeContent: row.todayRegisterStudent,
-                  color: "error",
-                  sx: {
-                    "& .MuiBadge-badge": {
-                      fontSize: "10px !important", // number size
-                      minWidth: "14px",    // badge width
-                      height: "14px",      // badge height
-                      padding: "5px 5px",
-                      lineHeight: 1,
-                    },
-                  },
-                },
-                React.createElement(NotificationsActiveIcon, {
-                  sx: {
-                    color: "#ffc107",
-                    fontSize: 23,
-                  },
-                })
-              )
-              : null
+            row.vendorStatus ?? row.status
           ),
       }
     ],
