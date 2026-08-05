@@ -37,13 +37,19 @@ export default function PaymentSchedulesPage() {
   const initCurrent = initParams.has("currentMonth") || initParams.get("currentMonth") === "true";
   const [currentMonthOnly, setCurrentMonthOnly] = useState(initCurrent);
 
-  const parseFilterFromUrl = () => {
-    const params = new URLSearchParams(location.search);
-    const y = params.get("year");
-    const m = params.get("month");
-    const currentFlag = params.has("currentMonth") || params.get("currentMonth") === "true";
-    return { y: y ? Number(y) : null, m: m ? Number(m) : null, currentFlag };
+const parseFilterFromUrl = () => {
+  const params = new URLSearchParams(location.search);
+
+  return {
+    y: params.get("year") ? Number(params.get("year")) : null,
+    m: params.get("month") ? Number(params.get("month")) : null,
+    currentFlag:
+      params.has("currentMonth") ||
+      params.get("currentMonth") === "true",
+    nextMonth: params.get("filter") === "next-month",
   };
+};
+
 const paginatedRows = useMemo(
   () =>
     rows.slice(
@@ -60,50 +66,41 @@ const handleChangeRowsPerPage = (event) => {
   setRowsPerPage(parseInt(event.target.value, 10));
   setPage(0);
 };
-  const loadRows = useCallback(async () => {
-    setLoading(true);
-    setError("");
+const loadRows = useCallback(async () => {
+  setLoading(true);
+  setError("");
 
-    try {
-      const result = await fetchStudentPaymentScheduleList(studentFilter || undefined);
+  try {
+    const { nextMonth } = parseFilterFromUrl();
 
-      // determine whether to filter by month (either explicit year+month or currentMonth flag)
-      const { y, m, currentFlag } = parseFilterFromUrl();
-      const shouldFilter = currentFlag || (y && m);
-      const now = new Date();
-      const targetYear = y && m ? y : currentFlag ? now.getFullYear() : null;
-      const targetMonth = y && m ? m - 1 : currentFlag ? now.getMonth() : null; // month 0-based
+    const result = await fetchStudentPaymentScheduleList(
+      studentFilter || undefined,
+      nextMonth
+    );
 
-      const filtered = (result || []).filter((item) => {
-        if (!shouldFilter && !currentMonthOnly) return true;
-        const v = item.studentCreatedAt ?? item.StudentCreatedAt ?? item.createdAt ?? item.CreatedAt;
-        if (!v) return false;
-        const d = new Date(v);
-        if (Number.isNaN(d.getTime())) return false;
-        if (targetYear != null && targetMonth != null) {
-          return d.getFullYear() === targetYear && d.getMonth() === targetMonth;
-        }
-        // default: filter to current month
-        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-      });
+    setRows(result || []);
 
-      setRows(filtered);
+    const uniqueStudents = [
+      ...new Map(
+        (result || []).map((item) => [
+          item.studentId,
+          {
+            studentId: item.studentId,
+            fullName: item.studentName,
+          },
+        ])
+      ).values(),
+    ];
 
-      const uniqueStudents = [
-        ...new Map(
-          (filtered || []).map((item) => [item.studentId, { studentId: item.studentId, fullName: item.studentName }])
-        ).values(),
-      ];
-
-      setStudents(uniqueStudents);
-    } catch (err) {
-      setRows([]);
-      setStudents([]);
-      setError(err.message || "Failed to load payment schedules.");
-    } finally {
-      setLoading(false);
-    }
-  }, [studentFilter, location.search, currentMonthOnly]);
+    setStudents(uniqueStudents);
+  } catch (err) {
+    setRows([]);
+    setStudents([]);
+    setError(err.message || "Failed to load payment schedules.");
+  } finally {
+    setLoading(false);
+  }
+}, [studentFilter, location.search]);
 
   useEffect(() => {
     loadRows();
@@ -122,6 +119,7 @@ const handleChangeRowsPerPage = (event) => {
         case "totalCourseFee":
         case "collectedAmount":
         case "balanceAmount":
+        case "installmentAmount":
           return { ...column, render: (row) => formatCurrency(row[column.field]) };
 
         case "nextDueDate":

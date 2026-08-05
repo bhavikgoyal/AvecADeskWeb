@@ -17,7 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Grid, Paper, Typography, Button } from '@mui/material';
 import { fetchWeekChecklistStats } from '../../utils/checklistStats';
 import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
-import { fetchInvoicesWithMonthlyTotals } from '../../api/invoicesApi';
+import { fetchInvoicesWithMonthlyTotals,fetchNextMonthInvoiceTotal } from '../../api/invoicesApi';
 import { fetchVendorRows } from '../../api/vendorsApi';
 const kpiStats = [
   {
@@ -32,7 +32,7 @@ const kpiStats = [
 ];
 export default function AdminDash() {
   const navigate = useNavigate();
-  
+  const [nextMonthInvoiceTotal, setNextMonthInvoiceTotal] = useState(0);
   const [vendorStats, setVendorStats] = useState({
     total: 0,
     newThisMonth: 0,
@@ -40,6 +40,24 @@ export default function AdminDash() {
     pending: 0,
     loggedInToday: 0,
   });
+  
+useEffect(() => {
+  const loadNextMonthTotal = async () => {
+    try {
+      const total = await fetchNextMonthInvoiceTotal();
+      setNextMonthInvoiceTotal(total);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  loadNextMonthTotal();
+}, []);
+
+useEffect(() => {
+  console.log("Updated State:", nextMonthInvoiceTotal);
+}, [nextMonthInvoiceTotal]);
+
   useEffect(() => {
     let mounted = true;
     fetchVendorRows()
@@ -298,20 +316,13 @@ export default function AdminDash() {
           })()}
         />
         <Box sx={{ mt: 1.5 }}>
-          <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 } }}>
+        <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 },cursor: "pointer", }}
+          onClick={() => {navigate("/students?filter=next-month");}}>
             <Typography sx={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem' }}>
               Next Month — Total Upcoming
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 800, color: 'var(--text)', mt: 1 }}>
-              {`$${(installmentSummary.upcomingNext || [])
-                .reduce((sum, it) => {
-                  const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
-                  const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
-                  const balance = Number(it.balanceAmount ?? 0) || 0;
-                  const value = (comm || bonus) ? (comm + bonus) : balance;
-                  return sum + value;
-                }, 0)
-                .toLocaleString()}`}
+             {`$${Number(nextMonthInvoiceTotal || 0).toLocaleString()}`}
             </Typography>
           </Paper>
         </Box>

@@ -221,3 +221,9 @@ export async function downloadInvoiceDocuments(invoiceIds = []) {
     await downloadInvoiceDocument(id);
   }
 }
+export async function fetchNextMonthInvoiceTotal() {
+  const { data } = await axiosClient.get(
+    "/api/invoices/next-month-totalinvoice"
+  );
+  return Number(data);
+}

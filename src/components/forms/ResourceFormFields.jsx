@@ -324,11 +324,17 @@ export default function ResourceFormFields({
     return (
       <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
 <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
- <TextField
+    <TextField
   {...fieldProps}
+  {...(isDate ? dateFieldProps : {})}
   label={def.label}
+  required={isRequired}
+  type={def.type === "textarea" ? undefined : def.type}
+  multiline={def.type === "textarea"}
+  minRows={def.type === "textarea" ? textareaRows : undefined}
   value={form[fieldName] ?? ""}
   onChange={handleChange(fieldName)}
+  disabled={isFieldDisabled}
   InputProps={{
     readOnly: isFieldDisabled,
   }}
