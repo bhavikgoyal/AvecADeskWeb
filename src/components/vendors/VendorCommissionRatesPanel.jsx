@@ -10,9 +10,9 @@ import {
   fetchCommissionHistory,
   getEmptyCommissionRateForm,
 } from '../../api/commissionsApi';
-import { fetchCoursesByInstitute, fetchInstitutes } from '../../api/lookupApi';
-import { primaryButtonSx } from '../forms';
 
+import { primaryButtonSx } from '../forms';
+import { fetchCoursesByInstitute, fetchInstitutesFromScraping } from '../../api/lookupApi';
 function formatDate(value) {
   if (!value) return '—';
   const date = new Date(value);
@@ -42,10 +42,7 @@ export default function VendorCommissionRatesPanel({ defaultVendorId = null }) {
 const instituteMap = useMemo(
   () =>
     Object.fromEntries(
-      institutes.map((i) => [
-        String(i.instituteId ?? i.InstituteId),
-        i.name ?? i.Name ?? i.instituteName ?? i.InstituteName,
-      ]),
+      institutes.map((i) => [String(i.instituteId), i.instituteName]),
     ),
   [institutes],
 );
@@ -76,11 +73,10 @@ const loadRates = useCallback(async () => {
 }, [defaultVendorId]);
 
 useEffect(() => {
-  fetchInstitutes()
+  fetchInstitutesFromScraping()
     .then((data) => setInstitutes(data ?? []))
     .catch(() => setInstitutes([]));
 }, []);
-
 useEffect(() => {
   if (institutes.length === 0) return;
 
@@ -277,11 +273,11 @@ const openHistoryDialog = async (row) => {
                 setDialogError('');
               }}>
               <MenuItem value="">None</MenuItem>
-              {institutes.map((i) => {
-                const id = i.instituteId ?? i.InstituteId;
-                const name = i.name ?? i.Name ?? i.instituteName ?? i.InstituteName;
-                return <MenuItem key={id} value={String(id)}>{name}</MenuItem>;
-              })}
+           {institutes.map((i) => (
+  <MenuItem key={i.instituteId} value={String(i.instituteId)}>
+    {i.instituteName}
+  </MenuItem>
+))}
             </TextField>
 
             <TextField select label="Course" value={form.courseId} fullWidth disabled={!form.instituteId}

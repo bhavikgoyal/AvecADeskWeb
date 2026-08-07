@@ -79,3 +79,11 @@ export async function fetchInstitutesForReceivables() {
     instituteName: i.instituteName ?? i.InstituteName,
   }));
 }
+
+export async function fetchInstitutesFromScraping() {
+  const { data } = await axiosClient.get('/api/institutes-scrapping/institutenames');
+  return data.map((i) => ({
+    instituteId: i.scrappingId ?? i.ScrappingId,
+    instituteName: i.instituteName ?? i.InstituteName,
+  }));
+}
