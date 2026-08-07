@@ -336,8 +336,21 @@ useEffect(() => {
                 icon={<HowToRegIcon />}
                 color="var(--teal)"
                 footer={[
-                  { label: 'Active today', value: vendorStats.loggedInToday.toLocaleString() },
-                  { label: 'Idle', value: vendorStats.neverLoggedIn ? vendorStats.neverLoggedIn.toLocaleString() : '0', color: 'var(--error, #d32f2f)' },
+                  {
+                    label: 'Active today',
+                    value: vendorStats.loggedInToday.toLocaleString(),
+                    onClick: () => {
+                      navigate('/vendors?activity=active-today');
+                    },
+                  },
+                  {
+                    label: 'Idle',
+                    value: vendorStats.neverLoggedIn ? vendorStats.neverLoggedIn.toLocaleString() : '0',
+                    color: 'var(--error, #d32f2f)',
+                    onClick: () => {
+                      navigate('/vendors?activity=idle');
+                    },
+                  },
                 ]}
                 sx={{ flex: 1, width: '100%' }}
               />
