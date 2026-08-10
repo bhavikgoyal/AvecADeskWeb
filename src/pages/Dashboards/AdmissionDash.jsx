@@ -21,6 +21,9 @@ export default function AdmissionDash() {
     newThisMonth: 0,
   });
 
+  const [vendorRowsList, setVendorRowsList] = useState([]);
+  const [newStudentsList, setNewStudentsList] = useState([]);
+
   const [vendorStats, setVendorStats] = useState({
     total: 0,
     newThisMonth: 0,
@@ -35,28 +38,88 @@ export default function AdmissionDash() {
     const getNewThisMonthCount = (list) =>
       Array.isArray(list)
         ? list.filter((item) => {
-            if (!item.createdAt) return false;
-            const created = new Date(item.createdAt);
-            const now = new Date();
-            return (
-              created.getFullYear() === now.getFullYear() &&
-              created.getMonth() === now.getMonth()
-            );
-          }).length
+          if (!item.createdAt) return false;
+          const created = new Date(item.createdAt);
+          const now = new Date();
+          return (
+            created.getFullYear() === now.getFullYear() &&
+            created.getMonth() === now.getMonth()
+          );
+        }).length
         : 0;
 
     const fetchData = async () => {
       try {
+        const getLastXMonths = (count = 12) => {
+          const res = [];
+          const now = new Date();
+          for (let i = count - 1; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            res.push({ year: d.getFullYear(), month: d.getMonth() });
+          }
+          return res;
+        };
+
+        const monthlyCounts = (list, dateField = 'createdAt', months = 12, mapper) => {
+          const monthsArr = getLastXMonths(months);
+          return monthsArr.map(({ year, month }) => {
+            const count = Array.isArray(list)
+              ? list.filter((item) => {
+                const raw = mapper ? mapper(item) : item[dateField];
+                if (!raw) return false;
+                const parsed = Date.parse(raw);
+                if (Number.isNaN(parsed)) return false;
+                const d = new Date(parsed);
+                return d.getFullYear() === year && d.getMonth() === month;
+              }).length
+              : 0;
+            return { v: count };
+          });
+        };
+
+        const getLastXDays = (count = 7) => {
+          const res = [];
+          const now = new Date();
+          for (let i = count - 1; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+            res.push({ year: d.getFullYear(), month: d.getMonth(), date: d.getDate() });
+          }
+          return res;
+        };
+
+        const dailyCounts = (list, dateField = 'lastLogin', days = 7, mapper) => {
+          const daysArr = getLastXDays(days);
+          return daysArr.map(({ year, month, date }) => {
+            const count = Array.isArray(list)
+              ? list.filter((item) => {
+                const raw = mapper ? mapper(item) : item[dateField];
+                if (!raw) return false;
+                const parsed = Date.parse(raw);
+                if (Number.isNaN(parsed)) return false;
+                const d = new Date(parsed);
+                return d.getFullYear() === year && d.getMonth() === month && d.getDate() === date;
+              }).length
+              : 0;
+            return { v: count };
+          });
+        };
+
         const studentList = await fetchAllStudents();
         const vendorList = await fetchVendorRows();
-        
+
         console.log('Fetched vendorList:', vendorList);
 
         if (Array.isArray(studentList)) {
+          const studentDateMapper = (s) => s.createdAt || s.created_at || s.created;
           setStudentStats({
             total: studentList.length,
             newThisMonth: getNewThisMonthCount(studentList),
+            monthlySpark: monthlyCounts(studentList, 'createdAt', 12, studentDateMapper),
           });
+          setNewStudentsList(Array.isArray(studentList) ? studentList : []);
+          try {
+            console.log('AdmissionDash student monthlySpark:', monthlyCounts(studentList, 'createdAt', 12, studentDateMapper));
+          } catch (e) { }
         }
 
         if (Array.isArray(vendorList)) {
@@ -81,7 +144,6 @@ export default function AdmissionDash() {
 
           const now = new Date();
 
-          // Idle = logged in during current calendar month/year (local time)
           const idleOneMonth = vendorList.filter((v) => {
             if (!v.lastLogin) return false;
             const parsed = Date.parse(v.lastLogin);
@@ -89,8 +151,10 @@ export default function AdmissionDash() {
             const d = new Date(parsed);
             return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
           }).length;
-          // Everyone else (no lastLogin or older than current month) is treated as "never logged in"
-          const neverLoggedIn = vendorList.length - idleOneMonth;
+          const neverLoggedIn = vendorList.filter((v) => !v.lastLogin).length;
+
+          const vendorDateMapper = (v) => v.createdAt || v.created_at || v.created;
+          const vendorLastLoginMapper = (v) => v.lastLogin || v.last_login || v.last_login_at || v.lastLoginAt;
 
           setVendorStats({
             total: vendorList.length,
@@ -100,8 +164,11 @@ export default function AdmissionDash() {
             loggedInToday,
             idleOneMonth,
             neverLoggedIn,
+            monthlySpark: monthlyCounts(vendorList, 'createdAt', 12, vendorDateMapper),
+            monthlyActiveSpark: monthlyCounts(vendorList, 'lastLogin', 12, vendorLastLoginMapper),
+            dailyActiveSpark: dailyCounts(vendorList, 'lastLogin', 7, vendorLastLoginMapper),
           });
-          // debug: verify vendorStats values after setting
+          setVendorRowsList(Array.isArray(vendorList) ? vendorList : []);
           try {
             console.log('vendorStats set:', {
               total: vendorList.length,
@@ -111,7 +178,7 @@ export default function AdmissionDash() {
               active,
               pending,
             });
-          } catch (e) {}
+          } catch (e) { }
         }
       } catch (error) {
         console.error('Dashboard Error:', error);
@@ -126,11 +193,17 @@ export default function AdmissionDash() {
       label: 'Students',
       value: studentStats.total.toLocaleString(),
       trend: studentStats.newThisMonth > 0 ? 1 : 0,
+      subValue: (studentStats.monthlySpark && studentStats.monthlySpark.length)
+        ? studentStats.monthlySpark[studentStats.monthlySpark.length - 1].v
+        : studentStats.newThisMonth,
     },
     {
       label: 'Vendors',
       value: vendorStats.total.toLocaleString(),
       trend: vendorStats.newThisMonth > 0 ? 1 : 0,
+      subValue: (vendorStats.monthlySpark && vendorStats.monthlySpark.length)
+        ? vendorStats.monthlySpark[vendorStats.monthlySpark.length - 1].v
+        : vendorStats.newThisMonth,
     },
   ];
 
@@ -138,7 +211,31 @@ export default function AdmissionDash() {
     {
       label: 'Total Students',
       value: studentStats.total.toLocaleString(),
-      sparklineData: buildSparkline(2),
+      sparklineData: (() => {
+        const safeList = Array.isArray(newStudentsList) ? newStudentsList : [];
+        const mapper = (s) => s.createdAt || s.created_at || s.created;
+        const now = new Date();
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+          days.push(d);
+        }
+        const cumulative = days.map((day) => {
+          const endOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+          let cnt = 0;
+          for (const s of safeList) {
+            const raw = mapper(s);
+            if (!raw) continue;
+            const parsed = Date.parse(raw);
+            if (Number.isNaN(parsed)) continue;
+            if (parsed <= endOfDay.getTime()) cnt += 1;
+          }
+          return { v: cnt };
+        });
+        if (!Array.isArray(cumulative) || cumulative.length !== 7) return Array.from({ length: 7 }, () => ({ v: 0 }));
+        cumulative[cumulative.length - 1].v = studentStats.total || cumulative[cumulative.length - 1].v;
+        return cumulative;
+      })(),
       icon: <PeopleIcon />,
       color: 'var(--primary)',
       footer: [
@@ -152,7 +249,31 @@ export default function AdmissionDash() {
     {
       label: 'Total Vendors',
       value: vendorStats.total.toLocaleString(),
-      sparklineData: buildSparkline(2),
+      sparklineData: (() => {
+        const safeList = Array.isArray(vendorRowsList) ? vendorRowsList : [];
+        const mapper = (v) => v.createdAt || v.created_at || v.created;
+        const now = new Date();
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+          days.push(d);
+        }
+        const cumulative = days.map((day) => {
+          const endOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+          let cnt = 0;
+          for (const v of safeList) {
+            const raw = mapper(v);
+            if (!raw) continue;
+            const parsed = Date.parse(raw);
+            if (Number.isNaN(parsed)) continue;
+            if (parsed <= endOfDay.getTime()) cnt += 1;
+          }
+          return { v: cnt };
+        });
+        if (!Array.isArray(cumulative) || cumulative.length !== 7) return Array.from({ length: 7 }, () => ({ v: 0 }));
+        cumulative[cumulative.length - 1].v = vendorStats.total || cumulative[cumulative.length - 1].v;
+        return cumulative;
+      })(),
       icon: <StoreIcon />,
       color: 'var(--teal)',
       footer: [
@@ -174,7 +295,28 @@ export default function AdmissionDash() {
     {
       label: 'Currently Active Vendors',
       value: vendorStats.loggedInToday.toLocaleString(),
-      sparklineData: buildSparkline(2),
+      sparklineData: (() => {
+        if (vendorRowsList && vendorRowsList.length) {
+          const out = [];
+          const nowDate = new Date();
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date(nowDate);
+            d.setDate(d.getDate() - i);
+            const key = d.toDateString();
+            const cnt = vendorRowsList.filter((v) => {
+              const parsed = v && v.lastLogin ? Date.parse(v.lastLogin) : NaN;
+              if (Number.isNaN(parsed)) return false;
+              const dd = new Date(parsed);
+              return dd.toDateString() === key;
+            }).length;
+            out.push({ v: cnt });
+          }
+          return out;
+        }
+        if (vendorStats.dailyActiveSpark && vendorStats.dailyActiveSpark.length) return vendorStats.dailyActiveSpark;
+        if (vendorStats.monthlyActiveSpark && vendorStats.monthlyActiveSpark.length) return vendorStats.monthlyActiveSpark.slice(-7);
+        return Array.from({ length: 7 }, () => ({ v: 0 }));
+      })(),
       icon: <HowToRegIcon />,
       color: 'var(--teal)',
       footer: [

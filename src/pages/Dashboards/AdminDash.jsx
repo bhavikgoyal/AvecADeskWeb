@@ -15,9 +15,10 @@ import { CHART_COLORS } from '../../theme/chartTheme';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Grid, Paper, Typography, Button } from '@mui/material';
+import { ResponsiveContainer, LineChart, Line, Tooltip, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { fetchWeekChecklistStats } from '../../utils/checklistStats';
 import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
-import { fetchInvoicesWithMonthlyTotals,fetchNextMonthInvoiceTotal } from '../../api/invoicesApi';
+import { fetchInvoicesWithMonthlyTotals, fetchNextMonthInvoiceTotal } from '../../api/invoicesApi';
 import { fetchVendorRows } from '../../api/vendorsApi';
 const kpiStats = [
   {
@@ -40,23 +41,24 @@ export default function AdminDash() {
     pending: 0,
     loggedInToday: 0,
   });
-  
-useEffect(() => {
-  const loadNextMonthTotal = async () => {
-    try {
-      const total = await fetchNextMonthInvoiceTotal();
-      setNextMonthInvoiceTotal(total);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const [vendorRowsList, setVendorRowsList] = useState([]);
 
-  loadNextMonthTotal();
-}, []);
+  useEffect(() => {
+    const loadNextMonthTotal = async () => {
+      try {
+        const total = await fetchNextMonthInvoiceTotal();
+        setNextMonthInvoiceTotal(total);
+      } catch (err) {
+        console.error(err);
+      }
+    };
 
-useEffect(() => {
-  console.log("Updated State:", nextMonthInvoiceTotal);
-}, [nextMonthInvoiceTotal]);
+    loadNextMonthTotal();
+  }, []);
+
+  useEffect(() => {
+    console.log("Updated State:", nextMonthInvoiceTotal);
+  }, [nextMonthInvoiceTotal]);
 
   useEffect(() => {
     let mounted = true;
@@ -64,6 +66,7 @@ useEffect(() => {
       .then((rows) => {
         if (!mounted) return;
         const list = Array.isArray(rows) ? rows : [];
+        setVendorRowsList(list);
         const now = new Date();
         const total = list.length;
         const newThisMonth = list.filter((v) => {
@@ -78,7 +81,6 @@ useEffect(() => {
           const d = new Date(v.lastLogin);
           return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
         }).length;
-        // Idle = logged in during current calendar month/year (local time)
         const idleOneMonth = list.filter((v) => {
           if (!v.lastLogin) return false;
           const parsed = Date.parse(v.lastLogin);
@@ -89,7 +91,7 @@ useEffect(() => {
         const neverLoggedIn = total - idleOneMonth;
         setVendorStats({ total, newThisMonth, active, pending, loggedInToday, idleOneMonth, neverLoggedIn });
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { mounted = false; };
   }, []);
   const [pending, setPending] = useState(null);
@@ -104,7 +106,7 @@ useEffect(() => {
       setCompletedThisWeek(res.completedThisWeek);
       setDueToday(res.dueToday ?? 0);
       setOverdue(res.overdue ?? 0);
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { mounted = false; };
   }, []);
   const [monthRevenue, setMonthRevenue] = useState(null);
@@ -117,16 +119,15 @@ useEffect(() => {
         if (!mounted) return;
         setMonthRevenue(res);
       })
-      .catch(() => {})
+      .catch(() => { })
     return () => { mounted = false; };
   }, []);
-  // dynamic accounting/student data
   const [studentStats, setStudentStats] = useState({ total: 0, newThisMonth: 0 });
+  const [newStudentsList, setNewStudents] = useState([]);
   const [installmentSummary, setInstallmentSummary] = useState({ weeksPrev: [], weeksThis: [], weeksNext: [], upcomingNext: [] });
   const [invoiceTotals, setInvoiceTotals] = useState(null);
   const now = useMemo(() => new Date(), []);
   useEffect(() => {
-    // derive weekly buckets from monthRevenue (commission+bonus) similar to AccDash
     const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
     const cur = new Date(now.getFullYear(), now.getMonth(), 1);
     const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -172,16 +173,15 @@ useEffect(() => {
   useEffect(() => {
     let mounted = true;
     const y = now.getFullYear();
-    const m = now.getMonth() + 1; 
+    const m = now.getMonth() + 1;
     fetchInvoicesWithMonthlyTotals({ year: y, month: m })
       .then((res) => {
         if (!mounted) return;
         setInvoiceTotals(res?.summary || null);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { mounted = false; };
   }, []);
-  // compute paid/due totals for current month for KPI footer
   const { paidThisMonth, dueThisMonth } = (() => {
     const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
     const nowDate = new Date();
@@ -211,73 +211,202 @@ useEffect(() => {
         const newList = Array.isArray(list) ? list.filter((s) => { if (!s.createdAt) return false; const d = new Date(s.createdAt); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); }) : [];
         const newThisMonth = newList.length;
         setStudentStats({ total, newThisMonth });
-        setNewStudents(newList);
+        setNewStudents(Array.isArray(list) ? list : []);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { mounted = false; };
   }, []);
+
+  const buildDailySparklineFromDates = (dates = [], days = 10) => {
+    const out = [];
+    const nowDate = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(nowDate);
+      d.setDate(d.getDate() - i);
+      const key = d.toDateString();
+      const cnt = dates.filter((dt) => {
+        const parsed = dt ? Date.parse(dt) : NaN;
+        if (Number.isNaN(parsed)) return false;
+        const dd = new Date(parsed);
+        return dd.toDateString() === key;
+      }).length;
+      out.push({ v: cnt });
+    }
+    return out;
+  };
+
+  const vendorActivitySpark = useMemo(() => buildDailySparklineFromDates(vendorRowsList.map(v => v.lastLogin)), [vendorRowsList]);
+  const studentSignupSpark = useMemo(() => {
+    const safeList = Array.isArray(newStudentsList) ? newStudentsList : [];
+    const mapper = (s) => s.createdAt || s.created_at || s.created;
+    const nowDate = new Date();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - i);
+      days.push(d);
+    }
+    const cumulative = days.map((day) => {
+      const endOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+      let cnt = 0;
+      for (const s of safeList) {
+        const raw = mapper(s);
+        if (!raw) continue;
+        const parsed = Date.parse(raw);
+        if (Number.isNaN(parsed)) continue;
+        if (parsed <= endOfDay.getTime()) cnt += 1;
+      }
+      return { v: cnt };
+    });
+    if (!Array.isArray(cumulative) || cumulative.length !== 7) return Array.from({ length: 7 }, () => ({ v: 0 }));
+    cumulative[cumulative.length - 1].v = studentStats.total || cumulative[cumulative.length - 1].v;
+    return cumulative;
+  }, [newStudentsList, now, studentStats.total]);
+
+  const vendorTotalSpark = useMemo(() => {
+    const safeList = Array.isArray(vendorRowsList) ? vendorRowsList : [];
+    const mapper = (v) => v.createdAt || v.created_at || v.created;
+    const nowDate = new Date();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - i);
+      days.push(d);
+    }
+    const cumulative = days.map((day) => {
+      const endOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+      let cnt = 0;
+      for (const v of safeList) {
+        const raw = mapper(v);
+        if (!raw) continue;
+        const parsed = Date.parse(raw);
+        if (Number.isNaN(parsed)) continue;
+        if (parsed <= endOfDay.getTime()) cnt += 1;
+      }
+      return { v: cnt };
+    });
+    if (!Array.isArray(cumulative) || cumulative.length !== 7) return Array.from({ length: 7 }, () => ({ v: 0 }));
+    cumulative[cumulative.length - 1].v = vendorStats.total || cumulative[cumulative.length - 1].v;
+    return cumulative;
+  }, [vendorRowsList, now, vendorStats.total]);
+  const buildMonthlySparkline = (rows = [], months = 6) => {
+    const out = [];
+    const nowDate = new Date();
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(nowDate.getFullYear(), nowDate.getMonth() - i, 1);
+      const label = d.toLocaleString(undefined, { month: 'short' });
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      let total = 0;
+      for (const it of rows) {
+        const due = it.dueDate ? new Date(it.dueDate) : null;
+        if (!due) continue;
+        if (due.getFullYear() === year && due.getMonth() === month) {
+          const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
+          const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
+          total += comm + bonus;
+        }
+      }
+      out.push({ name: label, v: total });
+    }
+    return out;
+  };
+
+  const receivablesSpark = useMemo(() => {
+    const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
+    const nowDate = new Date();
+    const label = nowDate.toLocaleString(undefined, { month: 'short' });
+    let total = 0;
+    if (invoiceTotals && invoiceTotals.thisMonth) {
+      total = Number(invoiceTotals.thisMonth.paid || 0) + Number(invoiceTotals.thisMonth.due || 0);
+    } else {
+      for (const it of rows) {
+        const due = it.dueDate ? new Date(it.dueDate) : null;
+        if (!due) continue;
+        if (due.getFullYear() === nowDate.getFullYear() && due.getMonth() === nowDate.getMonth()) {
+          const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
+          const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
+          total += comm + bonus;
+        }
+      }
+    }
+    return [{ name: label, v: total }, { name: label, v: total }];
+  }, [monthRevenue, invoiceTotals]);
   return (
     <>
-    <DashboardTemplate
-      title="Admin Overview"
-      welcomeFooterStats={(() => {
-        if (invoiceTotals) {
-          const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
-          const now = new Date();
-          const y = now.getFullYear();
-          const m = now.getMonth() + 1;
-          return [
-            { label: 'This Month Paid', value: fmt(invoiceTotals.thisMonth?.paid ?? 0), path: `/invoices?view=paid&year=${y}&month=${m}` },
-            { label: 'This Month Due', value: fmt(invoiceTotals.thisMonth?.due ?? 0), path: `/invoices?view=due&year=${y}&month=${m}` },
-          ];
-        }
-        const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
-        const now = new Date();
-        const cur = new Date(now.getFullYear(), now.getMonth(), 1);
-        const buckets = { cur: { paid: 0, due: 0 } };
-        for (const it of rows) {
-          const due = it.dueDate ? new Date(it.dueDate) : null;
-          if (!due) continue;
-          if (due.getFullYear() === cur.getFullYear() && due.getMonth() === cur.getMonth()) {
-            const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
-            const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
-            const amount = comm + bonus;
-            const status = (it.commissionStatus || it.paymentStatus || '').toString().toLowerCase();
-            if (status === 'paid') buckets.cur.paid += amount; else buckets.cur.due += amount;
+      <DashboardTemplate
+        title="Admin Overview"
+        welcomeFooterStats={(() => {
+          if (invoiceTotals) {
+            const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth() + 1;
+            return [
+              { label: 'This Month Paid', value: fmt(invoiceTotals.thisMonth?.paid ?? 0), path: `/invoices?view=paid&year=${y}&month=${m}` },
+              { label: 'This Month Due', value: fmt(invoiceTotals.thisMonth?.due ?? 0), path: `/invoices?view=due&year=${y}&month=${m}` },
+            ];
           }
-        }
-        const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
-        const now2 = new Date();
-        const y2 = now2.getFullYear();
-        const m2 = now2.getMonth() + 1;
-        return [
-          { label: 'This Month Paid', value: fmt(buckets.cur.paid), path: `/invoices?view=paid&year=${y2}&month=${m2}` },
-          { label: 'This Month Due', value: fmt(buckets.cur.due), path: `/invoices?view=due&year=${y2}&month=${m2}` },
-        ];
-      })()}
-          kpiStats={[
-        {
-          label: 'Receivables',
-          value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`,
-          sparklineData: buildSparkline(4),
-          icon: <PaymentsIcon />,
-          color: 'var(--teal)',
-          footer: [ { label: 'Paid', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`, sub: 'This month' }, { label: 'Due', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.due || 0).toLocaleString()}` : `$${Number(dueThisMonth || 0).toLocaleString()}`, sub: 'Current' } ],
-        }
-      ]}
-      showSnapshot={false}
-      showQuickInsights={false}
-      showUpcoming={false}
-      showCharts={false}
-      showMiniStats={false}
-      showTable={false}
-      rightExtra={null}
-      tableBasePath="/invoices"
-      miniStats={[]}
-      activity={[]}
-      upcomingItems={[]}
-      areaChartData={revenueTrend}
-    />
+          const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
+          const now = new Date();
+          const cur = new Date(now.getFullYear(), now.getMonth(), 1);
+          const buckets = { cur: { paid: 0, due: 0 } };
+          for (const it of rows) {
+            const due = it.dueDate ? new Date(it.dueDate) : null;
+            if (!due) continue;
+            if (due.getFullYear() === cur.getFullYear() && due.getMonth() === cur.getMonth()) {
+              const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
+              const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
+              const amount = comm + bonus;
+              const status = (it.commissionStatus || it.paymentStatus || '').toString().toLowerCase();
+              if (status === 'paid') buckets.cur.paid += amount; else buckets.cur.due += amount;
+            }
+          }
+          const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
+          const now2 = new Date();
+          const y2 = now2.getFullYear();
+          const m2 = now2.getMonth() + 1;
+          return [
+            { label: 'This Month Paid', value: fmt(buckets.cur.paid), path: `/invoices?view=paid&year=${y2}&month=${m2}` },
+            { label: 'This Month Due', value: fmt(buckets.cur.due), path: `/invoices?view=due&year=${y2}&month=${m2}` },
+          ];
+        })()}
+        kpiStats={[
+          {
+            label: 'Receivables',
+            value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`,
+            sparklineData: receivablesSpark.length ? receivablesSpark : buildSparkline(4),
+            sparklineFormatter: (v) => `$${Number(v || 0).toLocaleString()}`,
+            chart: (
+              <Box sx={{ height: 44, mt: 0.25 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={(receivablesSpark.length ? receivablesSpark : [{ name: '', paid: 0, due: 0 }, { name: '', paid: 0, due: 0 }])} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+                    <XAxis dataKey="name" tick={false} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, (dataMax) => Math.max(1, Math.ceil((Number(dataMax) || 0) * 1.05))]} hide />
+                    <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--card-border)', fontSize: 12 }} formatter={(v, name) => [`$${Number(v).toLocaleString()}`, name]} />
+                    <Line type="monotone" dataKey="paid" stroke={CHART_COLORS.teal} strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="due" stroke={CHART_COLORS.danger} strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            ),
+            icon: <PaymentsIcon />,
+            color: 'var(--teal)',
+            footer: [{ label: 'Paid', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`, sub: 'This month' }, { label: 'Due', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.due || 0).toLocaleString()}` : `$${Number(dueThisMonth || 0).toLocaleString()}`, sub: 'Current' }],
+          }
+        ]}
+        showSnapshot={false}
+        showQuickInsights={false}
+        showUpcoming={false}
+        showCharts={false}
+        showMiniStats={false}
+        showTable={false}
+        rightExtra={null}
+        tableBasePath="/invoices"
+        miniStats={[]}
+        activity={[]}
+        upcomingItems={[]}
+        areaChartData={revenueTrend}
+      />
       <Box sx={{ mt: 1.5, width: '100%', minHeight: 280 }}>
         <GroupedBarChartCard
           items={(() => {
@@ -301,38 +430,38 @@ useEffect(() => {
                 if (status === 'paid') buckets.next.paid += amount; else buckets.next.due += amount;
               }
             }
-           if (invoiceTotals) {
+            if (invoiceTotals) {
               try {
                 buckets.last.paid = Number(invoiceTotals.lastMonth?.paid ?? buckets.last.paid) || 0;
                 buckets.last.due = Number(invoiceTotals.lastMonth?.due ?? buckets.last.due) || 0;
                 buckets.cur.paid = Number(invoiceTotals.thisMonth?.paid ?? buckets.cur.paid) || 0;
                 buckets.cur.due = Number(invoiceTotals.thisMonth?.due ?? buckets.cur.due) || 0;
-              } catch (e) {}
+              } catch (e) { }
             }
             return [
               { title: 'Last Month', data: [{ name: '', paid: buckets.last.paid, due: buckets.last.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
               { title: 'This Month', data: [{ name: '', paid: buckets.cur.paid, due: buckets.cur.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
-              ];
+            ];
           })()}
         />
         <Box sx={{ mt: 1.5 }}>
-        <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 },cursor: "pointer", }}
-          onClick={() => {navigate("/students?filter=next-month");}}>
+          <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 }, cursor: "pointer", }}
+            onClick={() => { navigate("/students?filter=next-month"); }}>
             <Typography sx={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem' }}>
               Next Month — Total Upcoming
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 800, color: 'var(--text)', mt: 1 }}>
-             {`$${Number(nextMonthInvoiceTotal || 0).toLocaleString()}`}
+              {`$${Number(nextMonthInvoiceTotal || 0).toLocaleString()}`}
             </Typography>
           </Paper>
         </Box>
-       <Box sx={{ mt: 1.5 }}>
+        <Box sx={{ mt: 1.5 }}>
           <Grid container spacing={1.25} sx={{ alignItems: 'stretch' }}>
             <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
               <StatCard
                 label="Currently Active Vendors"
                 value={vendorStats.loggedInToday.toLocaleString()}
-                sparklineData={buildSparkline(2)}
+                sparklineData={vendorActivitySpark}
                 icon={<HowToRegIcon />}
                 color="var(--teal)"
                 footer={[
@@ -359,15 +488,17 @@ useEffect(() => {
               <StatCard
                 label="Total students"
                 value={studentStats.total.toLocaleString()}
-                sparklineData={buildSparkline(2)}
+                sparklineData={studentSignupSpark}
                 icon={<PeopleIcon />}
                 color="var(--primary)"
-                footer={[{ label: 'New this month', value: `+${studentStats.newThisMonth}`, sub: 'this month', onClick: () => {
-                  const d = new Date();
-                  const y = d.getFullYear();
-                  const m = d.getMonth() + 1;
-                  navigate(`/students?year=${y}&month=${m}`);
-                } }]}
+                footer={[{
+                  label: 'New this month', value: `+${studentStats.newThisMonth}`, sub: 'this month', onClick: () => {
+                    const d = new Date();
+                    const y = d.getFullYear();
+                    const m = d.getMonth() + 1;
+                    navigate(`/students?year=${y}&month=${m}`);
+                  }
+                }]}
                 sx={{ flex: 1, width: '100%' }}
               />
             </Grid>
@@ -375,7 +506,7 @@ useEffect(() => {
               <StatCard
                 label="Total Vendors"
                 value={vendorStats.total.toLocaleString()}
-                sparklineData={buildSparkline(2)}
+                sparklineData={vendorTotalSpark}
                 icon={<StoreIcon />}
                 color="var(--teal)"
                 footer={[

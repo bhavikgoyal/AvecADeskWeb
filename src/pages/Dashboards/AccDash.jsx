@@ -18,6 +18,8 @@ import { CHART_COLORS } from '../../theme/chartTheme';
 export default function AccDash() {
   const now = useMemo(() => new Date(), []);
   const [studentStats, setStudentStats] = useState({ total: 0, enrolled: 0, waitlist: 0, newThisMonth: 0 });
+  const [studentsList, setStudentsList] = useState([]);
+  const [studentSpark, setStudentSpark] = useState([]);
   const [monthRevenue, setMonthRevenue] = useState(null);
   const [installmentSummary, setInstallmentSummary] = useState({ weeksPrev: [], weeksThis: [], weeksNext: [], upcomingNext: [] });
   const [invoiceTotals, setInvoiceTotals] = useState(null);
@@ -28,6 +30,7 @@ export default function AccDash() {
       .then((list) => {
         if (!mounted) return;
         const arr = Array.isArray(list) ? list : [];
+        setStudentsList(arr);
         const total = arr.length;
         const enrolled = arr.filter((s) => (s.enrolmentStatus || '').toLowerCase() === 'enrolled').length;
         const waitlist = arr.filter((s) => (s.enrolmentStatus || '').toLowerCase() === 'interested' || (s.enrolmentStatus || '').toLowerCase() === 'waitlist').length;
@@ -38,9 +41,23 @@ export default function AccDash() {
         }).length;
         setStudentStats({ total, enrolled, waitlist, newThisMonth });
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const buckets = Array.from({ length: daysInMonth }, () => 0);
+    for (const s of studentsList || []) {
+      const d = s.createdAt ? new Date(s.createdAt) : null;
+      if (!d) continue;
+      if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
+        const idx = d.getDate() - 1;
+        if (idx >= 0 && idx < buckets.length) buckets[idx] += 1;
+      }
+    }
+    setStudentSpark(buckets.map((v) => ({ v })));
+  }, [studentsList, now]);
 
   useEffect(() => {
     let mounted = true;
@@ -49,33 +66,31 @@ export default function AccDash() {
     fetchMonthRevenueDashboard({ fromDate: from, toDate: to })
       .then((data) => {
         if (!mounted) return;
-        try { console.log('fetchMonthRevenueDashboard response:', data); } catch (e) {}
+        try { console.log('fetchMonthRevenueDashboard response:', data); } catch (e) { }
         setMonthRevenue(data || null);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     const y = now.getFullYear();
     const m = now.getMonth() + 1;
     fetchInvoicesWithMonthlyTotals({ year: y, month: m })
       .then((res) => {
         if (!mounted) return;
-        try { console.log('AccDash fetchInvoicesWithMonthlyTotals result:', res); } catch (e) {}
+        try { console.log('AccDash fetchInvoicesWithMonthlyTotals result:', res); } catch (e) { }
         setInvoiceTotals(res?.summary || null);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => { mounted = false; };
   }, [now]);
 
   useEffect(() => {
-    // derive weekly buckets for last/this/next month based on dueDate
     const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
     const cur = new Date(now.getFullYear(), now.getMonth(), 1);
     const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     function makeWeeks() {
-      // 5 buckets: days 1-7,8-14,15-21,22-28,29-end
       return Array.from({ length: 5 }, () => ({ paid: 0, due: 0 }));
     }
 
@@ -167,7 +182,7 @@ export default function AccDash() {
             {
               label: 'Total students',
               value: studentStats.total.toLocaleString(),
-              sparklineData: buildSparkline(2),
+              sparklineData: studentSpark && studentSpark.length ? studentSpark : buildSparkline(2),
               icon: <PeopleIcon />,
               color: 'var(--primary)',
               footer: [

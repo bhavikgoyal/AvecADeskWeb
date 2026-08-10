@@ -74,6 +74,7 @@ export default function StatCard({
   color,
   trend,
   sparklineData,
+  sparklineFormatter,
   donutValue,
   chart,
   footer,
@@ -173,7 +174,7 @@ export default function StatCard({
 
       {sparklineData && (
         <Box sx={{ height: 40, mt: 0.25 }}>
-          <SparklineChart data={sparklineData} color={color || CHART_COLORS.primary} height={40} />
+          <SparklineChart data={sparklineData} color={color || CHART_COLORS.primary} height={40} formatter={sparklineFormatter} />
         </Box>
       )}
 
