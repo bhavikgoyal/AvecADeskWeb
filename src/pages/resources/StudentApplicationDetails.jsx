@@ -10,12 +10,55 @@ import { FormPageLayout, formPaperSx } from '../../components/forms';
 import { getStudentApplications } from '../../api/StudentApplicationApi';
 import { getResourceConfig } from '../../config/resourceConfig';
 
+const RECENT_DATE_KEYS = [
+  'createdAt',
+  'CreatedAt',
+  'createdOn',
+  'CreatedOn',
+  'applicationDate',
+  'ApplicationDate',
+  'submittedDate',
+  'SubmittedDate',
+  'registeredDate',
+  'RegisteredDate',
+];
+
+const RECENT_ID_KEYS = ['studentID', 'StudentID', 'id', 'ID'];
+
+function getRecentRowRank(row) {
+  for (const key of RECENT_DATE_KEYS) {
+    const value = row?.[key];
+    if (!value) continue;
+
+    const stamp = new Date(value).getTime();
+    if (Number.isFinite(stamp)) return stamp;
+  }
+
+  for (const key of RECENT_ID_KEYS) {
+    const value = Number(row?.[key]);
+    if (Number.isFinite(value)) return value;
+  }
+
+  return 0;
+}
+
+function getNewestRows(rows, limit) {
+  if (!Array.isArray(rows) || limit <= 0) return [];
+
+  return [...rows]
+    .sort((left, right) => getRecentRowRank(right) - getRecentRowRank(left))
+    .slice(0, limit);
+}
+
 export default function StudentApplicationDetailsPage() {
   const resource = getResourceConfig('/reports/student-Inquiry');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const vendorId = searchParams.get('vendorId');
   const vendorNameFromQuery = searchParams.get('vendorName');
+  const isNewOnly = searchParams.get('newOnly') === 'true';
+  const newOnlyCount = Number(searchParams.get('newCount') ?? 0);
+  const recentLimit = Number.isFinite(newOnlyCount) && newOnlyCount > 0 ? newOnlyCount : 0;
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +67,12 @@ export default function StudentApplicationDetailsPage() {
   const [pageNumber, setPageNumber] = useState(1);
   const pageSize = 10;
   const [totalRecords, setTotalRecords] = useState(0);
+
+  const visibleRows = useMemo(() => {
+    if (!isNewOnly) return rows;
+    const startIndex = (pageNumber - 1) * pageSize;
+    return rows.slice(startIndex, startIndex + pageSize);
+  }, [isNewOnly, pageNumber, rows]);
 
   const totalPages = Math.ceil(totalRecords / pageSize) || 1;
 
@@ -41,21 +90,33 @@ export default function StudentApplicationDetailsPage() {
     setPageNumber(1);
     loadData(search, 1, pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vendorId]);
+  }, [vendorId, isNewOnly, recentLimit]);
 
   const loadData = async (searchText = '', pageNo = pageNumber, size = pageSize) => {
     try {
       setLoading(true);
       setError('');
 
+      const requestPage = isNewOnly ? 1 : pageNo;
+      const requestSize = isNewOnly ? Math.max(size, recentLimit, 200) : size;
+
       const response = await getStudentApplications(
         searchText,
-        pageNo,
-        size,
+        requestPage,
+        requestSize,
         vendorId || null,
       );
 
-      setRows(response.data || response.Data || []);
+      const responseRows = response.data || response.Data || [];
+
+      if (isNewOnly) {
+        const recentRows = getNewestRows(responseRows, recentLimit || responseRows.length);
+        setRows(recentRows);
+        setTotalRecords(recentRows.length);
+        return;
+      }
+
+      setRows(responseRows);
       setTotalRecords(response.totalRecords ?? response.TotalRecords ?? 0);
     } catch (err) {
       setError(err.message || 'Failed to load student applications.');
@@ -83,7 +144,7 @@ export default function StudentApplicationDetailsPage() {
       title={resource?.plural || "Student Applications"}
       subtitle={
         vendorId
-          ? `Students for vendor${filteredVendorName ? `: ${filteredVendorName}` : ''}`
+          ? `${isNewOnly ? 'New students' : 'Students'} for vendor${filteredVendorName ? `: ${filteredVendorName}` : ''}`
           : "Student Application Details"
       }
       metaItems={[
@@ -178,7 +239,9 @@ export default function StudentApplicationDetailsPage() {
                   if (pageNumber > 1) {
                     const prevPage = pageNumber - 1;
                     setPageNumber(prevPage);
-                    loadData(search, prevPage, pageSize);
+                    if (!isNewOnly) {
+                      loadData(search, prevPage, pageSize);
+                    }
                   }
                 }}
                 sx={pageButtonStyle}
@@ -196,7 +259,9 @@ export default function StudentApplicationDetailsPage() {
                     component="button"
                     onClick={() => {
                       setPageNumber(page);
-                      loadData(search, page, pageSize);
+                      if (!isNewOnly) {
+                        loadData(search, page, pageSize);
+                      }
                     }}
                     sx={{
                       ...pageButtonStyle,
@@ -219,7 +284,9 @@ export default function StudentApplicationDetailsPage() {
                   if (pageNumber < totalPages) {
                     const nextPage = pageNumber + 1;
                     setPageNumber(nextPage);
-                    loadData(search, nextPage, pageSize);
+                    if (!isNewOnly) {
+                      loadData(search, nextPage, pageSize);
+                    }
                   }
                 }}
                 sx={pageButtonStyle}
@@ -278,7 +345,7 @@ export default function StudentApplicationDetailsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((row, idx) => (
+                  visibleRows.map((row, idx) => (
                     <TableRow key={row.studentID || row.id || idx} hover>
                      {resource?.columns?.map((column) => (
                       <TableCell key={column.id || column.field}>
