@@ -9,6 +9,8 @@ import {
   Typography,
   Switch,
   FormControlLabel,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
@@ -36,71 +38,76 @@ export default function PaymentSchedulesPage() {
   const initParams = new URLSearchParams(location.search);
   const initCurrent = initParams.has("currentMonth") || initParams.get("currentMonth") === "true";
   const [currentMonthOnly, setCurrentMonthOnly] = useState(initCurrent);
+  const [activeTab, setActiveTab] = useState(0);
 
-const parseFilterFromUrl = () => {
-  const params = new URLSearchParams(location.search);
-
-  return {
-    y: params.get("year") ? Number(params.get("year")) : null,
-    m: params.get("month") ? Number(params.get("month")) : null,
-    currentFlag:
-      params.has("currentMonth") ||
-      params.get("currentMonth") === "true",
-    nextMonth: params.get("filter") === "next-month",
+  const handleTabChange = (_e, newValue) => {
+    setActiveTab(newValue);
   };
-};
 
-const paginatedRows = useMemo(
-  () =>
-    rows.slice(
-      page * rowsPerPage,
-      page * rowsPerPage + rowsPerPage
-    ),
-  [rows, page, rowsPerPage]
-);
-const handleChangePage = (_event, newPage) => {
-  setPage(newPage);
-};
+  const parseFilterFromUrl = () => {
+    const params = new URLSearchParams(location.search);
 
-const handleChangeRowsPerPage = (event) => {
-  setRowsPerPage(parseInt(event.target.value, 10));
-  setPage(0);
-};
-const loadRows = useCallback(async () => {
-  setLoading(true);
-  setError("");
+    return {
+      y: params.get("year") ? Number(params.get("year")) : null,
+      m: params.get("month") ? Number(params.get("month")) : null,
+      currentFlag:
+        params.has("currentMonth") ||
+        params.get("currentMonth") === "true",
+      nextMonth: params.get("filter") === "next-month",
+    };
+  };
 
-  try {
-    const { nextMonth } = parseFilterFromUrl();
+  const paginatedRows = useMemo(
+    () =>
+      rows.slice(
+        page * rowsPerPage,
+        page * rowsPerPage + rowsPerPage
+      ),
+    [rows, page, rowsPerPage]
+  );
+  const handleChangePage = (_event, newPage) => {
+    setPage(newPage);
+  };
 
-    const result = await fetchStudentPaymentScheduleList(
-      studentFilter || undefined,
-      nextMonth
-    );
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+  const loadRows = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-    setRows(result || []);
+    try {
+      const { nextMonth } = parseFilterFromUrl();
 
-    const uniqueStudents = [
-      ...new Map(
-        (result || []).map((item) => [
-          item.studentId,
-          {
-            studentId: item.studentId,
-            fullName: item.studentName,
-          },
-        ])
-      ).values(),
-    ];
+      const result = await fetchStudentPaymentScheduleList(
+        studentFilter || undefined,
+        nextMonth
+      );
 
-    setStudents(uniqueStudents);
-  } catch (err) {
-    setRows([]);
-    setStudents([]);
-    setError(err.message || "Failed to load payment schedules.");
-  } finally {
-    setLoading(false);
-  }
-}, [studentFilter, location.search]);
+      setRows(result || []);
+
+      const uniqueStudents = [
+        ...new Map(
+          (result || []).map((item) => [
+            item.studentId,
+            {
+              studentId: item.studentId,
+              fullName: item.studentName,
+            },
+          ])
+        ).values(),
+      ];
+
+      setStudents(uniqueStudents);
+    } catch (err) {
+      setRows([]);
+      setStudents([]);
+      setError(err.message || "Failed to load payment schedules.");
+    } finally {
+      setLoading(false);
+    }
+  }, [studentFilter, location.search]);
 
   useEffect(() => {
     loadRows();
@@ -193,24 +200,46 @@ const loadRows = useCallback(async () => {
       </Paper>
 
       <Paper variant="outlined">
-        {loading ? (
-          <TableContentSkeleton rows={8} columns={[{ id: "student", label: "Student", flex: 1.2 }, { id: "institute", label: "Institute", flex: 1.6 }, { id: "course", label: "Course", flex: 1.3 }, { id: "totalFee", label: "Total Fee", flex: 0.8 }, { id: "installments", label: "Installments", flex: 0.7, skeletonWidth: "40%" }, { id: "nextDue", label: "Next Due", flex: 0.9 }, { id: "paid", label: "Paid", flex: 0.7 }, { id: "partial", label: "Partial Amount", flex: 0.9 }, { id: "status", label: "Status", flex: 0.7, skeletonWidth: "50%" }]} />
-        ) : rows.length === 0 ? (
-          <Box sx={{ py: 6, textAlign: "center" }}>
-            <Typography color="text.secondary">No payment schedules found.</Typography>
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab label="Current" sx={{ textTransform: 'uppercase', fontWeight: 800, minHeight: 48, px: 3 }} />
+          <Tab label="Complete" sx={{ textTransform: 'uppercase', fontWeight: 800, minHeight: 48, px: 3 }} />
+        </Tabs>
+
+        {activeTab === 0 && (
+          <Box>
+            {loading ? (
+              <TableContentSkeleton rows={8} columns={[{ id: "student", label: "Student", flex: 1.2 }, { id: "institute", label: "Institute", flex: 1.6 }, { id: "course", label: "Course", flex: 1.3 }, { id: "totalFee", label: "Total Fee", flex: 0.8 }, { id: "installments", label: "Installments", flex: 0.7, skeletonWidth: "40%" }, { id: "nextDue", label: "Next Due", flex: 0.9 }, { id: "paid", label: "Paid", flex: 0.7 }, { id: "partial", label: "Partial Amount", flex: 0.9 }, { id: "status", label: "Status", flex: 0.7, skeletonWidth: "50%" }]} />
+            ) : rows.length === 0 ? (
+              <Box sx={{ py: 6, textAlign: "center" }}>
+                <Typography color="text.secondary">No payment schedules found.</Typography>
+              </Box>
+            ) : (
+              <>
+                <ResponsiveTable variant="resource" alwaysTable rows={paginatedRows} columns={columns} getRowKey={(row) => row.scheduleId} onRowClick={handleRowClick} />
+                <TablePagination
+                  component="div"
+                  count={rows.length}
+                  page={page}
+                  onPageChange={handleChangePage}
+                  rowsPerPage={rowsPerPage}
+                  onRowsPerPageChange={handleChangeRowsPerPage}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                />
+              </>
+            )}
           </Box>
-        ) : (
-          <>
-          <ResponsiveTable variant="resource" alwaysTable rows={paginatedRows} columns={columns} getRowKey={(row) => row.scheduleId} onRowClick={handleRowClick} />
-          <TablePagination
-            component="div"
-            count={rows.length}
-            page={page}
-            onPageChange={handleChangePage}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-          /></>
+        )}
+
+        {activeTab === 1 && (
+          <Box sx={{ py: 6, textAlign: "center" }}>
+            <Typography color="text.secondary">No records in Complete.</Typography>
+          </Box>
         )}
       </Paper>
     </Box>

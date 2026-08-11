@@ -176,7 +176,7 @@ export async function createStudentWithPaymentSchedule(form) {
     courseEndDate: form.courseEndDate || null,
   });
   return normalizeStudent(student);
- }
+}
 
 export async function deleteStudent(studentId) {
   await axiosClient.delete(`/api/students/${studentId}`);
@@ -356,10 +356,10 @@ export async function fetchStudentPaymentDetail(studentId) {
 
     courseStartDate: data.courseStartDate ?? data.CourseStartDate,
     courseEndDate: data.courseEndDate ?? data.CourseEndDate,
-    commissionAmount:data.commissionAmount ?? data.CommissionAmount,
-    gstAmount:data.gstAmount ?? data.GSTAmount,
-    bonusAmount:data.bonusAmount ?? data.BonusAmount,
-    dueDate:data.dueDate ?? data.DueDate,
+    commissionAmount: data.commissionAmount ?? data.CommissionAmount,
+    gstAmount: data.gstAmount ?? data.GSTAmount,
+    bonusAmount: data.bonusAmount ?? data.BonusAmount,
+    dueDate: data.dueDate ?? data.DueDate,
     remark: data.remark ?? data.Remark,
 
     scheduleId: data.scheduleId ?? data.ScheduleId,
@@ -369,12 +369,12 @@ export async function fetchStudentPaymentDetail(studentId) {
     frequency: data.frequency ?? data.Frequency,
 
     commissionId: data.commissionId ?? data.CommissionId,
-    commissionPercentage:data.commissionPercentage ?? data.CommissionPercentage,
+    commissionPercentage: data.commissionPercentage ?? data.CommissionPercentage,
     gstPercentage: data.gstPercentage ?? data.GSTPercentage,
     bonusType: data.bonusType ?? data.BonusType,
     bonusOption: data.bonusOption ?? data.BonusOption,
 
-    studentPaymentList:data.studentPaymentList ?? data.StudentPaymentList ?? [],
-    commissionHistory:data.commissionHistory ?? data.CommissionHistory ?? [],
+    studentPaymentList: data.studentPaymentList ?? data.StudentPaymentList ?? [],
+    commissionHistory: data.commissionHistory ?? data.CommissionHistory ?? [],
   };
 }
