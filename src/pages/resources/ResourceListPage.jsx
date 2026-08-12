@@ -43,6 +43,26 @@ function formatDate(value) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function parseValidDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function isSameLocalMonth(date, referenceDate) {
+  return (
+    date.getFullYear() === referenceDate.getFullYear() &&
+    date.getMonth() === referenceDate.getMonth()
+  );
+}
+
+function isSameLocalDay(date, referenceDate) {
+  return (
+    isSameLocalMonth(date, referenceDate) &&
+    date.getDate() === referenceDate.getDate()
+  );
+}
+
 function applyStudentSummary(baseStats, summary) {
   if (!baseStats?.length || !summary) return baseStats;
 
@@ -158,6 +178,7 @@ export default function ResourceListPage({ basePath }) {
 const [editInvoiceId, setEditInvoiceId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [statusFilter, setStatusFilter] = useState('All');
+  const [activityFilter, setActivityFilter] = useState('All');
 
   // Courses page: institute filter passed via ?institute=<name> from
   // the "View Courses" button on the Institutes Scrapping list.
@@ -198,6 +219,11 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
     return new URLSearchParams(location.search).get('status')?.trim().toLowerCase() || '';
   }, [isVendors, location.search]);
 
+  const vendorActivityParam = useMemo(() => {
+    if (!isVendors) return '';
+    return new URLSearchParams(location.search).get('activity')?.trim().toLowerCase() || '';
+  }, [isVendors, location.search]);
+
   const vendorYear = useMemo(() => {
     if (!isVendors) return null;
     const v = new URLSearchParams(location.search).get('year');
@@ -225,6 +251,22 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
 
     setStatusFilter('All');
   }, [isVendors, vendorStatusParam]);
+
+  useEffect(() => {
+    if (!isVendors) return;
+
+    if (vendorActivityParam === 'active-today') {
+      setActivityFilter('Active today');
+      return;
+    }
+
+    if (vendorActivityParam === 'idle') {
+      setActivityFilter('Idle');
+      return;
+    }
+
+    setActivityFilter('All');
+  }, [isVendors, vendorActivityParam]);
 
   const displayRows = useMemo(() => {
     if (isStudents) {
@@ -297,17 +339,40 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
   }, [rows, isCourses, instituteFilter, isInvoices, invoiceView, invoiceYear, invoiceMonth, isStudents, studentYear, studentMonth, isVendors, vendorYear, vendorMonth]);
 
   const filteredDisplayRows = useMemo(() => {
-  if (!isVendors || statusFilter === 'All') {
-    return displayRows;
-  }
+    if (!isVendors) {
+      return displayRows;
+    }
 
-  return displayRows.filter(
-    (row) =>
-      String(row.status || '')
-        .toLowerCase()
-        .trim() === statusFilter.toLowerCase()
-  );
-}, [displayRows, isVendors, statusFilter]);
+    let filteredRows = displayRows;
+
+    if (statusFilter !== 'All') {
+      filteredRows = filteredRows.filter(
+        (row) =>
+          String(row.status || '')
+            .toLowerCase()
+            .trim() === statusFilter.toLowerCase()
+      );
+    }
+
+    if (activityFilter !== 'All') {
+      const now = new Date();
+      filteredRows = filteredRows.filter((row) => {
+        const lastLogin = parseValidDate(row.lastLogin);
+
+        if (activityFilter === 'Active today') {
+          return lastLogin ? isSameLocalDay(lastLogin, now) : false;
+        }
+
+        if (activityFilter === 'Idle') {
+          return lastLogin ? !isSameLocalMonth(lastLogin, now) : true;
+        }
+
+        return true;
+      });
+    }
+
+    return filteredRows;
+  }, [displayRows, isVendors, statusFilter, activityFilter]);
   // Commission history dialog state (institutes only)
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -512,7 +577,8 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
           id: '__view_students__',
           label: 'Students',
           align: 'center',
-          headerSx: { width: 160 },
+          headerSx: { width: 190, whiteSpace: 'nowrap' },
+          cellSx: { width: 190, whiteSpace: 'nowrap' },
           render: (row) => {
             const id = row.vendorId ?? row.id;
             const name = row.businessName || '';
@@ -523,12 +589,24 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
                 vendorId: id,
                 vendorName: name,
               });
-              if (newOnly) params.set('newOnly', 'true');
+              if (newOnly) {
+                params.set('newOnly', 'true');
+                params.set('newCount', String(newCount));
+              }
               navigate(`/reports/student-Inquiry?${params.toString()}`);
             };
 
             return (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexWrap: 'nowrap',
+                  gap: 0.75,
+                  width: '100%',
+                }}
+              >
                 <Button
                   size="small"
                   variant="outlined"
@@ -536,12 +614,18 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
                     e.stopPropagation();
                     goToStudents(false);
                   }}
-                  sx={{ textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap', minWidth: 110 }}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    minWidth: 120,
+                    flexShrink: 0,
+                  }}
                 >
                   Student ({row.studentCount ?? 0})
                 </Button>
 
-               {newCount > 0 && (
+                {newCount > 0 && (
                   <IconButton
                     size="small"
                     onClick={(e) => {
@@ -555,10 +639,12 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
                       );
                       goToStudents(true);
                     }}
+                    sx={{ p: 0.5, flexShrink: 0 }}
                   >
                     <Badge
                       badgeContent={newCount}
                       color="error"
+                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
                       sx={{
                         '& .MuiBadge-badge': {
                           fontSize: '10px !important',
@@ -756,6 +842,17 @@ const handleExportInvoicesPdf = useCallback(async () => {
         <MenuItem value="All">All</MenuItem>
         <MenuItem value="Active">Active</MenuItem>
         <MenuItem value="Pending">Pending</MenuItem>
+      </Select>
+    </FormControl>
+
+    <FormControl size="small" sx={{ minWidth: 150 }}>
+      <Select
+        value={activityFilter}
+        onChange={(e) => setActivityFilter(e.target.value)}
+      >
+        <MenuItem value="All">All activity</MenuItem>
+        <MenuItem value="Active today">Active today</MenuItem>
+        <MenuItem value="Idle">Idle</MenuItem>
       </Select>
     </FormControl>
 

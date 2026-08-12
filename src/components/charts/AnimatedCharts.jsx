@@ -24,17 +24,30 @@ const tooltipStyle = {
   fontSize: 12,
 };
 
-export function SparklineChart({ data, color = CHART_COLORS.primary, height = 48 }) {
+export function SparklineChart({ data, color = CHART_COLORS.primary, height = 48, formatter }) {
+  const tooltipFormatter = formatter
+    ? (value) => [formatter(value), 'v']
+    : (value) => [Number(value), 'v'];
+
   return (
     <Box sx={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
+          <Tooltip
+            contentStyle={tooltipStyle}
+            formatter={tooltipFormatter}
+            labelFormatter={(label, payload) => {
+              if (payload && payload.length && payload[0] && payload[0].payload && payload[0].payload.name) return payload[0].payload.name;
+              return '';
+            }}
+          />
           <Line
             type="monotone"
             dataKey="v"
             stroke={color}
             strokeWidth={2.5}
             dot={false}
+            activeDot={{ r: 4 }}
             {...CHART_ANIMATION}
           />
         </LineChart>
@@ -103,6 +116,13 @@ export function AnimatedBarChart({
   height = 260,
   maxBarSize = 28,
 }) {
+  if (!Array.isArray(data) || data.length === 0) {
+    return (
+      <Box sx={{ width: '100%', height, display: 'flex', alignItems: 'center', px: 2 }}>
+        <Box sx={{ width: '100%', height: 2, bgcolor: CHART_COLORS.grid, borderRadius: 1 }} />
+      </Box>
+    );
+  }
   const formatAxisTick = (value) => {
     const n = Number(value) || 0;
     if (Math.abs(n) >= 1000) {
