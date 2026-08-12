@@ -123,7 +123,7 @@ export async function updateInstituteScrapping(scrappingId, form) {
     throw new Error(validationError);
   }
 
-  const { data } = await axiosClient.put(`/api/institutes-scrapping/${scrappingId}`, toManualRequestBody(form));
+  const { data } = await axiosClient.post(`/api/institutes-scrapping/${scrappingId}/update`, toManualRequestBody(form));
   return mapRow(normalizeRecord(data));
 }
 
@@ -217,5 +217,5 @@ export async function createInstituteScrappingManual(form) {
 export { getEmptyManualForm };
 
 export async function deleteInstituteScrapping(scrappingId) {
-  await axiosClient.delete(`/api/institutes-scrapping/${scrappingId}`);
+  await axiosClient.post(`/api/institutes-scrapping/${scrappingId}/delete`);
 }

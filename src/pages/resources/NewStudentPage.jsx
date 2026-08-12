@@ -291,28 +291,6 @@ export default function NewStudentPage({ basePath }) {
   }
   const updateField = (field, value) => {
 
-    if (field === "noOfInstallment" && isEdit) {
-
-      const paidCount = paymentList.filter(x => x.status === "Paid").length;
-
-      const paidAmount = paymentList
-        .filter(x => x.status === "Paid")
-        .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
-
-      const remainingAmount = Number(form.courseFee || 0) - paidAmount;
-
-      const minInstallments =
-        remainingAmount > 0 ? paidCount + 1 : paidCount;
-
-      if (
-        value !== "" &&
-        Number(value) < minInstallments
-      ) {
-        alert(`Minimum allowed installments is ${minInstallments}.`);
-        return;
-      }
-    }
-
     setForm((prev) => {
       const next = { ...prev, [field]: value };
 
@@ -492,6 +470,23 @@ export default function NewStudentPage({ basePath }) {
 
   const handleCreate = async () => {
 
+    if (isEdit) {
+      const paidCount = paymentList.filter(x => x.status === "Paid").length;
+
+      const paidAmount = paymentList
+        .filter(x => x.status === "Paid")
+        .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
+
+      const remainingAmount = Number(form.courseFee || 0) - paidAmount;
+
+      const minInstallments =
+        remainingAmount > 0 ? paidCount + 1 : paidCount;
+
+      if (Number(form.noOfInstallment) < minInstallments) {
+        alert(`Minimum allowed installments is ${minInstallments}.`);
+        return;
+      }
+    }
     if (submittingRef.current) return;
 
     submittingRef.current = true;

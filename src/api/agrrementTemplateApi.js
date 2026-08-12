@@ -16,11 +16,11 @@ export async function createAgrrementTemplate(payload) {
 }
 
 export async function updateAgrrementTemplate(templateId, payload) {
-	const { data } = await axiosClient.put(`/api/agrrement-templates/${templateId}`, payload);
+	const { data } = await axiosClient.post(`/api/agrrement-templates/${templateId}/update`, payload);
 	return data;
 }
 
 export async function deleteAgrrementTemplate(templateId) {
-	const { data } = await axiosClient.delete(`/api/agrrement-templates/${templateId}`);
+	const { data } = await axiosClient.post(`/api/agrrement-templates/${templateId}/delete`);
 	return data;
 }

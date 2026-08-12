@@ -7,7 +7,7 @@ export const getMembers = async () => {
 
 export const deleteMember = async (userId) => {
   try {
-    const { data } = await axiosClient.delete(`/api/Members/delete/${userId}`);
+    const { data } = await axiosClient.post(`/api/Members/delete/${userId}`);
     return { success: true, data };
   } catch (err) {
     return { success: false, message: err.message || 'Delete failed' };
@@ -29,7 +29,7 @@ export const createMember = async (memberData) => {
 };
 
 export const updateMember = async (memberData) => {
-  const { data } = await axiosClient.put('/api/Members/update', memberData);
+  const { data } = await axiosClient.post('/api/Members/update', memberData);
   return data;
 };
 

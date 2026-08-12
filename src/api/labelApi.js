@@ -15,6 +15,6 @@ export async function createLabel(payload) {
 }
 
 export async function deleteLabel(labelId) {
-  const response = await axiosClient.delete(`/api/Label/delete/${labelId}`);
+  const response = await axiosClient.post(`/api/Label/delete/${labelId}`);
   return response.data;
 }

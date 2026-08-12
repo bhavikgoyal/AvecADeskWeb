@@ -72,7 +72,7 @@ export const updateEmailTemplate = async (templateId, templateData) => {
         Notes: templateData.notes ?? '',
     };
     console.debug('updateEmailTemplate payload:', { templateId, payload });
-    const { data } = await axiosClient.put(`/api/email-templates/${templateId}`, payload);
+    const { data } = await axiosClient.post(`/api/email-templates/${templateId}/update`, payload);
     console.debug('updateEmailTemplate response:', data);
     return normalizeTemplate(data);
 };
@@ -91,6 +91,6 @@ export const getEmailTemplateById = async (templateId) => {
  * api/email-templates/{templateId}
  */
 export const deleteEmailTemplate = async (templateId) => {
-    await axiosClient.delete(`/api/email-templates/${templateId}`);
+    await axiosClient.post(`/api/email-templates/${templateId}/delete`);
     return true;
 };

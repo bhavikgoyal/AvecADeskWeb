@@ -194,5 +194,5 @@ export async function fetchVendorOnboarding(vendorId) {
 
 export async function saveVendorOnboarding(vendorId, form) {
   const payload = buildOnboardingSavePayload(form);
-  await axiosClient.put(`/api/vendors/${vendorId}/onboarding`, payload);
+  await axiosClient.post(`/api/vendors/${vendorId}/onboarding`, payload);
 }
