@@ -1,4 +1,5 @@
 import axiosClient from './axiosClient';
+import { exportInvoicePdf } from '../utils/invoicePdf';
 
 function formatCurrency(value) {
   const amount = Number(value);
@@ -132,16 +133,29 @@ export async function fetchPaidStudentsForInvoice({ year, month, instituteId, ca
   return list.map(mapPaidStudentRow);
 }
 
-export async function generateMonthlyInvoice({ year, month, instituteId, campus } = {}) {
+// export async function generateMonthlyInvoice({ year, month, instituteId, campus } = {}) {
+//   const body = {};
+//   if (year != null) body.year = year;
+//   if (month != null) body.month = month;
+//   if (instituteId != null) body.instituteId = instituteId;
+//   if (campus) body.campus = campus;
+//   const { data } = await axiosClient.post('/api/invoices/generate-monthly', body);
+//   return data;
+// }
+// PATCH for invoicesApi.js — replace the existing generateMonthlyInvoice export with this.
+
+export async function generateMonthlyInvoice({ year, month, instituteId, campus, installmentIds } = {}) {
   const body = {};
   if (year != null) body.year = year;
   if (month != null) body.month = month;
   if (instituteId != null) body.instituteId = instituteId;
   if (campus) body.campus = campus;
+  if (Array.isArray(installmentIds) && installmentIds.length > 0) {
+    body.installmentIds = installmentIds.map((id) => Number(id));
+  }
   const { data } = await axiosClient.post('/api/invoices/generate-monthly', body);
   return data;
 }
-
 // export async function downloadInvoiceDocument(invoiceId) {
 //   const { data, headers } = await axiosClient.get(`/api/invoices/${invoiceId}/pdf`, {
 //     responseType: 'blob',
@@ -160,21 +174,9 @@ export async function generateMonthlyInvoice({ year, month, instituteId, campus 
 // }
 
 export async function downloadInvoiceDocument(invoiceId) {
-  const { data, headers } = await axiosClient.get(`/api/invoices/${invoiceId}/pdf`, {
-    responseType: 'blob',
-  });
-  const contentDisposition = headers['content-disposition'] || '';
-  const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
-  const fileName = match?.[1]?.replace(/['"]/g, '') || `invoice-${invoiceId}.pdf`;
-  const blob = new Blob([data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
+  const invoice = await fetchInvoiceById(invoiceId);
+  const lineItems = await fetchInvoiceLineItems(invoiceId);
+  exportInvoicePdf(invoice, lineItems);
 }
 
 export async function fetchInvoiceById(invoiceId) {
@@ -185,13 +187,17 @@ export async function fetchInvoiceById(invoiceId) {
 export async function fetchInvoiceLineItems(invoiceId) {
   const { data } = await axiosClient.get(`/api/invoices/${invoiceId}/line-items`);
   const list = Array.isArray(data) ? data : [];
-  return list.map((item) => ({
-    id: String(item.lineItemId ?? item.LineItemId),
-    studentId: item.studentId ?? item.StudentId,
-    studentName: item.studentName ?? item.StudentName ?? '—',
-    description: item.description ?? item.Description ?? '',
-    amount: formatCurrencyAUD(item.amount ?? item.Amount),
-  }));
+  return list.map((item) => {
+    const amountValue = Number(item.amount ?? item.Amount ?? 0);
+    return {
+      id: String(item.lineItemId ?? item.LineItemId),
+      studentId: item.studentId ?? item.StudentId,
+      studentName: item.studentName ?? item.StudentName ?? '—',
+      description: item.description ?? item.Description ?? '',
+      amount: formatCurrencyAUD(amountValue),
+      amountRaw: Number.isFinite(amountValue) ? amountValue : 0,
+    };
+  });
 }
 
 function formatCurrencyAUD(value) {
