@@ -201,17 +201,17 @@ function formatCurrencyAUD(value) {
 }
 
 export async function approveInvoice(invoiceId) {
-  const { data } = await axiosClient.put(`/api/invoices/${invoiceId}/approve`);
+  const { data } = await axiosClient.post(`/api/invoices/${invoiceId}/approve`);
   return data;
 }
 
 export async function rejectInvoice(invoiceId, rejectionReason) {
-  const { data } = await axiosClient.put(`/api/invoices/${invoiceId}/reject`, { rejectionReason });
+  const { data } = await axiosClient.post(`/api/invoices/${invoiceId}/reject`, { rejectionReason });
   return data;
 }
 
 export async function submitInvoice(invoiceId) {
-  const { data } = await axiosClient.put(`/api/invoices/${invoiceId}/submit`);
+  const { data } = await axiosClient.post(`/api/invoices/${invoiceId}/submit`);
   return data;
 }
 

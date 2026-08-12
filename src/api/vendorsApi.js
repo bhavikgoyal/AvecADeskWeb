@@ -153,7 +153,7 @@ export async function createVendor(form) {
   const vendor = normalizeVendor(data);
 
   if (form.vendorStatus && form.vendorStatus !== 'Pending') {
-    await axiosClient.put(`/api/vendors/${vendor.vendorId}/status`, {
+    await axiosClient.post(`/api/vendors/${vendor.vendorId}/status`, {
       status: form.vendorStatus,
     });
   }
@@ -212,7 +212,7 @@ export async function fetchVendorForm(vendorId) {
 }
 
 export async function deleteVendor(vendorId) {
-  await axiosClient.delete(`/api/vendors/${vendorId}`);
+  await axiosClient.post(`/api/vendors/${vendorId}/delete`);
 }
 
 export async function updateVendor(vendorId, form) {
@@ -227,7 +227,7 @@ export async function updateVendor(vendorId, form) {
 
   const existing = await fetchVendorById(vendorId);
 
-  const { data } = await axiosClient.put(`/api/vendors/${vendorId}`, {
+  const { data } = await axiosClient.post(`/api/vendors/${vendorId}/update`, {
     businessName,
     contactPerson: (form.contactPerson || form.contact)?.trim() || '',
     phone: form.phone.trim(),
@@ -237,7 +237,7 @@ export async function updateVendor(vendorId, form) {
   let vendor = normalizeVendor(data);
 
   if (form.vendorStatus && form.vendorStatus !== existing.status) {
-    await axiosClient.put(`/api/vendors/${vendorId}/status`, {
+    await axiosClient.post(`/api/vendors/${vendorId}/status`, {
       status: form.vendorStatus,
     });
     vendor = await fetchVendorById(vendorId);
