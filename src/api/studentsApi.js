@@ -11,6 +11,7 @@ function normalizeStudent(student) {
     phone: student.phone ?? student.Phone ?? '',
     enrollmentNumber: student.enrollmentNumber ?? student.EnrollmentNumber ?? '',
     enrolmentStatus: student.enrolmentStatus ?? student.EnrolmentStatus ?? '',
+    assignment: student.assignment ?? student.Assignment ?? null,
     isActive: student.isActive ?? student.IsActive ?? true,
     createdAt: student.createdAt ?? student.CreatedAt,
   };
@@ -29,6 +30,7 @@ function mapStudentRow(student, schedule) {
     studentId: student.studentId,
     fullName: student.fullName,
     enrolmentStatus: student.enrolmentStatus,
+    assignment: student.assignment ?? '',
     paymentStatus: schedule?.status || 'Pending',
     instituteNameRef: '',
     courseName: '',
@@ -94,6 +96,7 @@ function buildStudentForm(student, schedule) {
     phone: student.phone,
     instituteId: student.instituteId ? String(student.instituteId) : '',
     courseId: student.courseId ? String(student.courseId) : '',
+    assignment: student.assignment ?? student.Assignment ?? '',
     amountDue: amountDue !== '' ? String(amountDue) : '',
     amountPaid: amountPaid !== '' && amountPaid != null ? String(amountPaid) : '',
     paymentStatus: normalizedSchedule?.status
@@ -174,9 +177,10 @@ export async function createStudentWithPaymentSchedule(form) {
     folderNo: form.FolderNo || null,
     courseStartDate: form.courseStartDate || null,
     courseEndDate: form.courseEndDate || null,
+    assignment: form.assignment ?? form.Assignment ?? null,
   });
   return normalizeStudent(student);
- }
+}
 
 export async function deleteStudent(studentId) {
   await axiosClient.delete(`/api/students/${studentId}`);
@@ -235,9 +239,9 @@ export async function updateStudentWithPaymentSchedule(studentId, form) {
     throw new Error('Due date is required');
   }
 
-  if (!form.scheduleId) {
-    throw new Error('No payment schedule found for this student.');
-  }
+  // if (!form.scheduleId) {
+  //   throw new Error('No payment schedule found for this student.');
+  // }
 
   const existing = await fetchStudentById(studentId);
 
@@ -253,6 +257,7 @@ export async function updateStudentWithPaymentSchedule(studentId, form) {
     phone: form.phone.trim(),
     enrollmentNumber: form.enrollmentNumber?.trim() || null,
     isActive: existing.isActive,
+    assignment: form.assignment ?? form.Assignment ?? existing.assignment ?? existing.Assignment ?? null,
   });
 
   const { data: schedule } = await axiosClient.put(`/api/schedules/${form.scheduleId}`, {
@@ -353,13 +358,14 @@ export async function fetchStudentPaymentDetail(studentId) {
     email: data.email ?? data.Email,
     phone: data.phone ?? data.Phone,
     folderNo: data.folderNo ?? data.FolderNo,
+    assignment: data.assignment ?? data.Assignment ?? null,
 
     courseStartDate: data.courseStartDate ?? data.CourseStartDate,
     courseEndDate: data.courseEndDate ?? data.CourseEndDate,
-    commissionAmount:data.commissionAmount ?? data.CommissionAmount,
-    gstAmount:data.gstAmount ?? data.GSTAmount,
-    bonusAmount:data.bonusAmount ?? data.BonusAmount,
-    dueDate:data.dueDate ?? data.DueDate,
+    commissionAmount: data.commissionAmount ?? data.CommissionAmount,
+    gstAmount: data.gstAmount ?? data.GSTAmount,
+    bonusAmount: data.bonusAmount ?? data.BonusAmount,
+    dueDate: data.dueDate ?? data.DueDate,
     remark: data.remark ?? data.Remark,
 
     scheduleId: data.scheduleId ?? data.ScheduleId,
@@ -369,12 +375,12 @@ export async function fetchStudentPaymentDetail(studentId) {
     frequency: data.frequency ?? data.Frequency,
 
     commissionId: data.commissionId ?? data.CommissionId,
-    commissionPercentage:data.commissionPercentage ?? data.CommissionPercentage,
+    commissionPercentage: data.commissionPercentage ?? data.CommissionPercentage,
     gstPercentage: data.gstPercentage ?? data.GSTPercentage,
     bonusType: data.bonusType ?? data.BonusType,
     bonusOption: data.bonusOption ?? data.BonusOption,
 
-    studentPaymentList:data.studentPaymentList ?? data.StudentPaymentList ?? [],
-    commissionHistory:data.commissionHistory ?? data.CommissionHistory ?? [],
+    studentPaymentList: data.studentPaymentList ?? data.StudentPaymentList ?? [],
+    commissionHistory: data.commissionHistory ?? data.CommissionHistory ?? [],
   };
 }
