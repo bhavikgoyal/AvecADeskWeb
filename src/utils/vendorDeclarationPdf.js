@@ -12,25 +12,52 @@ function getFileUrl(filePath) {
     .replace(/\\/g, "/")
     .replace(/^.*\/uploads\//i, "uploads/");
 
-  return `/${relativePath}`;
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+  if (!apiBaseUrl) {
+    console.error("VITE_API_BASE_URL is not configured");
+    return `/${relativePath}`;
+  }
+
+  const apiOrigin = new URL(apiBaseUrl).origin;
+
+  return `${apiOrigin}/${relativePath}`;
 }
 async function loadImage(url) {
   try {
+    console.log("Fetching signature:", url);
+
     const response = await fetch(url);
 
-    if (!response.ok) return null;
+    console.log("Response status:", response.status);
+    console.log("Response type:", response.headers.get("content-type"));
+
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
 
     const blob = await response.blob();
 
-    return await new Promise((resolve) => {
+    console.log("Blob type:", blob.type);
+    console.log("Blob size:", blob.size);
+
+    return await new Promise((resolve, reject) => {
       const reader = new FileReader();
 
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
+      reader.onload = () => {
+        console.log("FileReader completed");
+        resolve(reader.result);
+      };
+
+      reader.onerror = (error) => {
+        console.error("FileReader error:", error);
+        reject(error);
+      };
 
       reader.readAsDataURL(blob);
     });
-  } catch {
+  } catch (error) {
+    console.error("LOAD IMAGE ERROR:", error);
     return null;
   }
 }
@@ -44,6 +71,8 @@ let signature = null;
 try {
   if (signatureUrl) {
     signature = await loadImage(signatureUrl);
+    console.log("SIGNATURE LOADED:", !!signature);
+console.log("SIGNATURE DATA:", signature?.substring?.(0, 50));
   }
 } catch (e) {
   console.error(e);
@@ -118,12 +147,24 @@ doc.text("Yours faithfully,", rx, y - 12);
 
 try {
   if (signature) {
-    doc.addImage(signature, "PNG", rx, y - 5, 45, 18);
+    console.log("ADDING SIGNATURE TO PDF");
+
+    doc.addImage(
+      signature,
+      "PNG",
+      rx,
+      y - 5,
+      45,
+      18
+    );
   } else {
+    console.log("SIGNATURE IS NULL");
+
     doc.line(rx, y + 8, rx + 45, y + 8);
   }
 } catch (err) {
   console.error("Signature image error:", err);
+
   doc.line(rx, y + 8, rx + 45, y + 8);
 }
 

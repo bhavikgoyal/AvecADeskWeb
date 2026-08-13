@@ -91,19 +91,12 @@ if (form.phoneNo && !/^\d{10}$/.test(form.phoneNo))
       const token = Session.getToken();
       if (!token) { alert('You are not logged in.'); return; }
 
-    const res = await createMember(form);
-     if (res.ok) {
-  toast.success("Member created successfully", {
-    hideProgressBar: true,
-});
-
-    setTimeout(() => {
-        navigate("/Members");
-    }, 1500);
-
-    return;
-}
-
+    await createMember(form);
+    setTimeout(() => { navigate("/Members");}, 1500);
+     toast.success("Member created successfully", {
+      hideProgressBar: true,
+    });
+    } catch (res) {
       if (res.status === 409) {
         const data = await res.json();
         setErrors({ userName: data.message || 'Username already exists' });
@@ -111,9 +104,7 @@ if (form.phoneNo && !/^\d{10}$/.test(form.phoneNo))
       }
       
       setServerError(`Failed to create member: ${await res.text()}`);
-    } catch (err) {
-      setServerError('Failed to create member: ' + err.message);
-    }
+    } 
   };
 
   return (
