@@ -47,7 +47,12 @@ const filterInputSx = {
         height: 40,
         minHeight: 40,
         width: '100%',
-        bgcolor: 'var(--card-bg)',
+        bgcolor: '#fff',
+        borderRadius: '10px',
+    },
+    '& .MuiOutlinedInput-notchedOutline': {
+        borderColor: '#dbe2ea',
+        borderRadius: '10px',
     },
     '& .MuiSelect-select': {
         display: 'flex',
@@ -59,35 +64,32 @@ const filterInputSx = {
         width: '100%',
     },
 };
-
 const periodToggleSx = {
-    bgcolor: '#eef2f7',
-    borderRadius: '999px',
-    p: 0.5,
-    flexWrap: 'nowrap',
+    gap: 1,
     '& .MuiToggleButtonGroup-grouped': {
-        border: 0,
-        mx: 0.25,
+        mx: 0,
     },
     '& .MuiToggleButton-root': {
-        border: 'none',
-        borderRadius: '999px !important',
+        border: '1px solid #dbe2ea',
+        borderRadius: '10px !important',
         px: { xs: 2, sm: 2.5 },
-        py: 0.75,
+        py: 1,
         textTransform: 'none',
-        fontWeight: 600,
+        fontWeight: 700,
         fontSize: '0.875rem',
-        color: '#64748b',
+        color: '#4b5565',
+        bgcolor: '#fff',
         whiteSpace: 'nowrap',
         '&.Mui-selected': {
-            bgcolor: 'var(--primary)',
+            bgcolor: '#1e6fe0',
             color: '#fff',
+            borderColor: '#1e6fe0',
             '&:hover': {
-                bgcolor: 'var(--primary-dark, #2a6fad)',
+                bgcolor: '#1a5fc4',
             },
         },
         '&:hover': {
-            bgcolor: 'rgba(47, 128, 201, 0.08)',
+            bgcolor: 'rgba(30, 111, 224, 0.06)',
         },
     },
 };
@@ -518,22 +520,17 @@ const WorkHistoryPage = () => {
                         }}
                     >
                         <FormControl fullWidth size="small" sx={filterInputSx}>
-                            <InputLabel id="user-select-label" shrink>
-                                User
-                            </InputLabel>
-                            <Select
-                                labelId="user-select-label"
-                                label="User"
-                                value={selectedUserId}
-                                displayEmpty
-                                onChange={(e) => {
-                                    setSelectedUserId(e.target.value);
-                                    updateFilter('userId', e.target.value);
-                                }}
-                            >
+    <Select
+        value={selectedUserId}
+        displayEmpty
+        onChange={(e) => {
+            setSelectedUserId(e.target.value);
+            updateFilter('userId', e.target.value);
+        }}
+        sx={{ bgcolor: '#fff' }}
+    >
                                 <MenuItem value="">
-                                    <em>All Users</em>
-                                </MenuItem>
+                                    All Users                                </MenuItem>
                                 {users.map((user) => (
                                     <MenuItem key={user.id} value={user.id}>
                                         {user.fullName}
@@ -552,18 +549,16 @@ const WorkHistoryPage = () => {
                             }}
                         >
                             <TextField
-                                label="From"
-                                type="date"
-                                size="small"
-                                value={fromDate}
-                                onChange={(e) => {
-                                    setFromDate(e.target.value);
-                                    updateFilter('fromDate', e.target.value);
-                                }}
-                                InputLabelProps={{ shrink: true }}
-                                fullWidth
-                                sx={filterInputSx}
-                            />
+    type="date"
+    size="small"
+    value={fromDate}
+    onChange={(e) => {
+        setFromDate(e.target.value);
+        updateFilter('fromDate', e.target.value);
+    }}
+    fullWidth
+    sx={{ ...filterInputSx, bgcolor: '#fff' }}
+/>
                         </Box>
                     )}
                 </Box>

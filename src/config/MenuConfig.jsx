@@ -48,8 +48,8 @@ export const GET_MENU = (role) => {
        {
         category: 'Tasks',
         items: [
-            { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
-        
+            { title: 'Tasks', path: '/tasks', Icon: AssignmentIcon },
+             { title: 'Teams Report', path: '/work-history', Icon: HistoryIcon },
         ],
       },
          {
