@@ -23,7 +23,7 @@ export default function StudentLoginForm() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const STUDENT_PORTAL_URL = import.meta.env.VITE_STUDENT_PORTAL_URL || 'http://localhost:5173';
-
+  // const STUDENT_PORTAL_URL = import.meta.env.VITE_STUDENT_PORTAL_URL || 'https://demovavec.apphub.co.in';
 
   const handleSubmit = async (e) => {
   e.preventDefault();

@@ -132,8 +132,8 @@ export async function updateCourse(courseId, form) {
   formData.append("IsApproved", form.isApproved === "Yes");
   formData.append("IsActive", form.isActive === "Yes");
 
-  const { data } = await axiosClient.put(
-      `/api/courses/${courseId}`,
+  const { data } = await axiosClient.post(
+      `/api/courses/${courseId}/update`,
       formData
   );
 
@@ -170,12 +170,12 @@ export async function fetchCourseList() {
   });
 }
 export async function approveCourse(courseId) {
-  const { data } = await axiosClient.put(`/api/courses/${courseId}/approve`);
+  const { data } = await axiosClient.post(`/api/courses/${courseId}/approve`);
   return normalizeCourse(data);
 }
 
 export async function deleteCourse(courseId) {
-  await axiosClient.delete(`/api/courses/${courseId}`);
+  await axiosClient.post(`/api/courses/${courseId}/delete`);
 }
 
 export function buildCourseForm(course) {

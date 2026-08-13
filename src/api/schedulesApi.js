@@ -111,7 +111,7 @@ export async function createPaymentSchedule({
 
 export async function updatePaymentScheduleStatus(scheduleId, status, amountPaid) {
   try {
-    const { data } = await axiosClient.put(`/api/schedules/${scheduleId}/status`, {
+    const { data } = await axiosClient.post(`/api/schedules/${scheduleId}/status`, {
       status,
       amountPaid: status === 'Partial' ? amountPaid : null,
     });
@@ -233,7 +233,7 @@ export async function fetchStudentPaymentScheduleList(studentId, isNextMonth = f
 
 export async function updateStudentPaymentSchedule(request) {
   try {
-    const { data } = await axiosClient.put(
+    const { data } = await axiosClient.post(
       "/api/schedules/UpdateStudentPaymentSchedule",
       request
     );

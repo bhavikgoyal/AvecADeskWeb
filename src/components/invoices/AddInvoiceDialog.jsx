@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -11,6 +12,7 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import ResponsiveTable from '../ResponsiveTable';
@@ -25,6 +27,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
   const [instituteId, setInstituteId] = useState('');
   const [campus, setCampus] = useState('');
   const [students, setStudents] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]); // ids of checked rows
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
   const [loadingCampuses, setLoadingCampuses] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
@@ -36,6 +39,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     setCampus('');
     setCampuses([]);
     setStudents([]);
+    setSelectedIds([]);
     setError('');
     setGenerating(false);
   }, []);
@@ -68,6 +72,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
       setCampuses([]);
       setCampus('');
       setStudents([]);
+      setSelectedIds([]);
       return undefined;
     }
 
@@ -75,6 +80,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     setLoadingCampuses(true);
     setCampus('');
     setStudents([]);
+    setSelectedIds([]);
     setError('');
 
     // Courses.InstituteId = ScrappingId — unique Campus values only
@@ -108,6 +114,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
   useEffect(() => {
     if (!open || !instituteId || !campus) {
       setStudents([]);
+      setSelectedIds([]);
       return undefined;
     }
 
@@ -124,11 +131,14 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
       .then((rows) => {
         if (cancelled) return;
         setStudents(rows);
+        // No auto-selection — user must check each student manually.
+        setSelectedIds([]);
       })
       .catch((err) => {
         if (cancelled) return;
         setError(err.message || 'Failed to load students.');
         setStudents([]);
+        setSelectedIds([]);
       })
       .finally(() => {
         if (!cancelled) setLoadingStudents(false);
@@ -139,12 +149,41 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     };
   }, [open, instituteId, campus, now]);
 
-  const paidCount = useMemo(
-    () => students.filter((s) => String(s.paymentStatus).toLowerCase() === 'paid').length,
-    [students],
+  const isPaidRow = (row) => String(row.paymentStatus).toLowerCase() === 'paid';
+
+  const paidStudents = useMemo(() => students.filter(isPaidRow), [students]);
+  const paidCount = paidStudents.length;
+
+  const selectedPaidCount = useMemo(
+    () => paidStudents.filter((s) => selectedIds.includes(s.id)).length,
+    [paidStudents, selectedIds],
   );
 
-  const canGenerate = Boolean(instituteId && campus) && paidCount > 0;
+  const allPaidSelected =
+    paidStudents.length > 0 && selectedPaidCount === paidStudents.length;
+  const somePaidSelected = selectedPaidCount > 0 && !allPaidSelected;
+
+  const toggleRow = (row) => {
+    if (!isPaidRow(row)) return; // only Paid rows can be invoiced
+    setSelectedIds((prev) =>
+      prev.includes(row.id)
+        ? prev.filter((id) => id !== row.id)
+        : [...prev, row.id],
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (allPaidSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !paidStudents.some((s) => s.id === id)));
+    } else {
+      setSelectedIds((prev) => [
+        ...prev.filter((id) => !paidStudents.some((s) => s.id === id)),
+        ...paidStudents.map((s) => s.id),
+      ]);
+    }
+  };
+
+  const canGenerate = Boolean(instituteId && campus) && selectedPaidCount > 0;
 
   const handleClose = () => {
     if (generating) return;
@@ -162,6 +201,9 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
         month: now.getMonth() + 1,
         instituteId: Number(instituteId),
         campus,
+        installmentIds: selectedIds.filter((id) =>
+          paidStudents.some((s) => s.id === id),
+        ),
       });
       onGenerated?.(result);
       resetForm();
@@ -179,6 +221,31 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
   };
 
   const columns = [
+    {
+      id: 'select',
+      label: (
+        <Checkbox
+          size="small"
+          checked={allPaidSelected}
+          indeterminate={somePaidSelected}
+          onChange={toggleSelectAll}
+          disabled={paidCount === 0}
+        />
+      ),
+      field: 'select',
+      render: (row) => (
+        <Tooltip title={isPaidRow(row) ? '' : 'Only paid installments can be invoiced'}>
+          <span>
+            <Checkbox
+              size="small"
+              checked={selectedIds.includes(row.id)}
+              onChange={() => toggleRow(row)}
+              disabled={!isPaidRow(row)}
+            />
+          </span>
+        </Tooltip>
+      ),
+    },
     { id: 'fullName', label: 'Student', field: 'fullName' },
     { id: 'courseName', label: 'Course', field: 'courseName' },
     { id: 'installmentNo', label: 'Installment', field: 'installmentNo' },
@@ -245,8 +312,9 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
                 Students — {now.toLocaleString('en', { month: 'long' })} {now.getFullYear()}
               </Typography>
               <Typography variant="caption" sx={{ color: 'var(--muted)', display: 'block', mb: 1 }}>
-                All installments due this month are listed. Invoice will include Paid only
-                {paidCount > 0 ? ` (${paidCount} paid)` : ''}.
+                All installments due this month are listed. Only checked (Paid) students will be
+                included in the invoice
+                {selectedPaidCount > 0 ? ` (${selectedPaidCount} selected)` : ''}.
               </Typography>
 
               {loadingStudents ? (
@@ -290,3 +358,4 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     </Dialog>
   );
 }
+

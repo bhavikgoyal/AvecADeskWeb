@@ -31,7 +31,9 @@ function fmt(amount) {
 
 function fmtDate(val) {
   if (!val) return '—';
+
   return new Date(val).toLocaleDateString('en-IN', {
+    day: '2-digit',
     month: 'short',
     year: 'numeric'
   });
@@ -52,9 +54,25 @@ function exportCsv(rows, headers, filename) {
 }
 
 function exportExcel(rows, headers, filename) {
-  const wsData = [
+   const wsData = [
     headers.map((h) => h.label),
-    ...rows.map((row) => headers.map((h) => row[h.key] ?? '')),
+    ...rows.map((row) =>
+      headers.map((h) => {
+        const value = row[h.key];
+
+        if (h.key === 'dueDate' || h.key === 'createdAt') {
+          return value
+            ? new Date(value).toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })
+            : '';
+        }
+
+        return value ?? '';
+      })
+    ),
   ];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   const wb = XLSX.utils.book_new();
@@ -634,8 +652,8 @@ export default function ReceivablesPage() {
           </Select>
         </FormControl>
 
-        <Button variant="contained" size="small" onClick={handleApply}>Apply</Button>
-        <Button variant="text" size="small" onClick={handleReset}>Reset</Button>
+        <Button variant="contained" size="small" onClick={handleApply} sx={{ height: 40 }}>Apply</Button>
+        <Button variant="outlined" size="small" onClick={handleReset} sx={{ height: 40 }}>Reset</Button>
       </Box>
 
       {/* Tabs + Content */}

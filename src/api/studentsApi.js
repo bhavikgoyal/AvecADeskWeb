@@ -109,7 +109,7 @@ function buildStudentForm(student, schedule) {
 async function applyPaymentStatus(scheduleId, amountDue, amountPaidInput) {
   const { status, amountPaid } = resolvePaymentFields(amountDue, amountPaidInput);
 
-  await axiosClient.put(`/api/schedules/${scheduleId}/status`, {
+  await axiosClient.post(`/api/schedules/${scheduleId}/status`, {
     status,
     amountPaid: status === 'Pending' ? null : (amountPaid ?? 0),
   });
@@ -183,7 +183,7 @@ export async function createStudentWithPaymentSchedule(form) {
 }
 
 export async function deleteStudent(studentId) {
-  await axiosClient.delete(`/api/students/${studentId}`);
+  await axiosClient.post(`/api/students/${studentId}`);
 }
 
 export async function fetchStudentById(studentId) {
@@ -245,11 +245,11 @@ export async function updateStudentWithPaymentSchedule(studentId, form) {
 
   const existing = await fetchStudentById(studentId);
 
-  await axiosClient.put(`/api/students/${studentId}/enrolment-status`, {
+  await axiosClient.post(`/api/students/${studentId}/enrolment-status`, {
     enrolmentStatus: form.enrolmentStatus || existing.enrolmentStatus,
   });
 
-  const { data: student } = await axiosClient.put(`/api/students/${studentId}`, {
+  const { data: student } = await axiosClient.post(`/api/students/${studentId}`, {
     instituteId,
     courseId,
     fullName: form.fullName.trim(),
@@ -260,7 +260,7 @@ export async function updateStudentWithPaymentSchedule(studentId, form) {
     assignment: form.assignment ?? form.Assignment ?? existing.assignment ?? existing.Assignment ?? null,
   });
 
-  const { data: schedule } = await axiosClient.put(`/api/schedules/${form.scheduleId}`, {
+  const { data: schedule } = await axiosClient.post(`/api/schedules/${form.scheduleId}`, {
     studentId: Number(studentId),
     dueDate: form.dueDate,
     amountDue,
@@ -323,11 +323,11 @@ export async function updateStudentEnrolment(studentId, form) {
 
   const existing = await fetchStudentById(studentId);
 
-  await axiosClient.put(`/api/students/${studentId}/enrolment-status`, {
+  await axiosClient.post(`/api/students/${studentId}/enrolment-status`, {
     enrolmentStatus: form.enrolmentStatus || existing.enrolmentStatus,
   });
 
-  const { data: updated } = await axiosClient.put(`/api/students/${studentId}`, {
+  const { data: updated } = await axiosClient.post(`/api/students/${studentId}`, {
     instituteId: existing.instituteId,
     courseId: existing.courseId,
     fullName: form.fullName.trim(),

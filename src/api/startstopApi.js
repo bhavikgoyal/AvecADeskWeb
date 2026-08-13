@@ -11,7 +11,7 @@ export const createStartStop = async (data) => {
 };
 
 export const updateStartStop = async (data) => {
-    const response = await axiosClient.put(
+    const response = await axiosClient.post(
         `${BASE_URL}/Update_Start_Stop`,
         data
     );

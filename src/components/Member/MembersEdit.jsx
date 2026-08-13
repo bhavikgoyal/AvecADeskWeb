@@ -118,12 +118,14 @@ if (form.PhoneNo && !/^\d{10}$/.test(form.PhoneNo))
     }
 
     try {
-     const res = await updateMember(form);
-      if (res.ok) {toast.success("Member updated successfully", {
-    hideProgressBar: true,
-}); navigate('/Members'); }
-      else setServerError('Update failed: ' + await res.text());
-    } catch (err) {
+     await updateMember(form);
+
+    toast.success("Member updated successfully", {
+      hideProgressBar: true,
+    });
+     navigate('/Members'); }
+      
+    catch (err) {
       setServerError('Update failed: ' + err.message);
     }
   };

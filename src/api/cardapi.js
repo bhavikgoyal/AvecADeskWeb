@@ -15,7 +15,7 @@ export async function createCard(payload) {
 }
 
 export async function updateCard(payload) {
-  const response = await axiosClient.put('/api/Card/update', payload);
+  const response = await axiosClient.post('/api/Card/update', payload);
   return response.data;
 }
 
@@ -25,7 +25,7 @@ export async function moveCard(payload) {
 }
 
 export async function deleteCard(cardId) {
-  const response = await axiosClient.delete(`/api/Card/delete/${cardId}`);
+  const response = await axiosClient.post(`/api/Card/delete/${cardId}`);
   return response.data;
 }
 
@@ -50,6 +50,6 @@ export async function addCardMember(cardId, userId) {
 }
 
 export async function removeCardMember(cardId, userId) {
-  const response = await axiosClient.delete(`/api/CardMember/${cardId}/remove/${userId}`);
+  const response = await axiosClient.post(`/api/CardMember/${cardId}/remove/${userId}`);
   return response.data;
 }

@@ -194,14 +194,20 @@ export default function NewStudentPage({ basePath }) {
     return date;
   };
 
-  const formatDateCell = (value) => {
-    if (!value) {
-      return "-";
-    }
+const formatDateCell = (value) => {
+  if (!value) return "-";
 
-    const isoValue = String(value).split("T")[0];
-    return parseIsoDate(isoValue) ? isoValue : "-";
-  };
+  const isoValue = String(value).split("T")[0];
+  const date = parseIsoDate(isoValue);
+
+  if (!date) return "-";
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${month}/${day}/${year}`;
+};
 
   const generateInstallments = (data) => {
     const fee = Number(data.courseFee || 0);
@@ -507,6 +513,23 @@ export default function NewStudentPage({ basePath }) {
 
   const handleCreate = async () => {
 
+    if (isEdit) {
+      const paidCount = paymentList.filter(x => x.status === "Paid").length;
+
+      const paidAmount = paymentList
+        .filter(x => x.status === "Paid")
+        .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
+
+      const remainingAmount = Number(form.courseFee || 0) - paidAmount;
+
+      const minInstallments =
+        remainingAmount > 0 ? paidCount + 1 : paidCount;
+
+      if (Number(form.noOfInstallment) < minInstallments) {
+        alert(`Minimum allowed installments is ${minInstallments}.`);
+        return;
+      }
+    }
     if (submittingRef.current) return;
 
     submittingRef.current = true;
@@ -839,11 +862,11 @@ export default function NewStudentPage({ basePath }) {
                     </TableCell>
                     <TableCell>
                       {isEdit ? (
-                        <Select
-                          size="small"
-                          value={item.status}
-                          onChange={(e) => {
-                            const value = e.target.value;
+                       <Select
+                        size="small"
+                        value={item.status}
+                        onChange={(e) => {
+                          const value = e.target.value;
 
                             setPaymentList((prev) =>
                               prev.map((x) => {
@@ -859,46 +882,55 @@ export default function NewStudentPage({ basePath }) {
                                   };
                                 }
 
-                                if (
-                                  value === "Pending" &&
-                                  x.installmentNo > item.installmentNo
-                                ) {
-                                  return {
-                                    ...x,
-                                    status: "Pending",
-                                    paidAmount: "0.00",
-                                    balance: x.amount,
-                                  };
-                                }
+                              if (
+                                value === "Pending" &&
+                                x.installmentNo > item.installmentNo
+                              ) {
+                                return {
+                                  ...x,
+                                  status: "Pending",
+                                  paidAmount: "0.00",
+                                  balance: x.amount,
+                                };
+                              }
 
-                                return x;
-                              })
-                            );
+                              return x;
+                            })
+                          );
 
-                            setCommissionHistory((prev) =>
-                              prev.map((x) => {
-                                if (x.installmentNo === item.installmentNo) {
-                                  return {
-                                    ...x,
-                                    paymentStatus: value,
-                                  };
-                                }
+                          setCommissionHistory((prev) =>
+                            prev.map((x) => {
+                              if (x.installmentNo === item.installmentNo) {
+                                return {
+                                  ...x,
+                                  paymentStatus: value,
+                                };
+                              }
 
-                                if (
-                                  value === "Pending" &&
-                                  x.installmentNo > item.installmentNo
-                                ) {
-                                  return {
-                                    ...x,
-                                    paymentStatus: "Pending",
-                                  };
-                                }
-                                return x;
-                              })
-                            );
-                          }}
-                        >
-                          <MenuItem value="Pending">Pending</MenuItem>
+                              if (
+                                value === "Pending" &&
+                                x.installmentNo > item.installmentNo
+                              ) {
+                                return {
+                                  ...x,
+                                  paymentStatus: "Pending",
+                                };
+                              }
+
+                              return x;
+                            })
+                          );
+                        }}
+                        sx={{
+                          width: 110,
+                          height: 40,
+                          "& .MuiSelect-select": {
+                            minWidth: "70px",
+                            padding: "8px 32px 8px 12px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="Pending">Pending</MenuItem>
 
                           <MenuItem
                             value="PaidByCollege"

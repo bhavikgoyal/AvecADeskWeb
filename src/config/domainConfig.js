@@ -420,6 +420,7 @@ export const DOMAIN_RESOURCES = {
       { id: 'triggerAfterDays', label: 'After (days)', field: 'triggerAfterDays' },
       { id: 'isActive', label: 'Active', field: 'isActive' },
       { id: 'updated', label: 'Updated', field: 'updated' },
+     
     ],
     emptyForm: () => ({
       ruleType: 'StudentOverdue', triggerAfterDays: '7', intervalDays: '3', isActive: 'Yes',
@@ -434,16 +435,17 @@ export const DOMAIN_RESOURCES = {
     requiredFields: ['templateName'],
     sections: [
       { title: 'Template', description: 'Supports {{placeholders}} in subject and body.', fields: ['templateName', 'category', 'subject'], layout: 'full' },
-      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml', 'notes'], layout: 'full' },
+      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml'], layout: 'full' },
     ],
     columns: [
       { id: 'templateName', label: 'Name', field: 'templateName' },
       { id: 'category', label: 'Category', field: 'category' },
       { id: 'subject', label: 'Subject', field: 'subject' },
       { id: 'updated', label: 'Updated', field: 'updated' },
+      
     ],
     emptyForm: () => ({
-      templateName: '', category: 'General', subject: '', bodyHtml: '', notes: '',
+      templateName: '', category: 'General', subject: '', bodyHtml: '', 
     }),
   },
   courses: {

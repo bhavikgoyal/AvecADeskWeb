@@ -577,7 +577,8 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
           id: '__view_students__',
           label: 'Students',
           align: 'center',
-          headerSx: { width: 160 },
+          headerSx: { width: 190, whiteSpace: 'nowrap' },
+          cellSx: { width: 190, whiteSpace: 'nowrap' },
           render: (row) => {
             const id = row.vendorId ?? row.id;
             const name = row.businessName || '';
@@ -588,12 +589,24 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
                 vendorId: id,
                 vendorName: name,
               });
-              if (newOnly) params.set('newOnly', 'true');
+              if (newOnly) {
+                params.set('newOnly', 'true');
+                params.set('newCount', String(newCount));
+              }
               navigate(`/reports/student-Inquiry?${params.toString()}`);
             };
 
             return (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexWrap: 'nowrap',
+                  gap: 0.75,
+                  width: '100%',
+                }}
+              >
                 <Button
                   size="small"
                   variant="outlined"
@@ -601,12 +614,18 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
                     e.stopPropagation();
                     goToStudents(false);
                   }}
-                  sx={{ textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap', minWidth: 110 }}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    minWidth: 120,
+                    flexShrink: 0,
+                  }}
                 >
                   Student ({row.studentCount ?? 0})
                 </Button>
 
-               {newCount > 0 && (
+                {newCount > 0 && (
                   <IconButton
                     size="small"
                     onClick={(e) => {
@@ -620,10 +639,12 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
                       );
                       goToStudents(true);
                     }}
+                    sx={{ p: 0.5, flexShrink: 0 }}
                   >
                     <Badge
                       badgeContent={newCount}
                       color="error"
+                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
                       sx={{
                         '& .MuiBadge-badge': {
                           fontSize: '10px !important',

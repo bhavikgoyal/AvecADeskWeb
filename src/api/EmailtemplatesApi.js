@@ -14,7 +14,6 @@ function normalizeTemplate(raw) {
     const category = raw.category ?? raw.type ?? raw.Category ?? 'General';
     const subject = raw.subject ?? raw.Subject ?? '';
     const bodyHtml = raw.bodyHtml ?? raw.body ?? raw.content ?? raw.html ?? '';
-    const notes = raw.notes ?? raw.note ?? '';
     const updated = formatDate(raw.updatedAt ?? raw.updated ?? raw.createdAt ?? raw.createdAt);
 
     return {
@@ -23,7 +22,6 @@ function normalizeTemplate(raw) {
         category,
         subject,
         bodyHtml,
-        notes,
         updated,
         name: templateName,
     };
@@ -50,7 +48,6 @@ export const createEmailTemplate = async (templateData) => {
         Subject: templateData.subject ?? '',
         Body: templateData.bodyHtml ?? templateData.body ?? templateData.content ?? '',
         BodyHtml: templateData.bodyHtml ?? templateData.body ?? templateData.content ?? '',
-        Notes: templateData.notes ?? '',
     };
     console.debug('createEmailTemplate payload:', payload);
     const { data } = await axiosClient.post('/api/email-templates', payload);
@@ -69,10 +66,9 @@ export const updateEmailTemplate = async (templateId, templateData) => {
         Subject: templateData.subject ?? '',
         Body: templateData.bodyHtml ?? templateData.body ?? templateData.content ?? '',
         BodyHtml: templateData.bodyHtml ?? templateData.body ?? templateData.content ?? '',
-        Notes: templateData.notes ?? '',
     };
     console.debug('updateEmailTemplate payload:', { templateId, payload });
-    const { data } = await axiosClient.put(`/api/email-templates/${templateId}`, payload);
+    const { data } = await axiosClient.post(`/api/email-templates/${templateId}/update`, payload);
     console.debug('updateEmailTemplate response:', data);
     return normalizeTemplate(data);
 };
@@ -91,6 +87,6 @@ export const getEmailTemplateById = async (templateId) => {
  * api/email-templates/{templateId}
  */
 export const deleteEmailTemplate = async (templateId) => {
-    await axiosClient.delete(`/api/email-templates/${templateId}`);
+    await axiosClient.post(`/api/email-templates/${templateId}/delete`);
     return true;
 };

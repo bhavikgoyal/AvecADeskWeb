@@ -69,15 +69,15 @@ export async function createInstituteCommissionRate(form) {
   }
 }
 export async function updateVendorCommissionRate(vendorId, commissionId, form) {
-  const { data } = await axiosClient.put(
-    `/api/commissions/vendor/${vendorId}/rates/${commissionId}`,
+  const { data } = await axiosClient.post(
+    `/api/commissions/vendor/${vendorId}/rates/${commissionId}/update`,
     toApiPayload(form),
   );
   return normalizeCommissionRate(data);
 }
 
 export async function deleteVendorCommissionRate(vendorId, commissionId) {
-  await axiosClient.delete(`/api/commissions/vendor/${vendorId}/rates/${commissionId}`);
+  await axiosClient.post(`/api/commissions/vendor/${vendorId}/rates/${commissionId}/delete`);
 }
 
 export function getEmptyCommissionRateForm(defaultVendorId = '') {

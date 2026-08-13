@@ -11,7 +11,7 @@ export async function createChecklist(payload) {
 }
 
 export async function deleteChecklist(checklistId) {
-  const response = await axiosClient.delete(`/api/Checklist/delete/${checklistId}`);
+  const response = await axiosClient.post(`/api/Checklist/delete/${checklistId}`);
   return response.data;
 }
 
@@ -31,11 +31,11 @@ export async function toggleChecklistItem(itemId, isCompleted) {
 }
 
 export async function deleteChecklistItem(itemId) {
-  const response = await axiosClient.delete(`/api/Checklist/item/delete/${itemId}`);
+  const response = await axiosClient.post(`/api/Checklist/item/delete/${itemId}`);
   return response.data;
 }
 
 export async function updateChecklistItemName(itemId, itemName) {
-  const response = await axiosClient.put(`/api/Checklist/item/update/${itemId}`, { itemName });
+  const response = await axiosClient.post(`/api/Checklist/item/update/${itemId}`, { itemName });
   return response.data;
 }

@@ -134,11 +134,11 @@ export async function createInstitute(form) {
   const institute = normalizeInstitute(data);
 
   if (form.isPublished === 'Yes') {
-    await axiosClient.put(`/api/institutes/${institute.instituteId}/publish`);
+    await axiosClient.post(`/api/institutes/${institute.instituteId}/publish`);
   }
 
   if (form.instituteStatus && form.instituteStatus !== 'Active') {
-    await axiosClient.put(`/api/institutes/${institute.instituteId}/status`, {
+    await axiosClient.post(`/api/institutes/${institute.instituteId}/status`, {
       status: form.instituteStatus,
     });
   }
@@ -166,7 +166,7 @@ function buildInstituteForm(institute) {
 }
 
 export async function deleteInstitute(instituteId) {
-  await axiosClient.delete(`/api/institutes/${instituteId}`);
+  await axiosClient.post(`/api/institutes/${instituteId}`);
 }
 
 export async function fetchInstituteById(instituteId) {
@@ -199,7 +199,7 @@ export async function updateInstitute(instituteId, form) {
 
   const existing = await fetchInstituteById(instituteId);
 
-  const { data } = await axiosClient.put(`/api/institutes/${instituteId}`, {
+  const { data } = await axiosClient.post(`/api/institutes/${instituteId}`, {
     vendorId,
     instituteName: form.instituteName.trim(),
     websiteUrl: form.websiteUrl?.trim() || null,
@@ -219,12 +219,12 @@ export async function updateInstitute(instituteId, form) {
   let institute = normalizeInstitute(data);
 
   if (form.isPublished === 'Yes' && !existing.isPublished) {
-    await axiosClient.put(`/api/institutes/${instituteId}/publish`);
+    await axiosClient.post(`/api/institutes/${instituteId}/publish`);
     institute = await fetchInstituteById(instituteId);
   }
 
   if (form.instituteStatus && form.instituteStatus !== existing.status) {
-    await axiosClient.put(`/api/institutes/${instituteId}/status`, {
+    await axiosClient.post(`/api/institutes/${instituteId}/status`, {
       status: form.instituteStatus,
     });
     institute = await fetchInstituteById(instituteId);
