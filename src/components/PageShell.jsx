@@ -75,10 +75,10 @@ useEffect(() => {
       ...columns,
       {
         id: '__delete__',
-        label: '',
-        align: 'right',
-        headerSx: { width: 48, px: 0.5 },
-        cellSx: { px: 0.5 },
+        label: 'Action',
+        align: 'left',
+        headerSx: { width: 70, px: 1 },
+        cellSx: { px: 1},
         render: (row) => (
           <IconButton
             size="small"

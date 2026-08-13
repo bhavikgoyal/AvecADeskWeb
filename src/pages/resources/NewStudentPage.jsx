@@ -179,14 +179,20 @@ export default function NewStudentPage({ basePath }) {
     return date;
   };
 
-  const formatDateCell = (value) => {
-    if (!value) {
-      return "-";
-    }
+const formatDateCell = (value) => {
+  if (!value) return "-";
 
-    const isoValue = String(value).split("T")[0];
-    return parseIsoDate(isoValue) ? isoValue : "-";
-  };
+  const isoValue = String(value).split("T")[0];
+  const date = parseIsoDate(isoValue);
+
+  if (!date) return "-";
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${month}/${day}/${year}`;
+};
 
   const generateInstallments = (data) => {
     const fee = Number(data.courseFee || 0);
@@ -732,76 +738,84 @@ export default function NewStudentPage({ basePath }) {
                   <TableRow key={item.installmentNo}>
                     <TableCell>{item.installmentNo}</TableCell>
                     <TableCell>{item.amount}</TableCell>
-                    <TableCell>{String(item.dueDate || "").split("T")[0]}</TableCell>
-                    <TableCell> {item.paidDate ? String(item.paidDate).split("T")[0] : "-"}</TableCell>
+                    <TableCell> {formatDateCell(item.dueDate)}</TableCell>
+                    <TableCell> {formatDateCell(item.paidDate)}</TableCell>
                     <TableCell>
                       {isEdit ? (
-                        <Select
-                          size="small"
-                          value={item.status}
-                          onChange={(e) => {
-                            const value = e.target.value;
+                       <Select
+                        size="small"
+                        value={item.status}
+                        onChange={(e) => {
+                          const value = e.target.value;
 
-                            setPaymentList((prev) =>
-                              prev.map((x) => {
+                          setPaymentList((prev) =>
+                            prev.map((x) => {
+                              if (x.installmentNo === item.installmentNo) {
+                                return {
+                                  ...x,
+                                  status: value,
+                                  paidAmount: value === "Paid" ? x.amount : "0.00",
+                                  balance: value === "Paid" ? "0.00" : x.amount,
+                                };
+                              }
 
-                                if (x.installmentNo === item.installmentNo) {
-                                  return {
-                                    ...x,
-                                    status: value,
-                                    paidAmount: value === "Paid" ? x.amount : "0.00",
-                                    balance: value === "Paid" ? "0.00" : x.amount,
-                                  };
-                                }
+                              if (
+                                value === "Pending" &&
+                                x.installmentNo > item.installmentNo
+                              ) {
+                                return {
+                                  ...x,
+                                  status: "Pending",
+                                  paidAmount: "0.00",
+                                  balance: x.amount,
+                                };
+                              }
 
-                                if (
-                                  value === "Pending" &&
-                                  x.installmentNo > item.installmentNo
-                                ) {
-                                  return {
-                                    ...x,
-                                    status: "Pending",
-                                    paidAmount: "0.00",
-                                    balance: x.amount,
-                                  };
-                                }
+                              return x;
+                            })
+                          );
 
-                                return x;
-                              })
-                            );
+                          setCommissionHistory((prev) =>
+                            prev.map((x) => {
+                              if (x.installmentNo === item.installmentNo) {
+                                return {
+                                  ...x,
+                                  paymentStatus: value,
+                                };
+                              }
 
-                            setCommissionHistory((prev) =>
-                              prev.map((x) => {
-                                if (x.installmentNo === item.installmentNo) {
-                                  return {
-                                    ...x,
-                                    paymentStatus: value,
-                                  };
-                                }
+                              if (
+                                value === "Pending" &&
+                                x.installmentNo > item.installmentNo
+                              ) {
+                                return {
+                                  ...x,
+                                  paymentStatus: "Pending",
+                                };
+                              }
 
-                                if (
-                                  value === "Pending" &&
-                                  x.installmentNo > item.installmentNo
-                                ) {
-                                  return {
-                                    ...x,
-                                    paymentStatus: "Pending",
-                                  };
-                                }
-                                return x;
-                              })
-                            );
-                          }}
+                              return x;
+                            })
+                          );
+                        }}
+                        sx={{
+                          width: 110,
+                          height: 40,
+                          "& .MuiSelect-select": {
+                            minWidth: "70px",
+                            padding: "8px 32px 8px 12px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="Pending">Pending</MenuItem>
+
+                        <MenuItem
+                          value="Paid"
+                          disabled={!canEditStatus(index)}
                         >
-                          <MenuItem value="Pending">Pending</MenuItem>
-
-                          <MenuItem
-                            value="Paid"
-                            disabled={!canEditStatus(index)}
-                          >
-                            Paid
-                          </MenuItem>
-                        </Select>
+                          Paid
+                        </MenuItem>
+                      </Select>
                       ) : (
                         item.status
                       )}
