@@ -221,15 +221,13 @@ export default function ResourceFormFields({
             sx={selectSx}
             disabled={isFieldDisabled || (def.type === 'api-select' && options.length === 0)}
           >
-            <InputLabel
-              id={labelId}
-              {...(fixSelectLabels
-                ? (hasSelectValue ? { shrink: true } : {})
-                : { shrink: true })}
-              required={isRequired}
-            >
-              {def.label}
-            </InputLabel>
+          <InputLabel
+            id={labelId}
+            shrink={hasSelectValue}
+            required={isRequired}
+          >
+            {def.label}
+          </InputLabel>
             <Select
               labelId={labelId}
               label={def.label}

@@ -180,6 +180,15 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [activityFilter, setActivityFilter] = useState('All');
 
+  useEffect(() => {
+  if (!success) return;
+
+  const timer = setTimeout(() => {
+    setSuccess('');
+  }, 3000);
+
+  return () => clearTimeout(timer);
+}, [success]);
   // Courses page: institute filter passed via ?institute=<name> from
   // the "View Courses" button on the Institutes Scrapping list.
   const instituteFilter = useMemo(() => {

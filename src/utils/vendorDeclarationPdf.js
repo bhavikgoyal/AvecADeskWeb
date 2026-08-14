@@ -177,16 +177,16 @@ doc.text("(Authorized Signatory)", rx, y);
 
   doc.text("Name :", rx - 20, y);
   doc.setFont("times", "normal");
-  doc.text(vendor?.authorizedSignatoryName || "", rx + 5, y);
-  doc.line(rx + 5, y + 1, rx + 60, y + 1);
+  doc.text(vendor?.authorizedSignatoryName || "", rx + 10, y);
+  doc.line(rx + 10, y + 1, rx + 60, y + 1);
 
   y += 12;
 
   doc.setFont("times", "bold");
   doc.text("Designation :", rx - 20, y);
   doc.setFont("times", "normal");
-  doc.text(vendor?.primaryContactDesignation || "", rx + 15, y);
-  doc.line(rx + 15, y + 1, rx + 60, y + 1);
+  doc.text(vendor?.primaryContactDesignation || "", rx + 10, y);
+  doc.line(rx + 10, y + 1, rx + 60, y + 1);
 
   y += 15;
 

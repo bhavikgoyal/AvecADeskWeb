@@ -239,6 +239,15 @@ export default function InstituteScrappingPage() {
   const [commissionError, setCommissionError] = useState('');
   const [commissionSuccess, setCommissionSuccess] = useState('');
 
+  useEffect(() => {
+  if (!success) return;
+
+  const timer = setTimeout(() => {
+    setSuccess('');
+  }, 3000);
+
+  return () => clearTimeout(timer);
+}, [success]);
   const loadList = useCallback(async ({ showLoader = rows.length === 0 && backgroundScrapes.length === 0 } = {}) => {
     if (showLoader) {
       setListLoading(true);
