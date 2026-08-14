@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem,
+  Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem, TextField,
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { fetchCoursesByScrappingId } from "../../api/coursesApi";
 import { fetchUniqueInstituteNames } from "../../api/institutesScrappingApi";
-import { createStudentWithPaymentSchedule, derivePaymentStatus, fetchStudentPaymentDetail, } from "../../api/studentsApi";
+import { createStudentWithPaymentSchedule, derivePaymentStatus, fetchStudentPaymentDetail, updateStudentWithPaymentSchedule, } from "../../api/studentsApi";
 import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule } from "../../api/schedulesApi";
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx, } from "../../components/forms";
 import { getEmptyForm, getResourceConfig, isFormValid, } from "../../config/resourceConfig";
@@ -28,6 +30,7 @@ export default function NewStudentPage({ basePath }) {
   const [commissionHistory, setCommissionHistory] = useState([]);
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
   const [originalSchedule, setOriginalSchedule] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -100,10 +103,10 @@ export default function NewStudentPage({ basePath }) {
     async function loadData() {
       try {
         const data = await fetchStudentPaymentDetail(id);
-        console.log(data);
         setForm({
           ...getEmptyForm(basePath),
           studentId: data.studentId,
+          assignment: data.assignment ?? data.Assignment ?? '',
           instituteId: String(data.instituteId),
           courseId: String(data.courseId),
           fullName: data.fullName,
@@ -142,6 +145,18 @@ export default function NewStudentPage({ basePath }) {
           paidAmount: x.paidAmount,
           balance: x.balanceAmount,
           status: x.paymentStatus,
+          paidReceipt: x.installmentImage ?? x.InstallmentImage ?? null,
+          paidReceiptName: (() => {
+            const p = x.installmentImage ?? x.InstallmentImage ?? null;
+            if (!p) return null;
+            try {
+              const url = String(p);
+              const parts = url.split('/').filter(Boolean);
+              return parts.length ? parts[parts.length - 1] : url;
+            } catch {
+              return null;
+            }
+          })(),
         }));
 
         setOriginalPaymentList(list);
@@ -179,20 +194,20 @@ export default function NewStudentPage({ basePath }) {
     return date;
   };
 
-const formatDateCell = (value) => {
-  if (!value) return "-";
+  const formatDateCell = (value) => {
+    if (!value) return "-";
 
-  const isoValue = String(value).split("T")[0];
-  const date = parseIsoDate(isoValue);
+    const isoValue = String(value).split("T")[0];
+    const date = parseIsoDate(isoValue);
 
-  if (!date) return "-";
+    if (!date) return "-";
 
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
 
-  return `${month}/${day}/${year}`;
-};
+    return `${month}/${day}/${year}`;
+  };
 
   const generateInstallments = (data) => {
     const fee = Number(data.courseFee || 0);
@@ -206,7 +221,7 @@ const formatDateCell = (value) => {
     let installmentAmount;
 
     const paidInstallments = isEdit
-      ? originalPaymentList.filter(x => x.status === "Paid")
+      ? originalPaymentList.filter(x => (x.status === "Paid" || x.status === "PaidByCollege" || x.status === "PaidByStudent"))
       : [];
 
     if (isEdit) {
@@ -265,13 +280,13 @@ const formatDateCell = (value) => {
         dueDate.setMonth(startDate.getMonth() + (i * 3));
       }
 
-    //  const isPaid = !isEdit && dueDate < today;
+      //  const isPaid = !isEdit && dueDate < today;
 
       list.push({
         installmentNo: i + 1,
         dueDate: formatDate(dueDate),
         amount: installmentAmount.toFixed(2),
-        paidAmount:"0.00",
+        paidAmount: "0.00",
         balance: installmentAmount.toFixed(2),
         status: "Pending",
       });
@@ -296,6 +311,28 @@ const formatDateCell = (value) => {
     next.invoiceAmount = (commission + gst).toFixed(2);
   }
   const updateField = (field, value) => {
+
+    if (field === "noOfInstallment" && isEdit) {
+
+      const paidCount = paymentList.filter(x => (x.status === "Paid" || x.status === "PaidByCollege" || x.status === "PaidByStudent")).length;
+
+      const paidAmount = paymentList
+        .filter(x => (x.status === "Paid" || x.status === "PaidByCollege" || x.status === "PaidByStudent"))
+        .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
+
+      const remainingAmount = Number(form.courseFee || 0) - paidAmount;
+
+      const minInstallments =
+        remainingAmount > 0 ? paidCount + 1 : paidCount;
+
+      if (
+        value !== "" &&
+        Number(value) < minInstallments
+      ) {
+        alert(`Minimum allowed installments is ${minInstallments}.`);
+        return;
+      }
+    }
 
     setForm((prev) => {
       const next = { ...prev, [field]: value };
@@ -532,6 +569,19 @@ const formatDateCell = (value) => {
         commissionId = commission.commissionId ?? commission.CommissionId;
 
       } else {
+        try {
+          const studentUpdatePayload = {
+            ...form,
+            studentId: form.studentId,
+            assignment: form.assignment ?? form.Assignment ?? null,
+          };
+
+          console.log('Sending student update payload:', studentUpdatePayload);
+          debugger;
+          await updateStudentWithPaymentSchedule(form.studentId, studentUpdatePayload);
+        } catch (err) {
+          console.warn('Failed updating student core data', err);
+        }
 
         scheduleChanged =
           originalSchedule.noOfInstallment !== Number(form.noOfInstallment) ||
@@ -547,6 +597,9 @@ const formatDateCell = (value) => {
           paymentList: paymentList.map(x => ({
             studentPaymentInstallmentId: x.studentPaymentInstallmentId,
             paymentStatus: x.status,
+            paidAmount: x.paidAmount ? Number(x.paidAmount) : 0,
+            balanceAmount: x.balance ? Number(x.balance) : 0,
+            InstallmentImage: typeof x.paidReceipt === 'string' && x.paidReceipt.startsWith('data:') ? x.paidReceipt : null,
           })),
           commissionHistory: commissionHistory.map(x => ({
             CommissionDetailId: x.commissionDetailId,
@@ -565,7 +618,7 @@ const formatDateCell = (value) => {
 
         for (const item of paymentList) {
 
-          if (isEdit && item.status === "Paid")
+          if (isEdit && (item.status === "Paid" || item.status === "PaidByCollege" || item.status === "PaidByStudent"))
             continue;
 
           const installment = await createStudentPaymentInstallment({
@@ -588,7 +641,7 @@ const formatDateCell = (value) => {
 
         for (const row of commissionRows) {
 
-          if (isEdit && row.paymentStatus === "Paid")
+          if (isEdit && (row.paymentStatus === "Paid" || row.paymentStatus === "PaidByCollege" || row.paymentStatus === "PaidByStudent"))
             continue;
 
           await createStudentCommissionDetail({
@@ -637,7 +690,7 @@ const formatDateCell = (value) => {
     if (!isEdit) return commissionRows;
 
     const paidRows = commissionHistory.filter(
-      x => x.paymentStatus === "Paid"
+      x => (x.paymentStatus === "Paid" || x.paymentStatus === "PaidByCollege" || x.paymentStatus === "PaidByStudent")
     );
 
     const pendingRows = commissionRows.filter(
@@ -660,7 +713,7 @@ const formatDateCell = (value) => {
   const canEditStatus = (index) => {
     if (index === 0) return true;
 
-    return paymentList[index - 1]?.status === "Paid";
+    return (paymentList[index - 1]?.status === "Paid" || paymentList[index - 1]?.status === "PaidByCollege" || paymentList[index - 1]?.status === "PaidByStudent");
   };
   const canEditCommissionStatus = (installmentNo) => {
     if (installmentNo === 1) return true;
@@ -704,6 +757,7 @@ const formatDateCell = (value) => {
             "noOfInstallment",
             "frequency",
             "startDate",
+            "assignment",
           ]}
         />
 
@@ -728,6 +782,7 @@ const formatDateCell = (value) => {
                 <TableCell>Fees</TableCell>
                 <TableCell>Fees Date</TableCell>
                 <TableCell>Paid Date</TableCell>
+                <TableCell>Receipt</TableCell>
                 <TableCell>Payment Status</TableCell>
               </TableRow>
             </TableHead>
@@ -738,84 +793,160 @@ const formatDateCell = (value) => {
                   <TableRow key={item.installmentNo}>
                     <TableCell>{item.installmentNo}</TableCell>
                     <TableCell>{item.amount}</TableCell>
-                    <TableCell> {formatDateCell(item.dueDate)}</TableCell>
-                    <TableCell> {formatDateCell(item.paidDate)}</TableCell>
+                    <TableCell>{String(item.dueDate || "").split("T")[0]}</TableCell>
+                    <TableCell>
+                      {isEdit && (item.status === "Paid" || item.status === "PaidByCollege" || item.status === "PaidByStudent") ? (
+                        <>
+                          <TextField
+                            size="small"
+                            type="date"
+                            value={item.paidDate ? String(item.paidDate).split("T")[0] : new Date().toISOString().slice(0, 10)}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setPaymentList((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
+                              setCommissionHistory((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
+                            }}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </>
+                      ) : (
+                        item.paidDate ? String(item.paidDate).split("T")[0] : "-"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const imageSrc = item.InstallmentImage ?? item.installmentImage ?? item.paidReceipt ?? null;
+                        if (imageSrc && typeof imageSrc === 'string') {
+                          return (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <img
+                                src={imageSrc}
+                                alt={`receipt-${item.installmentNo}`}
+                                style={{ width: 64, height: 48, objectFit: 'cover', borderRadius: 4, border: '1px solid #ddd', cursor: 'pointer' }}
+                                onClick={() => setPreviewImage(imageSrc)}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            </Box>
+                          );
+                        }
+                        return <span style={{ color: '#888', fontSize: 13 }}>No image</span>;
+                      })()}
+                      {item.status === "PaidByStudent" && (
+                        <Box sx={{ mt: 1 }}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0] || null;
+                              if (!file) return;
+
+                              const fileToDataUrl = (f) => new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = () => resolve(reader.result);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(f);
+                              });
+
+                              try {
+                                const dataUrl = await fileToDataUrl(file);
+
+                                setPaymentList((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidReceipt: dataUrl, useImage: true } : x)));
+                                setCommissionHistory((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidReceipt: dataUrl, useImage: true } : x)));
+                              } catch (err) {
+                                console.error('Failed to read file', err);
+                              }
+                            }}
+                          />
+                        </Box>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {isEdit ? (
-                       <Select
-                        size="small"
-                        value={item.status}
-                        onChange={(e) => {
-                          const value = e.target.value;
+                        <Select
+                          size="small"
+                          value={item.status}
+                          onChange={(e) => {
+                            const value = e.target.value;
 
-                          setPaymentList((prev) =>
-                            prev.map((x) => {
-                              if (x.installmentNo === item.installmentNo) {
-                                return {
-                                  ...x,
-                                  status: value,
-                                  paidAmount: value === "Paid" ? x.amount : "0.00",
-                                  balance: value === "Paid" ? "0.00" : x.amount,
-                                };
-                              }
+                            setPaymentList((prev) =>
+                              prev.map((x) => {
 
-                              if (
-                                value === "Pending" &&
-                                x.installmentNo > item.installmentNo
-                              ) {
-                                return {
-                                  ...x,
-                                  status: "Pending",
-                                  paidAmount: "0.00",
-                                  balance: x.amount,
-                                };
-                              }
+                                if (x.installmentNo === item.installmentNo) {
+                                  const isPaid = (value === "Paid" || value === "PaidByCollege" || value === "PaidByStudent");
+                                  return {
+                                    ...x,
+                                    status: value,
+                                    paidAmount: isPaid ? x.amount : "0.00",
+                                    balance: isPaid ? "0.00" : x.amount,
+                                    paidDate: isPaid ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
+                                  };
+                                }
 
-                              return x;
-                            })
-                          );
+                                if (
+                                  value === "Pending" &&
+                                  x.installmentNo > item.installmentNo
+                                ) {
+                                  return {
+                                    ...x,
+                                    status: "Pending",
+                                    paidAmount: "0.00",
+                                    balance: x.amount,
+                                  };
+                                }
 
-                          setCommissionHistory((prev) =>
-                            prev.map((x) => {
-                              if (x.installmentNo === item.installmentNo) {
-                                return {
-                                  ...x,
-                                  paymentStatus: value,
-                                };
-                              }
+                                return x;
+                              })
+                            );
 
-                              if (
-                                value === "Pending" &&
-                                x.installmentNo > item.installmentNo
-                              ) {
-                                return {
-                                  ...x,
-                                  paymentStatus: "Pending",
-                                };
-                              }
+                            setCommissionHistory((prev) =>
+                              prev.map((x) => {
+                                if (x.installmentNo === item.installmentNo) {
+                                  return {
+                                    ...x,
+                                    paymentStatus: value,
+                                  };
+                                }
 
-                              return x;
-                            })
-                          );
-                        }}
-                        sx={{
-                          width: 110,
-                          height: 40,
-                          "& .MuiSelect-select": {
-                            minWidth: "70px",
-                            padding: "8px 32px 8px 12px",
-                          },
-                        }}
-                      >
-                        <MenuItem value="Pending">Pending</MenuItem>
+                                if (
+                                  value === "Pending" &&
+                                  x.installmentNo > item.installmentNo
+                                ) {
+                                  return {
+                                    ...x,
+                                    paymentStatus: "Pending",
+                                  };
+                                }
 
-                        <MenuItem
-                          value="Paid"
-                          disabled={!canEditStatus(index)}
+                                return x;
+                              })
+                            );
+                          }}
+                          MenuProps={{ container: typeof document !== 'undefined' ? document.body : undefined }}
+                          sx={{
+                            width: 110,
+                            height: 40,
+                            "& .MuiSelect-select": {
+                              minWidth: "70px",
+                              padding: "8px 32px 8px 12px",
+                            },
+                          }}
                         >
-                          Paid
-                        </MenuItem>
-                      </Select>
+                          <MenuItem value="Pending">Pending</MenuItem>
+
+                          <MenuItem
+                            value="PaidByCollege"
+                            disabled={!canEditStatus(index)}
+                          >
+                            Paid by college
+                          </MenuItem>
+
+                          <MenuItem
+                            value="PaidByStudent"
+                            disabled={!canEditStatus(index)}
+                          >
+                            Paid by student
+                          </MenuItem>
+                        </Select>
                       ) : (
                         item.status
                       )}
@@ -926,6 +1057,7 @@ const formatDateCell = (value) => {
                                 )
                               );
                             }}
+                            MenuProps={{ container: typeof document !== 'undefined' ? document.body : undefined }}
                           >
                             <MenuItem value="Pending">Pending</MenuItem>
 
@@ -976,6 +1108,24 @@ const formatDateCell = (value) => {
           }
           submitDisabled={!isFormValid(resource, form) || submitting}
         />
+        <Dialog open={Boolean(previewImage)} onClose={() => setPreviewImage(null)} maxWidth="lg">
+          <DialogTitle sx={{ position: 'relative', pr: 4 }}>
+            Receipt
+            <IconButton
+              aria-label="close"
+              onClick={() => setPreviewImage(null)}
+              sx={{ position: 'absolute', right: 8, top: 8 }}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            {previewImage && (
+              <img src={previewImage} alt="preview" style={{ maxWidth: '90vw', maxHeight: '80vh', display: 'block' }} />
+            )}
+          </DialogContent>
+        </Dialog>
       </Paper>
     </FormPageLayout>
   );

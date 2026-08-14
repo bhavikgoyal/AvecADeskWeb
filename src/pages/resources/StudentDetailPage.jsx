@@ -16,7 +16,6 @@ import {
 import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
 
 export default function StudentDetailPage({ basePath }) {
-  const navigate = useNavigate();
   const { id } = useParams();
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(null);
@@ -44,61 +43,61 @@ export default function StudentDetailPage({ basePath }) {
     };
   }, []);
 
- useEffect(() => {
-  let active = true;
+  useEffect(() => {
+    let active = true;
 
-  const loadStudent = async () => {
-    try {
-      const { form: loadedForm } = await fetchStudentWithSchedule(id);
+    const loadStudent = async () => {
+      try {
+        const { form: loadedForm } = await fetchStudentWithSchedule(id);
 
-      if (active) {
-        setForm(loadedForm);
+        if (active) {
+          setForm(loadedForm);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.message || 'Student not found.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      if (active) {
-        setError(err.message || 'Student not found.');
+    };
+
+    void loadStudent();
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCourses = async () => {
+      if (!form?.instituteId) {
+        return;
       }
-    } finally {
-      if (active) {
-        setLoading(false);
+
+      try {
+        const data = await fetchCoursesByInstitute(form.instituteId);
+
+        if (active) {
+          setCourses(data);
+        }
+      } catch (err) {
+        if (active) {
+          setLoadError(err.message || 'Failed to load courses.');
+        }
       }
-    }
-  };
+    };
 
-  void loadStudent();
+    void loadCourses();
 
-  return () => {
-    active = false;
-  };
-}, [id]);
-
- useEffect(() => {
-  let active = true;
-
-  const loadCourses = async () => {
-    if (!form?.instituteId) {
-      return;
-    }
-
-    try {
-      const data = await fetchCoursesByInstitute(form.instituteId);
-
-      if (active) {
-        setCourses(data);
-      }
-    } catch (err) {
-      if (active) {
-        setLoadError(err.message || 'Failed to load courses.');
-      }
-    }
-  };
-
-  void loadCourses();
-
-  return () => {
-    active = false;
-  };
-}, [form?.instituteId]);
+    return () => {
+      active = false;
+    };
+  }, [form?.instituteId]);
 
   const selectOptions = useMemo(
     () => ({
