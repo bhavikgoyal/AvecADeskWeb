@@ -216,8 +216,7 @@ export default function PaymentSchedulesPage() {
             Add schedules per student, track status and payment details.
           </Typography>
         </Box>
-
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/students/new")}>Add Student</Button>
+  
       </Box>
 
       {!!error && (
@@ -225,19 +224,41 @@ export default function PaymentSchedulesPage() {
       )}
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Box sx={{ width: 320 }}>
-            <TextField select fullWidth size="small" label="Filter by Student" value={studentFilter} onChange={(e) => setStudentFilter(e.target.value)}>
-              <MenuItem value="">All Students</MenuItem>
-              {studentOptions.map((s) => (
-                <MenuItem key={s.value} value={s.value}>
-                  {s.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-        </Box>
-      </Paper>
+  <Box
+    sx={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+    }}
+  >
+    <Box sx={{ width: 320 }}>
+      <TextField
+        select
+        fullWidth
+        size="small"
+        label="Filter by Student"
+        value={studentFilter}
+        onChange={(e) => setStudentFilter(e.target.value)}
+      >
+        <MenuItem value="">All Students</MenuItem>
+
+        {studentOptions.map((s) => (
+          <MenuItem key={s.value} value={s.value}>
+            {s.label}
+          </MenuItem>
+        ))}
+      </TextField>
+    </Box>
+
+    <Button
+      variant="contained"
+      startIcon={<AddIcon />}
+      onClick={() => navigate("/students/new")}
+    >
+      Add Student
+    </Button>
+  </Box>
+</Paper>
 
       <Paper variant="outlined">
         <Tabs
