@@ -69,8 +69,8 @@ export const DOMAIN_FIELD_DEFS = {
   enrollmentNumber: { label: 'Enrolment number', type: 'text', grid: grid.half },
   instituteId: { label: 'Institute', type: 'api-select', required: true, grid: grid.half },
   campusname: { label: 'Campus', type: 'text', required: true, grid: grid.half, readOnly: true, },
-  courseId: { label: 'Course', type: 'api-select', required: true, grid: grid.full },
-  courseFee: { label: 'Course Fee', type: 'number', grid: grid.full, readOnly: true },
+  courseId: { label: 'Course', type: 'api-select', required: true, grid: grid.half },
+  courseFee: { label: 'Course Fee', type: 'number', grid: grid.full, readOnly: false },
   PaymentStatus: {
     label: 'Payment Status', type: 'radio', options: [
       { value: 'Paid', label: 'Paid' },
@@ -79,6 +79,7 @@ export const DOMAIN_FIELD_DEFS = {
   },
   feesdate: { label: 'Fees Date', type: 'date', grid: grid.quarter, grid: grid.half },
   noOfInstallment: { label: 'Number of Installments', type: 'number', grid: grid.full },
+  assignment: { label: 'Assignment', type: 'text', grid: grid.half },
   frequency: {
     label: 'Frequency', type: 'radio', grid: grid.half,
     options: [
@@ -127,7 +128,7 @@ export const DOMAIN_FIELD_DEFS = {
   category: {
     label: 'Category',
     type: 'select',
-    options: ['Reminder', 'Invoice', 'OTP', 'General', 'Forgate password', 'Registration user', 'Admission', 'Vendor Onboarding','EmailVerification','PasswordReset '],
+    options: ['Reminder', 'Invoice', 'OTP', 'General', 'Forgate password', 'Registration user', 'Admission', 'Vendor Onboarding', 'EmailVerification', 'PasswordReset '],
     grid: grid.third,
   },
 
@@ -273,7 +274,7 @@ export const DOMAIN_RESOURCES = {
       { id: 'contactPerson', label: 'Contact person', field: 'contactPerson' },
       { id: 'email', label: 'Email', field: 'email' },
       { id: 'phone', label: 'Phone', field: 'phone' },
-   {
+      {
         id: "status",
         label: "Status",
         field: "status",
@@ -360,7 +361,7 @@ export const DOMAIN_RESOURCES = {
     sections: [
       { title: 'Student Details', description: 'Registered student details', fields: ['fullName', 'email', 'phone', 'FolderNo'] },
       // { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
-      { title: 'Student Payment schedule', description: 'Institute and course details.', fields: ['instituteId', 'campusname', 'courseId', 'courseFee', 'noOfInstallment', 'frequency', 'startDate', 'courseStartDate', 'courseEndDate'] },
+      { title: 'Student Payment schedule', description: 'Institute and course details.', fields: ['instituteId', 'campusname', 'courseId', 'assignment', 'courseFee', 'noOfInstallment', 'frequency', 'startDate', 'courseStartDate', 'courseEndDate'] },
       { title: 'Commission', description: 'Commission & GST information.', fields: ['commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'dueDate', 'remark',] },
       { title: 'Bonus', description: 'Bonus details.', fields: ['bonusOption', 'bonusType', 'bonus',] },
     ],
@@ -377,6 +378,7 @@ export const DOMAIN_RESOURCES = {
       fullName: '', email: '', phone: '',
       instituteId: '', courseId: '', courseFee: '', FolderNo: '', courseStartDate: '', courseEndDate: '',
       amountDue: '', amountPaid: '', paymentStatus: 'Pending', startDate: '',
+      assignment: '',
       commissionPercentage: '', gstPercentage: '', bonus: '',
       commissionAmount: '', gstAmount: '', invoiceAmount: '', remark: '',
     }),

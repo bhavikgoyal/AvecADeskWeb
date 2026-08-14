@@ -1,4 +1,4 @@
- import axiosClient from './axiosClient';
+import axiosClient from './axiosClient';
 
 export function formatCurrency(amount) {
   const num = Number(amount) || 0;
@@ -187,7 +187,7 @@ export async function bulkUpdatePaymentScheduleStatus(items) {
 }
 
 
-export async function fetchStudentPaymentScheduleList(studentId,isNextMonth = false) {
+export async function fetchStudentPaymentScheduleList(studentId, isNextMonth = false) {
   try {
     const params = {};
     if (studentId) {
@@ -219,7 +219,7 @@ export async function fetchStudentPaymentScheduleList(studentId,isNextMonth = fa
       pendingInstallments: item.pendingInstallments ?? item.PendingInstallments,
       collectedAmount: item.collectedAmount ?? item.CollectedAmount,
       balanceAmount: item.balanceAmount ?? item.BalanceAmount,
-      installmentAmount:item.installmentAmount ?? item.InstallmentAmount,
+      installmentAmount: item.installmentAmount ?? item.InstallmentAmount,
       nextDueDate: item.nextDueDate ?? item.NextDueDate,
       paymentStatus: item.paymentStatus ?? item.PaymentStatus,
     }));
@@ -245,6 +245,46 @@ export async function updateStudentPaymentSchedule(request) {
   } catch (err) {
     throw new Error(
       extractErrorMessage(err, "Failed to update payment schedule."),
+      { cause: err }
+    );
+  }
+}
+
+export async function fetchStudentCourseCompleteList(studentId) {
+  try {
+    const params = {};
+    if (studentId) params.studentId = studentId;
+
+    const { data } = await axiosClient.get(
+      '/api/schedules/GetStudentCourseCompleteList',
+      { params }
+    );
+
+    return (data || []).map((item) => ({
+      scheduleId: item.scheduleId ?? item.ScheduleId,
+      studentId: item.studentId ?? item.StudentId,
+      studentName: item.studentName ?? item.StudentName,
+      studentCreatedAt: (item.studentCreatedAt ?? item.StudentCreatedAt ?? item.createdAt ?? item.CreatedAt) ? String(item.studentCreatedAt ?? item.StudentCreatedAt ?? item.createdAt ?? item.CreatedAt) : null,
+      courseStartDate: item.courseStartDate ?? item.CourseStartDate,
+      courseEndDate: item.courseEndDate ?? item.CourseEndDate,
+      instituteName: item.instituteName ?? item.InstituteName,
+      courseName: item.courseName ?? item.CourseName,
+      totalCourseFee: item.totalCourseFee ?? item.TotalCourseFee ?? 0,
+      noOfInstallments: item.noOfInstallments ?? item.NoOfInstallments ?? 0,
+      frequency: item.frequency ?? item.Frequency,
+      firstDueDate: item.firstDueDate ?? item.FirstDueDate,
+      totalInstallments: item.totalInstallments ?? item.TotalInstallments ?? 0,
+      paidInstallments: item.paidInstallments ?? item.PaidInstallments ?? 0,
+      pendingInstallments: item.pendingInstallments ?? item.PendingInstallments ?? 0,
+      collectedAmount: item.collectedAmount ?? item.CollectedAmount ?? 0,
+      balanceAmount: item.balanceAmount ?? item.BalanceAmount ?? 0,
+      installmentAmount: item.installmentAmount ?? item.InstallmentAmount ?? 0,
+      nextDueDate: item.nextDueDate ?? item.NextDueDate,
+      paymentStatus: item.paymentStatus ?? item.PaymentStatus,
+    }));
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(err, 'Failed to fetch course complete list.'),
       { cause: err }
     );
   }
