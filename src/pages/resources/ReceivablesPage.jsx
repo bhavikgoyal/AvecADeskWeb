@@ -106,7 +106,7 @@ function StatCard({ label, amount, count, color }) {
 
 
 function InstallmentCardList({ rows, loading, variant }) {
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedInstitute, setExpandedInstitute] = useState(null);
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={32} /></Box>;
   if (!rows.length) return <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>No records found.</Typography>;
@@ -114,19 +114,30 @@ function InstallmentCardList({ rows, loading, variant }) {
   const isOverdue = variant === 'overdue';
   const avatarColor = isOverdue ? 'error.main' : 'primary.main';
 
-  const toggleExpand = (id) => {
-    setExpandedId((prev) => (prev === id ? null : id));
+
+  const grouped = rows.reduce((acc, row) => {
+    const key = row.instituteName || 'Unknown Institute';
+    if (!acc[key]) {
+      acc[key] = { instituteName: key, students: [], totalBalance: 0 };
+    }
+    acc[key].students.push(row);
+    acc[key].totalBalance += Number(row.balanceDue) || 0;
+    return acc;
+  }, {});
+  const groups = Object.values(grouped);
+
+  const toggleInstitute = (name) => {
+    setExpandedInstitute((prev) => (prev === name ? null : name));
   };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      {rows.map((row, i) => {
-        const rowId = row.scheduleId ?? i;
-        const isExpanded = expandedId === rowId;
+      {groups.map((group) => {
+        const isExpanded = expandedInstitute === group.instituteName;
 
         return (
           <Box
-            key={rowId}
+            key={group.instituteName}
             sx={{
               borderRadius: 2,
               bgcolor: 'background.paper',
@@ -136,9 +147,9 @@ function InstallmentCardList({ rows, loading, variant }) {
               overflow: 'hidden',
             }}
           >
-            {/* Clickable header row */}
+            {/* Institute header row — clickable */}
             <Box
-              onClick={() => toggleExpand(rowId)}
+              onClick={() => toggleInstitute(group.instituteName)}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -151,126 +162,112 @@ function InstallmentCardList({ rows, loading, variant }) {
                 {isExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
               </IconButton>
 
-              {/* Avatar */}
-              <Box
-                sx={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '50%',
-                  bgcolor: avatarColor,
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  fontWeight: 700,
-                  fontSize: 15,
-                }}
-              >
-                {(row.studentName || '?').charAt(0).toUpperCase()}
-              </Box>
-
-              {/* Student + details */}
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                  <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary' }}>
-                    {row.studentName}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" fontWeight={700}>
+                    {group.instituteName}
                   </Typography>
                   <Chip
-                    label={row.status}
+                    label={`${group.students.length} student${group.students.length > 1 ? 's' : ''}`}
                     size="small"
-                    color={isOverdue ? 'error' : 'default'}
+                    variant="outlined"
+                    color={isOverdue ? 'error' : 'primary'}
                     sx={{ height: 20, fontSize: 10.5, fontWeight: 600 }}
                   />
-                  {isOverdue && row.agingBucket && (
-                    <Chip
-                      icon={<ReceiptLongIcon sx={{ fontSize: 13 }} />}
-                      label={row.agingBucket}
-                      size="small"
-                      color={row.agingBucket?.includes('90') ? 'error' : row.agingBucket?.includes('60') ? 'warning' : 'default'}
-                      variant="outlined"
-                      sx={{ height: 20, fontSize: 10.5, fontWeight: 600 }}
-                    />
-                  )}
-                </Box>
-
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                  <Typography component="span" variant="caption" sx={{ color: 'text.secondary', bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 1 }}>
-                    {row.instituteName}
-                  </Typography>
-                  <Typography component="span" variant="caption" sx={{ color: 'text.secondary', bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 1 }}>
-                    Due: {fmtDate(row.dueDate)}
-                  </Typography>
-                  {isOverdue && (
-                    <Typography component="span" variant="caption" sx={{ color: 'error.main', bgcolor: 'error.lighter', px: 1, py: 0.25, borderRadius: 1, fontWeight: 600 }}>
-                      {row.daysOverdue} days overdue
-                    </Typography>
-                  )}
-                  <Typography component="span" variant="caption" sx={{ color: 'text.secondary', bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 1 }}>
-                    Paid: {fmt(row.amountPaid)}
-                  </Typography>
                 </Box>
               </Box>
 
-              {/* Balance amount */}
-              <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                <Typography variant="body1" fontWeight={700} color={isOverdue ? 'error.main' : 'text.primary'}>
-                  {fmt(row.balanceDue)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  of {fmt(row.amountDue)}
-                </Typography>
-              </Box>
+              <Typography variant="body1" fontWeight={700} color={isOverdue ? 'error.main' : 'text.primary'}>
+                {fmt(group.totalBalance)}
+              </Typography>
             </Box>
 
-            {/* Expandable detail panel */}
+            {/* Expanded: student-level cards */}
             <Collapse in={isExpanded} timeout="auto" unmountOnExit>
               <Box sx={{ px: 2, pb: 2, pt: 0.5, bgcolor: '#f8f9fb', borderTop: '1px solid', borderColor: 'divider' }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 1.5, mt: 1.5 }}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Institute</Typography>
-                    <Typography variant="body2" fontWeight={600}>{row.instituteName || '—'}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Due Date</Typography>
-                    <Typography variant="body2" fontWeight={600}>{fmtDate(row.dueDate)}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Amount Due</Typography>
-                    <Typography variant="body2" fontWeight={600}>{fmt(row.amountDue)}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Amount Paid</Typography>
-                    <Typography variant="body2" fontWeight={600}>{fmt(row.amountPaid)}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Balance</Typography>
-                    <Typography variant="body2" fontWeight={600} color={isOverdue ? 'error.main' : 'text.primary'}>{fmt(row.balanceDue)}</Typography>
-                  </Box>
-                  {isOverdue && (
-                    <>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" display="block">Days Overdue</Typography>
-                        <Typography variant="body2" fontWeight={600} color="error.main">{row.daysOverdue}</Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1.5 }}>
+                  {group.students.map((row, i) => (
+                    <Box
+                      key={row.scheduleId ?? i}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      {/* Avatar */}
+                      <Box
+                        sx={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: '50%',
+                          bgcolor: avatarColor,
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          fontWeight: 700,
+                          fontSize: 13,
+                        }}
+                      >
+                        {(row.studentName || '?').charAt(0).toUpperCase()}
                       </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" display="block">Aging Bucket</Typography>
-                        <Typography variant="body2" fontWeight={600}>{row.agingBucket || '—'}</Typography>
-                      </Box>
-                    </>
-                  )}
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Status</Typography>
-                    <Typography variant="body2" fontWeight={600}>{row.status || '—'}</Typography>
-                  </Box>
-                </Box>
 
-                {row.notes && (
-                  <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
-                    <Typography variant="caption" color="text.secondary" display="block">Notes</Typography>
-                    <Typography variant="body2">{row.notes}</Typography>
-                  </Box>
-                )}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                          <Typography variant="body2" fontWeight={700}>
+                            {row.studentName}
+                          </Typography>
+                          <Chip
+                            label={row.status}
+                            size="small"
+                            color={isOverdue ? 'error' : 'default'}
+                            sx={{ height: 18, fontSize: 10, fontWeight: 600 }}
+                          />
+                          {isOverdue && row.agingBucket && (
+                            <Chip
+                              icon={<ReceiptLongIcon sx={{ fontSize: 12 }} />}
+                              label={row.agingBucket}
+                              size="small"
+                              color={row.agingBucket?.includes('90') ? 'error' : row.agingBucket?.includes('60') ? 'warning' : 'default'}
+                              variant="outlined"
+                              sx={{ height: 18, fontSize: 10, fontWeight: 600 }}
+                            />
+                          )}
+                        </Box>
+
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                          <Typography component="span" variant="caption" sx={{ color: 'text.secondary', bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 1 }}>
+                            Due: {fmtDate(row.dueDate)}
+                          </Typography>
+                          {isOverdue && (
+                            <Typography component="span" variant="caption" sx={{ color: 'error.main', bgcolor: 'error.lighter', px: 1, py: 0.25, borderRadius: 1, fontWeight: 600 }}>
+                              {row.daysOverdue} days overdue
+                            </Typography>
+                          )}
+                          <Typography component="span" variant="caption" sx={{ color: 'text.secondary', bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 1 }}>
+                            Paid: {fmt(row.amountPaid)}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                        <Typography variant="body2" fontWeight={700} color={isOverdue ? 'error.main' : 'text.primary'}>
+                          {fmt(row.balanceDue)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          of {fmt(row.amountDue)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
               </Box>
             </Collapse>
           </Box>
@@ -279,6 +276,7 @@ function InstallmentCardList({ rows, loading, variant }) {
     </Box>
   );
 }
+
 function ReceivedInvoicesTable({ rows, loading }) {
   const [expandedId, setExpandedId] = useState(null);
   const [lineItems, setLineItems] = useState({});
