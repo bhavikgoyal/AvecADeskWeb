@@ -272,15 +272,16 @@ export default function BoardPage() {
               whiteSpace: 'nowrap',
             }}
           >
-            {columns.map((col) => (
-              <BoardColumn
-                key={col.cardStatusID}
-                column={col}
-                onAddCard={() => setAddModalStatusId(col.cardStatusID)}
-                onDeleteCard={handleDeleteCard}
-                onCardClick={(card) => setSelectedCardId(card.cardID)}
-              />
-            ))}
+            {columns.map((col, columnIndex) => (
+  <BoardColumn
+    key={col.cardStatusID}
+    column={col}
+    columnIndex={columnIndex}  
+    onAddCard={() => setAddModalStatusId(col.cardStatusID)}
+    onDeleteCard={handleDeleteCard}
+    onCardClick={(card) => setSelectedCardId(card.cardID)}
+  />
+))}
           </div>
         </DragDropContext>
       )}

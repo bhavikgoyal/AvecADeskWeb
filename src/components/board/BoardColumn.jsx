@@ -1,20 +1,38 @@
 import { Droppable } from '@hello-pangea/dnd';
 import CardItem from './CardItem';
 
+const COLUMN_COLORS = [
+  { accent: '#6366f1', bg: '#eef2ff', text: '#4338ca' },  
+  { accent: '#f97316', bg: '#fff7ed', text: '#c2410c' },   
+  { accent: '#22c55e', bg: '#f0fdf4', text: '#15803d' },   
+  { accent: '#3b82f6', bg: '#eff6ff', text: '#1d4ed8' },   
+  { accent: '#ef4444', bg: '#fef2f2', text: '#b91c1c' },   
+  { accent: '#eab308', bg: '#fefce8', text: '#a16207' },  
+  { accent: '#ec4899', bg: '#fdf2f8', text: '#be185d' },   
+];
+
+export function getColumnColor(index) {
+  return COLUMN_COLORS[index % COLUMN_COLORS.length];
+}
+
 export default function BoardColumn({
   column,
+  columnIndex,       
   onAddCard,
   onDeleteCard,
   onCardClick,
 }) {
+  const theme = getColumnColor(columnIndex ?? 0); 
+
   return (
     <div
       style={{
         minWidth: 260,
         maxWidth: 260,
         flex: '0 0 260px',
-        background: '#f3f4f6',
-        border: '1px solid #e5e7eb', 
+        background: '#fff',                         
+        border: '1px solid #e5e7eb',
+        borderTop: `3px solid ${theme.accent}`,       
         borderRadius: 10,
         padding: 10,
         display: 'flex',
@@ -22,7 +40,7 @@ export default function BoardColumn({
         gap: 8,
         height: '78vh',
         boxSizing: 'border-box',
-        overflow: 'hidden', 
+        overflow: 'hidden',
       }}
     >
       <div
@@ -39,6 +57,7 @@ export default function BoardColumn({
           style={{
             fontWeight: 700,
             fontSize: 15,
+              color: '#000',                      
             overflowWrap: 'break-word',
             wordBreak: 'break-word',
             whiteSpace: 'normal',
@@ -52,14 +71,15 @@ export default function BoardColumn({
 
         <span
           style={{
-            background: '#fff',
+            background: theme.bg,                     
+            color: '#000',                        
             borderRadius: 999,
             fontSize: 12,
+            fontWeight: 600,
             padding: '2px 10px',
-            color: '#6b7280',
-            border: '1px solid #e5e7eb',
+            border: `1px solid ${theme.accent}33`,     
             flexShrink: 0,
-            marginTop: 1, 
+            marginTop: 1,
           }}
         >
           {column.count}
@@ -75,14 +95,14 @@ export default function BoardColumn({
               display: 'flex',
               flexDirection: 'column',
               gap: 8,
-              flex: '1 1 0', 
+              flex: '1 1 0',
               minHeight: 0,
               overflowY: 'auto',
               overflowX: 'hidden',
               borderRadius: 8,
               padding: '2px 2px 8px 2px',
               background: snapshot.isDraggingOver
-                ? '#e5e7eb'
+                ? theme.bg                              
                 : 'transparent',
             }}
           >
@@ -91,6 +111,7 @@ export default function BoardColumn({
                 key={card.cardID}
                 card={card}
                 index={index}
+                theme={theme}                           
                 onDelete={onDeleteCard}
                 onCardClick={onCardClick}
               />
@@ -110,12 +131,13 @@ export default function BoardColumn({
           borderRadius: 6,
           padding: '6px 8px',
           fontSize: 13,
-          color: '#374151',
+            color: '#000',                           
           cursor: 'pointer',
           flexShrink: 0,
+          fontWeight: 500,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = '#e5e7eb';
+          e.currentTarget.style.background = theme.bg;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.background = 'transparent';

@@ -1,16 +1,18 @@
 import axiosClient from './axiosClient';
 
-export async function getCardLabels(cardId) {
+export async function getLabelsByCard(cardId) {
   const response = await axiosClient.get(`/api/Label/card/${cardId}`);
   return response.data;
 }
 
 export async function createLabel(payload) {
-  const response = await axiosClient.post('/api/Label/create', {
-    cardID: payload.cardID,
-    labelName: payload.labelName,
-    color: payload.color ?? null,
-  });
+  const safePayload = {
+    cardID: payload?.cardID,
+    labelName: payload?.labelName?.trim(),
+    color: payload?.color ?? null,
+  };
+
+  const response = await axiosClient.post('/api/Label/create', safePayload);
   return response.data;
 }
 
