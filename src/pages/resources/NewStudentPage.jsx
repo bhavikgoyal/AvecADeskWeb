@@ -145,6 +145,7 @@ export default function NewStudentPage({ basePath }) {
           paidAmount: x.paidAmount,
           balance: x.balanceAmount,
           status: x.paymentStatus,
+          originalStatus: x.paymentStatus ?? x.PaymentStatus ?? null,
           paidReceipt: x.installmentImage ?? x.InstallmentImage ?? null,
           paidReceiptName: (() => {
             const p = x.installmentImage ?? x.InstallmentImage ?? null;
@@ -686,21 +687,35 @@ export default function NewStudentPage({ basePath }) {
 
     setBonusApplied(true);
   };
-  const historyRows = useMemo(() => {
-    if (!isEdit) return commissionRows;
+const historyRows = useMemo(() => {
+  if (!isEdit) return commissionRows;
 
-    const paidRows = commissionHistory.filter(
-      x => (x.paymentStatus === "Paid" || x.paymentStatus === "PaidByCollege" || x.paymentStatus === "PaidByStudent")
-    );
+  return paymentList
+    .map((payment) => {
+      const commissionRow = commissionRows.find(
+        x => x.installmentNo === payment.installmentNo
+      );
 
-    const pendingRows = commissionRows.filter(
-      x => x.paymentStatus !== "Paid"
-    );
+      const historyRow = commissionHistory.find(
+        x => x.installmentNo === payment.installmentNo
+      );
 
-    return [...paidRows, ...pendingRows].sort(
-      (a, b) => a.installmentNo - b.installmentNo
-    );
-  }, [isEdit, commissionHistory, commissionRows]);
+      return {
+        ...commissionRow,
+        ...historyRow,
+
+        // Student Payment List mathi aa hamesha latest status lese
+        paymentStatus: payment.status,
+
+        // Commission History nu status SAME rehse
+        commissionStatus:
+          historyRow?.commissionStatus ??
+          commissionRow?.commissionStatus ??
+          "Pending",
+      };
+    })
+    .sort((a, b) => a.installmentNo - b.installmentNo);
+}, [isEdit,paymentList,commissionHistory,commissionRows,]);
 
   const totals = useMemo(() => ({
     fees: historyRows.reduce((sum, x) => sum + Number(x.feesAmount ?? x.fees ?? 0), 0),
@@ -790,10 +805,11 @@ export default function NewStudentPage({ basePath }) {
             <TableBody>
               {paymentList.length > 0 ? (
                 paymentList.map((item, index) => (
+                  
                   <TableRow key={item.installmentNo}>
                     <TableCell>{item.installmentNo}</TableCell>
                     <TableCell>{item.amount}</TableCell>
-                    <TableCell>{String(item.dueDate || "").split("T")[0]}</TableCell>
+                   <TableCell>{formatDateCell(item.dueDate)}</TableCell>
                     <TableCell>
                       {isEdit && (item.status === "Paid" || item.status === "PaidByCollege" || item.status === "PaidByStudent") ? (
                         <>
@@ -865,7 +881,11 @@ export default function NewStudentPage({ basePath }) {
                         <Select
                           size="small"
                           value={item.status}
-                          onChange={(e) => {
+                          disabled={
+                            item.originalStatus === "PaidByCollege" ||
+                            item.originalStatus === "PaidByStudent"
+                          }
+                                                  onChange={(e) => {
                             const value = e.target.value;
 
                             setPaymentList((prev) =>
@@ -934,15 +954,13 @@ export default function NewStudentPage({ basePath }) {
                           <MenuItem value="Pending">Pending</MenuItem>
 
                           <MenuItem
-                            value="PaidByCollege"
-                            disabled={!canEditStatus(index)}
+                            value="PaidByCollege" disabled={!canEditStatus(index)}
                           >
                             Paid by college
                           </MenuItem>
 
                           <MenuItem
-                            value="PaidByStudent"
-                            disabled={!canEditStatus(index)}
+                            value="PaidByStudent"  disabled={!canEditStatus(index)}
                           >
                             Paid by student
                           </MenuItem>
@@ -1040,26 +1058,60 @@ export default function NewStudentPage({ basePath }) {
                       <TableCell>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
                       <TableCell>
                         {isEdit ? (
-                          <Select
-                            size="small"
-                            value={row.commissionStatus ?? row.status}
-                            onChange={(e) => {
-                              const value = e.target.value;
+                       <Select
+                          size="small"
+                          value={row.commissionStatus ?? "Pending"}
+                          disabled={
+                            String(row.commissionHistoryOriginalStatus ?? "")
+                              .trim()
+                              .toLowerCase() === "paid"
+                          }
 
-                              setCommissionHistory((prev) =>
-                                prev.map((x) =>
-                                  x.installmentNo === row.installmentNo
-                                    ? {
-                                      ...x,
-                                      commissionStatus: value,
-                                    }
-                                    : x
-                                )
-                              );
-                            }}
-                            MenuProps={{ container: typeof document !== 'undefined' ? document.body : undefined }}
-                          >
-                            <MenuItem value="Pending">Pending</MenuItem>
+                          onChange={(e) => {
+                            const value = e.target.value;
+
+                         setCommissionHistory((prev) => 
+                          prev.map((x) => { 
+                           if (x.installmentNo === row.installmentNo) {
+                          return {
+                            ...x,
+                            commissionStatus: value,
+                          };
+                        }
+
+                            if ( 
+                              value === "Pending" && 
+                              x.installmentNo > row.installmentNo 
+                            ) { 
+                              return { 
+                                ...x, 
+                                paymentStatus: "Pending", 
+                                commissionStatus: "Pending", 
+                              }; 
+                            } 
+
+                            return x; 
+                          }) 
+                        );
+                          }}
+
+                          MenuProps={{
+                            container:
+                              typeof document !== "undefined"
+                                ? document.body
+                                : undefined,
+                          }}
+
+                          sx={{
+                            width: 110,
+                            height: 40,
+                            "& .MuiSelect-select": {
+                              minWidth: "70px",
+                              padding: "8px 32px 8px 12px",
+                            },
+                          }}
+                        >
+                          <MenuItem value="Pending">Pending</MenuItem>
 
                             <MenuItem
                               value="Paid"
@@ -1067,10 +1119,10 @@ export default function NewStudentPage({ basePath }) {
                             >
                               Paid
                             </MenuItem>
-                          </Select>
+                        </Select>
                         ) : (
-                          row.commissionStatus ?? row.status
-                        )}
+                            row.commissionStatus ?? "Pending"
+                          )}
                       </TableCell>
                     </TableRow>
                   ))}

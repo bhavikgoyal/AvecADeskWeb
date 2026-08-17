@@ -380,7 +380,10 @@ export async function fetchStudentPaymentDetail(studentId) {
     bonusType: data.bonusType ?? data.BonusType,
     bonusOption: data.bonusOption ?? data.BonusOption,
 
-    studentPaymentList: data.studentPaymentList ?? data.StudentPaymentList ?? [],
-    commissionHistory: data.commissionHistory ?? data.CommissionHistory ?? [],
+  studentPaymentList: (data.studentPaymentList ?? data.StudentPaymentList ?? []).map(item => ({ ...item, status: item.paymentStatus ?? item.PaymentStatus ?? "Pending", originalStatus: item.paymentStatus ?? item.PaymentStatus ?? null })),
+
+      commissionHistory: (data.commissionHistory ?? data.CommissionHistory ?? []).map(item => 
+      ({ ...item, commissionHistoryOriginalStatus: item.commissionStatus ?? item.CommissionStatus ?? null })),
+  
   };
 }

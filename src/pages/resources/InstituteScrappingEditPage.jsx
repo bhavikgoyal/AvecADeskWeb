@@ -125,7 +125,7 @@ export default function InstituteScrappingEditPage() {
 
   return (
     <FormPageLayout
-      title="Edit Institute Scrapping Record"
+      title="Edit Institute Scrapping"
       subtitle={form.instituteName || `Record #${id}`}
     >
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
