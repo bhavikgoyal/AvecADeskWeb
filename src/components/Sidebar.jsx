@@ -15,6 +15,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { NavLink } from 'react-router-dom';
 import { GET_MENU } from '../config/MenuConfig';
 import { MOBILE_DRAWER_WIDTH } from '../constants/layout';
+import { getDefaultRoute } from '../utils/rbac';
 import useCompactSidebar from '../hooks/useCompactSidebar';
 import BrandLogo from './BrandLogo';
 
@@ -27,6 +28,7 @@ export default function Sidebar({
 }) {
   const isMobile = useCompactSidebar();
   const menuGroups = useMemo(() => GET_MENU(role), [role]);
+  const dashboardPath = useMemo(() => getDefaultRoute(role), [role]);
 
   const closeMobileDrawer = () => {
     if (isMobile && mobileOpen) {
@@ -58,7 +60,22 @@ export default function Sidebar({
           flexShrink: 0,
         }}
       >
-        <BrandLogo size="md" />
+        <Box
+          component={NavLink}
+          to={dashboardPath}
+          onClick={closeMobileDrawer}
+          aria-label="Go to dashboard"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            minWidth: 0,
+            textDecoration: 'none',
+            color: 'inherit',
+            cursor: 'pointer',
+          }}
+        >
+          <BrandLogo size="md" />
+        </Box>
         {isMobile && (
           <IconButton
             onClick={onDrawerToggle}
