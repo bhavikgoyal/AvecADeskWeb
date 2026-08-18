@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem, TextField,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { fetchCoursesByScrappingId } from "../../api/coursesApi";
@@ -12,9 +12,17 @@ import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCo
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx, } from "../../components/forms";
 import { getEmptyForm, getResourceConfig, isFormValid, } from "../../config/resourceConfig";
 
+
+const isPaidLike = (status) =>
+  status === "ConfirmedByCollege" ||
+  status === "ConfirmedByStudent" ||
+  status === "PaidByCollege" ||       
+  status === "PaidByStudent";        
+
 export default function NewStudentPage({ basePath }) {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
   const isEdit = Boolean(id);
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(() => getEmptyForm(basePath));
@@ -27,6 +35,7 @@ export default function NewStudentPage({ basePath }) {
   const submittingRef = useRef(false);
   const [gstPercentage, setGstPercentage] = useState(0);
   const [bonusApplied, setBonusApplied] = useState(false);
+  const [addBonus, setAddBonus] = useState(false); // point 7 - Add Bonus checkbox toggle
   const [commissionHistory, setCommissionHistory] = useState([]);
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
   const [originalSchedule, setOriginalSchedule] = useState(null);
@@ -55,6 +64,16 @@ export default function NewStudentPage({ basePath }) {
     };
   }, []);
 
+  
+  useEffect(() => {
+    if (isEdit) return;
+    const preselectedInstituteId = location.state?.instituteId;
+    if (preselectedInstituteId) {
+      setForm((prev) => ({ ...prev, instituteId: String(preselectedInstituteId) }));
+    }
+    
+  }, []);
+
   useEffect(() => {
     let active = true;
 
@@ -80,6 +99,20 @@ export default function NewStudentPage({ basePath }) {
     };
   }, [form.instituteId]);
 
+  
+  const selectedInstitute = useMemo(
+    () => institutes.find((x) => String(x.id) === String(form.instituteId)),
+    [institutes, form.instituteId]
+  );
+
+  const campusOptions = useMemo(() => {
+    const raw = selectedInstitute?.campusname || '';
+    return raw
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+  }, [selectedInstitute]);
+
   const selectOptions = useMemo(
     () => ({
       instituteId: institutes.map((item) => ({
@@ -91,8 +124,13 @@ export default function NewStudentPage({ basePath }) {
         value: item.courseId,
         label: item.courseName,
       })),
+
+      campusname: campusOptions.map((c) => ({
+        value: c,
+        label: c,
+      })),
     }),
-    [institutes, courses]
+    [institutes, courses, campusOptions]
   );
 
   if (!resource) return null;
@@ -146,18 +184,6 @@ export default function NewStudentPage({ basePath }) {
           balance: x.balanceAmount,
           status: x.paymentStatus,
           originalStatus: x.paymentStatus ?? x.PaymentStatus ?? null,
-          paidReceipt: x.installmentImage ?? x.InstallmentImage ?? null,
-          paidReceiptName: (() => {
-            const p = x.installmentImage ?? x.InstallmentImage ?? null;
-            if (!p) return null;
-            try {
-              const url = String(p);
-              const parts = url.split('/').filter(Boolean);
-              return parts.length ? parts[parts.length - 1] : url;
-            } catch {
-              return null;
-            }
-          })(),
         }));
 
         setOriginalPaymentList(list);
@@ -166,6 +192,7 @@ export default function NewStudentPage({ basePath }) {
 
         if (data.bonusAmount > 0) {
           setBonusApplied(true);
+          setAddBonus(true);
         }
       } catch (err) {
         setError(err.message || "Failed to load student.");
@@ -222,7 +249,7 @@ export default function NewStudentPage({ basePath }) {
     let installmentAmount;
 
     const paidInstallments = isEdit
-      ? originalPaymentList.filter(x => (x.status === "Paid" || x.status === "PaidByCollege" || x.status === "PaidByStudent"))
+      ? originalPaymentList.filter(x => isPaidLike(x.status))
       : [];
 
     if (isEdit) {
@@ -281,8 +308,6 @@ export default function NewStudentPage({ basePath }) {
         dueDate.setMonth(startDate.getMonth() + (i * 3));
       }
 
-      //  const isPaid = !isEdit && dueDate < today;
-
       list.push({
         installmentNo: i + 1,
         dueDate: formatDate(dueDate),
@@ -315,10 +340,10 @@ export default function NewStudentPage({ basePath }) {
 
     if (field === "noOfInstallment" && isEdit) {
 
-      const paidCount = paymentList.filter(x => (x.status === "Paid" || x.status === "PaidByCollege" || x.status === "PaidByStudent")).length;
+      const paidCount = paymentList.filter(x => isPaidLike(x.status)).length;
 
       const paidAmount = paymentList
-        .filter(x => (x.status === "Paid" || x.status === "PaidByCollege" || x.status === "PaidByStudent"))
+        .filter(x => isPaidLike(x.status))
         .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
 
       const remainingAmount = Number(form.courseFee || 0) - paidAmount;
@@ -340,11 +365,7 @@ export default function NewStudentPage({ basePath }) {
 
       if (field === "instituteId" && value !== prev.instituteId) {
 
-        const selectedInstitute = institutes.find(
-          (x) => String(x.id) === String(value)
-        );
-
-        next.campusname = selectedInstitute?.campusname ?? "";
+        next.campusname = "";  
         next.courseId = "";
         next.courseFee = "";
         next.amountDue = "";
@@ -381,15 +402,12 @@ export default function NewStudentPage({ basePath }) {
         next.commissionPercentage = Number(next.commissionRate ?? 0);
         next.gstPercentage = Number(gstPercentage || 0);
 
-        // Course Start Date = Today
         const today = new Date();
         next.courseStartDate = today.toISOString().split("T")[0];
 
-        // Course End Date
         if (selectedCourse?.duration) {
           const endDate = new Date(today);
 
-          // Example: "3 Years Full-Time (156 Weeks)"
           const match = selectedCourse.duration.match(/(\d+)\s*(Year|Years|Month|Months|Week|Weeks)/i);
 
           if (match) {
@@ -480,7 +498,7 @@ export default function NewStudentPage({ basePath }) {
 
       let bonus = 0;
 
-      if (bonusApplied && applyBonus) {
+      if (addBonus && bonusApplied && applyBonus) {
         if (form.bonusType === "Percentage") {
           bonus = (fees * Number(form.bonus || 0)) / 100;
         } else if (form.bonusType === "Fixed") {
@@ -510,15 +528,16 @@ export default function NewStudentPage({ basePath }) {
     form.bonusType,
     form.bonusOption,
     bonusApplied,
+    addBonus,
   ]);
 
   const handleCreate = async () => {
 
     if (isEdit) {
-      const paidCount = paymentList.filter(x => x.status === "Paid").length;
+      const paidCount = paymentList.filter(x => isPaidLike(x.status)).length;
 
       const paidAmount = paymentList
-        .filter(x => x.status === "Paid")
+        .filter(x => isPaidLike(x.status))
         .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
 
       const remainingAmount = Number(form.courseFee || 0) - paidAmount;
@@ -562,9 +581,9 @@ export default function NewStudentPage({ basePath }) {
           scheduleId,
           commissionPercentage: Number(form.commissionPercentage),
           gstPercentage: Number(form.gstPercentage),
-          bonus: Number(form.bonus),
-          bonusType: form.bonusType,
-          bonusOption: form.bonusOption,
+          bonus: addBonus ? Number(form.bonus) : 0,
+          bonusType: addBonus ? form.bonusType : null,
+          bonusOption: addBonus ? form.bonusOption : null,
         });
 
         commissionId = commission.commissionId ?? commission.CommissionId;
@@ -577,8 +596,6 @@ export default function NewStudentPage({ basePath }) {
             assignment: form.assignment ?? form.Assignment ?? null,
           };
 
-          console.log('Sending student update payload:', studentUpdatePayload);
-          debugger;
           await updateStudentWithPaymentSchedule(form.studentId, studentUpdatePayload);
         } catch (err) {
           console.warn('Failed updating student core data', err);
@@ -600,14 +617,12 @@ export default function NewStudentPage({ basePath }) {
             paymentStatus: x.status,
             paidAmount: x.paidAmount ? Number(x.paidAmount) : 0,
             balanceAmount: x.balance ? Number(x.balance) : 0,
-            InstallmentImage: typeof x.paidReceipt === 'string' && x.paidReceipt.startsWith('data:') ? x.paidReceipt : null,
           })),
           commissionHistory: commissionHistory.map(x => ({
             CommissionDetailId: x.commissionDetailId,
             commissionStatus: x.commissionStatus,
           })),
         });
-        console.log("CommissionHistory", commissionHistory);
 
         scheduleId = result.scheduleId;
         commissionId = result.commissionId;
@@ -619,7 +634,7 @@ export default function NewStudentPage({ basePath }) {
 
         for (const item of paymentList) {
 
-          if (isEdit && (item.status === "Paid" || item.status === "PaidByCollege" || item.status === "PaidByStudent"))
+          if (isEdit && isPaidLike(item.status))
             continue;
 
           const installment = await createStudentPaymentInstallment({
@@ -642,7 +657,7 @@ export default function NewStudentPage({ basePath }) {
 
         for (const row of commissionRows) {
 
-          if (isEdit && (row.paymentStatus === "Paid" || row.paymentStatus === "PaidByCollege" || row.paymentStatus === "PaidByStudent"))
+          if (isEdit && isPaidLike(row.paymentStatus))
             continue;
 
           await createStudentCommissionDetail({
@@ -668,6 +683,7 @@ export default function NewStudentPage({ basePath }) {
       setPaymentList([]);
       setCourses([]);
       setBonusApplied(false);
+      setAddBonus(false);
       setGstPercentage(0);
 
       navigate(basePath);
@@ -687,35 +703,32 @@ export default function NewStudentPage({ basePath }) {
 
     setBonusApplied(true);
   };
-const historyRows = useMemo(() => {
-  if (!isEdit) return commissionRows;
 
-  return paymentList
-    .map((payment) => {
-      const commissionRow = commissionRows.find(
-        x => x.installmentNo === payment.installmentNo
-      );
+  const historyRows = useMemo(() => {
+    if (!isEdit) return commissionRows;
 
-      const historyRow = commissionHistory.find(
-        x => x.installmentNo === payment.installmentNo
-      );
+    return paymentList
+      .map((payment) => {
+        const commissionRow = commissionRows.find(
+          x => x.installmentNo === payment.installmentNo
+        );
 
-      return {
-        ...commissionRow,
-        ...historyRow,
+        const historyRow = commissionHistory.find(
+          x => x.installmentNo === payment.installmentNo
+        );
 
-        // Student Payment List mathi aa hamesha latest status lese
-        paymentStatus: payment.status,
-
-        // Commission History nu status SAME rehse
-        commissionStatus:
-          historyRow?.commissionStatus ??
-          commissionRow?.commissionStatus ??
-          "Pending",
-      };
-    })
-    .sort((a, b) => a.installmentNo - b.installmentNo);
-}, [isEdit,paymentList,commissionHistory,commissionRows,]);
+        return {
+          ...commissionRow,
+          ...historyRow,
+          paymentStatus: payment.status,
+          commissionStatus:
+            historyRow?.commissionStatus ??
+            commissionRow?.commissionStatus ??
+            "Pending",
+        };
+      })
+      .sort((a, b) => a.installmentNo - b.installmentNo);
+  }, [isEdit, paymentList, commissionHistory, commissionRows]);
 
   const totals = useMemo(() => ({
     fees: historyRows.reduce((sum, x) => sum + Number(x.feesAmount ?? x.fees ?? 0), 0),
@@ -728,7 +741,7 @@ const historyRows = useMemo(() => {
   const canEditStatus = (index) => {
     if (index === 0) return true;
 
-    return (paymentList[index - 1]?.status === "Paid" || paymentList[index - 1]?.status === "PaidByCollege" || paymentList[index - 1]?.status === "PaidByStudent");
+    return isPaidLike(paymentList[index - 1]?.status);
   };
   const canEditCommissionStatus = (installmentNo) => {
     if (installmentNo === 1) return true;
@@ -739,6 +752,7 @@ const historyRows = useMemo(() => {
 
     return previous?.commissionStatus === "Paid";
   };
+
   return (
     <FormPageLayout title={isEdit ? `Edit ${resource.singular}` : `Add new ${resource.singular.toLowerCase()}`}>
       <Paper elevation={0} sx={{ ...formPaperSx, width: "100%" }}>
@@ -779,40 +793,40 @@ const historyRows = useMemo(() => {
         <Box sx={{ height: 24 }} />
 
         {/* Student Payment List */}
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 700,
-            mb: 1.5,
-          }}
-        >
-          Student Payment List
-        </Typography>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              mb: 1.5,
+            }}
+          >
+            Student Payment List
+          </Typography>
 
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
-              <TableRow>
-                <TableCell>Installment</TableCell>
-                <TableCell>Fees</TableCell>
-                <TableCell>Fees Date</TableCell>
-                <TableCell>Paid Date</TableCell>
-                <TableCell>Receipt</TableCell>
-                <TableCell>Payment Status</TableCell>
-              </TableRow>
-            </TableHead>
+          <TableContainer>
+            <Table size="small">
+              <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
+                <TableRow>
+                  <TableCell>Installment</TableCell>
+                  <TableCell>Fees</TableCell>
+                  <TableCell>Fees Date</TableCell>
+                  <TableCell>Paid Date</TableCell>
+                 
+                  <TableCell>Payment Status</TableCell>
+                  <TableCell>Paid Amount</TableCell>
+                </TableRow>
+              </TableHead>
 
-            <TableBody>
-              {paymentList.length > 0 ? (
-                paymentList.map((item, index) => (
-                  
-                  <TableRow key={item.installmentNo}>
-                    <TableCell>{item.installmentNo}</TableCell>
-                    <TableCell>{item.amount}</TableCell>
-                   <TableCell>{formatDateCell(item.dueDate)}</TableCell>
-                    <TableCell>
-                      {isEdit && (item.status === "Paid" || item.status === "PaidByCollege" || item.status === "PaidByStudent") ? (
-                        <>
+              <TableBody>
+                {paymentList.length > 0 ? (
+                  paymentList.map((item, index) => (
+                    <TableRow key={item.installmentNo}>
+                      <TableCell>{item.installmentNo}</TableCell>
+                      <TableCell>{item.amount}</TableCell>
+                      <TableCell>{formatDateCell(item.dueDate)}</TableCell>
+                      <TableCell>
+                        {isEdit && (isPaidLike(item.status) || item.status === "Partial") ? (
                           <TextField
                             size="small"
                             type="date"
@@ -824,165 +838,147 @@ const historyRows = useMemo(() => {
                             }}
                             InputLabelProps={{ shrink: true }}
                           />
-                        </>
-                      ) : (
-                        item.paidDate ? String(item.paidDate).split("T")[0] : "-"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {(() => {
-                        const imageSrc = item.InstallmentImage ?? item.installmentImage ?? item.paidReceipt ?? null;
-                        if (imageSrc && typeof imageSrc === 'string') {
-                          return (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <img
-                                src={imageSrc}
-                                alt={`receipt-${item.installmentNo}`}
-                                style={{ width: 64, height: 48, objectFit: 'cover', borderRadius: 4, border: '1px solid #ddd', cursor: 'pointer' }}
-                                onClick={() => setPreviewImage(imageSrc)}
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                              />
-                            </Box>
-                          );
-                        }
-                        return <span style={{ color: '#888', fontSize: 13 }}>No image</span>;
-                      })()}
-                      {item.status === "PaidByStudent" && (
-                        <Box sx={{ mt: 1 }}>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0] || null;
-                              if (!file) return;
+                        ) : (
+                          item.paidDate ? String(item.paidDate).split("T")[0] : "-"
+                        )}
+                      </TableCell>
 
-                              const fileToDataUrl = (f) => new Promise((resolve, reject) => {
-                                const reader = new FileReader();
-                                reader.onload = () => resolve(reader.result);
-                                reader.onerror = reject;
-                                reader.readAsDataURL(f);
-                              });
+                      <TableCell>
+                        {isEdit ? (
+                          <Select
+                            size="small"
+                            value={item.status}
+                           
+                            disabled={
+  item.originalStatus === "ConfirmedByCollege" ||
+  item.originalStatus === "PaidByCollege"
+}
+                            onChange={(e) => {
+                              const value = e.target.value;
 
-                              try {
-                                const dataUrl = await fileToDataUrl(file);
+                              setPaymentList((prev) =>
+                                prev.map((x) => {
 
-                                setPaymentList((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidReceipt: dataUrl, useImage: true } : x)));
-                                setCommissionHistory((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidReceipt: dataUrl, useImage: true } : x)));
-                              } catch (err) {
-                                console.error('Failed to read file', err);
-                              }
+                                  if (x.installmentNo === item.installmentNo) {
+                                    const isPaid = isPaidLike(value);
+                                    const isPartial = value === "Partial";
+                                    return {
+                                      ...x,
+                                      status: value,
+                                      paidAmount: isPaid ? x.amount : (isPartial ? (x.paidAmount || "0.00") : "0.00"),
+                                      balance: isPaid ? "0.00" : (isPartial ? x.balance : x.amount),
+                                      paidDate: (isPaid || isPartial) ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
+                                    };
+                                  }
+
+                                  if (
+                                    value === "Pending" &&
+                                    x.installmentNo > item.installmentNo
+                                  ) {
+                                    return {
+                                      ...x,
+                                      status: "Pending",
+                                      paidAmount: "0.00",
+                                      balance: x.amount,
+                                    };
+                                  }
+
+                                  return x;
+                                })
+                              );
+
+                              setCommissionHistory((prev) =>
+                                prev.map((x) => {
+                                  if (x.installmentNo === item.installmentNo) {
+                                    return {
+                                      ...x,
+                                      paymentStatus: value,
+                                    };
+                                  }
+
+                                  if (
+                                    value === "Pending" &&
+                                    x.installmentNo > item.installmentNo
+                                  ) {
+                                    return {
+                                      ...x,
+                                      paymentStatus: "Pending",
+                                    };
+                                  }
+
+                                  return x;
+                                })
+                              );
+                            }}
+                            MenuProps={{ container: typeof document !== 'undefined' ? document.body : undefined }}
+                            sx={{
+                              width: 150,
+                              height: 40,
+                              "& .MuiSelect-select": {
+                                minWidth: "70px",
+                                padding: "8px 32px 8px 12px",
+                              },
+                            }}
+                          >
+                            <MenuItem value="Pending">Pending</MenuItem>
+                            <MenuItem value="Partial">Partial</MenuItem>
+
+                            <MenuItem
+                              value="ConfirmedByCollege" disabled={!canEditStatus(index)}
+                            >
+                              Confirmed by College
+                            </MenuItem>
+
+                            <MenuItem
+                              value="ConfirmedByStudent" disabled={!canEditStatus(index)}
+                            >
+                              Confirmed by Student
+                            </MenuItem>
+                          </Select>
+                        ) : (
+                          item.status
+                        )}
+                      </TableCell>
+
+             
+                      <TableCell>
+                        {isEdit && item.status === "Partial" ? (
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={item.paidAmount}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPaymentList((prev) =>
+                                prev.map((x) =>
+                                  x.installmentNo === item.installmentNo
+                                    ? {
+                                      ...x,
+                                      paidAmount: val,
+                                      balance: (Number(x.amount) - Number(val || 0)).toFixed(2),
+                                    }
+                                    : x
+                                )
+                              );
                             }}
                           />
-                        </Box>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isEdit ? (
-                        <Select
-                          size="small"
-                          value={item.status}
-                          disabled={
-                            item.originalStatus === "PaidByCollege" ||
-                            item.originalStatus === "PaidByStudent"
-                          }
-                                                  onChange={(e) => {
-                            const value = e.target.value;
-
-                            setPaymentList((prev) =>
-                              prev.map((x) => {
-
-                                if (x.installmentNo === item.installmentNo) {
-                                  const isPaid = (value === "Paid" || value === "PaidByCollege" || value === "PaidByStudent");
-                                  return {
-                                    ...x,
-                                    status: value,
-                                    paidAmount: isPaid ? x.amount : "0.00",
-                                    balance: isPaid ? "0.00" : x.amount,
-                                    paidDate: isPaid ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
-                                  };
-                                }
-
-                                if (
-                                  value === "Pending" &&
-                                  x.installmentNo > item.installmentNo
-                                ) {
-                                  return {
-                                    ...x,
-                                    status: "Pending",
-                                    paidAmount: "0.00",
-                                    balance: x.amount,
-                                  };
-                                }
-
-                                return x;
-                              })
-                            );
-
-                            setCommissionHistory((prev) =>
-                              prev.map((x) => {
-                                if (x.installmentNo === item.installmentNo) {
-                                  return {
-                                    ...x,
-                                    paymentStatus: value,
-                                  };
-                                }
-
-                                if (
-                                  value === "Pending" &&
-                                  x.installmentNo > item.installmentNo
-                                ) {
-                                  return {
-                                    ...x,
-                                    paymentStatus: "Pending",
-                                  };
-                                }
-
-                                return x;
-                              })
-                            );
-                          }}
-                          MenuProps={{ container: typeof document !== 'undefined' ? document.body : undefined }}
-                          sx={{
-                            width: 110,
-                            height: 40,
-                            "& .MuiSelect-select": {
-                              minWidth: "70px",
-                              padding: "8px 32px 8px 12px",
-                            },
-                          }}
-                        >
-                          <MenuItem value="Pending">Pending</MenuItem>
-
-                          <MenuItem
-                            value="PaidByCollege" disabled={!canEditStatus(index)}
-                          >
-                            Paid by college
-                          </MenuItem>
-
-                          <MenuItem
-                            value="PaidByStudent"  disabled={!canEditStatus(index)}
-                          >
-                            Paid by student
-                          </MenuItem>
-                        </Select>
-                      ) : (
-                        item.status
-                      )}
+                        ) : (
+                          isPaidLike(item.status) ? item.amount : "-"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      No Payment Schedule
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} align="center">
-                    No Payment Schedule
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        <Box sx={{ height: 32 }} />
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
 
         {/* Commission */}
         <FormSectionsLayout
@@ -996,158 +992,176 @@ const historyRows = useMemo(() => {
 
         <Box sx={{ height: 24 }} />
 
-        {/* Bonus */}
-        <FormSectionsLayout
-          sections={[resource.sections[3]]}
-          form={form}
-          onChange={updateField}
-          selectOptions={selectOptions}
-          requiredFields={resource.requiredFields}
-          disabled={isEdit}
+       
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={addBonus}
+              onChange={(e) => {
+                setAddBonus(e.target.checked);
+                if (!e.target.checked) setBonusApplied(false);
+              }}
+              disabled={isEdit}
+            />
+          }
+          label="Add Bonus"
         />
 
-        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2, mb: 2, }}>
-          <Button
-            variant="contained"
-            color="success"
-            onClick={handleApplyBonus}
-            disabled={isEdit}
-          >
-            Apply Bonus
-          </Button>
-        </Box>
+        {addBonus && (
+          <>
+            <FormSectionsLayout
+              sections={[resource.sections[3]]}
+              form={form}
+              onChange={updateField}
+              selectOptions={selectOptions}
+              requiredFields={resource.requiredFields}
+              disabled={isEdit}
+            />
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2, mb: 2, }}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleApplyBonus}
+                disabled={isEdit}
+              >
+                Apply Bonus
+              </Button>
+            </Box>
+          </>
+        )}
 
         <Box sx={{ height: 24 }} />
+
         {/* Commission History */}
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 700,
-            mb: 1.5,
-          }}>  Commission History  </Typography>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              mb: 1.5,
+            }}>  Commission History  </Typography>
 
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
-              <TableRow>
-                <TableCell>Installment</TableCell>
-                <TableCell>Fees Date</TableCell>
-                <TableCell>Fees</TableCell>
-                <TableCell>Payment Status</TableCell>
-                <TableCell>Commission</TableCell>
-                <TableCell>Bonus</TableCell>
-                <TableCell>GST</TableCell>
-                <TableCell>Invoice</TableCell>
-                <TableCell>Status</TableCell>
-              </TableRow>
-            </TableHead>
+          <TableContainer>
+            <Table size="small">
+              <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
+                <TableRow>
+                  <TableCell>Installment</TableCell>
+                  <TableCell>Fees Date</TableCell>
+                  <TableCell>Fees</TableCell>
+                  <TableCell>Payment Status</TableCell>
+                  <TableCell>Commission</TableCell>
+                  <TableCell>Bonus</TableCell>
+                  <TableCell>GST</TableCell>
+                  <TableCell>Invoice</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
 
+              <TableBody>
+                {historyRows.length > 0 ? (
+                  <>
+                    {historyRows.map((row) => (
+                      <TableRow key={row.installmentNo}>
+                        <TableCell>{row.installmentNo}</TableCell>
+                        <TableCell>{formatDateCell(row.dueDate ?? row.feesDate)}</TableCell>
+                        <TableCell>{Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
+                        <TableCell>{row.paymentStatus}</TableCell>
+                        <TableCell>{Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
+                        <TableCell>{Number(row.bonusAmount ?? row.bonus).toFixed(2)}</TableCell>
+                        <TableCell>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
+                        <TableCell>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
+                        <TableCell>
+                          {isEdit ? (
+                            <Select
+                              size="small"
+                              value={row.commissionStatus ?? "Pending"}
+                              disabled={
+                                String(row.commissionHistoryOriginalStatus ?? "")
+                                  .trim()
+                                  .toLowerCase() === "paid"
+                              }
+                              onChange={(e) => {
+                                const value = e.target.value;
 
-            <TableBody>
-              {historyRows.length > 0 ? (
-                <>
-                  {historyRows.map((row, index) => (
-                    <TableRow key={row.installmentNo}>
-                      <TableCell>{row.installmentNo}</TableCell>
-                      <TableCell>{formatDateCell(row.dueDate ?? row.feesDate)}</TableCell>
-                      <TableCell>  {Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
-                      <TableCell>{row.paymentStatus}</TableCell>
-                      <TableCell>{Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
-                      <TableCell>{Number(row.bonusAmount ?? row.bonus).toFixed(2)}</TableCell>
-                      <TableCell>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
-                      <TableCell>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
-                      <TableCell>
-                        {isEdit ? (
-                       <Select
-                          size="small"
-                          value={row.commissionStatus ?? "Pending"}
-                          disabled={
-                            String(row.commissionHistoryOriginalStatus ?? "")
-                              .trim()
-                              .toLowerCase() === "paid"
-                          }
+                                setCommissionHistory((prev) =>
+                                  prev.map((x) => {
+                                    if (x.installmentNo === row.installmentNo) {
+                                      return {
+                                        ...x,
+                                        commissionStatus: value,
+                                      };
+                                    }
 
-                          onChange={(e) => {
-                            const value = e.target.value;
+                                    if (
+                                      value === "Pending" &&
+                                      x.installmentNo > row.installmentNo
+                                    ) {
+                                      return {
+                                        ...x,
+                                        paymentStatus: "Pending",
+                                        commissionStatus: "Pending",
+                                      };
+                                    }
 
-                         setCommissionHistory((prev) => 
-                          prev.map((x) => { 
-                           if (x.installmentNo === row.installmentNo) {
-                          return {
-                            ...x,
-                            commissionStatus: value,
-                          };
-                        }
-
-                            if ( 
-                              value === "Pending" && 
-                              x.installmentNo > row.installmentNo 
-                            ) { 
-                              return { 
-                                ...x, 
-                                paymentStatus: "Pending", 
-                                commissionStatus: "Pending", 
-                              }; 
-                            } 
-
-                            return x; 
-                          }) 
-                        );
-                          }}
-
-                          MenuProps={{
-                            container:
-                              typeof document !== "undefined"
-                                ? document.body
-                                : undefined,
-                          }}
-
-                          sx={{
-                            width: 110,
-                            height: 40,
-                            "& .MuiSelect-select": {
-                              minWidth: "70px",
-                              padding: "8px 32px 8px 12px",
-                            },
-                          }}
-                        >
-                          <MenuItem value="Pending">Pending</MenuItem>
-
-                            <MenuItem
-                              value="Paid"
-                              disabled={!canEditCommissionStatus(row.installmentNo)}
+                                    return x;
+                                  })
+                                );
+                              }}
+                              MenuProps={{
+                                container:
+                                  typeof document !== "undefined"
+                                    ? document.body
+                                    : undefined,
+                              }}
+                              sx={{
+                                width: 110,
+                                height: 40,
+                                "& .MuiSelect-select": {
+                                  minWidth: "70px",
+                                  padding: "8px 32px 8px 12px",
+                                },
+                              }}
                             >
-                              Paid
-                            </MenuItem>
-                        </Select>
-                        ) : (
+                              <MenuItem value="Pending">Pending</MenuItem>
+
+                              <MenuItem
+                                value="Paid"
+                                disabled={!canEditCommissionStatus(row.installmentNo)}
+                              >
+                                Paid
+                              </MenuItem>
+                            </Select>
+                          ) : (
                             row.commissionStatus ?? "Pending"
                           )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
 
-                  <TableRow sx={{ backgroundColor: "#f5f7fb" }}>
-                    <TableCell colSpan={2}><b>Total</b></TableCell>
-                    <TableCell><b>{totals.fees.toFixed(2)}</b></TableCell>
-                    <TableCell />
-                    <TableCell><b>{totals.commission.toFixed(2)}</b></TableCell>
-                    <TableCell><b>{totals.bonus.toFixed(2)}</b></TableCell>
-                    <TableCell><b>{totals.gst.toFixed(2)}</b></TableCell>
-                    <TableCell><b>{totals.invoice.toFixed(2)}</b></TableCell>
-                    <TableCell />
+                    <TableRow sx={{ backgroundColor: "#f5f7fb" }}>
+                      <TableCell colSpan={2}><b>Total</b></TableCell>
+                      <TableCell><b>{totals.fees.toFixed(2)}</b></TableCell>
+                      <TableCell />
+                      <TableCell><b>{totals.commission.toFixed(2)}</b></TableCell>
+                      <TableCell><b>{totals.bonus.toFixed(2)}</b></TableCell>
+                      <TableCell><b>{totals.gst.toFixed(2)}</b></TableCell>
+                      <TableCell><b>{totals.invoice.toFixed(2)}</b></TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </>
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center">
+                      No Commission History
+                    </TableCell>
                   </TableRow>
-                </>
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={9} align="center">
-                    No Commission History
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+
         <Box sx={{ mt: 4 }} />
 
         <FormActions
@@ -1160,24 +1174,6 @@ const historyRows = useMemo(() => {
           }
           submitDisabled={!isFormValid(resource, form) || submitting}
         />
-        <Dialog open={Boolean(previewImage)} onClose={() => setPreviewImage(null)} maxWidth="lg">
-          <DialogTitle sx={{ position: 'relative', pr: 4 }}>
-            Receipt
-            <IconButton
-              aria-label="close"
-              onClick={() => setPreviewImage(null)}
-              sx={{ position: 'absolute', right: 8, top: 8 }}
-              size="small"
-            >
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent>
-            {previewImage && (
-              <img src={previewImage} alt="preview" style={{ maxWidth: '90vw', maxHeight: '80vh', display: 'block' }} />
-            )}
-          </DialogContent>
-        </Dialog>
       </Paper>
     </FormPageLayout>
   );
