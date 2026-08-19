@@ -35,7 +35,7 @@ export default function NewStudentPage({ basePath }) {
   const submittingRef = useRef(false);
   const [gstPercentage, setGstPercentage] = useState(0);
   const [bonusApplied, setBonusApplied] = useState(false);
-  const [addBonus, setAddBonus] = useState(false); // point 7 - Add Bonus checkbox toggle
+  const [addBonus, setAddBonus] = useState(false); 
   const [commissionHistory, setCommissionHistory] = useState([]);
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
   const [originalSchedule, setOriginalSchedule] = useState(null);
@@ -222,21 +222,20 @@ export default function NewStudentPage({ basePath }) {
     return date;
   };
 
-  const formatDateCell = (value) => {
-    if (!value) return "-";
+const formatDateCell = (value) => {
+  if (!value) return "-";
 
-    const isoValue = String(value).split("T")[0];
-    const date = parseIsoDate(isoValue);
+  const isoValue = String(value).split("T")[0];
+  const date = parseIsoDate(isoValue);
 
-    if (!date) return "-";
+  if (!date) return "-";
 
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const year = date.getFullYear();
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
 
-    return `${month}/${day}/${year}`;
-  };
-
+  return `${day}-${month}-${year}`;
+};
   const generateInstallments = (data) => {
     const fee = Number(data.courseFee || 0);
     const count = Number(data.noOfInstallment || 0);
@@ -815,6 +814,7 @@ export default function NewStudentPage({ basePath }) {
                  
                   <TableCell>Payment Status</TableCell>
                   <TableCell>Paid Amount</TableCell>
+                  <TableCell>Remaining Fees</TableCell> 
                 </TableRow>
               </TableHead>
 
@@ -830,13 +830,37 @@ export default function NewStudentPage({ basePath }) {
                           <TextField
                             size="small"
                             type="date"
-                            value={item.paidDate ? String(item.paidDate).split("T")[0] : new Date().toISOString().slice(0, 10)}
+                            value={
+                              item.paidDate
+                                ? String(item.paidDate).split("T")[0]
+                                : new Date().toISOString().slice(0, 10)
+                            }
                             onChange={(e) => {
                               const value = e.target.value;
-                              setPaymentList((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
-                              setCommissionHistory((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
+
+                              setPaymentList((prev) =>
+                                prev.map((x) =>
+                                  x.installmentNo === item.installmentNo
+                                    ? { ...x, paidDate: value }
+                                    : x
+                                )
+                              );
+
+                              setCommissionHistory((prev) =>
+                                prev.map((x) =>
+                                  x.installmentNo === item.installmentNo
+                                    ? { ...x, paidDate: value }
+                                    : x
+                                )
+                              );
                             }}
                             InputLabelProps={{ shrink: true }}
+                            sx={{
+                              width: 150,
+                              "& .MuiInputBase-input": {
+                                padding: "8px 10px",
+                              },
+                            }}
                           />
                         ) : (
                           item.paidDate ? String(item.paidDate).split("T")[0] : "-"
@@ -850,9 +874,9 @@ export default function NewStudentPage({ basePath }) {
                             value={item.status}
                            
                             disabled={
-  item.originalStatus === "ConfirmedByCollege" ||
-  item.originalStatus === "PaidByCollege"
-}
+                            item.originalStatus === "ConfirmedByCollege" ||
+                            item.originalStatus === "PaidByCollege"
+                          }
                             onChange={(e) => {
                               const value = e.target.value;
 
@@ -946,31 +970,47 @@ export default function NewStudentPage({ basePath }) {
                           <TextField
                             size="small"
                             type="number"
-                            value={item.paidAmount}
+                            value={item.paidAmount ?? "0"}
                             onChange={(e) => {
                               const val = e.target.value;
+
                               setPaymentList((prev) =>
                                 prev.map((x) =>
                                   x.installmentNo === item.installmentNo
                                     ? {
-                                      ...x,
-                                      paidAmount: val,
-                                      balance: (Number(x.amount) - Number(val || 0)).toFixed(2),
-                                    }
+                                        ...x,
+                                        paidAmount: val,
+                                        balance: (
+                                          Number(x.amount) - Number(val || 0)
+                                        ).toFixed(2),
+                                      }
                                     : x
                                 )
                               );
                             }}
+                            inputProps={{
+                              min: 0,
+                              max: Number(item.amount),
+                              step: "0.01",
+                            }}
+                            sx={{ width: 120 }}
                           />
                         ) : (
-                          isPaidLike(item.status) ? item.amount : "-"
+                          isPaidLike(item.status)
+                            ? Number(item.amount || 0).toFixed(2)
+                            : "0.00"
                         )}
+                      </TableCell>
+                      <TableCell>                                   
+                        {isPaidLike(item.status)
+                          ? "0.00"
+                          : Number(item.balance ?? item.amount).toFixed(2)}
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       No Payment Schedule
                     </TableCell>
                   </TableRow>
