@@ -233,3 +233,9 @@ export async function fetchNextMonthInvoiceTotal() {
   );
   return Number(data);
 }
+
+export async function fetchSettledPaymentStatuses() {
+  const { data } = await axiosClient.get('/api/receivables/settled-statuses');
+  const list = Array.isArray(data) ? data : [];
+  return list.map((s) => String(s).toLowerCase());
+}

@@ -18,7 +18,7 @@ import {
 import ResponsiveTable from '../ResponsiveTable';
 import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
 import { fetchCoursesByScrappingId } from '../../api/coursesapi';
-import { fetchPaidStudentsForInvoice, generateMonthlyInvoice } from '../../api/invoicesApi';
+import { fetchPaidStudentsForInvoice, generateMonthlyInvoice ,fetchSettledPaymentStatuses,} from '../../api/invoicesApi';
 
 export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
   const now = useMemo(() => new Date(), []);
@@ -33,6 +33,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+  const [paidStatuses, setPaidStatuses] = useState(['paid', 'paidbycollege', 'paidbystudent']);
 
   const resetForm = useCallback(() => {
     setInstituteId('');
@@ -131,7 +132,6 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
       .then((rows) => {
         if (cancelled) return;
         setStudents(rows);
-        // No auto-selection — user must check each student manually.
         setSelectedIds([]);
       })
       .catch((err) => {
@@ -149,12 +149,45 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     };
   }, [open, instituteId, campus, now]);
 
- 
-  const PAID_STATUSES = ['paid', 'paidbycollege', 'paidbystudent'];
-const isPaidRow = (row) =>
-  PAID_STATUSES.includes(String(row.paymentStatus).toLowerCase());
 
-  const paidStudents = useMemo(() => students.filter(isPaidRow), [students]);
+  useEffect(() => {
+  if (!open) return;
+
+  let cancelled = false;
+
+  fetchSettledPaymentStatuses()
+    .then((list) => {
+      if (cancelled) return;
+
+      if (Array.isArray(list) && list.length > 0) {
+        setPaidStatuses(
+          list.map((status) =>
+            String(status).trim().toLowerCase()
+          )
+        );
+      }
+    })
+    .catch(() => {
+      // Keep fallback statuses
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [open]);
+
+ const isPaidRow = useCallback(
+  (row) =>
+    paidStatuses.includes(
+      String(row?.paymentStatus ?? '').trim().toLowerCase()
+    ),
+  [paidStatuses]
+);
+
+  const paidStudents = useMemo(
+  () => students.filter(isPaidRow),
+  [students, isPaidRow]
+);
   const paidCount = paidStudents.length;
 
   const selectedPaidCount = useMemo(
@@ -167,7 +200,7 @@ const isPaidRow = (row) =>
   const somePaidSelected = selectedPaidCount > 0 && !allPaidSelected;
 
   const toggleRow = (row) => {
-    if (!isPaidRow(row)) return; // only Paid rows can be invoiced
+    if (!isPaidRow(row)) return; 
     setSelectedIds((prev) =>
       prev.includes(row.id)
         ? prev.filter((id) => id !== row.id)
