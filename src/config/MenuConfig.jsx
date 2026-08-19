@@ -102,6 +102,12 @@ export const GET_MENU = (role) => {
         ],
       },
       {
+        category: 'TASKS',
+        items: [
+          { title: 'Tasks', path: '/tasks', Icon: AssignmentIcon },
+        ],
+      },
+      {
         category: 'FINANCE',
         items: [
          { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },

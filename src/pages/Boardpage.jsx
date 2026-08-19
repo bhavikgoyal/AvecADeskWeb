@@ -4,7 +4,8 @@ import { Box, Paper, Skeleton, Stack } from '@mui/material';
 import BoardColumn from '../components/board/BoardColumn';
 import AddCardModal from '../components/board/AddCardModal';
 import CardDetailModal from '../components/board/CardDetailModal';
-import { getBoardCards, moveCard, createCard, deleteCard, getUsers } from '../api/cardApi';
+import { getBoardCards, getMyBoardCards, moveCard, createCard, deleteCard, getUsers } from '../api/cardApi';
+import { useAuth } from '../hooks/useAuth';
 
 function BoardCardSkeleton() {
   return (
@@ -88,6 +89,8 @@ function TasksBoardSkeleton() {
 }
 
 export default function BoardPage() {
+  const { user } = useAuth();
+  const isAccounting = user?.role === 'Accounting';
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -101,6 +104,7 @@ export default function BoardPage() {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
+    if (isAccounting) return;
     (async () => {
       try {
         const data = await getUsers();
@@ -109,25 +113,27 @@ export default function BoardPage() {
         console.error('Failed to load users:', err);
       }
     })();
-  }, []);
+  }, [isAccounting]);
 
   const loadBoard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getBoardCards({
+      const filters = {
         searchText,
-        assignedUserId: selectedUserId,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
-      });
+      };
+      const data = isAccounting
+        ? await getMyBoardCards(filters)
+        : await getBoardCards({ ...filters, assignedUserId: selectedUserId });
       setColumns(data);
     } catch (err) {
       setError(err.message || 'Failed to load board');
     } finally {
       setLoading(false);
     }
-  }, [searchText, selectedUserId, fromDate, toDate]);
+  }, [isAccounting, searchText, selectedUserId, fromDate, toDate]);
 
   useEffect(() => {
     loadBoard();
@@ -194,18 +200,20 @@ export default function BoardPage() {
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Tasks</h1>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select
-            value={selectedUserId ?? ''}
-            onChange={(e) => setSelectedUserId(e.target.value ? parseInt(e.target.value, 10) : null)}
-            style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14 }}
-          >
-            <option value="">All Users</option>
-            {users.map((u) => (
-              <option key={u.userId} value={u.userId}>
-                {u.firstName} {u.lastName}
-              </option>
-            ))}
-          </select>
+          {!isAccounting && (
+            <select
+              value={selectedUserId ?? ''}
+              onChange={(e) => setSelectedUserId(e.target.value ? parseInt(e.target.value, 10) : null)}
+              style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14 }}
+            >
+              <option value="">All Users</option>
+              {users.map((u) => (
+                <option key={u.userId} value={u.userId}>
+                  {u.firstName} {u.lastName}
+                </option>
+              ))}
+            </select>
+          )}
 
           <input
             type="text"
