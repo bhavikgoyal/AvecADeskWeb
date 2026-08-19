@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
-import { Box, Paper, Skeleton, Stack } from '@mui/material';
+import { Box, Button, MenuItem, Paper, Skeleton, Stack, TextField } from '@mui/material';
+import { listContainedButtonSx, listSearchFieldSx, listSelectFieldSx, listSelectProps, LIST_FILTER_ALL } from '../components/forms';
 import BoardColumn from '../components/board/BoardColumn';
 import AddCardModal from '../components/board/AddCardModal';
 import CardDetailModal from '../components/board/CardDetailModal';
@@ -190,63 +191,114 @@ export default function BoardPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: { xs: 'flex-start', md: 'space-between' },
+          alignItems: { xs: 'stretch', md: 'center' },
+          flexDirection: { xs: 'column', md: 'row' },
+          mb: 2,
+          flexWrap: 'wrap',
+          gap: 1.25,
+        }}
+      >
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Tasks</h1>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select
-            value={selectedUserId ?? ''}
-            onChange={(e) => setSelectedUserId(e.target.value ? parseInt(e.target.value, 10) : null)}
-            style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14 }}
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            width: { xs: '100%', md: 'auto' },
+            '& > .MuiTextField-root': {
+              flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '0 0 auto' },
+              minWidth: { xs: 0, md: 'auto' },
+              maxWidth: { xs: '100%', md: 240 },
+              width: { xs: '100%', md: 'auto' },
+            },
+            '& > .MuiButton-root': {
+              flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '0 0 auto' },
+            },
+          }}
+        >
+          <TextField
+            select
+            size="small"
+            value={selectedUserId ?? LIST_FILTER_ALL}
+            onChange={(e) => {
+              const next = e.target.value;
+              setSelectedUserId(next === LIST_FILTER_ALL || next === '' ? null : parseInt(next, 10));
+            }}
+            SelectProps={{
+              ...listSelectProps('All Users'),
+              renderValue: (selected) => {
+                if (selected === LIST_FILTER_ALL || selected === '' || selected == null) return 'All Users';
+                const user = users.find((u) => String(u.userId) === String(selected));
+                return user ? `${user.firstName} ${user.lastName}` : 'All Users';
+              },
+            }}
+            sx={{
+              ...listSelectFieldSx(Boolean(selectedUserId)),
+              minWidth: { xs: 0, md: 180 },
+              maxWidth: { xs: '100%', md: 220 },
+            }}
           >
-            <option value="">All Users</option>
+            <MenuItem value={LIST_FILTER_ALL}>All Users</MenuItem>
             {users.map((u) => (
-              <option key={u.userId} value={u.userId}>
+              <MenuItem key={u.userId} value={u.userId}>
                 {u.firstName} {u.lastName}
-              </option>
+              </MenuItem>
             ))}
-          </select>
+          </TextField>
 
-          <input
-            type="text"
+          <TextField
+            size="small"
             placeholder="Search task"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 180, padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6 }}
+            sx={{
+              ...listSearchFieldSx,
+              minWidth: { xs: 0, md: 180 },
+              maxWidth: { xs: '100%', md: 240 },
+            }}
           />
 
-          <input
+          <TextField
             type="date"
+            size="small"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6 }}
+            sx={{
+              ...listSearchFieldSx,
+              minWidth: { xs: 0, md: 160 },
+              maxWidth: { xs: '100%', md: 180 },
+            }}
           />
 
-          <input
+          <TextField
             type="date"
+            size="small"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
-            style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6 }}
+            sx={{
+              ...listSearchFieldSx,
+              minWidth: { xs: 0, md: 160 },
+              maxWidth: { xs: '100%', md: 180 },
+            }}
           />
 
-          <button
+          <Button
+            variant="contained"
+            size="small"
             onClick={loadBoard}
             disabled={loading}
-            style={{
-              padding: '6px 14px',
-              background: '#2563eb',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: 14,
-              opacity: loading ? 0.7 : 1,
-            }}
+            sx={listContainedButtonSx}
           >
-            ⟳ Refresh
-          </button>
-        </div>
-      </div>
+            Refresh
+          </Button>
+        </Box>
+      </Box>
 
       {error && (
         <div style={{ background: '#fef2f2', color: '#b91c1c', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>

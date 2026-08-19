@@ -14,6 +14,7 @@ import {
   formPaperSx,
 } from '../../components/forms';
 import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 export default function StudentDetailPage({ basePath }) {
   const { id } = useParams();
@@ -153,9 +154,9 @@ export default function StudentDetailPage({ basePath }) {
 
   if (loading) {
     return (
-      <Box sx={{ py: 4 }}>
-        <Typography sx={{ color: 'var(--muted)' }}>Loading student...</Typography>
-      </Box>
+      <FormPageLayout title={`Edit ${resource.singular.toLowerCase()}`}>
+        <FormContentSkeleton rows={9} />
+      </FormPageLayout>
     );
   }
 

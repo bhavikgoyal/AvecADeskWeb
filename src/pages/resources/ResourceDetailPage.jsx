@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Box, Button, Paper, Typography, Alert, CircularProgress } from '@mui/material';
+import { Box, Button, Paper, Typography, Alert } from '@mui/material';
 import {
   FormActions,
   FormPageLayout,
@@ -10,6 +10,7 @@ import {
 import { getEmptyForm, getRecordLabel, getResourceConfig } from '../../config/resourceConfig';
 import { getRecordById, upsertRecord } from '../../utils/resourceStorage';
 import { createEmailTemplate, updateEmailTemplate, getEmailTemplateById } from '../../api/EmailtemplatesApi';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 export default function ResourceDetailPage({ basePath }) {
   const navigate = useNavigate();
@@ -87,10 +88,9 @@ export default function ResourceDetailPage({ basePath }) {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <CircularProgress size={20} />
-        <Typography>Loading {singularTitle.toLowerCase()}…</Typography>
-      </Box>
+      <FormPageLayout title={editMode ? `Edit ${singularTitle}` : `${singularTitle} details`}>
+        <FormContentSkeleton rows={8} />
+      </FormPageLayout>
     );
   }
 

@@ -8,6 +8,7 @@ import {
   DialogContent,
   IconButton,
   Paper,
+  Skeleton,
   Stack,
   Typography,
 } from '@mui/material';
@@ -535,8 +536,18 @@ export default function ViewActivityHistoryPage() {
       </Paper>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
+        <Box sx={{ width: '100%', p: { xs: 1, sm: 0 } }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Box key={i} sx={{ mb: 3 }}>
+              <Skeleton variant="text" width="42%" height={18} />
+              <Skeleton variant="text" width="28%" height={22} sx={{ my: 1 }} />
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {Array.from({ length: 6 }).map((_, j) => (
+                  <Skeleton key={j} variant="rounded" width={120} height={80} />
+                ))}
+              </Stack>
+            </Box>
+          ))}
         </Box>
       ) : error ? (
         <Alert severity="error" sx={{ m: 2 }}>

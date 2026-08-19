@@ -70,14 +70,14 @@ export const actionsSx = {
 };
 
 export const submitBtnSx = {
-  background: '#0084fe',
+  background: 'var(--primary, #3385c6)',
   color: '#fff',
   border: 'none',
   borderRadius: 2,
-  px: 3.5,
-  py: 1.25,
+  height: 40,
+  px: 3,
   fontSize: '0.875rem',
-  fontWeight: 500,
+  fontWeight: 600,
   cursor: 'pointer',
   width: { xs: '100%', sm: 'auto' },
   fontFamily: 'inherit',
@@ -86,13 +86,13 @@ export const submitBtnSx = {
 
 export const cancelBtnSx = {
   background: '#fff',
-  color: '#64748b',
-  border: '1px solid #e2e8f0',
+  color: 'var(--text)',
+  border: '1px solid var(--card-border)',
   borderRadius: 2,
-  px: 3.5,
-  py: 1.25,
+  height: 40,
+  px: 2.25,
   fontSize: '0.875rem',
-  fontWeight: 500,
+  fontWeight: 600,
   cursor: 'pointer',
   width: { xs: '100%', sm: 'auto' },
   fontFamily: 'inherit',

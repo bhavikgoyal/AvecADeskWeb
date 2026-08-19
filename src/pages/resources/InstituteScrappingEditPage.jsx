@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -20,8 +19,11 @@ import {
   FormPageLayout,
   FormSectionsLayout,
   formPaperSx,
+  listContainedButtonSx,
+  listOutlinedButtonSx,
 } from '../../components/forms';
 import InstituteCommissionRatesPanel from '../../components/institutes/InstituteCommissionRatesPanel';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 import {
   deleteInstituteScrapping,
   fetchInstituteScrappingById,
@@ -117,9 +119,9 @@ export default function InstituteScrappingEditPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 10 }}>
-        <CircularProgress size={36} sx={{ color: 'var(--primary)' }} />
-      </Box>
+      <FormPageLayout title="Edit Institute Scrapping">
+        <FormContentSkeleton rows={11} />
+      </FormPageLayout>
     );
   }
 
@@ -150,6 +152,7 @@ export default function InstituteScrappingEditPage() {
               onChange={updateField}
               disabled={saving || deleting}
               requiredFields={MANUAL_REQUIRED_FIELDS}
+              fieldDefsOverride={{ campus: { type: 'text' } }}
             />
 
             <Stack
@@ -164,7 +167,7 @@ export default function InstituteScrappingEditPage() {
                 startIcon={<DeleteOutlinedIcon />}
                 onClick={() => setDeleteDialogOpen(true)}
                 disabled={saving || deleting}
-                sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+                sx={{ ...listOutlinedButtonSx, width: { xs: '100%', sm: 'auto' } }}
               >
                 Delete
               </Button>
@@ -174,7 +177,7 @@ export default function InstituteScrappingEditPage() {
                   variant="outlined"
                   onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)}
                   disabled={saving || deleting}
-                  sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+                  sx={{ ...listOutlinedButtonSx, width: { xs: '100%', sm: 'auto' } }}
                 >
                   Back
                 </Button>
@@ -182,7 +185,7 @@ export default function InstituteScrappingEditPage() {
                   variant="contained"
                   onClick={handleSave}
                   disabled={!isManualFormValid(form) || saving || deleting}
-                  sx={{ textTransform: 'none', width: { xs: '100%', sm: 'auto' } }}
+                  sx={{ ...listContainedButtonSx, width: { xs: '100%', sm: 'auto' } }}
                 >
                   {saving ? 'Saving…' : 'Save'}
                 </Button>

@@ -18,6 +18,7 @@ import ResponsiveTable from "../../components/ResponsiveTable";
 import TableContentSkeleton from "../../components/TableContentSkeleton";
 import { getResourceConfig } from "../../config/resourceConfig";
 import { TablePagination } from "@mui/material";
+import { listContainedButtonSx, listSelectFieldSx, listSelectProps, listToolbarRowSx, LIST_FILTER_ALL } from "../../components/forms";
 import { fetchStudentPaymentScheduleList, fetchStudentCourseCompleteList, formatCurrency, formatDisplayDate } from "../../api/schedulesApi";
 
 
@@ -224,23 +225,28 @@ export default function PaymentSchedulesPage() {
       )}
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-  <Box
-    sx={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-    }}
-  >
-    <Box sx={{ width: 320 }}>
+  <Box sx={listToolbarRowSx}>
+    <Box sx={{ width: { xs: '100%', md: 320 }, minWidth: 0 }}>
       <TextField
         select
         fullWidth
         size="small"
-        label="Filter by Student"
-        value={studentFilter}
-        onChange={(e) => setStudentFilter(e.target.value)}
+        value={studentFilter || LIST_FILTER_ALL}
+        onChange={(e) => {
+          const next = e.target.value;
+          setStudentFilter(next === LIST_FILTER_ALL ? '' : next);
+        }}
+        SelectProps={{
+          ...listSelectProps('All Students'),
+          renderValue: (selected) => {
+            if (!selected || selected === LIST_FILTER_ALL) return 'All Students';
+            const match = studentOptions.find((s) => String(s.value) === String(selected));
+            return match?.label || 'All Students';
+          },
+        }}
+        sx={listSelectFieldSx(Boolean(studentFilter))}
       >
-        <MenuItem value="">All Students</MenuItem>
+        <MenuItem value={LIST_FILTER_ALL}>All Students</MenuItem>
 
         {studentOptions.map((s) => (
           <MenuItem key={s.value} value={s.value}>
@@ -252,8 +258,10 @@ export default function PaymentSchedulesPage() {
 
     <Button
       variant="contained"
+      size="small"
       startIcon={<AddIcon />}
       onClick={() => navigate("/students/new")}
+      sx={listContainedButtonSx}
     >
       Add Student
     </Button>
