@@ -149,7 +149,10 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     };
   }, [open, instituteId, campus, now]);
 
-  const isPaidRow = (row) => String(row.paymentStatus).toLowerCase() === 'paid';
+ 
+  const PAID_STATUSES = ['paid', 'paidbycollege', 'paidbystudent'];
+const isPaidRow = (row) =>
+  PAID_STATUSES.includes(String(row.paymentStatus).toLowerCase());
 
   const paidStudents = useMemo(() => students.filter(isPaidRow), [students]);
   const paidCount = paidStudents.length;

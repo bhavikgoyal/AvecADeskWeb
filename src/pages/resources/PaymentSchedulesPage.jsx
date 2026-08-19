@@ -172,7 +172,12 @@ export default function PaymentSchedulesPage() {
 
         case "nextDueDate":
           return { ...column, render: (row) => (row.nextDueDate ? formatDisplayDate(row.nextDueDate) : "-") };
-
+         case "studentCreatedAt":
+  return {
+    ...column,
+    render: (row) =>
+      row.studentCreatedAt ? formatDisplayDate(row.studentCreatedAt) : "-",
+  };
         case "installments":
           return { ...column, render: (row) => `${row.paidInstallments ?? 0} / ${row.totalInstallments ?? row.noOfInstallments ?? 0}` };
 

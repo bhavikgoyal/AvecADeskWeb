@@ -225,7 +225,7 @@ export default function ResourceFormFields({
           >
           <InputLabel
             id={labelId}
-            shrink={keepLabelFloated || hasSelectValue}
+            shrink={hasSelectValue || def.type === 'api-select'}
             required={isRequired}
           >
             {def.label}
