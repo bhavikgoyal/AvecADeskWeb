@@ -854,7 +854,7 @@ const handleExportInvoicesPdf = useCallback(async () => {
       </Select>
     </FormControl>
 
-    <FormControl size="small" sx={{ minWidth: 150 }}>
+    <FormControl size="small" sx={{ minWidth: 150, display: 'none' }}>
       <Select
         value={activityFilter}
         onChange={(e) => setActivityFilter(e.target.value)}
