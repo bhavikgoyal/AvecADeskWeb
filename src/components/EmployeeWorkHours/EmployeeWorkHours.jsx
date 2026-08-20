@@ -15,11 +15,12 @@ import {
   TableHead,
   TableRow,
   Paper,
-  CircularProgress,
   Alert,
   TablePagination,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import TableContentSkeleton from '../TableContentSkeleton';
+import { listContainedButtonSx, listOutlinedButtonSx, listSearchFieldSx, listToolbarActionsSx } from '../forms';
 
 const ExcelIcon = () => (
   <svg width="18" height="18" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -34,6 +35,32 @@ const ExcelIcon = () => (
     <text x="11" y="24" fontSize="13" fontWeight="900" fill="white" textAnchor="middle" fontFamily="Arial, sans-serif">X</text>
   </svg>
 );
+
+const filterColSx = {
+  minWidth: { xs: 0, md: 200 },
+  width: { xs: '100%', md: 200 },
+  flex: { xs: '1 1 100%', md: '0 0 auto' },
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const filterLabelSx = {
+  mb: 0.5,
+  height: 18,
+  fontWeight: 600,
+  fontSize: '0.8125rem',
+  color: 'var(--text)',
+  lineHeight: '18px',
+  display: 'block',
+};
+
+const filterFieldSx = {
+  ...listSearchFieldSx,
+  minWidth: 0,
+  maxWidth: 'none',
+  width: '100%',
+  flex: 'none',
+};
 
 const EmployeeWorkHours = () => {
   const todayStr = new Date().toISOString().split('T')[0];
@@ -55,26 +82,6 @@ const EmployeeWorkHours = () => {
       try {
         const data = await getAllStartStops();
         const list = Array.isArray(data) ? data : [];
-        console.log('[EmployeeWorkHours] Total records from API:', list.length);
-        const dateCounts = {};
-        list.forEach((i) => {
-          const key = i.startTime ? String(i.startTime).slice(0, 10) : 'NO_START_TIME';
-          dateCounts[key] = (dateCounts[key] || 0) + 1;
-        });
-        console.log('[EmployeeWorkHours] Records per date:');
-        console.table(
-          Object.entries(dateCounts)
-            .sort((a, b) => (a[0] > b[0] ? 1 : -1))
-            .map(([date, count]) => ({ date, count }))
-        );
-        console.log('[EmployeeWorkHours] Raw sample (first 5):', list.slice(0, 5));
-        console.table(
-          list.map((x) => ({
-            userName: x.userName,
-            startTime: x.startTime,
-            stopTime: x.stopTime,
-          }))
-        );
         setActivity(list);
       } catch (err) {
         setError(err.message || 'Failed to load activity list');
@@ -103,10 +110,6 @@ const EmployeeWorkHours = () => {
       startDate: startInput || null,
       endDate: endInput || null,
     };
-    console.log("Selected User :", employeeInput);
-    console.log("Start Date :", startInput);
-    console.log("End Date :", endInput);
-    console.log('[EmployeeWorkHours] Applying filters:', newFilters);
     setFilters(newFilters);
   };
 
@@ -128,13 +131,6 @@ const EmployeeWorkHours = () => {
         })),
     [activity, filters],
   );
-
-  useEffect(() => {
-    if (filters) {
-      console.log('[EmployeeWorkHours] After filtering:', filteredActivity.length, 'records out of', activity.length);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
 
   const paginatedActivity = useMemo(
     () => filteredActivity.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
@@ -189,20 +185,19 @@ const EmployeeWorkHours = () => {
   ].sort();
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" fontWeight={700} mb={3}>
+    <Box sx={{ p: 3 ,background:"white"}}>
+      <Typography variant="h5" fontWeight={700} mb={6} sx={{marginBottom:"16px"}}>
         Employee Work Hours
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <Box sx={{ minWidth: 200 }}>
-          <Typography variant="caption" color="text.secondary" mb={0.5} display="block">
-            User
-          </Typography>
+        <Box sx={filterColSx}>
+          <Box sx={filterFieldSx} />
           <TextField
             select size="small" fullWidth
             value={employeeInput}
             onChange={(e) => setEmployeeInput(e.target.value)}
+            sx={filterFieldSx}
           >
             <MenuItem value="All Users">All Users</MenuItem>
             {uniqueUsers.map((u) => (
@@ -211,84 +206,78 @@ const EmployeeWorkHours = () => {
           </TextField>
         </Box>
 
-        <Box sx={{ minWidth: 200 }}>
-          <Typography variant="caption" color="text.secondary" mb={0.5} display="block">
+        <Box sx={filterColSx}>
+          <Typography component="label" sx={filterLabelSx}>
             Start Date
           </Typography>
           <TextField
-            type="date" size="small" fullWidth
+            type="date"
+            size="small"
+            fullWidth
             value={startInput}
             onChange={(e) => setStartInput(e.target.value)}
+            sx={filterFieldSx}
           />
         </Box>
 
-        <Box sx={{ minWidth: 200 }}>
-          <Typography variant="caption" color="text.secondary" mb={0.5} display="block">
+        <Box sx={filterColSx}>
+          <Typography component="label" sx={filterLabelSx}>
             End Date
           </Typography>
           <TextField
-            type="date" size="small" fullWidth
+            type="date"
+            size="small"
+            fullWidth
             value={endInput}
             onChange={(e) => setEndInput(e.target.value)}
+            sx={filterFieldSx}
           />
         </Box>
 
-        {/* Search Button - same color as Add Vendor #2F80C9 */}
+        <Box sx={{ ...filterColSx, width: { xs: '100%', md: 'auto' }, minWidth: { xs: 0, md: 'auto' }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}>
+          <Box sx={filterLabelSx} />
+          <Box sx={{ ...listToolbarActionsSx, width: { xs: '100%', md: 'auto' } }}>
         <Button
           variant="contained"
+          size="small"
           startIcon={<SearchIcon />}
           onClick={handleSearch}
-          sx={{
-            height: 40,
-            backgroundColor: '#2F80C9',
-            color: '#fff',
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '14px',
-            borderRadius: '8px',
-            px: 3,
-            boxShadow: '0 3px 8px rgba(47, 128, 201, 0.35)',
-            '&:hover': {
-              backgroundColor: '#2874B8',
-              boxShadow: '0 4px 10px rgba(47, 128, 201, 0.45)',
-            },
-          }}
+          sx={listContainedButtonSx}
         >
           Search
         </Button>
 
-        {/* Export Excel Button - light green */}
         <Button
-          variant="contained"
+          variant="outlined"
+          size="small"
+          color="success"
           startIcon={<ExcelIcon />}
           onClick={handleExport}
           disabled={filteredActivity.length === 0}
-          sx={{
-            height: 40,
-            backgroundColor: '#66bb6a',
-            color: '#fff',
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '14px',
-            paddingX: 2,
-            '&:hover': { backgroundColor: '#57a85b' },
-            '&:disabled': { backgroundColor: '#c8e6c9', color: '#fff' },
-          }}
+          sx={listOutlinedButtonSx}
         >
           Export Excel
         </Button>
+          </Box>
+        </Box>
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-          <CircularProgress />
-        </Box>
+        <TableContentSkeleton
+          rows={10}
+          columns={[
+            { id: 'userName', label: 'User Name', flex: 1.1 },
+            { id: 'taskName', label: 'Task Name', flex: 1.8 },
+            { id: 'startDate', label: 'Start Date', flex: 1 },
+            { id: 'totalTime', label: 'Total Time', flex: 0.8, skeletonWidth: '50%' },
+          ]}
+        />
       ) : error ? (
         <Alert severity="error">{error}</Alert>
       ) : (
         <>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
+          <TableContainer component={Paper} variant="outlined" sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 720 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: '#f5f6fa' }}>
                   <TableCell sx={{ fontWeight: 700 }}>User Name</TableCell>

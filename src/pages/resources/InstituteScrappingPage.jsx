@@ -31,6 +31,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import AddIcon from '@mui/icons-material/Add';
 import SchoolIcon from '@mui/icons-material/School';
 import TableContentSkeleton from '../../components/TableContentSkeleton';
+import { listContainedButtonSx, listOutlinedButtonSx, listSearchFieldSx, listToolbarActionsSx, listToolbarRowSx, listToolbarSearchGroupSx } from '../../components/forms';
 import {
   resourceTableBodyCellSx,
   resourceTableBodyRowSx,
@@ -630,42 +631,31 @@ export default function InstituteScrappingPage() {
             width: '100%',
           }}
         >
-          {listLoading && displayRows.length === 0 ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-              <CircularProgress size={36} sx={{ color: 'var(--primary)' }} />
-            </Box>
-          ) : (
-            <>
               <Box
                 sx={{
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  justifyContent: 'space-between',
-                  gap: 2,
-                  flexWrap: 'wrap',
+                  ...listToolbarRowSx,
                   px: 2,
                   py: 2,
                   borderBottom: '1px solid var(--card-border)',
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'wrap', flex: 1 }}>
+                <Box sx={listToolbarSearchGroupSx}>
                   <TextField
-                    label="Institute name"
-                    placeholder="Filter by institute name"
+                    placeholder="Institute name"
                     size="small"
                     value={instituteNameFilter}
                     onChange={handleInstituteNameFilterChange}
-                    sx={{ minWidth: 240, maxWidth: 360 }}
+                    sx={listSearchFieldSx}
                     disabled={listLoading}
                   />
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Box sx={listToolbarActionsSx}>
                   <Button
                     variant="contained"
                     size="small"
                     startIcon={<AddIcon />}
                     onClick={openAddDialog}
-                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                    sx={listContainedButtonSx}
                     disabled={listLoading}
                   >
                     Add
@@ -677,7 +667,7 @@ export default function InstituteScrappingPage() {
                     startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <TableChartIcon />}
                     onClick={handleExportExcel}
                     disabled={exporting || listLoading || rows.length === 0}
-                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                    sx={listOutlinedButtonSx}
                   >
                     Export to Excel
                   </Button>
@@ -690,6 +680,7 @@ export default function InstituteScrappingPage() {
                   columns={[
                     { id: 'sno', label: 'S No', width: '64px', skeletonWidth: 24 },
                     { id: 'instituteName', label: 'Institute name', flex: 1.8 },
+                    { id: 'scrapingType', label: 'Scraping Type', flex: 0.9, skeletonWidth: '55%' },
                     { id: 'logo', label: 'Logo', flex: 0.7, skeletonWidth: 48 },
                     { id: 'websiteUrl', label: 'Website URL', flex: 0.8, skeletonWidth: 64 },
                     { id: 'country', label: 'Country', flex: 0.9 },
@@ -800,8 +791,6 @@ export default function InstituteScrappingPage() {
                   />
                 </>
               )}
-            </>
-          )}
         </Paper>
       </Box>
 

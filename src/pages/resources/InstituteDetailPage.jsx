@@ -9,9 +9,11 @@ import {
   FormActions,
   FormPageLayout,
   FormSectionsLayout,
+  formFieldSx,
   formPaperSx,
 } from '../../components/forms';
 import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 export default function InstituteDetailPage({ basePath }) {
   const navigate = useNavigate();
@@ -100,9 +102,9 @@ export default function InstituteDetailPage({ basePath }) {
 
   if (loading) {
     return (
-      <Box sx={{ py: 4 }}>
-        <Typography sx={{ color: 'var(--muted)' }}>Loading institute...</Typography>
-      </Box>
+      <FormPageLayout title={`Edit ${resource.singular.toLowerCase()}`}>
+        <FormContentSkeleton rows={9} />
+      </FormPageLayout>
     );
   }
 
@@ -158,6 +160,8 @@ export default function InstituteDetailPage({ basePath }) {
                 onChange={(e) => updateField('linkedScrappingId', e.target.value)}
                 fullWidth
                 size="small"
+                InputLabelProps={{ shrink: true }}
+                sx={formFieldSx}
                 helperText="Optional. Link this institute to its scraped record so commission rates can pull the correct course list."
               >
                 <MenuItem value="">None</MenuItem>

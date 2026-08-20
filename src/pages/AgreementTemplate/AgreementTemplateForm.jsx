@@ -2,8 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Box, IconButton } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import {
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  FormControlLabel,
+  Paper,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { toast } from 'react-toastify';
 import {
   fetchAgrrementTemplateById,
@@ -12,18 +20,15 @@ import {
 } from '../../api/agrrementTemplateApi';
 import { Session } from '../../utils/session';
 import {
-  actionsSx,
-  backButtonSx,
-  cancelBtnSx,
-  cardSx,
-  fieldWrapSx,
-  fullWidthFieldSx,
-  gridSx,
-  headerRowSx,
-  pageSx,
-  submitBtnSx,
-  titleSx,
-} from './agreementTemplateFormLayout';
+  FormActions,
+  FormPageLayout,
+  FormSection,
+  FormGridItem,
+  formFieldSx,
+  formPaperSx,
+  listOutlinedButtonSx,
+} from '../../components/forms';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 const emptyForm = {
   templateName: '',
@@ -31,29 +36,6 @@ const emptyForm = {
   bodyHtml: '',
   isActive: true,
   createdByUserId: 0,
-};
-
-const labelStyle = { display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: '#64748b', marginBottom: 6 };
-const reqStyle = { color: '#ef4444' };
-const inputStyle = {
-  display: 'block',
-  width: '100%',
-  border: '1px solid #e2e8f0',
-  borderRadius: 8,
-  padding: '10px 14px',
-  fontSize: '0.875rem',
-  color: '#1e293b',
-  background: '#fff',
-  boxSizing: 'border-box',
-  outline: 'none',
-  fontFamily: 'inherit',
-};
-const textareaStyle = {
-  ...inputStyle,
-  minHeight: 220,
-  resize: 'vertical',
-  lineHeight: 1.6,
-  maxWidth: '100%',
 };
 
 export default function AgreementTemplateForm() {
@@ -66,31 +48,28 @@ export default function AgreementTemplateForm() {
         '|', 'bulletedList', 'numberedList', 'outdent', 'indent', 'alignment',
         '|', 'insertTable', 'blockQuote', 'codeBlock',
         '|', 'imageUpload', 'mediaEmbed',
-        '|', 'removeFormat'
+        '|', 'removeFormat',
       ],
-      shouldNotGroupWhenFull: true
+      shouldNotGroupWhenFull: true,
     },
     image: {
-      toolbar: ['imageTextAlternative', 'imageStyle:full', 'imageStyle:side']
+      toolbar: ['imageTextAlternative', 'imageStyle:full', 'imageStyle:side'],
     },
     extraPlugins: [function MyCustomUploadAdapterPlugin(editor) {
-      editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
-        return {
-          upload() {
-            return loader.file.then(file => new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve({ default: reader.result });
-              reader.onerror = (err) => reject(err);
-              reader.readAsDataURL(file);
-            }));
-          },
-          abort() {
-            // no-op for base64
-          }
-        };
-      };
-    }]
+      editor.plugins.get('FileRepository').createUploadAdapter = (loader) => ({
+        upload() {
+          return loader.file.then((file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({ default: reader.result });
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(file);
+          }));
+        },
+        abort() {},
+      });
+    }],
   };
+
   const { id } = useParams();
   const navigate = useNavigate();
   const [form, setForm] = useState(emptyForm);
@@ -121,7 +100,6 @@ export default function AgreementTemplateForm() {
         createdByUserId: data.createdByUserId ?? 0,
       });
     } catch (err) {
-      console.error('Load template error', err);
       const resp = err.response || err;
       const details = resp?.data ? JSON.stringify(resp.data) : resp?.statusText || err.message;
       const msg = details || 'Failed to load template.';
@@ -134,27 +112,23 @@ export default function AgreementTemplateForm() {
     }
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSave() {
     setError('');
     setLoading(true);
-    const bodyHtml = form.bodyHtml || '';
 
     const payload = {
       TemplateName: form.templateName,
       AgreementType: form.agreementType,
-      BodyHtml: bodyHtml,
+      BodyHtml: form.bodyHtml || '',
       IsActive: form.isActive,
       CreatedByUserId: form.createdByUserId || Session.getUserId(),
     };
-    console.log('Submitting agreement payload:', payload);
 
     if (id && id !== 'new') {
       try {
         await updateAgrrementTemplate(id, payload);
         toast.success('Agreement template updated successfully', { hideProgressBar: true });
       } catch (err) {
-        console.error('Update template error', err);
         const resp = err.response || err;
         const details = resp?.data ? JSON.stringify(resp.data) : resp?.statusText || err.message;
         setError(details || 'Failed to update template.');
@@ -173,7 +147,6 @@ export default function AgreementTemplateForm() {
         }
         toast.success('Agreement template created successfully', { hideProgressBar: true });
       } catch (err) {
-        console.error('Create template error', err);
         const resp = err.response || err;
         const details = resp?.data ? JSON.stringify(resp.data) : resp?.statusText || err.message;
         setError(details || 'Failed to create template.');
@@ -187,142 +160,115 @@ export default function AgreementTemplateForm() {
 
   if (initialLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#64748b' }}>
-        Loading...
-      </div>
+      <FormPageLayout title={isEdit ? 'Edit Agreement Template' : 'Add Agreement Template'}>
+        <FormContentSkeleton rows={8} />
+      </FormPageLayout>
     );
   }
 
   return (
-    <Box sx={pageSx}>
-      <Box sx={headerRowSx}>
-        <IconButton
-          aria-label="Back to agreement templates"
-          onClick={() => navigate('/agreement-template')}
-          sx={backButtonSx}
-        >
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
-        <Box component="h2" sx={titleSx}>
-          {isEdit ? 'Edit Agreement Template' : 'Agreement Template Create'}
-        </Box>
-      </Box>
-
+    <FormPageLayout title={isEdit ? 'Edit Agreement Template' : 'Add Agreement Template'}>
       {error && (
-        <div style={{ background: '#fee2e2', color: '#dc2626', padding: '10px 16px', borderRadius: 8, marginBottom: 16, fontSize: '0.875rem' }}>
+        <Alert severity="error" sx={{ mb: 1.5 }}>
           {error}
-        </div>
+        </Alert>
       )}
 
-      <Box sx={cardSx}>
-        <form onSubmit={handleSubmit} noValidate>
-          <Box sx={gridSx}>
-            <Box sx={fieldWrapSx}>
-              <label style={labelStyle}>
-                Template Name <span style={reqStyle}>*</span>
-              </label>
-              <input
-                value={form.templateName}
-                onChange={(e) => setForm({ ...form, templateName: e.target.value })}
-                style={inputStyle}
+      <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
+        <FormSection title="Template" description="Name and category for this agreement." divider={false}>
+          <FormGridItem size={{ xs: 12, md: 6 }}>
+            <TextField
+              size="small"
+              fullWidth
+              required
+              label="Template name"
+              value={form.templateName}
+              onChange={(e) => setForm({ ...form, templateName: e.target.value })}
+              sx={formFieldSx}
+            />
+          </FormGridItem>
+          <FormGridItem size={{ xs: 12, md: 6 }}>
+            <TextField
+              size="small"
+              fullWidth
+              required
+              label="Category"
+              placeholder="e.g. Internship, NDA"
+              value={form.agreementType}
+              onChange={(e) => setForm({ ...form, agreementType: e.target.value })}
+              sx={formFieldSx}
+            />
+          </FormGridItem>
+        </FormSection>
+
+        <FormSection title="Body" description="Agreement content. HTML is supported." divider={false}>
+          <FormGridItem size={{ xs: 12 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+              <Typography component="label" sx={{ color: 'var(--text)', fontSize: '0.875rem', fontWeight: 600 }}>
+                Body (HTML)
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setHtmlMode((v) => !v)}
+                sx={listOutlinedButtonSx}
+              >
+                {htmlMode ? 'Editor' : 'HTML Source'}
+              </Button>
+            </Box>
+            {htmlMode ? (
+              <TextField
+                size="small"
+                fullWidth
+                multiline
+                minRows={8}
+                value={form.bodyHtml || ''}
+                onChange={(e) => setForm((f) => ({ ...f, bodyHtml: e.target.value }))}
+                sx={formFieldSx}
               />
-            </Box>
-
-            <Box sx={fieldWrapSx}>
-              <label style={labelStyle}>
-                Category <span style={reqStyle}>*</span>
-              </label>
-              <input
-                value={form.agreementType}
-                onChange={(e) => setForm({ ...form, agreementType: e.target.value })}
-                placeholder="e.g. Internship, NDA"
-                style={inputStyle}
-              />
-            </Box>
-
-            <Box sx={fullWidthFieldSx}>
-              <label style={labelStyle}>
-                Body Content <span style={reqStyle}>*</span>
-              </label>
-              <div style={{ marginTop: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setHtmlMode((v) => !v)}
-                    style={{
-                      background: '#fff',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: 6,
-                      padding: '6px 10px',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem'
-                    }}
-                  >
-                    {htmlMode ? 'Editor' : 'HTML Source'}
-                  </button>
-                </div>
-
-                {htmlMode ? (
-                  <textarea
-                    value={form.bodyHtml || ''}
-                    onChange={(e) => setForm((f) => ({ ...f, bodyHtml: e.target.value }))}
-                    style={textareaStyle}
-                  />
-                ) : (
-                  <CKEditor
-                    editor={ClassicEditor}
-                    data={form.bodyHtml || ''}
-                    config={editorConfig}
-                    onReady={(editor) => {
-                      console.log('CKEditor ready.', editor);
-                    }}
-                    onChange={(event, editor) => {
-                      const data = editor.getData();
-                      console.log('CKEditor data changed — length:', (data || '').length);
-                      console.log(data);
-                      setForm((f) => ({ ...f, bodyHtml: data }));
-                    }}
-                  />
-                )}
-              </div>
-            </Box>
-            <Box sx={{ ...fieldWrapSx, display: 'flex', alignItems: 'flex-end', pb: 0.25 }}>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  color: '#475569',
+            ) : (
+              <Box
+                sx={{
+                  bgcolor: '#fff',
+                  border: '1px solid var(--card-border)',
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  '& .ck-editor__editable': { minHeight: 220 },
                 }}
               >
-                <input
-                  type="checkbox"
+                <CKEditor
+                  editor={ClassicEditor}
+                  data={form.bodyHtml || ''}
+                  config={editorConfig}
+                  onChange={(_event, editor) => {
+                    setForm((f) => ({ ...f, bodyHtml: editor.getData() }));
+                  }}
+                />
+              </Box>
+            )}
+          </FormGridItem>
+          <FormGridItem size={{ xs: 12 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
                   checked={form.isActive}
                   onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                  style={{ width: 18, height: 18, accentColor: '#0084fe', cursor: 'pointer' }}
+                  sx={{ color: 'var(--primary)', '&.Mui-checked': { color: 'var(--primary)' } }}
                 />
-                Active
-              </label>
-            </Box>
-          </Box>
+              }
+              label="Active"
+              sx={{ ml: 0, '& .MuiFormControlLabel-label': { fontWeight: 600, fontSize: '0.875rem' } }}
+            />
+          </FormGridItem>
+        </FormSection>
 
-          <Box sx={actionsSx}>
-            <Box component="button" type="submit" disabled={loading} sx={submitBtnSx}>
-              {isEdit ? 'Update' : 'Create'}
-            </Box>
-            <Box
-              component="button"
-              type="button"
-              onClick={() => navigate('/agreement-template')}
-              sx={cancelBtnSx}
-            >
-              Cancel
-            </Box>
-          </Box>
-        </form>
-      </Box>
-    </Box>
+        <FormActions
+          onCancel={() => navigate('/agreement-template')}
+          onSubmit={handleSave}
+          submitLabel={loading ? (isEdit ? 'Updating…' : 'Saving…') : (isEdit ? 'Save' : 'Create')}
+          submitDisabled={loading}
+        />
+      </Paper>
+    </FormPageLayout>
   );
 }
