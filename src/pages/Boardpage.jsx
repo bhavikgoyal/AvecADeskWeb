@@ -5,7 +5,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import BoardColumn from '../components/board/BoardColumn';
 import AddCardModal from '../components/board/AddCardModal';
 import CardDetailModal from '../components/board/CardDetailModal';
-import { getBoardCards, getMyBoardCards, moveCard, createCard, deleteCard, getUsers } from '../api/cardApi';
+import { getBoardCards, getMyBoardCards, getCardStatuses, createCardStatus, moveCard, createCard, deleteCard, getUsers } from '../api/cardApi';
 import { useAuth } from '../hooks/useAuth';
 import {
   listContainedButtonSx,
@@ -14,6 +14,7 @@ import {
   listSelectProps,
   LIST_FILTER_ALL,
 } from '../components/forms';
+import AddListComposer from '../components/board/AddListComposer';
 
 function BoardCardSkeleton() {
   return (
@@ -132,10 +133,25 @@ export default function BoardPage() {
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
       };
-      const data = isAccounting
-        ? await getMyBoardCards(filters)
-        : await getBoardCards({ ...filters, assignedUserId: selectedUserId });
-      setColumns(data);
+      const [data, allStatuses] = await Promise.all([
+        isAccounting
+          ? getMyBoardCards(filters)
+          : getBoardCards({ ...filters, assignedUserId: selectedUserId }),
+        getCardStatuses(),
+      ]);
+
+      const cardsByStatus = new Map((data || []).map((col) => [col.cardStatusID, col]));
+      const mergedColumns = (allStatuses || []).map((status) => {
+        const existing = cardsByStatus.get(status.cardStatusID);
+        return existing || {
+          cardStatusID: status.cardStatusID,
+          statusName: status.statusName,
+          count: 0,
+          cards: [],
+        };
+      });
+
+      setColumns(mergedColumns.length ? mergedColumns : (data || []));
     } catch (err) {
       setError(err.message || 'Failed to load board');
     } finally {
@@ -185,11 +201,36 @@ export default function BoardPage() {
 
   const handleAddCard = async (statusId, title) => {
     try {
-      await createCard({ cardTitle: title, cardStatusID: statusId });
+      await createCard({
+        cardTitle: title,
+        cardStatusID: statusId,
+        assignedUserID: isAccounting ? Number(user?.id) : undefined,
+      });
       setAddModalStatusId(null);
       loadBoard();
     } catch (err) {
       setError(err.message || 'Could not create card.');
+    }
+  };
+
+  const handleAddList = async (statusName) => {
+    try {
+      const status = await createCardStatus(statusName);
+      setColumns((prev) => {
+        if (prev.some((col) => col.cardStatusID === status.cardStatusID)) return prev;
+        return [
+          ...prev,
+          {
+            cardStatusID: status.cardStatusID,
+            statusName: status.statusName,
+            count: 0,
+            cards: [],
+          },
+        ];
+      });
+    } catch (err) {
+      setError(err.message || 'Could not create list.');
+      throw err;
     }
   };
 
@@ -345,6 +386,7 @@ export default function BoardPage() {
     onCardClick={(card) => setSelectedCardId(card.cardID)}
   />
 ))}
+            <AddListComposer onAdd={handleAddList} />
           </div>
         </DragDropContext>
       )}
