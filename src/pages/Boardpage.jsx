@@ -1,12 +1,19 @@
 import { useEffect, useState, useCallback } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
 import { Box, Button, MenuItem, Paper, Skeleton, Stack, TextField } from '@mui/material';
-import { listContainedButtonSx, listSearchFieldSx, listSelectFieldSx, listSelectProps, LIST_FILTER_ALL } from '../components/forms';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import BoardColumn from '../components/board/BoardColumn';
 import AddCardModal from '../components/board/AddCardModal';
 import CardDetailModal from '../components/board/CardDetailModal';
 import { getBoardCards, getMyBoardCards, moveCard, createCard, deleteCard, getUsers } from '../api/cardApi';
 import { useAuth } from '../hooks/useAuth';
+import {
+  listContainedButtonSx,
+  listSearchFieldSx,
+  listSelectFieldSx,
+  listSelectProps,
+  LIST_FILTER_ALL,
+} from '../components/forms';
 
 function BoardCardSkeleton() {
   return (
@@ -210,20 +217,49 @@ export default function BoardPage() {
       >
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Tasks</h1>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            width: { xs: '100%', md: 'auto' },
+            '& > .MuiTextField-root, & > .MuiButton-root': {
+              height: 40,
+              flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '0 0 auto' },
+            },
+          }}
+        >
           {!isAccounting && (
-            <select
-              value={selectedUserId ?? ''}
-              onChange={(e) => setSelectedUserId(e.target.value ? parseInt(e.target.value, 10) : null)}
-              style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14 }}
+            <TextField
+              select
+              size="small"
+              value={selectedUserId ?? LIST_FILTER_ALL}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSelectedUserId(next === LIST_FILTER_ALL || next === '' ? null : parseInt(next, 10));
+              }}
+              SelectProps={{
+                ...listSelectProps('All Users'),
+                renderValue: (selected) => {
+                  if (selected === LIST_FILTER_ALL || selected === '' || selected == null) return 'All Users';
+                  const userMatch = users.find((u) => String(u.userId) === String(selected));
+                  return userMatch ? `${userMatch.firstName} ${userMatch.lastName}` : 'All Users';
+                },
+              }}
+              sx={{
+                ...listSelectFieldSx(Boolean(selectedUserId)),
+                minWidth: { xs: 0, md: 160 },
+                maxWidth: { xs: '100%', md: 200 },
+              }}
             >
-              <option value="">All Users</option>
+              <MenuItem value={LIST_FILTER_ALL}>All Users</MenuItem>
               {users.map((u) => (
-                <option key={u.userId} value={u.userId}>
+                <MenuItem key={u.userId} value={u.userId}>
                   {u.firstName} {u.lastName}
-                </option>
+                </MenuItem>
               ))}
-            </select>
+            </TextField>
           )}
 
           <TextField
@@ -233,8 +269,8 @@ export default function BoardPage() {
             onChange={(e) => setSearchText(e.target.value)}
             sx={{
               ...listSearchFieldSx,
-              minWidth: { xs: 0, md: 180 },
-              maxWidth: { xs: '100%', md: 240 },
+              minWidth: { xs: 0, md: 160 },
+              maxWidth: { xs: '100%', md: 200 },
             }}
           />
 
@@ -245,8 +281,8 @@ export default function BoardPage() {
             onChange={(e) => setFromDate(e.target.value)}
             sx={{
               ...listSearchFieldSx,
-              minWidth: { xs: 0, md: 160 },
-              maxWidth: { xs: '100%', md: 180 },
+              minWidth: { xs: 0, md: 150 },
+              maxWidth: { xs: '100%', md: 170 },
             }}
           />
 
@@ -257,17 +293,18 @@ export default function BoardPage() {
             onChange={(e) => setToDate(e.target.value)}
             sx={{
               ...listSearchFieldSx,
-              minWidth: { xs: 0, md: 160 },
-              maxWidth: { xs: '100%', md: 180 },
+              minWidth: { xs: 0, md: 150 },
+              maxWidth: { xs: '100%', md: 170 },
             }}
           />
 
           <Button
             variant="contained"
             size="small"
+            startIcon={<RefreshIcon />}
             onClick={loadBoard}
             disabled={loading}
-            sx={listContainedButtonSx}
+            sx={{ ...listContainedButtonSx, width: { xs: '100%', md: 'auto' } }}
           >
             Refresh
           </Button>

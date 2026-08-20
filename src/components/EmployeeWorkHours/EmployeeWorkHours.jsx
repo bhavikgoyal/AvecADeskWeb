@@ -36,6 +36,32 @@ const ExcelIcon = () => (
   </svg>
 );
 
+const filterColSx = {
+  minWidth: { xs: 0, md: 200 },
+  width: { xs: '100%', md: 200 },
+  flex: { xs: '1 1 100%', md: '0 0 auto' },
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const filterLabelSx = {
+  mb: 0.5,
+  height: 18,
+  fontWeight: 600,
+  fontSize: '0.8125rem',
+  color: 'var(--text)',
+  lineHeight: '18px',
+  display: 'block',
+};
+
+const filterFieldSx = {
+  ...listSearchFieldSx,
+  minWidth: 0,
+  maxWidth: 'none',
+  width: '100%',
+  flex: 'none',
+};
+
 const EmployeeWorkHours = () => {
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -165,12 +191,13 @@ const EmployeeWorkHours = () => {
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <Box sx={{ minWidth: { xs: 0, md: 200 }, width: { xs: '100%', md: 200 }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}>
+        <Box sx={filterColSx}>
+          <Box sx={filterFieldSx} />
           <TextField
             select size="small" fullWidth
             value={employeeInput}
             onChange={(e) => setEmployeeInput(e.target.value)}
-            sx={listSearchFieldSx}
+            sx={filterFieldSx}
           >
             <MenuItem value="All Users">All Users</MenuItem>
             {uniqueUsers.map((u) => (
@@ -179,38 +206,37 @@ const EmployeeWorkHours = () => {
           </TextField>
         </Box>
 
-        <Box sx={{ minWidth: { xs: 0, md: 200 }, width: { xs: '100%', md: 200 }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}>
-          <Typography
-            variant="body2"
-            sx={{ mb: 0.5, fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text)', lineHeight: 1.2 }}
-          >
+        <Box sx={filterColSx}>
+          <Typography component="label" sx={filterLabelSx}>
             Start Date
           </Typography>
           <TextField
-            type="date" size="small" fullWidth
+            type="date"
+            size="small"
+            fullWidth
             value={startInput}
             onChange={(e) => setStartInput(e.target.value)}
-            sx={listSearchFieldSx}
+            sx={filterFieldSx}
           />
         </Box>
 
-        <Box sx={{ minWidth: { xs: 0, md: 200 }, width: { xs: '100%', md: 200 }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}>
-          <Typography
-            variant="body2"
-            sx={{ mb: 0.5, fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text)', lineHeight: 1.2 }}
-          >
+        <Box sx={filterColSx}>
+          <Typography component="label" sx={filterLabelSx}>
             End Date
           </Typography>
           <TextField
-            type="date" size="small" fullWidth
+            type="date"
+            size="small"
+            fullWidth
             value={endInput}
             onChange={(e) => setEndInput(e.target.value)}
-            sx={listSearchFieldSx}
+            sx={filterFieldSx}
           />
         </Box>
 
-        {/* Search Button - same color as Add Vendor #2F80C9 */}
-        <Box sx={{ ...listToolbarActionsSx, width: { xs: '100%', md: 'auto' }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}>
+        <Box sx={{ ...filterColSx, width: { xs: '100%', md: 'auto' }, minWidth: { xs: 0, md: 'auto' }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}>
+          <Box sx={filterLabelSx} />
+          <Box sx={{ ...listToolbarActionsSx, width: { xs: '100%', md: 'auto' } }}>
         <Button
           variant="contained"
           size="small"
@@ -232,6 +258,7 @@ const EmployeeWorkHours = () => {
         >
           Export Excel
         </Button>
+          </Box>
         </Box>
       </Box>
 
