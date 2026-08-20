@@ -28,7 +28,8 @@ export default function MembersEdit() {
   const [form, setForm] = useState({
     UserId: id, UserName: '', FirstName: '', LastName: '',
     Email: '', PhoneNo: '', UserRoleId: '',
-    CompaniesId: '', IsActive: true, AvatarBase64: ''
+    CompaniesId: '', IsActive: true, AvatarBase64: '',
+    Password: '', ConfirmPassword: ''
   });
 
   useEffect(() => {
@@ -87,6 +88,14 @@ setCompanies(companiesData || []);
     if (!form.CompaniesId) newErrors.CompaniesId = 'Please select a company';
     if (!form.UserRoleId) newErrors.UserRoleId = 'Please select a role';
 
+    if (form.Password || form.ConfirmPassword) {
+      if (!form.Password) newErrors.Password = 'Password is required';
+      else if (form.Password.length < 6) newErrors.Password = 'Password must be at least 6 characters';
+
+      if (!form.ConfirmPassword) newErrors.ConfirmPassword = 'Confirm password is required';
+      else if (form.Password !== form.ConfirmPassword) newErrors.ConfirmPassword = 'Passwords do not match';
+    }
+
 if (form.PhoneNo && !/^\d{10}$/.test(form.PhoneNo))
   newErrors.PhoneNo = 'Phone number must be exactly 10 digits';
 
@@ -118,7 +127,11 @@ if (form.PhoneNo && !/^\d{10}$/.test(form.PhoneNo))
     }
 
     try {
-     await updateMember(form);
+     await updateMember({
+       ...form,
+       ConfirmPassword: undefined,
+       Password: form.Password?.trim() ? form.Password : undefined,
+     });
 
     toast.success("Member updated successfully", {
       hideProgressBar: true,
@@ -235,6 +248,36 @@ if (form.PhoneNo && !/^\d{10}$/.test(form.PhoneNo))
   />
   {errors.PhoneNo && <p style={errStyle}>{errors.PhoneNo}</p>}
 </div>
+
+            {/* Password */}
+            <div>
+              <label style={labelStyle}>Password</label>
+              <input
+                name="Password"
+                type="password"
+                value={form.Password}
+                onChange={handleChange}
+                autoComplete="new-password"
+                placeholder="Leave blank to keep current password"
+                style={{ ...inputStyle, borderColor: errors.Password ? '#ef4444' : '#e2e8f0' }}
+              />
+              {errors.Password && <p style={errStyle}>{errors.Password}</p>}
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label style={labelStyle}>Confirm Password</label>
+              <input
+                name="ConfirmPassword"
+                type="password"
+                value={form.ConfirmPassword}
+                onChange={handleChange}
+                autoComplete="new-password"
+                placeholder="Leave blank to keep current password"
+                style={{ ...inputStyle, borderColor: errors.ConfirmPassword ? '#ef4444' : '#e2e8f0' }}
+              />
+              {errors.ConfirmPassword && <p style={errStyle}>{errors.ConfirmPassword}</p>}
+            </div>
 
 {/* Is Active */}
 <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
