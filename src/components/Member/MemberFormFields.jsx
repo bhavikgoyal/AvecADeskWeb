@@ -16,7 +16,18 @@ import { compactFieldGrid, formFieldSx, selectMenuProps } from '../forms/formSty
 
 const fieldProps = { size: 'small', fullWidth: true, sx: formFieldSx };
 
-function MemberTextField({ name, label, value, onChange, error, required, type = 'text', inputProps }) {
+function MemberTextField({
+  name,
+  label,
+  value,
+  onChange,
+  error,
+  required,
+  type = 'text',
+  inputProps,
+  placeholder,
+  autoComplete,
+}) {
   return (
     <FormGridItem size={compactFieldGrid}>
       <TextField
@@ -29,6 +40,8 @@ function MemberTextField({ name, label, value, onChange, error, required, type =
         onChange={onChange}
         error={Boolean(error)}
         helperText={error || ' '}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
         inputProps={inputProps}
         FormHelperTextProps={{ sx: { minHeight: 20, m: 0, mt: 0.5 } }}
       />
@@ -87,6 +100,9 @@ export default function MemberFormFields({
   showAvatar = false,
   userId,
   userName,
+  includePassword = false,
+  passwordRequired = false,
+  passwordPlaceholder,
 }) {
   const companyOptions = companies.map((company) => ({
     value: company.id,
@@ -119,6 +135,32 @@ export default function MemberFormFields({
             error={errors.email}
             required
           />
+          {includePassword && (
+            <>
+              <MemberTextField
+                name="password"
+                label="Password"
+                type="password"
+                value={form.password}
+                onChange={onChange}
+                error={errors.password}
+                required={passwordRequired}
+                placeholder={passwordPlaceholder}
+                autoComplete="new-password"
+              />
+              <MemberTextField
+                name="confirmPassword"
+                label="Confirm password"
+                type="password"
+                value={form.confirmPassword}
+                onChange={onChange}
+                error={errors.confirmPassword}
+                required={passwordRequired}
+                placeholder={passwordPlaceholder}
+                autoComplete="new-password"
+              />
+            </>
+          )}
           <FormGridItem size={compactFieldGrid}>
             <FormControlLabel
               control={
