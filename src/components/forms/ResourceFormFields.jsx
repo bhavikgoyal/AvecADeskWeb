@@ -72,6 +72,7 @@ export default function ResourceFormFields({
   stretch = false,
   selectOptions = {},
   requiredFields = [],
+  fieldDefsOverride = {},
   /** When true: empty selects keep label inside; focus/value floats it to the top (Edit Vendor). */
   fixSelectLabels = false,
 }) {
@@ -83,8 +84,10 @@ export default function ResourceFormFields({
 
   const renderField = (fieldName) => {
   
-    const def = FIELD_DEFS[fieldName];
-    
+    const def = FIELD_DEFS[fieldName]
+      ? { ...FIELD_DEFS[fieldName], ...(fieldDefsOverride[fieldName] || {}) }
+      : fieldDefsOverride[fieldName];
+
     if (!def) return null;
     const isRequired = Boolean(def.required) || requiredFields.includes(fieldName);
     const isDate = def.type === 'date';
@@ -198,20 +201,19 @@ export default function ResourceFormFields({
         rawValue === '' || rawValue == null ? '' : String(rawValue);
       const selectedLabel = options.find((option) => String(option.value) === currentValue)?.label;
       const hasSelectValue = currentValue !== '';
+      const keepLabelFloated = def.type === 'api-select' || !fixSelectLabels;
 
-      const selectSx = fixSelectLabels
-        ? {
-            ...formFieldSx,
-            '& .MuiInputLabel-root': {
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              transition: 'none',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            },
-          }
-        : formFieldSx;
+      const selectSx = {
+        ...formFieldSx,
+        '& .MuiInputLabel-root': {
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: 'calc(100% - 32px)',
+        },
+      };
 
       return (
         <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
@@ -234,6 +236,7 @@ export default function ResourceFormFields({
               value={currentValue}
               onChange={handleChange(fieldName)}
               displayEmpty={def.type === 'api-select'}
+              notched={keepLabelFloated || hasSelectValue}
               MenuProps={selectMenuProps}
               renderValue={
                 def.type === 'api-select'
@@ -336,7 +339,7 @@ export default function ResourceFormFields({
   InputProps={{
     readOnly: isFieldDisabled,
   }}
-  sx={{ flex: 1 }}
+  sx={{ ...formFieldSx, flex: 1 }}
 />
 
   {def.showViewButton && form[`${fieldName}Url`] && (

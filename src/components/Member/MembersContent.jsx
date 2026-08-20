@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Box, Typography, Button, TextField } from "@mui/material";
+import { Box, Typography, Button, TextField, Paper } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import { useNavigate } from "react-router-dom";
+import { listContainedButtonSx, listSearchFieldSx, listToolbarRowSx } from "../forms";
 
 import MembersTable from "./MembersTable";
 
@@ -19,70 +20,50 @@ export default function MembersContent() {
         boxSizing: "border-box",
       }}
     >
-      {/* Page Heading */}
       <Typography
         variant="h5"
         sx={{
           fontWeight: 800,
           color: "var(--text)",
-          mb: 2,
+          mb: 1.5,
         }}
       >
         Members
       </Typography>
 
-      {/* Search + Add Button */}
-      <Box
+      <Paper
+        elevation={0}
         sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-          mb: 2,
+          border: "1px solid var(--card-border)",
+          borderRadius: 2,
+          overflow: "hidden",
+          width: "100%",
         }}
       >
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search Members..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{
-            backgroundColor: "#fff",
+        <Box sx={{ px: 2, py: 2, borderBottom: "1px solid var(--card-border)" }}>
+          <Box sx={listToolbarRowSx}>
+            <TextField
+              size="small"
+              placeholder="Search members..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={listSearchFieldSx}
+            />
 
-            "& .MuiOutlinedInput-root": {
-              borderRadius: "8px",
-            },
-          }}
-        />
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => navigate("/Members/Create")}
+              sx={listContainedButtonSx}
+            >
+              Add Member
+            </Button>
+          </Box>
+        </Box>
 
-        <Button
-          variant="contained"
-        
-          onClick={() => navigate("/Members/Create")}
-          sx={{
-            minWidth: "170px",
-            height: "40px",
-            backgroundColor: "#2F80C9",
-            color: "#fff",
-            textTransform: "none",
-            fontWeight: 600,
-            fontSize: "14px",
-            borderRadius: "8px",
-            whiteSpace: "nowrap",
-            boxShadow: "0 3px 8px rgba(47,128,201,0.35)",
-
-            "&:hover": {
-              backgroundColor: "#2874B8",
-              boxShadow: "0 4px 10px rgba(47,128,201,0.45)",
-            },
-          }}
-        >
-          Add Member
-        </Button>
-      </Box>
-
-      {/* Members Table */}
-      <MembersTable searchQuery={searchQuery} />
+        <MembersTable searchQuery={searchQuery} />
+      </Paper>
     </Box>
   );
 }

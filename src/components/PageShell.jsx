@@ -1,11 +1,11 @@
 import { lazy, Suspense, useMemo, useState ,useEffect} from 'react';
-import { Box, Button, CircularProgress, Grid, IconButton, InputAdornment, Paper, Stack, TextField, TablePagination, Typography } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
+import { Box, Button, CircularProgress, Grid, IconButton, Paper, TextField, TablePagination, Typography } from '@mui/material';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import StatCard from './StatCard';
 import ResponsiveTable from './ResponsiveTable';
 import TableContentSkeleton from './TableContentSkeleton';
 import { buildSparkline } from '../constants/chartData';
+import { listContainedButtonSx, listSearchFieldSx, listToolbarActionsSx, listToolbarRowSx, listToolbarSearchGroupSx } from './forms';
 
 
 const PageChartsPanel = lazy(() => import('./charts/PageChartsPanel'));
@@ -131,42 +131,29 @@ useEffect(() => {
         </Suspense>
       )}
 
-      <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, overflow: 'hidden', width: '100%' }}>
-        <Box sx={{ px: { xs: 1.25, md: 1.5 }, py: 1.25, borderBottom: '1px solid var(--card-border)' }}>
-        <Stack direction={{ xs: 'column', md: 'row' }}  spacing={1.25}  alignItems={{ xs: 'stretch', md: 'center' }}  sx={{ width: '100%' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flex: 1 }}>
+      <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 2, overflow: 'hidden', width: '100%' }}>
+        <Box sx={{ px: 2, py: 2, borderBottom: '1px solid var(--card-border)' }}>
+        <Box sx={listToolbarRowSx}>
+        <Box sx={listToolbarSearchGroupSx}>
     <TextField
       size="small"
       placeholder={searchPlaceholder}
       value={query}
       onChange={(event) => setQuery(event.target.value)}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <SearchIcon sx={{ color: 'var(--muted)' }} />
-          </InputAdornment>
-        ),
-      }}
-      sx={{ flex: 1, maxWidth: 600, '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'var(--muted-bg)', },}} />
+      sx={listSearchFieldSx}
+    />
     {headerExtra}
   </Box>
 
+   <Box sx={listToolbarActionsSx}>
    <Button
             variant="contained" size="small" onClick={onAdd}
-            sx={{
-              ml: 'auto', textTransform: 'none', bgcolor: 'var(--primary)',
-              '&:hover': { bgcolor: 'var(--primary-dark)', },
-              height: 40,  px: 3, borderRadius: 2, fontWeight: 600,flexShrink: 0, }}>
+            sx={listContainedButtonSx}>
             {actionLabel}
           </Button>
           {headerActionsAfterAdd}
-        </Stack>
-          {rows.length > 0 && !loading && (
-            <Typography sx={{ fontSize: '0.72rem', color: 'var(--muted)', mt: 1, fontWeight: 600 }}>
-              Showing {filteredRows.length} of {rows.length} records
-              {query.trim() ? ` matching "${query.trim()}"` : ''}
-            </Typography>
-          )}
+        </Box>
+        </Box>
         </Box>
 
         {loading ? (
@@ -214,18 +201,20 @@ useEffect(() => {
             </Typography>
           </Box>
         )}
-        <TablePagination
-  component="div"
-  count={filteredRows.length}
-  page={page}
-  rowsPerPage={rowsPerPage}
-  onPageChange={(_, newPage) => setPage(newPage)}
-  onRowsPerPageChange={(e) => {
-    setRowsPerPage(parseInt(e.target.value, 10));
-    setPage(0);
-  }}
-  rowsPerPageOptions={[10, 25, 50]}
-/>
+        {!loading && (
+          <TablePagination
+            component="div"
+            count={filteredRows.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50]}
+          />
+        )}
       </Paper>
     </Box>
   );

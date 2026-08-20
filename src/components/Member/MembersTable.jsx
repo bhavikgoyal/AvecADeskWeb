@@ -6,7 +6,6 @@ import { toast, ToastContainer } from 'react-toastify';
 import {
   Box,
   Button,
-  Card,
   Typography,
   Alert,
   IconButton,
@@ -18,27 +17,6 @@ import ResponsiveTable from '../ResponsiveTable';
 import TableContentSkeleton from '../TableContentSkeleton';
 import { getMembers, deleteMember, resignMember } from '../../api/membersApi';
 import { Session } from '../../utils/session';
-
-const sectionCardSx = {
-  width: '100%',
-  minWidth: 0,
-  maxWidth: '100%',
-  border: '1px solid var(--card-border)',
-  bgcolor: 'var(--card-bg)',
-  borderRadius: 2,
-  boxShadow: '0 4px 16px rgba(26, 43, 61, 0.05)',
-};
-
-const contentInset = { xs: 1.5, sm: 2 };
-
-const tableAlignSx = {
-  '& .MuiTableCell-root:first-of-type': {
-    pl: contentInset,
-  },
-  '& .MuiTableCell-root:last-of-type': {
-    pr: contentInset,
-  },
-};
 
 const scrollContainerSx = {
   scrollbarWidth: 'thin',
@@ -197,8 +175,6 @@ const actionColSx = { width: 188, minWidth: 188, maxWidth: 188, whiteSpace: 'now
 const membersTableSx = {
   width: '100%',
   ...scrollContainerSx,
-  ...tableAlignSx,
-  pb: 0.5,
   '& table': {
     width: '100%',
     minWidth: TABLE_MIN_WIDTH,
@@ -428,13 +404,7 @@ export default function MembersTable({ searchQuery = '' }) {
   }, [isTeamLeader, handleEdit, handleDelete, handleResign]);
 
   return (
-    <Card elevation={0} sx={{ ...sectionCardSx, overflow: 'hidden' }}>
-      <Box sx={{ px: contentInset, pt: contentInset, pb: 1 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text)' }}>
-          All Members
-        </Typography>
-      </Box>
-
+    <>
       {loading ? (
         <TableContentSkeleton
           rows={12}
@@ -497,6 +467,6 @@ export default function MembersTable({ searchQuery = '' }) {
           />
         </Box>
       )}
-    </Card>
+    </>
   );
 }

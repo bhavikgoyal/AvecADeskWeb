@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Container,
   Divider,
   Grid,
@@ -21,6 +20,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getVendorStudentById } from '../../api/vendorStudentApi';
 import { API_BASE_URL } from '../../api/api';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 function val(data, key) {
   if (!data) return '—';
@@ -147,9 +147,7 @@ export default function ApplicationDetailPage() {
           {error && <Alert severity="error">{error}</Alert>}
 
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-              <CircularProgress sx={{ color: '#2f80c9' }} />
-            </Box>
+            <FormContentSkeleton rows={10} />
           ) : data ? (
             <Paper elevation={0} sx={{ width: "100%", p: { xs: 2, md: 3 }, border: '1px solid #e2e8f0', borderRadius: 2.5,}}>
               <StepAccordion title="Step 1 — Personal Details" defaultExpanded>
