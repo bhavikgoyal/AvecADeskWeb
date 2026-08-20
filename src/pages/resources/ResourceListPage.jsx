@@ -831,7 +831,7 @@ const handleExportInvoicesPdf = useCallback(async () => {
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
        headerExtra={isVendors ? (
   <>
-    <FormControl size="small" sx={{ ...listSearchFieldSx, minWidth: { xs: 0, md: 130 }, maxWidth: { xs: '100%', md: 160 } }}>
+    <FormControl size="small" sx={{ display: 'none', ...listSearchFieldSx, minWidth: { xs: 0, md: 130 }, maxWidth: { xs: '100%', md: 160 } }}>
       <Select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
