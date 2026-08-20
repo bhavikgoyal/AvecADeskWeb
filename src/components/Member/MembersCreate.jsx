@@ -20,6 +20,7 @@ export default function MembersCreate() {
   email: '',
   phoneNo: '',
   password: '',
+  confirmPassword: '',
   userRoleId: '',
   companiesId: '',
   isActive: true,
@@ -57,6 +58,12 @@ export default function MembersCreate() {
     if (!form.companiesId) newErrors.companiesId = 'Please select a company';
     if (!form.userRoleId) newErrors.userRoleId = 'Please select a role';
 
+    if (!form.password) newErrors.password = 'Password is required';
+    else if (form.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+
+    if (!form.confirmPassword) newErrors.confirmPassword = 'Confirm password is required';
+    else if (form.password !== form.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+
 if (form.phoneNo && !/^\d{10}$/.test(form.phoneNo))
   newErrors.phoneNo = 'Phone number must be exactly 10 digits';
 
@@ -91,7 +98,10 @@ if (form.phoneNo && !/^\d{10}$/.test(form.phoneNo))
       const token = Session.getToken();
       if (!token) { alert('You are not logged in.'); return; }
 
-    await createMember(form);
+    await createMember({
+      ...form,
+      confirmPassword: undefined,
+    });
     setTimeout(() => { navigate("/Members");}, 1500);
      toast.success("Member created successfully", {
       hideProgressBar: true,
@@ -176,36 +186,64 @@ if (form.phoneNo && !/^\d{10}$/.test(form.phoneNo))
               {errors.userRoleId && <p style={errStyle}>{errors.userRoleId}</p>}
             </div>
 
-           {/* Phone */}
-<div>
-  <label style={labelStyle}>Phone</label>
-  <input
-    name="phoneNo"
-    type="text"
-    value={form.phoneNo}
-    maxLength={10}
-    onChange={(e) => {
-      const value = e.target.value.replace(/\D/g, '');
+            {/* Phone */}
+            <div>
+              <label style={labelStyle}>Phone</label>
+              <input
+                name="phoneNo"
+                type="text"
+                value={form.phoneNo}
+                maxLength={10}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '');
 
-      setForm(prev => ({
-        ...prev,
-        phoneNo: value.slice(0, 10)
-      }));
+                  setForm(prev => ({
+                    ...prev,
+                    phoneNo: value.slice(0, 10)
+                  }));
 
-      if (errors.phoneNo) {
-        setErrors(prev => ({
-          ...prev,
-          phoneNo: ''
-        }));
-      }
-    }}
-    style={{
-      ...inputStyle,
-      borderColor: errors.phoneNo ? '#ef4444' : '#e2e8f0'
-    }}
-  />
-  {errors.phoneNo && <p style={errStyle}>{errors.phoneNo}</p>}
-</div>
+                  if (errors.phoneNo) {
+                    setErrors(prev => ({
+                      ...prev,
+                      phoneNo: ''
+                    }));
+                  }
+                }}
+                style={{
+                  ...inputStyle,
+                  borderColor: errors.phoneNo ? '#ef4444' : '#e2e8f0'
+                }}
+              />
+              {errors.phoneNo && <p style={errStyle}>{errors.phoneNo}</p>}
+            </div>
+
+            {/* Password */}
+            <div>
+              <label style={labelStyle}>Password <span style={reqStyle}>*</span></label>
+              <input
+                name="password"
+                type="password"
+                value={form.password}
+                onChange={handleChange}
+                autoComplete="new-password"
+                style={{ ...inputStyle, borderColor: errors.password ? '#ef4444' : '#e2e8f0' }}
+              />
+              {errors.password && <p style={errStyle}>{errors.password}</p>}
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label style={labelStyle}>Confirm Password <span style={reqStyle}>*</span></label>
+              <input
+                name="confirmPassword"
+                type="password"
+                value={form.confirmPassword}
+                onChange={handleChange}
+                autoComplete="new-password"
+                style={{ ...inputStyle, borderColor: errors.confirmPassword ? '#ef4444' : '#e2e8f0' }}
+              />
+              {errors.confirmPassword && <p style={errStyle}>{errors.confirmPassword}</p>}
+            </div>
 
             {/* IsActive */}
             <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>

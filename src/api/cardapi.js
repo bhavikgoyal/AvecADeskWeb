@@ -42,6 +42,11 @@ export async function getCardStatuses() {
   return response.data;
 }
 
+export async function createCardStatus(statusName) {
+  const response = await axiosClient.post('/api/CardStatus/create', { statusName });
+  return response.data;
+}
+
 export async function getUsers() {
   const response = await axiosClient.get('/api/Members/Users_List');
   return response.data;
