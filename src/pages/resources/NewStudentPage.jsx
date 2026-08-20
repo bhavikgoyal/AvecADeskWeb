@@ -7,8 +7,9 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import { fetchCoursesByScrappingId } from "../../api/coursesApi";
 import { fetchUniqueInstituteNames } from "../../api/institutesScrappingApi";
+import ConfirmByStudentDialog from './ConfirmByStudentDialog';
 import { createStudentWithPaymentSchedule, derivePaymentStatus, fetchStudentPaymentDetail, updateStudentWithPaymentSchedule, } from "../../api/studentsApi";
-import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule } from "../../api/schedulesApi";
+import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule ,uploadInstallmentDocument,} from "../../api/schedulesApi";
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx, } from "../../components/forms";
 import { getEmptyForm, getResourceConfig, isFormValid, } from "../../config/resourceConfig";
 
@@ -40,7 +41,8 @@ export default function NewStudentPage({ basePath }) {
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
   const [originalSchedule, setOriginalSchedule] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
-
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmTargetInstallment, setConfirmTargetInstallment] = useState(null);
   useEffect(() => {
     let active = true;
 
@@ -184,6 +186,7 @@ export default function NewStudentPage({ basePath }) {
           balance: x.balanceAmount,
           status: x.paymentStatus,
           originalStatus: x.paymentStatus ?? x.PaymentStatus ?? null,
+          documentUrl: x.installmentImage ?? x.InstallmentImage ?? null, 
         }));
 
         setOriginalPaymentList(list);
@@ -616,6 +619,7 @@ const formatDateCell = (value) => {
             paymentStatus: x.status,
             paidAmount: x.paidAmount ? Number(x.paidAmount) : 0,
             balanceAmount: x.balance ? Number(x.balance) : 0,
+            documentUrl: x.documentUrl ?? null,
           })),
           commissionHistory: commissionHistory.map(x => ({
             CommissionDetailId: x.commissionDetailId,
@@ -644,6 +648,7 @@ const formatDateCell = (value) => {
             paidAmount: Number(item.paidAmount),
             balanceAmount: Number(item.balance),
             paymentStatus: item.status,
+            documentUrl: item.documentUrl ?? null,
           });
 
           installmentIds.push(
@@ -702,6 +707,37 @@ const formatDateCell = (value) => {
 
     setBonusApplied(true);
   };
+  const handleConfirmedByStudent = (installment, documentUrl) => {
+  setPaymentList((prev) =>
+    prev.map((x) =>
+      x.installmentNo === installment.installmentNo
+        ? {
+            ...x,
+            status: "ConfirmedByStudent",
+            paidAmount: Number(x.amount || 0).toFixed(2),
+            balance: "0.00",
+            paidDate:
+              x.paidDate || new Date().toISOString().slice(0, 10),
+            documentUrl,
+          }
+        : x
+    )
+  );
+
+  setCommissionHistory((prev) =>
+    prev.map((x) =>
+      x.installmentNo === installment.installmentNo
+        ? {
+            ...x,
+            paymentStatus: "ConfirmedByStudent",
+          }
+        : x
+    )
+  );
+
+  setConfirmDialogOpen(false);
+  setConfirmTargetInstallment(null);
+};
 
   const historyRows = useMemo(() => {
     if (!isEdit) return commissionRows;
@@ -784,7 +820,6 @@ const formatDateCell = (value) => {
           disabledFields={[
             "noOfInstallment",
             "frequency",
-            "startDate",
             "assignment",
           ]}
         />
@@ -815,6 +850,7 @@ const formatDateCell = (value) => {
                   <TableCell>Payment Status</TableCell>
                   <TableCell>Paid Amount</TableCell>
                   <TableCell>Remaining Fees</TableCell> 
+                  <TableCell>Document</TableCell> 
                 </TableRow>
               </TableHead>
 
@@ -830,37 +866,17 @@ const formatDateCell = (value) => {
                           <TextField
                             size="small"
                             type="date"
+                            sx={{ width: 125 }}
                             value={
                               item.paidDate
                                 ? String(item.paidDate).split("T")[0]
                                 : new Date().toISOString().slice(0, 10)
                             }
                             onChange={(e) => {
-                              const value = e.target.value;
-
-                              setPaymentList((prev) =>
-                                prev.map((x) =>
-                                  x.installmentNo === item.installmentNo
-                                    ? { ...x, paidDate: value }
-                                    : x
-                                )
-                              );
-
-                              setCommissionHistory((prev) =>
-                                prev.map((x) =>
-                                  x.installmentNo === item.installmentNo
-                                    ? { ...x, paidDate: value }
-                                    : x
-                                )
-                              );
-                            }}
-                            InputLabelProps={{ shrink: true }}
-                            sx={{
-                              width: 150,
-                              "& .MuiInputBase-input": {
-                                padding: "8px 10px",
-                              },
-                            }}
+                            const value = e.target.value;
+                            setPaymentList((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
+                            setCommissionHistory((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
+                          }}
                           />
                         ) : (
                           item.paidDate ? String(item.paidDate).split("T")[0] : "-"
@@ -872,17 +888,20 @@ const formatDateCell = (value) => {
                           <Select
                             size="small"
                             value={item.status}
-                           
                             disabled={
-                            item.originalStatus === "ConfirmedByCollege" ||
-                            item.originalStatus === "PaidByCollege"
-                          }
+                              item.originalStatus === "ConfirmedByCollege" ||
+                              item.originalStatus === "PaidByCollege"
+                            }
                             onChange={(e) => {
                               const value = e.target.value;
+                              if (value === "ConfirmedByStudent") {
+                                setConfirmTargetInstallment(item);
+                                setConfirmDialogOpen(true);
+                                return;
+                              }
 
                               setPaymentList((prev) =>
                                 prev.map((x) => {
-
                                   if (x.installmentNo === item.installmentNo) {
                                     const isPaid = isPaidLike(value);
                                     const isPartial = value === "Partial";
@@ -963,7 +982,6 @@ const formatDateCell = (value) => {
                           item.status
                         )}
                       </TableCell>
-
              
                       <TableCell>
                         {isEdit && item.status === "Partial" ? (
@@ -1006,11 +1024,27 @@ const formatDateCell = (value) => {
                           ? "0.00"
                           : Number(item.balance ?? item.amount).toFixed(2)}
                       </TableCell>
+                      <TableCell>
+                      {item.documentUrl ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() =>
+                            window.open(item.documentUrl, "_blank")
+                          }
+                          sx={{ textTransform: "none" }}
+                        >
+                          View
+                        </Button>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       No Payment Schedule
                     </TableCell>
                   </TableRow>
@@ -1112,70 +1146,70 @@ const formatDateCell = (value) => {
                         <TableCell>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
                         <TableCell>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
                         <TableCell>
-                          {isEdit ? (
-                            <Select
-                              size="small"
-                              value={row.commissionStatus ?? "Pending"}
-                              disabled={
-                                String(row.commissionHistoryOriginalStatus ?? "")
-                                  .trim()
-                                  .toLowerCase() === "paid"
-                              }
-                              onChange={(e) => {
-                                const value = e.target.value;
+  {isEdit ? (
+    <Select
+      size="small"
+      value={row.commissionStatus ?? "Pending"}
+      disabled={
+        String(row.commissionHistoryOriginalStatus ?? "")
+          .trim()
+          .toLowerCase() === "paid"
+      }
+      onChange={(e) => {
+        const value = e.target.value;
 
-                                setCommissionHistory((prev) =>
-                                  prev.map((x) => {
-                                    if (x.installmentNo === row.installmentNo) {
-                                      return {
-                                        ...x,
-                                        commissionStatus: value,
-                                      };
-                                    }
+        setCommissionHistory((prev) =>
+          prev.map((x) => {
+            if (x.installmentNo === row.installmentNo) {
+              return {
+                ...x,
+                commissionStatus: value,
+              };
+            }
 
-                                    if (
-                                      value === "Pending" &&
-                                      x.installmentNo > row.installmentNo
-                                    ) {
-                                      return {
-                                        ...x,
-                                        paymentStatus: "Pending",
-                                        commissionStatus: "Pending",
-                                      };
-                                    }
+            if (
+              value === "Pending" &&
+              x.installmentNo > row.installmentNo
+            ) {
+              return {
+                ...x,
+                paymentStatus: "Pending",
+                commissionStatus: "Pending",
+              };
+            }
 
-                                    return x;
-                                  })
-                                );
-                              }}
-                              MenuProps={{
-                                container:
-                                  typeof document !== "undefined"
-                                    ? document.body
-                                    : undefined,
-                              }}
-                              sx={{
-                                width: 110,
-                                height: 40,
-                                "& .MuiSelect-select": {
-                                  minWidth: "70px",
-                                  padding: "8px 32px 8px 12px",
-                                },
-                              }}
-                            >
-                              <MenuItem value="Pending">Pending</MenuItem>
+            return x;
+          })
+        );
+      }}
+      MenuProps={{
+        container:
+          typeof document !== "undefined"
+            ? document.body
+            : undefined,
+      }}
+      sx={{
+        width: 110,
+        height: 40,
+        "& .MuiSelect-select": {
+          minWidth: "70px",
+          padding: "8px 32px 8px 12px",
+        },
+      }}
+    >
+      <MenuItem value="Pending">Pending</MenuItem>
 
-                              <MenuItem
-                                value="Paid"
-                                disabled={!canEditCommissionStatus(row.installmentNo)}
-                              >
-                                Paid
-                              </MenuItem>
-                            </Select>
-                          ) : (
-                            row.commissionStatus ?? "Pending"
-                          )}
-                        </TableCell>
+      <MenuItem
+        value="Paid"
+        disabled={!canEditCommissionStatus(row.installmentNo)}
+      >
+        Paid
+      </MenuItem>
+    </Select>
+  ) : (
+    row.commissionStatus ?? "Pending"
+  )}
+</TableCell>
                       </TableRow>
                     ))}
 
@@ -1213,6 +1247,16 @@ const formatDateCell = (value) => {
               : (isEdit ? "Update Student" : "Save Student")
           }
           submitDisabled={!isFormValid(resource, form) || submitting}
+        />
+
+        <ConfirmByStudentDialog
+          open={confirmDialogOpen}
+          installment={confirmTargetInstallment}
+          onClose={() => {
+            setConfirmDialogOpen(false);
+            setConfirmTargetInstallment(null);
+          }}
+          onConfirmed={handleConfirmedByStudent}
         />
       </Paper>
     </FormPageLayout>

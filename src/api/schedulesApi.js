@@ -289,3 +289,53 @@ export async function fetchStudentCourseCompleteList(studentId) {
     );
   }
 }
+
+export async function uploadInstallmentDocument({
+  studentPaymentInstallmentId,
+  fileBase64,
+  fileName,
+}) {
+  try {
+    const { data } = await axiosClient.post(
+      '/api/schedules/UploadInstallmentDocument',
+      {
+        studentPaymentInstallmentId,
+        fileBase64,
+        fileName,
+      }
+    );
+
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(
+        err,
+        'Failed to upload document.'
+      ),
+      { cause: err }
+    );
+  }
+}
+
+export async function sendInstallmentConfirmationEmail(
+  studentPaymentInstallmentId
+) {
+  try {
+    const { data } = await axiosClient.post(
+      '/api/schedules/SendInstallmentConfirmationEmail',
+      {
+        studentPaymentInstallmentId,
+      }
+    );
+
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(
+        err,
+        'Failed to send confirmation email.'
+      ),
+      { cause: err }
+    );
+  }
+}
