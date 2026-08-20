@@ -619,7 +619,9 @@ const formatDateCell = (value) => {
             paymentStatus: x.status,
             paidAmount: x.paidAmount ? Number(x.paidAmount) : 0,
             balanceAmount: x.balance ? Number(x.balance) : 0,
+            paidDate: x.paidDate || null,
             documentUrl: x.documentUrl ?? null,
+            installmentImage: x.documentUrl ?? x.installmentImage ?? null,
           })),
           commissionHistory: commissionHistory.map(x => ({
             CommissionDetailId: x.commissionDetailId,
