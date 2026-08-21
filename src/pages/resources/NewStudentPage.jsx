@@ -6,7 +6,13 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { fetchCoursesByScrappingId } from "../../api/coursesApi";
-import { fetchUniqueInstituteNames } from "../../api/institutesScrappingApi";
+import {
+  fetchUniqueInstituteNames,
+  getCampusesForInstitute,
+  getUniqueInstituteNames,
+  normalizeInstituteName,
+  resolveScrappingId,
+} from "../../api/institutesScrappingApi";
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
 import { createStudentWithPaymentSchedule, derivePaymentStatus, fetchStudentPaymentDetail, updateStudentWithPaymentSchedule, } from "../../api/studentsApi";
 import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule ,uploadInstallmentDocument,} from "../../api/schedulesApi";
@@ -76,14 +82,48 @@ export default function NewStudentPage({ basePath }) {
     
   }, []);
 
+  // Edit / preselect may set instituteId as ScrappingId — convert to unique name once rows load.
+  useEffect(() => {
+    if (!institutes.length || !form.instituteId) return;
+    const asNumber = Number(form.instituteId);
+    if (!Number.isFinite(asNumber) || String(asNumber) !== String(form.instituteId).trim()) {
+      return;
+    }
+    const row = institutes.find((x) => String(x.id) === String(form.instituteId));
+    if (!row) return;
+    setForm((prev) => ({
+      ...prev,
+      instituteId: normalizeInstituteName(row.name),
+      campusname: prev.campusname || '',
+    }));
+  }, [institutes, form.instituteId]);
+
+  const uniqueInstituteNames = useMemo(
+    () => getUniqueInstituteNames(institutes),
+    [institutes],
+  );
+
+  const campusOptions = useMemo(
+    () => getCampusesForInstitute(institutes, form.instituteId),
+    [institutes, form.instituteId],
+  );
+
+  // Only resolve after campus is chosen so courses match that institute+campus row.
+  const resolvedScrappingId = useMemo(() => {
+    if (!normalizeInstituteName(form.instituteId) || !String(form.campusname || '').trim()) {
+      return '';
+    }
+    return resolveScrappingId(institutes, form.instituteId, form.campusname);
+  }, [institutes, form.instituteId, form.campusname]);
+
   useEffect(() => {
     let active = true;
 
-    if (!form.instituteId) {
+    if (!resolvedScrappingId) {
       setCourses([]);
       return;
     }
-    fetchCoursesByScrappingId(form.instituteId)
+    fetchCoursesByScrappingId(resolvedScrappingId)
       .then((data) => {
         if (!active) return;
 
@@ -99,27 +139,13 @@ export default function NewStudentPage({ basePath }) {
     return () => {
       active = false;
     };
-  }, [form.instituteId]);
-
-  
-  const selectedInstitute = useMemo(
-    () => institutes.find((x) => String(x.id) === String(form.instituteId)),
-    [institutes, form.instituteId]
-  );
-
-  const campusOptions = useMemo(() => {
-    const raw = selectedInstitute?.campusname || '';
-    return raw
-      .split(',')
-      .map((c) => c.trim())
-      .filter(Boolean);
-  }, [selectedInstitute]);
+  }, [resolvedScrappingId]);
 
   const selectOptions = useMemo(
     () => ({
-      instituteId: institutes.map((item) => ({
-        value: item.id,
-        label: item.name,
+      instituteId: uniqueInstituteNames.map((name) => ({
+        value: name,
+        label: name,
       })),
 
       courseId: courses.map((item) => ({
@@ -132,8 +158,15 @@ export default function NewStudentPage({ basePath }) {
         label: c,
       })),
     }),
-    [institutes, courses, campusOptions]
+    [uniqueInstituteNames, courses, campusOptions]
   );
+
+  const buildStudentPayload = (base = form) => ({
+    ...base,
+    instituteId: resolvedScrappingId
+      ? Number(resolvedScrappingId)
+      : base.instituteId,
+  });
 
   if (!resource) return null;
 
@@ -566,7 +599,7 @@ const formatDateCell = (value) => {
 
       if (!isEdit) {
 
-        const student = await createStudentWithPaymentSchedule(form);
+        const student = await createStudentWithPaymentSchedule(buildStudentPayload());
         studentId = student.studentId ?? student.StudentId;
 
         const schedule = await createPaymentSchedule({
@@ -593,7 +626,7 @@ const formatDateCell = (value) => {
       } else {
         try {
           const studentUpdatePayload = {
-            ...form,
+            ...buildStudentPayload(),
             studentId: form.studentId,
             assignment: form.assignment ?? form.Assignment ?? null,
           };
@@ -823,6 +856,7 @@ const formatDateCell = (value) => {
             "noOfInstallment",
             "frequency",
             "assignment",
+            ...(!form.instituteId ? ["campusname"] : []),
           ]}
         />
 

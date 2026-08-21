@@ -112,6 +112,68 @@ export async function fetchUniqueInstituteNames() {
     campusname: item.campus ?? item.Campus ?? '',
   }));
 }
+
+/** Trim + drop trailing colons so "NAME" and "NAME:" group as one institute. */
+export function normalizeInstituteName(name) {
+  return String(name || '')
+    .trim()
+    .replace(/:+\s*$/, '')
+    .trim();
+}
+
+export function getUniqueInstituteNames(rows) {
+  const seen = new Set();
+  const names = [];
+  for (const item of rows || []) {
+    const key = normalizeInstituteName(item?.name);
+    if (!key) continue;
+    const lower = key.toLowerCase();
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    names.push(key);
+  }
+  return names.sort((a, b) => a.localeCompare(b));
+}
+
+export function getCampusesForInstitute(rows, instituteName) {
+  const key = normalizeInstituteName(instituteName).toLowerCase();
+  if (!key) return [];
+
+  const campuses = new Set();
+  for (const row of rows || []) {
+    if (normalizeInstituteName(row?.name).toLowerCase() !== key) continue;
+    String(row?.campusname || '')
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .forEach((c) => campuses.add(c));
+  }
+  return Array.from(campuses).sort((a, b) => a.localeCompare(b));
+}
+
+/** Resolve ScrappingId for institute name + campus (used for courses / save / invoice). */
+export function resolveScrappingId(rows, instituteName, campusName) {
+  const key = normalizeInstituteName(instituteName).toLowerCase();
+  if (!key) return '';
+
+  const matches = (rows || []).filter(
+    (row) => normalizeInstituteName(row?.name).toLowerCase() === key,
+  );
+  if (!matches.length) return '';
+
+  const campus = String(campusName || '').trim().toLowerCase();
+  if (campus) {
+    const byCampus = matches.find((row) =>
+      String(row?.campusname || '')
+        .split(',')
+        .map((c) => c.trim().toLowerCase())
+        .includes(campus),
+    );
+    if (byCampus) return String(byCampus.id);
+  }
+
+  return String(matches[0].id);
+}
 export async function fetchInstituteScrappingById(scrappingId) {
   const { data } = await axiosClient.get(`/api/institutes-scrapping/${scrappingId}`);
   return mapRow(normalizeRecord(data));

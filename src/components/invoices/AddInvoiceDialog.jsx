@@ -16,29 +16,45 @@ import {
   Typography,
 } from '@mui/material';
 import ResponsiveTable from '../ResponsiveTable';
-import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
-import { fetchCoursesByScrappingId } from '../../api/coursesapi';
+import {
+  fetchUniqueInstituteNames,
+  getCampusesForInstitute,
+  getUniqueInstituteNames,
+  resolveScrappingId,
+} from '../../api/institutesScrappingApi';
 import { fetchPaidStudentsForInvoice, generateMonthlyInvoice ,fetchSettledPaymentStatuses,} from '../../api/invoicesApi';
 
 export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
   const now = useMemo(() => new Date(), []);
   const [institutes, setInstitutes] = useState([]);
-  const [campuses, setCampuses] = useState([]);
-  const [instituteId, setInstituteId] = useState('');
+  const [instituteName, setInstituteName] = useState('');
   const [campus, setCampus] = useState('');
   const [students, setStudents] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]); // ids of checked rows
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
-  const [loadingCampuses, setLoadingCampuses] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const [paidStatuses, setPaidStatuses] = useState(['paid', 'paidbycollege', 'paidbystudent']);
 
+  const uniqueInstituteNames = useMemo(
+    () => getUniqueInstituteNames(institutes),
+    [institutes],
+  );
+
+  const campuses = useMemo(
+    () => getCampusesForInstitute(institutes, instituteName),
+    [institutes, instituteName],
+  );
+
+  const resolvedInstituteId = useMemo(() => {
+    if (!instituteName || !campus) return '';
+    return resolveScrappingId(institutes, instituteName, campus);
+  }, [institutes, instituteName, campus]);
+
   const resetForm = useCallback(() => {
-    setInstituteId('');
+    setInstituteName('');
     setCampus('');
-    setCampuses([]);
     setStudents([]);
     setSelectedIds([]);
     setError('');
@@ -69,51 +85,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
   }, [open]);
 
   useEffect(() => {
-    if (!open || !instituteId) {
-      setCampuses([]);
-      setCampus('');
-      setStudents([]);
-      setSelectedIds([]);
-      return undefined;
-    }
-
-    let cancelled = false;
-    setLoadingCampuses(true);
-    setCampus('');
-    setStudents([]);
-    setSelectedIds([]);
-    setError('');
-
-    // Courses.InstituteId = ScrappingId — unique Campus values only
-    fetchCoursesByScrappingId(instituteId)
-      .then((data) => {
-        if (cancelled) return;
-        const list = data?.courses ?? data?.Courses ?? [];
-        const unique = [
-          ...new Set(
-            list
-              .map((c) => (c.campus ?? c.Campus ?? '').trim())
-              .filter(Boolean),
-          ),
-        ].sort((a, b) => a.localeCompare(b));
-        setCampuses(unique);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err.message || 'Failed to load campuses.');
-        setCampuses([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingCampuses(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, instituteId]);
-
-  useEffect(() => {
-    if (!open || !instituteId || !campus) {
+    if (!open || !resolvedInstituteId || !campus) {
       setStudents([]);
       setSelectedIds([]);
       return undefined;
@@ -126,7 +98,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     fetchPaidStudentsForInvoice({
       year: now.getFullYear(),
       month: now.getMonth() + 1,
-      instituteId: Number(instituteId),
+      instituteId: Number(resolvedInstituteId),
       campus,
     })
       .then((rows) => {
@@ -147,7 +119,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     return () => {
       cancelled = true;
     };
-  }, [open, instituteId, campus, now]);
+  }, [open, resolvedInstituteId, campus, now]);
 
 
   useEffect(() => {
@@ -219,12 +191,19 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     }
   };
 
-  const canGenerate = Boolean(instituteId && campus) && selectedPaidCount > 0;
+  const canGenerate = Boolean(resolvedInstituteId && campus) && selectedPaidCount > 0;
 
   const handleClose = () => {
     if (generating) return;
     resetForm();
     onClose?.();
+  };
+
+  const handleInstituteChange = (value) => {
+    setInstituteName(value);
+    setCampus('');
+    setStudents([]);
+    setSelectedIds([]);
   };
 
   const handleGenerate = async () => {
@@ -235,7 +214,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
       const result = await generateMonthlyInvoice({
         year: now.getFullYear(),
         month: now.getMonth() + 1,
-        instituteId: Number(instituteId),
+        instituteId: Number(resolvedInstituteId),
         campus,
         installmentIds: selectedIds.filter((id) =>
           paidStudents.some((s) => s.id === id),
@@ -306,13 +285,13 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
               select
               fullWidth
               label="Institute"
-              value={instituteId}
-              onChange={(e) => setInstituteId(e.target.value)}
+              value={instituteName}
+              onChange={(e) => handleInstituteChange(e.target.value)}
               disabled={loadingInstitutes || generating}
             >
-              {institutes.map((item) => (
-                <MenuItem key={item.id} value={String(item.id)}>
-                  {item.name}
+              {uniqueInstituteNames.map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
                 </MenuItem>
               ))}
             </TextField>
@@ -323,15 +302,13 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
               label="Campus"
               value={campus}
               onChange={(e) => setCampus(e.target.value)}
-              disabled={!instituteId || loadingCampuses || generating}
+              disabled={!instituteName || generating}
               helperText={
-                !instituteId
+                !instituteName
                   ? 'Select institute first'
-                  : loadingCampuses
-                    ? 'Loading campuses...'
-                    : campuses.length === 0
-                      ? 'No campus found in Courses for this institute'
-                      : ' '
+                  : campuses.length === 0
+                    ? 'No campus available'
+                    : ' '
               }
             >
               {campuses.map((name) => (
@@ -342,7 +319,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
             </TextField>
           </Stack>
 
-          {instituteId && campus && (
+          {resolvedInstituteId && campus && (
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 700 }}>
                 Students — {now.toLocaleString('en', { month: 'long' })} {now.getFullYear()}
@@ -394,4 +371,3 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     </Dialog>
   );
 }
-
