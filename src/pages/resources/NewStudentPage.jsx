@@ -16,8 +16,9 @@ import {
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
 import { createStudentWithPaymentSchedule, derivePaymentStatus, fetchStudentPaymentDetail, updateStudentWithPaymentSchedule, } from "../../api/studentsApi";
 import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule ,uploadInstallmentDocument,} from "../../api/schedulesApi";
-import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx, } from "../../components/forms";
+import { DateTextField, FormActions, FormPageLayout, FormSectionsLayout, formPaperSx, } from "../../components/forms";
 import { getEmptyForm, getResourceConfig, isFormValid, } from "../../config/resourceConfig";
+import { formatDateDisplay } from '../../utils/dateFormat';
 
 
 const isPaidLike = (status) =>
@@ -259,18 +260,7 @@ export default function NewStudentPage({ basePath }) {
   };
 
 const formatDateCell = (value) => {
-  if (!value) return "-";
-
-  const isoValue = String(value).split("T")[0];
-  const date = parseIsoDate(isoValue);
-
-  if (!date) return "-";
-
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-
-  return `${day}-${month}-${year}`;
+  return formatDateDisplay(value, '-');
 };
   const generateInstallments = (data) => {
     const fee = Number(data.courseFee || 0);
@@ -899,23 +889,17 @@ const formatDateCell = (value) => {
                       <TableCell>{formatDateCell(item.dueDate)}</TableCell>
                       <TableCell>
                         {isEdit && (isPaidLike(item.status) || item.status === "Partial") ? (
-                          <TextField
+                          <DateTextField
                             size="small"
-                            type="date"
                             sx={{ width: 125 }}
-                            value={
-                              item.paidDate
-                                ? String(item.paidDate).split("T")[0]
-                                : new Date().toISOString().slice(0, 10)
-                            }
-                            onChange={(e) => {
-                            const value = e.target.value;
+                            value={item.paidDate || new Date().toISOString().slice(0, 10)}
+                            onChangeValue={(value) => {
                             setPaymentList((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
                             setCommissionHistory((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
                           }}
                           />
                         ) : (
-                          item.paidDate ? String(item.paidDate).split("T")[0] : "-"
+                          formatDateCell(item.paidDate)
                         )}
                       </TableCell>
 

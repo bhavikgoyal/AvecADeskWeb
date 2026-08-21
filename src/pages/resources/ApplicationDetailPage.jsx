@@ -7,7 +7,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Container,
   Divider,
   Grid,
@@ -108,6 +107,15 @@ export default function ApplicationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    navigate('/reports/student-Inquiry');
+  };
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -134,16 +142,27 @@ export default function ApplicationDetailPage() {
 
   const workDocs = documents.filter((d) => (d.documentCategory ?? d.DocumentCategory) === 'Work');
   const eduDocs = documents.filter((d) => (d.documentCategory ?? d.DocumentCategory) === 'Education');
-  const personalDocs = documents.filter((d) => (d.documentCategory ?? d.DocumentCategory) === 'Personal');
   const englishDocs = documents.filter((d) => (d.documentCategory ?? d.DocumentCategory) === 'English');
+  const allUploadedDocs = documents.filter((doc) => fileUrl(doc.filePath ?? doc.FilePath));
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f8fc' }}>
      <Container maxWidth={false} disableGutters sx={{ px: 3,  py: { xs: 3, md: 4 },}}>
         <Stack spacing={2.5}>
-         <Typography sx={{ fontWeight: 700, fontSize: { xs: '1.35rem', md: '1.75rem' }, color: '#0f2d52' }}>
-     Application Details
-   </Typography>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<ArrowBackIcon />}
+              onClick={handleBack}
+              sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+            >
+              Back to student inquiry
+            </Button>
+            <Typography sx={{ fontWeight: 700, fontSize: { xs: '1.35rem', md: '1.75rem' }, color: '#0f2d52' }}>
+              Application Details
+            </Typography>
+          </Stack>
           {error && <Alert severity="error">{error}</Alert>}
 
           {loading ? (
@@ -260,12 +279,12 @@ export default function ApplicationDetailPage() {
                 <DetailRow label="Submitted Date" value={formatDate(data.submittedDate ?? data.SubmittedDate)} />
               </StepAccordion>
 
-              {personalDocs.length > 0 && (
+              {allUploadedDocs.length > 0 && (
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Typography sx={{ fontWeight: 700, color: '#0f2d52', mb: 1 }}>Uploaded Documents</Typography>
                   <Grid container spacing={2}>
-                    {personalDocs.map((doc) => (
+                    {allUploadedDocs.map((doc) => (
                       <DetailRow
                         key={doc.documentID ?? doc.DocumentID}
                         label={doc.documentType ?? doc.DocumentType}

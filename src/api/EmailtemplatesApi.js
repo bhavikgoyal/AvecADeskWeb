@@ -1,10 +1,8 @@
 import axiosClient from './axiosClient';
+import { formatDateDisplay } from '../utils/dateFormat';
 
 function formatDate(value) {
-    if (!value) return '—';
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatDateDisplay(value);
 }
 
 function normalizeTemplate(raw) {
