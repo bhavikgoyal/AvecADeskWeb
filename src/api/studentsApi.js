@@ -1,5 +1,6 @@
 import axiosClient from './axiosClient';
 import { fetchInstitutes } from './lookupApi';
+import { formatDateDisplay } from '../utils/dateFormat';
 
 function normalizeStudent(student) {
   return {
@@ -18,10 +19,7 @@ function normalizeStudent(student) {
 }
 
 function formatDisplayDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateDisplay(value);
 }
 
 function mapStudentRow(student, schedule) {
@@ -66,7 +64,7 @@ function normalizeSchedule(schedule) {
   return {
     scheduleId: schedule.scheduleId ?? schedule.ScheduleId,
     studentId: schedule.studentId ?? schedule.StudentId,
-    dueDate: schedule.dueDate ?? schedule.DueDate,
+   dueDate: schedule.dueDate ?? schedule.DueDate ?? schedule.firstDueDate ?? schedule.FirstDueDate,
     amountDue: schedule.amountDue ?? schedule.AmountDue,
     status: schedule.status ?? schedule.Status ?? 'Pending',
     amountPaid: schedule.amountPaid ?? schedule.AmountPaid,

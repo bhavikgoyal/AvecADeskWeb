@@ -1,5 +1,6 @@
 import { DOMAIN_FIELD_DEFS, DOMAIN_RESOURCES } from './domainConfig';
 import { VENDOR_ONBOARDING_FIELD_DEFS } from './vendorOnboardingEditConfig';
+import { formatDateDisplay } from '../utils/dateFormat';
 
 export const FIELD_DEFS = {
   ...DOMAIN_FIELD_DEFS,
@@ -59,12 +60,12 @@ export function getResourceConfig(path) {
 export function getEmptyForm(path) {
   const resource = getResourceConfig(path);
   if (!resource?.emptyForm) {
-    return { id: '', updated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) };
+    return { id: '', updated: formatDateDisplay(new Date(), '') };
   }
   return {
     id: '',
     ...resource.emptyForm(),
-    updated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    updated: formatDateDisplay(new Date(), ''),
   };
 }
 

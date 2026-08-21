@@ -31,6 +31,7 @@ import TableContentSkeleton from '../../components/TableContentSkeleton';
 import { PAGE_CONFIG } from '../../config/pageConfig';
 import { getResourceConfig } from '../../config/resourceConfig';
 import { deleteRecord, loadRecords } from '../../utils/resourceStorage';
+import { formatDateDisplay } from '../../utils/dateFormat';
 import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
 import { deleteCourse, fetchCourseList } from '../../api/coursesApi';
 import connection from '../../services/signalR';
@@ -39,10 +40,7 @@ import EditInvoiceDialog from '../../components/invoices/EditInvoiceDialog';
 const INSTITUTE_SCRAPPING_BASE_PATH = '/institutes-scrapping';
 
 function formatDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateDisplay(value);
 }
 
 function parseValidDate(value) {

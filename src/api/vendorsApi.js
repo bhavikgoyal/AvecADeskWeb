@@ -2,6 +2,7 @@ import axiosClient from './axiosClient';
 import { STORAGE_KEY } from '../constants/auth';
 import { emptyVendorOnboardingForm } from '../config/vendorOnboardingEditConfig';
 import { fetchVendorOnboarding, saveVendorOnboarding } from './vendorOnboardingApi';
+import { formatDateDisplay } from '../utils/dateFormat';
 
 function getStoredUserId() {
   try {
@@ -16,11 +17,7 @@ function getStoredUserId() {
 }
 
 function formatDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-
-  if (isNaN(date.getTime())) return '—'; 
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateDisplay(value);
 }
 
 function normalizeVendor(vendor) {
