@@ -110,7 +110,7 @@ export const GET_MENU = (role) => {
       {
         category: 'FINANCE',
         items: [
-         { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
+         //{ title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
           { title: 'Courses', path: '/courses', Icon: SchoolIcon },
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },

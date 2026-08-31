@@ -342,6 +342,23 @@ export async function fetchStudentPaymentDetail(studentId) {
     `/api/students/GetStudentPaymentDetail/${studentId}`
   );
 
+  const studentPaymentList = (data.studentPaymentList ?? data.StudentPaymentList ?? [])
+    .map((item) => ({
+      ...item,
+      studentPaymentInstallmentId:
+        item.studentPaymentInstallmentId ?? item.StudentPaymentInstallmentId,
+      installmentNo: Number(item.installmentNo ?? item.InstallmentNo ?? 0),
+      parentInstallmentId: item.parentInstallmentId ?? item.ParentInstallmentId ?? null,
+      dueDate: item.dueDate ?? item.DueDate ?? null,
+      feesAmount: item.feesAmount ?? item.FeesAmount ?? 0,
+      paidAmount: item.paidAmount ?? item.PaidAmount ?? 0,
+      balanceAmount: item.balanceAmount ?? item.BalanceAmount ?? 0,
+      installmentImage: item.installmentImage ?? item.InstallmentImage ?? null,
+      status: item.paymentStatus ?? item.PaymentStatus ?? "Pending",
+      originalStatus: item.paymentStatus ?? item.PaymentStatus ?? null,
+    }))
+    .sort((a, b) => Number(a.installmentNo) - Number(b.installmentNo));
+
   return {
     studentId: data.studentId ?? data.StudentId,
 
@@ -378,9 +395,9 @@ export async function fetchStudentPaymentDetail(studentId) {
     bonusType: data.bonusType ?? data.BonusType,
     bonusOption: data.bonusOption ?? data.BonusOption,
 
-  studentPaymentList: (data.studentPaymentList ?? data.StudentPaymentList ?? []).map(item => ({ ...item, status: item.paymentStatus ?? item.PaymentStatus ?? "Pending", originalStatus: item.paymentStatus ?? item.PaymentStatus ?? null })),
+    studentPaymentList,
 
-      commissionHistory: (data.commissionHistory ?? data.CommissionHistory ?? []).map(item => 
+    commissionHistory: (data.commissionHistory ?? data.CommissionHistory ?? []).map(item => 
       ({ ...item, commissionHistoryOriginalStatus: item.commissionStatus ?? item.CommissionStatus ?? null })),
   
   };

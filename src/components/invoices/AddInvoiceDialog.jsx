@@ -20,11 +20,12 @@ import {
   fetchUniqueInstituteNames,
   getCampusesForInstitute,
   getUniqueInstituteNames,
+  normalizeInstituteName,
   resolveScrappingId,
 } from '../../api/institutesScrappingApi';
 import { fetchPaidStudentsForInvoice, generateMonthlyInvoice ,fetchSettledPaymentStatuses,} from '../../api/invoicesApi';
 
-export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
+export default function AddInvoiceDialog({ open, onClose, onGenerated,initialInstituteName = '', initialCampus = '' ,lockInstitute = false,}) {
   const now = useMemo(() => new Date(), []);
   const [institutes, setInstitutes] = useState([]);
   const [instituteName, setInstituteName] = useState('');
@@ -83,7 +84,15 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
       cancelled = true;
     };
   }, [open]);
-
+useEffect(() => {
+  if (!open) return;
+  if (initialInstituteName) {
+    setInstituteName(initialInstituteName);
+  }
+  if (initialCampus) {
+    setCampus(initialCampus);
+  }
+}, [open, initialInstituteName, initialCampus]);
   useEffect(() => {
     if (!open || !resolvedInstituteId || !campus) {
       setStudents([]);
@@ -281,14 +290,14 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
           )}
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              select
-              fullWidth
-              label="Institute"
-              value={instituteName}
-              onChange={(e) => handleInstituteChange(e.target.value)}
-              disabled={loadingInstitutes || generating}
-            >
+           <TextField
+                select
+                fullWidth
+                label="Institute"
+                value={instituteName}
+                onChange={(e) => handleInstituteChange(e.target.value)}
+                disabled={loadingInstitutes || generating || Boolean(initialInstituteName)}
+              >
               {uniqueInstituteNames.map((name) => (
                 <MenuItem key={name} value={name}>
                   {name}

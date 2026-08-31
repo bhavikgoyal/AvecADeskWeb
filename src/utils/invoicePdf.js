@@ -82,6 +82,9 @@ function numberToWordsAUD(num) {
   return `${words} Only`;
 }
 
+
+const AMOUNT_COL_WIDTH = 46;
+
 let cachedLogoPromise = null;
 function loadLogoAsset() {
   if (cachedLogoPromise) return cachedLogoPromise;
@@ -119,25 +122,25 @@ function drawFallbackLogo(doc, x, y, size = 22) {
   doc.triangle(x + size * 0.58, y + size * 0.32, x + size * 0.8, y + size * 0.55, x + size * 0.58, y + size, 'F');
 }
 
-// --- Header / letterhead ---
+// --- Header / letterhead: logo (left) + company details (right corner) ---
 async function drawLetterhead(doc) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginX = 14;
   const top = 14;
-  const targetWidth = 24;
+  const targetWidth = 16;
 
-  // Logo mark (real image if available, otherwise the drawn fallback)
   const logoAsset = await loadLogoAsset();
-  let logoHeight = 22;
+  let logoHeight = targetWidth;
   if (logoAsset) {
     logoHeight = targetWidth * (logoAsset.height / logoAsset.width);
     doc.addImage(logoAsset.dataUrl, 'PNG', marginX, top, targetWidth, logoHeight);
   } else {
-    drawFallbackLogo(doc, marginX, top, 22);
-    logoHeight = 22;
+    drawFallbackLogo(doc, marginX, top, targetWidth);
+    logoHeight = targetWidth;
   }
 
-  doc.setFontSize(13);
+
+  doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.setTextColor(30, 86, 168);
   doc.text('AVEC GLOBAL', marginX, top + logoHeight + 6);
@@ -146,38 +149,61 @@ async function drawLetterhead(doc) {
   doc.text('ABROAD VISA & EDUCATION CONSULTANTS', marginX, top + logoHeight + 11);
   doc.setFontSize(6);
   doc.text('VISIT | STUDY | WORK | MIGRATE', marginX, top + logoHeight + 15);
+  const leftBottom = top + logoHeight + 15;
 
-  // Company details block
-  const infoX = marginX + 56;
-  doc.setTextColor(30, 100, 200);
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
-  doc.text('AVEC GLOBAL GROUP PTY LTD', infoX, top + 2);
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(8.5);
-  doc.text('ABN Number: 79677235979', infoX, top + 7);
-  doc.text('Unit 3, 380 Clayton Road, Clayton, Victoria', infoX, top + 12);
-  doc.text('E-mail: account@avec-global.com', infoX, top + 17);
-  doc.text('Phone: +61 432 301 842', infoX, top + 22);
+  // Company details block — right corner, vertically centered against the left logo lockup
+  const rightX = pageWidth - marginX;
+  const infoLines = [
+    { text: 'AVEC GLOBAL GROUP PTY LTD', bold: true, size: 11, color: [30, 86, 168] },
+    { text: 'ABN Number: 79677235979', bold: false, size: 8.5, color: [30, 100, 200] },
+    { text: 'Unit 3, 380 Clayton Road, Clayton, Victoria', bold: false, size: 8.5, color: [30, 100, 200] },
+    { text: 'E-mail: account@avec-global.com', bold: false, size: 8.5, color: [30, 100, 200] },
+    { text: 'Phone: +61 432 301 842', bold: false, size: 8.5, color: [30, 100, 200] },
+  ];
+  const lineGap = 5;
+  const leftBlockHeight = leftBottom - top; 
+  const infoBlockHeight = (infoLines.length - 1) * lineGap;
+  let infoY = top + Math.max(0, (leftBlockHeight - infoBlockHeight) / 2) + 2;
+
+  infoLines.forEach((line) => {
+    doc.setFont(undefined, line.bold ? 'bold' : 'normal');
+    doc.setFontSize(line.size);
+    doc.setTextColor(...line.color);
+    doc.text(line.text, rightX, infoY, { align: 'right' });
+    infoY += lineGap;
+  });
+  const rightBottom = infoY;
 
   doc.setTextColor(0, 0, 0);
 
+  const headerBottom = Math.max(leftBottom, rightBottom) + 10;
+
   // TAX INVOICE heading
-  const headingY = top + 44;
   doc.setFontSize(17);
   doc.setFont(undefined, 'bold');
-  doc.text('TAX INVOICE', pageWidth / 2, headingY, { align: 'center' });
+  doc.text('TAX INVOICE', pageWidth / 2, headerBottom, { align: 'center' });
 
-  return headingY + 10;
+  return headerBottom + 10;
 }
 
-// --- To / Date / Invoice No box ---
+// --- To / Date / Invoice No box (now supports a full institute address, dynamic height) ---
 function drawInfoBox(doc, invoice, startY) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginX = 14;
   const boxWidth = pageWidth - marginX * 2;
-  const boxHeight = 24;
-  const colSplit = marginX + boxWidth - 62;
+  const colSplit = marginX + boxWidth - AMOUNT_COL_WIDTH;
+  const leftWidth = colSplit - marginX - 6;
+  const lineHeight = 5;
+
+  const instituteName = safeText(invoice.instituteNameRef || invoice.instituteName);
+  const instituteAddress = safeText(invoice.instituteAddress);
+
+  doc.setFontSize(9.5);
+  const nameLines = doc.splitTextToSize(instituteName, leftWidth);
+  const addressLines = instituteAddress ? doc.splitTextToSize(instituteAddress, leftWidth) : [];
+
+  const contentLineCount = 1 + nameLines.length + addressLines.length; // "To," + name + address
+  const boxHeight = Math.max(24, 6 + contentLineCount * lineHeight);
 
   doc.setDrawColor(0);
   doc.setLineWidth(0.3);
@@ -185,13 +211,20 @@ function drawInfoBox(doc, invoice, startY) {
   doc.rect(marginX, startY, boxWidth, boxHeight, 'FD');
   doc.line(colSplit, startY, colSplit, startY + boxHeight);
 
-  doc.setFontSize(9.5);
+  let ty = startY + 7;
   doc.setFont(undefined, 'bold');
-  doc.text('To,', marginX + 3, startY + 7);
+  doc.text('To,', marginX + 3, ty);
+  ty += lineHeight;
+
   doc.setFont(undefined, 'normal');
-  const toValue = safeText(invoice.instituteNameRef || invoice.instituteName);
-  const toLines = doc.splitTextToSize(toValue, colSplit - marginX - 6);
-  doc.text(toLines, marginX + 3, startY + 13);
+  nameLines.forEach((line) => {
+    doc.text(line, marginX + 3, ty);
+    ty += lineHeight;
+  });
+  addressLines.forEach((line) => {
+    doc.text(line, marginX + 3, ty);
+    ty += lineHeight;
+  });
 
   doc.setFont(undefined, 'bold');
   doc.text('Date:', colSplit + 3, startY + 8);
@@ -212,7 +245,7 @@ function drawItemsTable(doc, invoice, lineItems, startY) {
   const marginX = 14;
   const tableWidth = pageWidth - marginX * 2;
   const colSr = 16;
-  const colAmount = 38;
+  const colAmount = AMOUNT_COL_WIDTH;
   const colPart = tableWidth - colSr - colAmount;
   const xSr = marginX;
   const xPart = marginX + colSr;
@@ -241,12 +274,24 @@ function drawItemsTable(doc, invoice, lineItems, startY) {
 
   rows.forEach((item, idx) => {
     const parsed = parseDescription(item.description);
+   
+    const cricos = safeText(item.cricosCode);
+    const courseText = cricos ? `${safeText(parsed.course)} (CRICOS: ${cricos})` : safeText(parsed.course);
+
     const lines = ['Education Commission', ''];
     lines.push(`Student Name: ${safeText(item.studentName)}`);
     if (item.studentId) lines.push(`Student Id: ${safeText(item.studentId)}`);
-    lines.push(`Course: ${safeText(parsed.course)}`);
-    if (parsed.campus) lines.push(`Campus: ${safeText(parsed.campus)}`);
-    lines.push(`Fees: ${safeText(parsed.fees) || formatMoney(item.amountRaw ?? item.amount ?? 0)}`);
+    lines.push(`Course: ${courseText}`);
+
+    const amountVal = Number(item.amountRaw ?? item.amount ?? 0);
+    const feesRaw = Number(String(parsed.fees).replace(/[^0-9.-]/g, ''));
+    const feesText = safeText(parsed.fees) || formatMoney(amountVal);
+    let feesLine = `Fees: ${feesText}`;
+    if (feesRaw > 0 && amountVal > 0) {
+      const pct = (amountVal / feesRaw) * 100;
+      feesLine += ` (Commission Rate: ${pct.toFixed(2)}%)`;
+    }
+    lines.push(feesLine);
 
     const wrapped = lines.flatMap((line) => doc.splitTextToSize(line, colPart - 6));
     const rowHeight = Math.max(wrapped.length * lineHeight + padding, 20);
@@ -267,7 +312,6 @@ function drawItemsTable(doc, invoice, lineItems, startY) {
       ty += lineHeight;
     });
 
-    const amountVal = Number(item.amountRaw ?? item.amount ?? 0);
     doc.setFont(undefined, 'normal');
     doc.text(formatMoney(amountVal), xAmount + colAmount - 3, y + 8, { align: 'right' });
 
@@ -302,7 +346,7 @@ function drawTotals(doc, invoice, table, startY) {
 
   drawRow('TOTAL', total);
   drawRow(`GST ${gstPercent ? `${gstPercent}%` : '%'}`, gstAmount);
-  drawRow('TOTAL', total + gstAmount);
+  drawRow('GRAND TOTAL', total + gstAmount);
 
   // In Words row
   doc.rect(marginX, y, tableWidth, rowHeight);
