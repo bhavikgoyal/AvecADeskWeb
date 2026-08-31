@@ -63,6 +63,11 @@ function isSameLocalDay(date, referenceDate) {
   );
 }
 
+
+function normalizeInstituteName(value) {
+  return String(value || '').trim().replace(/:+\s*$/, '').trim().toLowerCase();
+}
+
 function applyStudentSummary(baseStats, summary) {
   if (!baseStats?.length || !summary) return baseStats;
 
@@ -189,12 +194,19 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
 
   return () => clearTimeout(timer);
 }, [success]);
+
   // Courses page: institute filter passed via ?institute=<name> from
   // the "View Courses" button on the Institutes Scrapping list.
   const instituteFilter = useMemo(() => {
     if (!isCourses) return '';
     return new URLSearchParams(location.search).get('institute')?.trim() || '';
   }, [isCourses, location.search]);
+
+
+  const invoiceInstituteFilter = useMemo(() => {
+    if (!isInvoices) return '';
+    return new URLSearchParams(location.search).get('institute')?.trim() || '';
+  }, [isInvoices, location.search]);
 
   const invoiceView = useMemo(() => {
     if (!isInvoices) return '';
@@ -295,14 +307,22 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
       return rows;
     }
 
-   if (isCourses) {
+    if (isCourses) {
       if (!instituteFilter) return rows;
-      const target = instituteFilter.toLowerCase();
-      return rows.filter((row) => (row.instituteName || '').trim().toLowerCase() === target);
+      const target = normalizeInstituteName(instituteFilter);
+      return rows.filter((row) => normalizeInstituteName(row.instituteName) === target);
     }
 
-   if (isInvoices) {
+    if (isInvoices) {
       let filtered = rows;
+
+      if (invoiceInstituteFilter) {
+        const target = normalizeInstituteName(invoiceInstituteFilter);
+        filtered = filtered.filter(
+          (r) => normalizeInstituteName(r.instituteNameRef) === target,
+        );
+      }
+
       if (invoiceView) {
         if (invoiceView === 'paid') filtered = filtered.filter((r) => (((r.invoiceStatus || r.status || '') + '').toLowerCase()) === 'approved');
         else if (invoiceView === 'due') filtered = filtered.filter((r) => {
@@ -345,7 +365,22 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
     }
 
     return rows;
-  }, [rows, isCourses, instituteFilter, isInvoices, invoiceView, invoiceYear, invoiceMonth, isStudents, studentYear, studentMonth, isVendors, vendorYear, vendorMonth]);
+  }, [
+    rows,
+    isCourses,
+    instituteFilter,
+    isInvoices,
+    invoiceInstituteFilter,
+    invoiceView,
+    invoiceYear,
+    invoiceMonth,
+    isStudents,
+    studentYear,
+    studentMonth,
+    isVendors,
+    vendorYear,
+    vendorMonth,
+  ]);
 
   const filteredDisplayRows = useMemo(() => {
     if (!isVendors) {
@@ -773,7 +808,7 @@ const handleExportInvoicesPdf = useCallback(async () => {
 
   const headerExtra = (
     <>
-      {isCourses && instituteFilter && (
+      {((isCourses && instituteFilter) || (isInvoices && invoiceInstituteFilter)) && (
         <Button
           variant="outlined"
           size="small"
@@ -818,7 +853,13 @@ const handleExportInvoicesPdf = useCallback(async () => {
         </Alert>
       )}
       <PageShell
-        title={isCourses && instituteFilter ? `${page.title} — ${instituteFilter}` : page.title}
+        title={
+          isCourses && instituteFilter
+            ? `${page.title} — ${instituteFilter}`
+            : isInvoices && invoiceInstituteFilter
+              ? `${page.title} — ${invoiceInstituteFilter}`
+              : page.title
+        }
         subtitle={page.subtitle}
         stats={stats}
         showCharts={!isTemplates && !isInvoices && (page.showCharts !== false)}
@@ -886,12 +927,14 @@ const handleExportInvoicesPdf = useCallback(async () => {
       />
 
       {isInvoices && !invoiceView && (
-        <AddInvoiceDialog
-          open={addInvoiceOpen}
-          onClose={() => setAddInvoiceOpen(false)}
-          onGenerated={handleInvoiceGenerated}
-        />
-      )}
+  <AddInvoiceDialog
+    open={addInvoiceOpen}
+    onClose={() => setAddInvoiceOpen(false)}
+    onGenerated={handleInvoiceGenerated}
+    initialInstituteName={invoiceInstituteFilter}
+    lockInstitute={Boolean(invoiceInstituteFilter)}
+  />
+)}
 {isInvoices && !invoiceView && (
   <EditInvoiceDialog
     open={editInvoiceOpen}

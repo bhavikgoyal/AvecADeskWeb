@@ -31,6 +31,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import AddIcon from '@mui/icons-material/Add';
 import SchoolIcon from '@mui/icons-material/School';
 import TableContentSkeleton from '../../components/TableContentSkeleton';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { listContainedButtonSx, listOutlinedButtonSx, listSearchFieldSx, listToolbarActionsSx, listToolbarRowSx, listToolbarSearchGroupSx } from '../../components/forms';
 import {
   resourceTableBodyCellSx,
@@ -40,6 +41,7 @@ import {
 } from '../../components/resourceTableStyles';
 import PeopleIcon from '@mui/icons-material/People';
 import ReceiptIcon from '@mui/icons-material/Receipt';
+import { fetchStudentPaymentScheduleList } from '../../api/schedulesApi';
 import {
   FormSectionsLayout,
 } from '../../components/forms';
@@ -54,6 +56,7 @@ import {
   createInstituteCommissionRate,
   getEmptyCommissionRateForm,
 } from '../../api/commissionsApi';
+import { fetchInvoices } from '../../api/invoicesApi';
 import { fetchCourseList } from '../../api/coursesApi';
 import { fetchCoursesByInstitute } from '../../api/lookupApi';
 import {
@@ -89,7 +92,9 @@ function normalizeScrapeFlag(value) {
   if (normalized === 'false' || normalized === '0') return false;
   return null;
 }
-
+function normalizeInstituteKey(value) {
+  return String(value || '').trim().replace(/:+\s*$/, '').trim().toLowerCase();
+}
 function getScrapingType(row) {
   if (row.isPendingScrape) return 'Auto';
   const isScrap = normalizeScrapeFlag(row.isScrap);
@@ -206,7 +211,18 @@ function getCoursesButtonLabel(row, courseCount) {
 
   return `Courses (${courseCount})`;
 }
-
+function getInvoicesButtonLabel(row, invoiceCount) {
+  if (row.isPendingScrape) {
+    return 'Processing';
+  }
+  return `View Invoice (${invoiceCount})`;
+}
+function getStudentsButtonLabel(row, studentCount) {
+  if (row.isPendingScrape) {
+    return 'Processing';
+  }
+  return `View Student (${studentCount})`;
+}
 export default function InstituteScrappingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -232,14 +248,54 @@ export default function InstituteScrappingPage() {
   const [manualError, setManualError] = useState('');
   const [createdInstituteId, setCreatedInstituteId] = useState(null);
   const [showSaveFirst, setShowSaveFirst] = useState(false);
+const [invoiceCounts, setInvoiceCounts] = useState({});
 
+useEffect(() => {
+  let active = true;
+
+  const loadInvoiceCounts = async () => {
+    const instituteKeys = new Set(
+      rows.map((row) => normalizeInstituteKey(row.instituteName)).filter(Boolean),
+    );
+
+    if (instituteKeys.size === 0) {
+      if (active) setInvoiceCounts({});
+      return;
+    }
+
+    try {
+      const invoices = await fetchInvoices();
+      const counts = {};
+
+      for (const key of instituteKeys) {
+        counts[key] = 0;
+      }
+
+      for (const invoice of invoices ?? []) {
+        const key = normalizeInstituteKey(invoice.instituteNameRef);
+        if (!instituteKeys.has(key)) continue;
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+
+      if (active) setInvoiceCounts(counts);
+    } catch {
+      if (active) setInvoiceCounts({});
+    }
+  };
+
+  void loadInvoiceCounts();
+
+  return () => {
+    active = false;
+  };
+}, [rows]);
   // Commission rate (tab 2) state
   const [commissionForm, setCommissionForm] = useState(() => getEmptyCommissionRateForm());
   const [commissionCourses, setCommissionCourses] = useState([]);
   const [commissionSaving, setCommissionSaving] = useState(false);
   const [commissionError, setCommissionError] = useState('');
   const [commissionSuccess, setCommissionSuccess] = useState('');
-
+  const [studentCounts, setStudentCounts] = useState({});
   useEffect(() => {
   if (!success) return;
 
@@ -362,6 +418,53 @@ export default function InstituteScrappingPage() {
       active = false;
     };
   }, [createdInstituteId]);
+
+  useEffect(() => {
+  let active = true;
+
+  const loadStudentCounts = async () => {
+    const instituteKeys = new Set(
+      rows.map((row) => normalizeInstituteKey(row.instituteName)).filter(Boolean),
+    );
+
+    if (instituteKeys.size === 0) {
+      if (active) setStudentCounts({});
+      return;
+    }
+
+    try {
+      const schedules = await fetchStudentPaymentScheduleList();
+      const studentsPerInstitute = {};
+
+      for (const key of instituteKeys) {
+        studentsPerInstitute[key] = new Set();
+      }
+
+      for (const schedule of schedules ?? []) {
+        const key = normalizeInstituteKey(schedule.instituteName);
+        if (!instituteKeys.has(key)) continue;
+        if (schedule.studentId != null) {
+          studentsPerInstitute[key].add(schedule.studentId);
+        }
+      }
+
+      const counts = {};
+      for (const key of Object.keys(studentsPerInstitute)) {
+        counts[key] = studentsPerInstitute[key].size;
+      }
+
+      if (active) setStudentCounts(counts);
+    } catch {
+      if (active) setStudentCounts({});
+    }
+  };
+
+  void loadStudentCounts();
+
+  return () => {
+    active = false;
+  };
+}, [rows]);
 
   const displayRows = useMemo(() => {
     const filterValue = instituteNameFilter.trim().toLowerCase();
@@ -579,15 +682,21 @@ export default function InstituteScrappingPage() {
     }
   };
 
-  const handleViewStudents = (event) => {
-    event.stopPropagation();
-    navigate('/students');
-  };
+const handleViewStudents = (event, row) => {
+  event.stopPropagation();
+  navigate('/students', {
+    state: {
+      instituteId: row?.scrappingId ?? row?.id ?? '',
+      instituteName: row?.instituteName ?? '',
+      fromInstitute: true,
+    },
+  });
+};
 
-  const handleViewInvoices = (event) => {
-    event.stopPropagation();
-    navigate('/invoices');
-  };
+  const handleViewInvoices = (event, row) => {
+  event.stopPropagation();
+  navigate(`/invoices?institute=${encodeURIComponent(row?.instituteName || '')}`);
+};
 
   const handleChangePage = (_event, newPage) => {
     setPage(newPage);
@@ -754,19 +863,21 @@ export default function InstituteScrappingPage() {
                                         size="small"
                                         variant="outlined"
                                         startIcon={<PeopleIcon />}
-                                        onClick={handleViewStudents}
+                                        onClick={(event) => handleViewStudents(event, row)}
+                                        disabled={row.isPendingScrape}
                                         sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
                                       >
-                                        View Student
+                                        {getStudentsButtonLabel(row, studentCounts[normalizeInstituteKey(row.instituteName)] ?? 0)}
                                       </Button>
                                       <Button
                                         size="small"
                                         variant="outlined"
                                         startIcon={<ReceiptIcon />}
-                                        onClick={handleViewInvoices}
+                                        onClick={(event) => handleViewInvoices(event, row)}
+                                        disabled={row.isPendingScrape}
                                         sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
                                       >
-                                        View Invoice
+                                        {getInvoicesButtonLabel(row, invoiceCounts[normalizeInstituteKey(row.instituteName)] ?? 0)}
                                       </Button>
                                     </>
                                   )}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem, TextField,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel,
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel, Switch,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { fetchCoursesByScrappingId } from "../../api/coursesApi";
@@ -15,7 +15,7 @@ import {
 } from "../../api/institutesScrappingApi";
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
 import { createStudentWithPaymentSchedule, derivePaymentStatus, fetchStudentPaymentDetail, updateStudentWithPaymentSchedule, } from "../../api/studentsApi";
-import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule ,uploadInstallmentDocument,} from "../../api/schedulesApi";
+import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule ,uploadInstallmentDocument,  sendInstallmentConfirmationEmail,confirmInstallmentByStudent,} from "../../api/schedulesApi";
 import { DateTextField, FormActions, FormPageLayout, FormSectionsLayout, formPaperSx, } from "../../components/forms";
 import { getEmptyForm, getResourceConfig, isFormValid, } from "../../config/resourceConfig";
 import { formatDateDisplay } from '../../utils/dateFormat';
@@ -26,6 +26,166 @@ const isPaidLike = (status) =>
   status === "ConfirmedByStudent" ||
   status === "PaidByCollege" ||       
   status === "PaidByStudent";        
+
+
+const EPSILON = 0.01;
+const getGroupNo = (row) => row.parentGroupNo ?? row.installmentNo;
+
+const getGroupMembers = (list, groupNo) =>
+  list.filter((x) => getGroupNo(x) === groupNo);
+
+const getGroupRoot = (list, groupNo) =>
+  list.find((x) => x.installmentNo === groupNo);
+
+
+const isGroupFullyCovered = (list, groupNo) => {
+  const root = getGroupRoot(list, groupNo);
+  if (!root) return false;
+
+  const totalOriginal = Number(root.amount || 0);
+  if (totalOriginal <= 0) return false;
+
+  const members = getGroupMembers(list, groupNo);
+  const sumPaid = members.reduce((sum, x) => {
+    if (isPaidLike(x.status)) return sum + Number(x.amount || 0);
+    return sum + Number(x.paidAmount || 0);
+  }, 0);
+
+  return sumPaid + EPSILON >= totalOriginal;
+};
+
+const isLastInGroup = (list, groupNo, row) => {
+  const members = getGroupMembers(list, groupNo).sort(
+    (a, b) => a.installmentNo - b.installmentNo
+  );
+  return (
+    members.length > 0 &&
+    members[members.length - 1].installmentNo === row.installmentNo
+  );
+};
+
+const deriveParentGroupNo = (rowById, item) => {
+  const parentId = item.parentInstallmentId ?? item.ParentInstallmentId ?? null;
+  if (!parentId) {
+    return Number(item.installmentNo ?? item.InstallmentNo ?? 0);
+  }
+
+  const parent = rowById.get(parentId);
+  if (!parent) {
+    return Number(item.installmentNo ?? item.InstallmentNo ?? 0);
+  }
+
+  return deriveParentGroupNo(rowById, parent);
+};
+
+const hydratePaymentList = (rows) => {
+  const rawRows = (rows || [])
+    .map((item) => ({
+      ...item,
+      studentPaymentInstallmentId: item.studentPaymentInstallmentId,
+      apiInstallmentNo: Number(item.installmentNo),
+      parentInstallmentId: item.parentInstallmentId ?? null,
+    }));
+
+  const compareByApiInstallmentNo = (left, right) =>
+    Number(left.apiInstallmentNo) - Number(right.apiInstallmentNo);
+
+  const rowById = new Map(
+    rawRows
+      .filter((item) => item.studentPaymentInstallmentId != null)
+      .map((item) => [item.studentPaymentInstallmentId, item])
+  );
+  const childrenByParentId = new Map();
+
+  for (const item of rawRows) {
+    if (!item.parentInstallmentId) {
+      continue;
+    }
+
+    const siblings = childrenByParentId.get(item.parentInstallmentId) ?? [];
+    siblings.push(item);
+    childrenByParentId.set(item.parentInstallmentId, siblings);
+  }
+
+  for (const siblings of childrenByParentId.values()) {
+    siblings.sort(compareByApiInstallmentNo);
+  }
+
+  const orderedRows = [];
+  const visited = new Set();
+
+  const appendWithChildren = (item) => {
+    if (!item || visited.has(item.studentPaymentInstallmentId)) {
+      return;
+    }
+
+    if (item.studentPaymentInstallmentId != null) {
+      visited.add(item.studentPaymentInstallmentId);
+    }
+
+    orderedRows.push(item);
+
+    const children = childrenByParentId.get(item.studentPaymentInstallmentId) ?? [];
+    for (const child of children) {
+      appendWithChildren(child);
+    }
+  };
+
+  rawRows
+    .filter((item) => !item.parentInstallmentId)
+    .sort(compareByApiInstallmentNo)
+    .forEach(appendWithChildren);
+
+  rawRows
+    .filter((item) => !visited.has(item.studentPaymentInstallmentId))
+    .sort(compareByApiInstallmentNo)
+    .forEach(appendWithChildren);
+
+  const groupCounts = new Map();
+
+  const hydratedRows = orderedRows.map((item) => {
+    const parentGroupNo = deriveParentGroupNo(rowById, {
+      ...item,
+      installmentNo: item.apiInstallmentNo,
+    });
+    const processedInGroup = groupCounts.get(parentGroupNo) ?? 0;
+    const installmentNo = item.parentInstallmentId
+      ? Number((parentGroupNo + (processedInGroup + 1) / 10).toFixed(2))
+      : item.apiInstallmentNo;
+
+    groupCounts.set(parentGroupNo, processedInGroup + 1);
+
+    return {
+      studentPaymentInstallmentId: item.studentPaymentInstallmentId,
+      apiInstallmentNo: item.apiInstallmentNo,
+      installmentNo,
+      parentInstallmentId: item.parentInstallmentId,
+      parentInstallmentNo: null,
+      parentGroupNo,
+      dueDate: item.dueDate?.substring(0, 10),
+      paidDate: item.paidDate?.substring(0, 10),
+      amount: item.feesAmount,
+      paidAmount: item.paidAmount,
+      balance: item.balanceAmount,
+      status: item.status,
+      originalStatus: item.originalStatus,
+      documentUrl: item.installmentImage ?? item.InstallmentImage ?? null,
+    };
+  });
+
+  const hydratedRowById = new Map(
+    hydratedRows
+      .filter((item) => item.studentPaymentInstallmentId != null)
+      .map((item) => [item.studentPaymentInstallmentId, item])
+  );
+
+  return hydratedRows.map((item) => ({
+    ...item,
+    parentInstallmentNo: item.parentInstallmentId
+      ? hydratedRowById.get(item.parentInstallmentId)?.installmentNo ?? null
+      : null,
+  }));
+};
 
 export default function NewStudentPage({ basePath }) {
   const navigate = useNavigate();
@@ -50,6 +210,9 @@ export default function NewStudentPage({ basePath }) {
   const [previewImage, setPreviewImage] = useState(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmTargetInstallment, setConfirmTargetInstallment] = useState(null);
+   const [instituteLocked, setInstituteLocked] = useState(false);
+   const [gstInclusive, setGstInclusive] = useState(false);
+  const prefillAppliedRef = useRef(false);
   useEffect(() => {
     let active = true;
 
@@ -75,13 +238,25 @@ export default function NewStudentPage({ basePath }) {
 
   
   useEffect(() => {
-    if (isEdit) return;
+    if (isEdit || prefillAppliedRef.current) return;
+    const preselectedInstituteName = normalizeInstituteName(location.state?.instituteName);
     const preselectedInstituteId = location.state?.instituteId;
-    if (preselectedInstituteId) {
+
+    if (!preselectedInstituteName && !preselectedInstituteId) return;
+
+    prefillAppliedRef.current = true;
+
+    if (preselectedInstituteName) {
+      setForm((prev) => ({ ...prev, instituteId: preselectedInstituteName }));
+    } else if (preselectedInstituteId) {
       setForm((prev) => ({ ...prev, instituteId: String(preselectedInstituteId) }));
     }
-    
-  }, []);
+ if (location.state?.fromInstitute) {
+      setInstituteLocked(true);
+    }
+
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [isEdit, location.pathname, location.search, location.state, navigate]);
 
   // Edit / preselect may set instituteId as ScrappingId — convert to unique name once rows load.
   useEffect(() => {
@@ -103,7 +278,16 @@ export default function NewStudentPage({ basePath }) {
     () => getUniqueInstituteNames(institutes),
     [institutes],
   );
+const instituteSelectOptions = useMemo(() => {
+  const names = uniqueInstituteNames.map((name) => ({ value: name, label: name }));
+  const current = normalizeInstituteName(form.instituteId);
 
+  if (current && !names.some((n) => String(n.value) === current)) {
+    names.push({ value: current, label: current });
+  }
+
+  return names;
+}, [uniqueInstituteNames, form.instituteId]);
   const campusOptions = useMemo(
     () => getCampusesForInstitute(institutes, form.instituteId),
     [institutes, form.instituteId],
@@ -142,25 +326,22 @@ export default function NewStudentPage({ basePath }) {
     };
   }, [resolvedScrappingId]);
 
-  const selectOptions = useMemo(
-    () => ({
-      instituteId: uniqueInstituteNames.map((name) => ({
-        value: name,
-        label: name,
-      })),
+const selectOptions = useMemo(
+  () => ({
+    instituteId: instituteSelectOptions,  
 
-      courseId: courses.map((item) => ({
-        value: item.courseId,
-        label: item.courseName,
-      })),
+    courseId: courses.map((item) => ({
+      value: item.courseId,
+      label: item.courseName,
+    })),
 
-      campusname: campusOptions.map((c) => ({
-        value: c,
-        label: c,
-      })),
-    }),
-    [uniqueInstituteNames, courses, campusOptions]
-  );
+    campusname: campusOptions.map((c) => ({
+      value: c,
+      label: c,
+    })),
+  }),
+  [instituteSelectOptions, courses, campusOptions]
+);
 
   const buildStudentPayload = (base = form) => ({
     ...base,
@@ -180,6 +361,7 @@ export default function NewStudentPage({ basePath }) {
         setForm({
           ...getEmptyForm(basePath),
           studentId: data.studentId,
+          scheduleId: data.scheduleId, 
           assignment: data.assignment ?? data.Assignment ?? '',
           instituteId: String(data.instituteId),
           courseId: String(data.courseId),
@@ -195,6 +377,7 @@ export default function NewStudentPage({ basePath }) {
           bonus: data.bonusAmount,
           dueDate: data.dueDate?.substring(0, 10),
           courseFee: data.totalCourseFee,
+          amountDue: data.totalCourseFee, 
           noOfInstallment: data.noOfInstallments,
           frequency: data.frequency,
           startDate: data.firstDueDate?.substring(0, 10),
@@ -210,22 +393,18 @@ export default function NewStudentPage({ basePath }) {
           frequency: data.frequency,
           startDate: data.firstDueDate?.substring(0, 10),
         });
-        const list = (data.studentPaymentList || []).map(x => ({
-          studentPaymentInstallmentId: x.studentPaymentInstallmentId,
-          installmentNo: x.installmentNo,
-          dueDate: x.dueDate?.substring(0, 10),
-          paidDate: x.paidDate?.substring(0, 10),
-          amount: x.feesAmount,
-          paidAmount: x.paidAmount,
-          balance: x.balanceAmount,
-          status: x.paymentStatus,
-          originalStatus: x.paymentStatus ?? x.PaymentStatus ?? null,
-          documentUrl: x.installmentImage ?? x.InstallmentImage ?? null, 
+        const list = hydratePaymentList(data.studentPaymentList || []);
+        const apiInstallmentMap = new Map(
+          list.map((x) => [Number(x.apiInstallmentNo), x.installmentNo])
+        );
+        const history = (data.commissionHistory || []).map((x) => ({
+          ...x,
+          installmentNo: apiInstallmentMap.get(Number(x.installmentNo)) ?? x.installmentNo,
         }));
 
         setOriginalPaymentList(list);
         setPaymentList(list);
-        setCommissionHistory(data.commissionHistory || []);
+        setCommissionHistory(history);
 
         if (data.bonusAmount > 0) {
           setBonusApplied(true);
@@ -345,22 +524,30 @@ const formatDateCell = (value) => {
 
     setPaymentList(list);
   };
+
   const calculateAmounts = (next) => {
     const fee = Number(next.courseFee || 0);
     const installments = Number(next.noOfInstallment || 1);
-
     const installmentFee = installments > 0 ? fee / installments : fee;
 
-    const commission =
-      (installmentFee * Number(next.commissionPercentage || 0)) / 100;
+    const rawCommission = (installmentFee * Number(next.commissionPercentage || 0)) / 100;
+    const gstPct = Number(next.gstPercentage || 0);
 
-    const gst =
-      (commission * Number(next.gstPercentage || 0)) / 100;
+    let commission, gst;
+
+    if (gstInclusive) {
+      gst = rawCommission - rawCommission / (1 + gstPct / 100);
+      commission = rawCommission - gst;
+    } else {
+      commission = rawCommission;
+      gst = (rawCommission * gstPct) / 100;
+    }
 
     next.commissionAmount = commission.toFixed(2);
     next.gstAmount = gst.toFixed(2);
-    next.invoiceAmount = (commission + gst).toFixed(2);
-  }
+    next.invoiceAmount = gstInclusive ? rawCommission.toFixed(2) : (commission + gst).toFixed(2);
+  };
+
   const updateField = (field, value) => {
 
     if (field === "noOfInstallment" && isEdit) {
@@ -488,15 +675,23 @@ const formatDateCell = (value) => {
     if (error) setError("");
     if (loadError) setLoadError("");
   };
+
   const commissionRows = useMemo(() => {
     return paymentList.map((item) => {
       const fees = Number(item.amount || 0);
 
-      const commission =
-        (fees * Number(form.commissionPercentage || 0)) / 100;
+      const rawCommission = (fees * Number(form.commissionPercentage || 0)) / 100;
+      const gstPct = Number(form.gstPercentage || 0);
 
-      const gst =
-        (commission * Number(form.gstPercentage || 0)) / 100;
+      let commission, gst;
+
+      if (gstInclusive) {
+        gst = rawCommission - rawCommission / (1 + gstPct / 100);
+        commission = rawCommission - gst;
+      } else {
+        commission = rawCommission;
+        gst = (rawCommission * gstPct) / 100;
+      }
 
       let applyBonus = false;
 
@@ -531,7 +726,7 @@ const formatDateCell = (value) => {
         }
       }
 
-      const invoice = commission + gst + bonus;
+      const invoice = gstInclusive ? rawCommission + bonus : commission + gst + bonus;
 
       return {
         installmentNo: item.installmentNo,
@@ -554,77 +749,74 @@ const formatDateCell = (value) => {
     form.bonusOption,
     bonusApplied,
     addBonus,
+    gstInclusive,
   ]);
 
-  const handleCreate = async () => {
+const handleCreate = async () => {
+  if (submittingRef.current) return;
 
-    if (isEdit) {
-      const paidCount = paymentList.filter(x => isPaidLike(x.status)).length;
+  submittingRef.current = true;
+  setSubmitting(true);
+  setError("");
 
-      const paidAmount = paymentList
-        .filter(x => isPaidLike(x.status))
-        .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
+  try {
+    let studentId;
+    let scheduleId;
+    let commissionId;
+    let scheduleChanged = false;
 
-      const remainingAmount = Number(form.courseFee || 0) - paidAmount;
+    if (!isEdit) {
 
-      const minInstallments =
-        remainingAmount > 0 ? paidCount + 1 : paidCount;
+      const student = await createStudentWithPaymentSchedule(
+        buildStudentPayload()
+      );
 
-      if (Number(form.noOfInstallment) < minInstallments) {
-        alert(`Minimum allowed installments is ${minInstallments}.`);
-        return;
+      studentId = student.studentId ?? student.StudentId;
+
+      const schedule = await createPaymentSchedule({
+        studentId,
+        totalCourseFee: Number(form.courseFee),
+        noOfInstallments: Number(form.noOfInstallment),
+        frequency: form.frequency,
+        firstDueDate: form.startDate,
+      });
+
+      scheduleId = schedule.scheduleId ?? schedule.ScheduleId;
+
+      const commission = await createStudentCommission({
+        scheduleId,
+        commissionPercentage: Number(form.commissionPercentage),
+        gstPercentage: Number(form.gstPercentage),
+        bonus: addBonus ? Number(form.bonus) : 0,
+        bonusType: addBonus ? form.bonusType : null,
+        bonusOption: addBonus ? form.bonusOption : null,
+      });
+
+      commissionId =
+        commission.commissionId ?? commission.CommissionId;
+
+    } else {
+      const persistedRows = paymentList.filter(
+        (x) => x.studentPaymentInstallmentId
+      );
+
+      try {
+        const studentUpdatePayload = {
+          ...buildStudentPayload(),
+          studentId: form.studentId,
+          assignment: form.assignment ?? form.Assignment ?? null,
+        };
+
+        await updateStudentWithPaymentSchedule(
+          form.studentId,
+          studentUpdatePayload
+        );
+      } catch (err) {
+        console.warn(
+          "Failed updating student core data",
+          err
+        );
       }
-    }
-    if (submittingRef.current) return;
-
-    submittingRef.current = true;
-    setSubmitting(true);
-    setError("");
-
-    try {
-      let studentId;
-      let scheduleId;
-      let commissionId;
-      let scheduleChanged = false;
-
-      if (!isEdit) {
-
-        const student = await createStudentWithPaymentSchedule(buildStudentPayload());
-        studentId = student.studentId ?? student.StudentId;
-
-        const schedule = await createPaymentSchedule({
-          studentId,
-          totalCourseFee: Number(form.courseFee),
-          noOfInstallments: Number(form.noOfInstallment),
-          frequency: form.frequency,
-          firstDueDate: form.startDate,
-        });
-
-        scheduleId = schedule.scheduleId ?? schedule.ScheduleId;
-
-        const commission = await createStudentCommission({
-          scheduleId,
-          commissionPercentage: Number(form.commissionPercentage),
-          gstPercentage: Number(form.gstPercentage),
-          bonus: addBonus ? Number(form.bonus) : 0,
-          bonusType: addBonus ? form.bonusType : null,
-          bonusOption: addBonus ? form.bonusOption : null,
-        });
-
-        commissionId = commission.commissionId ?? commission.CommissionId;
-
-      } else {
-        try {
-          const studentUpdatePayload = {
-            ...buildStudentPayload(),
-            studentId: form.studentId,
-            assignment: form.assignment ?? form.Assignment ?? null,
-          };
-
-          await updateStudentWithPaymentSchedule(form.studentId, studentUpdatePayload);
-        } catch (err) {
-          console.warn('Failed updating student core data', err);
-        }
 
         scheduleChanged =
           originalSchedule.noOfInstallment !== Number(form.noOfInstallment) ||
@@ -637,8 +829,15 @@ const formatDateCell = (value) => {
           frequency: form.frequency,
           firstDueDate: form.startDate,
 
-          paymentList: paymentList.map(x => ({
+          paymentList: persistedRows.map(x => ({
             studentPaymentInstallmentId: x.studentPaymentInstallmentId,
+            installmentNo: Number(x.apiInstallmentNo ?? x.installmentNo),
+            parentInstallmentId: x.parentInstallmentId
+              ?? (x.parentInstallmentNo
+                ? paymentList.find((row) => row.installmentNo === x.parentInstallmentNo)?.studentPaymentInstallmentId ?? null
+                : null),
+            dueDate: x.dueDate || null,
+            feesAmount: Number(x.amount || 0),
             paymentStatus: x.status,
             paidAmount: x.paidAmount ? Number(x.paidAmount) : 0,
             balanceAmount: x.balance ? Number(x.balance) : 0,
@@ -668,6 +867,9 @@ const formatDateCell = (value) => {
           const installment = await createStudentPaymentInstallment({
             scheduleId,
             installmentNo: item.installmentNo,
+          parentInstallmentId: item.parentInstallmentNo
+    ? paymentList.find(x => x.installmentNo === item.parentInstallmentNo)?.studentPaymentInstallmentId ?? null
+    : null,
             dueDate: item.dueDate,
             feesAmount: Number(item.amount),
             paidAmount: Number(item.paidAmount),
@@ -705,6 +907,72 @@ const formatDateCell = (value) => {
           index++;
         }
       }
+
+  
+if (isEdit && !scheduleChanged) {
+  const newSplitRows = paymentList.filter(x => !x.studentPaymentInstallmentId);
+
+  const splitBase = Math.max(
+    9000,
+    Number(form.noOfInstallment || 0) + 9000
+  );
+  let nextInstallmentNo = splitBase +
+    paymentList.filter(x => Number(x.apiInstallmentNo) >= splitBase).length +
+    1;
+
+
+  const idByInstallmentNo = new Map(
+    paymentList
+      .filter(x => x.studentPaymentInstallmentId)
+      .map(x => [x.installmentNo, x.studentPaymentInstallmentId])
+  );
+
+
+  const sortedNewSplitRows = [...newSplitRows].sort(
+    (a, b) => a.installmentNo - b.installmentNo
+  );
+
+  for (const item of sortedNewSplitRows) {
+    const parentId = item.parentInstallmentNo
+      ? idByInstallmentNo.get(item.parentInstallmentNo) ?? null
+      : null;
+
+    const installment = await createStudentPaymentInstallment({
+      scheduleId,
+      installmentNo: nextInstallmentNo++,
+      parentInstallmentId: parentId,
+      dueDate: item.dueDate,
+      feesAmount: Number(item.amount),
+      paidAmount: Number(item.paidAmount || 0),
+      balanceAmount: Number(item.balance ?? item.amount),
+      paymentStatus: item.status,
+      documentUrl: item.documentUrl ?? null,
+    });
+
+    const newInstallmentId =
+      installment.studentPaymentInstallmentId ??
+      installment.StudentPaymentInstallmentId;
+
+    idByInstallmentNo.set(item.installmentNo, newInstallmentId);
+
+    const row = commissionRows.find(x => x.installmentNo === item.installmentNo);
+
+    if (row) {
+      await createStudentCommissionDetail({
+        commissionId,
+        studentPaymentInstallmentId: newInstallmentId,
+        commissionAmount: Number(row.commission),
+        gstAmount: Number(row.gst),
+        bonusAmount: Number(row.bonus),
+        invoiceAmount: Number(row.invoice),
+        invoiceNo: null,
+        receivedDate: null,
+        commissionStatus: row.status,
+        remark: form.remark ?? "",
+      });
+    }
+  }
+}
 
       alert(isEdit ? "Student updated successfully." : "Student created successfully.");
 
@@ -798,11 +1066,18 @@ const formatDateCell = (value) => {
     invoice: historyRows.reduce((sum, x) => sum + Number(x.invoiceAmount ?? x.invoice ?? 0), 0),
   }), [historyRows]);
 
+ 
   const canEditStatus = (index) => {
-    if (index === 0) return true;
+  const item = paymentList[index];
+  const groupNo = getGroupNo(item);
+  const isRootOfGroup = item.installmentNo === groupNo;
 
-    return isPaidLike(paymentList[index - 1]?.status);
-  };
+  if (!isRootOfGroup) return true;
+
+  if (index === 0) return true;
+
+  return isPaidLike(paymentList[index - 1]?.status);
+};
   const canEditCommissionStatus = (installmentNo) => {
     if (installmentNo === 1) return true;
 
@@ -848,6 +1123,7 @@ const formatDateCell = (value) => {
             "assignment",
             ...(!form.instituteId ? ["campusname"] : []),
           ]}
+          fieldDefsOverride={instituteLocked ? { instituteId: { readOnly: true } } : {}}
         />
 
         <Box sx={{ height: 24 }} />
@@ -875,14 +1151,18 @@ const formatDateCell = (value) => {
                  
                   <TableCell>Payment Status</TableCell>
                   <TableCell>Paid Amount</TableCell>
-                  <TableCell>Remaining Fees</TableCell> 
                   <TableCell>Document</TableCell> 
                 </TableRow>
               </TableHead>
 
               <TableBody>
                 {paymentList.length > 0 ? (
-                  paymentList.map((item, index) => (
+                  paymentList.map((item, index) => {
+                    const groupNo = getGroupNo(item);
+                    const groupComplete = isGroupFullyCovered(paymentList, groupNo);
+                    const isLastOfGroup = isLastInGroup(paymentList, groupNo, item);
+
+                    return (
                     <TableRow key={item.installmentNo}>
                       <TableCell>{item.installmentNo}</TableCell>
                       <TableCell>{item.amount}</TableCell>
@@ -910,18 +1190,48 @@ const formatDateCell = (value) => {
                             value={item.status}
                             disabled={
                               item.originalStatus === "ConfirmedByCollege" ||
-                              item.originalStatus === "PaidByCollege"
+                              item.originalStatus === "PaidByCollege" ||
+                             
+                              (groupComplete && !isLastOfGroup && !isPaidLike(item.status))
                             }
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const value = e.target.value;
-                              if (value === "ConfirmedByStudent") {
-                                setConfirmTargetInstallment(item);
-                                setConfirmDialogOpen(true);
-                                return;
-                              }
+                                  if (value === "ConfirmedByStudent") {
+                                  try {
+                                    await confirmInstallmentByStudent(
+                                      item.studentPaymentInstallmentId
+                                    );
 
-                              setPaymentList((prev) =>
-                                prev.map((x) => {
+                                    setPaymentList((prev) =>
+                                      prev.map((x) =>
+                                        x.installmentNo === item.installmentNo
+                                          ? {
+                                              ...x,
+                                              status: "ConfirmedByStudent",
+                                              paidAmount: x.amount,
+                                              balance: "0.00",
+                                              paidDate:
+                                                x.paidDate ||
+                                                new Date().toISOString().slice(0, 10),
+                                            }
+                                          : x
+                                      )
+                                    );
+
+                                    setConfirmTargetInstallment(item);
+                                    setConfirmDialogOpen(true);
+                                  } catch (err) {
+                                    console.error(
+                                      "Failed to confirm installment by student:",
+                                      err
+                                    );
+                                  }
+
+                                  return;
+                                }
+
+                              setPaymentList((prev) => {
+                                let updated = prev.map((x) => {
                                   if (x.installmentNo === item.installmentNo) {
                                     const isPaid = isPaidLike(value);
                                     const isPartial = value === "Partial";
@@ -947,8 +1257,61 @@ const formatDateCell = (value) => {
                                   }
 
                                   return x;
-                                })
-                              );
+                                });
+
+                                
+                          if (value === "Partial") {
+                                  const alreadySplit = updated.some(
+                                    (x) => x.parentInstallmentNo === item.installmentNo
+                                  );
+
+                                  if (!alreadySplit) {
+                            
+                                    const currentItem = updated.find(
+                                      (x) => x.installmentNo === item.installmentNo
+                                    );
+                                    const remainingAmountNum = Number(
+                                      currentItem?.balance ?? currentItem?.amount ?? 0
+                                    );
+
+                                    if (remainingAmountNum > EPSILON) {
+                                      const remainingAmount = remainingAmountNum.toFixed(2);
+
+                                      const rootNo = item.parentGroupNo ?? item.installmentNo;
+                                      const childCount = updated.filter(
+                                        (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
+                                      ).length;
+                                      const newInstallmentNo = Number(
+                                        (rootNo + (childCount + 1) / 10).toFixed(2)
+                                      );
+
+                                      const remainingRow = {
+                                        installmentNo: newInstallmentNo,
+                                        parentInstallmentNo: item.installmentNo,
+                                        parentGroupNo: rootNo,
+                                        dueDate: item.dueDate,
+                                        amount: remainingAmount,
+                                        paidAmount: "0.00",
+                                        balance: remainingAmount,
+                                        status: "Pending",
+                                      };
+
+                                      const insertIndex =
+                                        updated.findIndex(
+                                          (x) => x.installmentNo === item.installmentNo
+                                        ) + 1;
+
+                                      updated = [
+                                        ...updated.slice(0, insertIndex),
+                                        remainingRow,
+                                        ...updated.slice(insertIndex),
+                                      ];
+                                    }
+                                  }
+                                }
+
+                                return updated;
+                              });
 
                               setCommissionHistory((prev) =>
                                 prev.map((x) => {
@@ -984,16 +1347,23 @@ const formatDateCell = (value) => {
                             }}
                           >
                             <MenuItem value="Pending">Pending</MenuItem>
-                            <MenuItem value="Partial">Partial</MenuItem>
 
                             <MenuItem
-                              value="ConfirmedByCollege" disabled={!canEditStatus(index)}
+                              value="Partial" disabled={!canEditStatus(index)}
+                            >
+                              Partial
+                            </MenuItem>
+
+                            <MenuItem
+                              value="ConfirmedByCollege"
+                              disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
                             >
                               Confirmed by College
                             </MenuItem>
 
                             <MenuItem
-                              value="ConfirmedByStudent" disabled={!canEditStatus(index)}
+                              value="ConfirmedByStudent"
+                              disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
                             >
                               Confirmed by Student
                             </MenuItem>
@@ -1004,7 +1374,7 @@ const formatDateCell = (value) => {
                       </TableCell>
              
                       <TableCell>
-                        {isEdit && item.status === "Partial" ? (
+                        {isEdit && item.status === "Partial" && !(groupComplete && !isLastOfGroup) ? (
                           <TextField
                             size="small"
                             type="number"
@@ -1012,19 +1382,52 @@ const formatDateCell = (value) => {
                             onChange={(e) => {
                               const val = e.target.value;
 
-                              setPaymentList((prev) =>
-                                prev.map((x) =>
-                                  x.installmentNo === item.installmentNo
-                                    ? {
-                                        ...x,
-                                        paidAmount: val,
-                                        balance: (
-                                          Number(x.amount) - Number(val || 0)
-                                        ).toFixed(2),
-                                      }
-                                    : x
-                                )
-                              );
+                              setPaymentList((prev) => {
+                                const updatedRows = prev.map((x) => {
+                                  if (x.installmentNo === item.installmentNo) {
+                                    const newBalance = (
+                                      Number(x.amount) - Number(val || 0)
+                                    ).toFixed(2);
+
+                                    return {
+                                      ...x,
+                                      paidAmount: val,
+                                      balance: newBalance,
+                                    };
+                                  }
+
+                                  return x;
+                                });
+
+                                const childIndex = updatedRows.findIndex(
+                                  (x) => x.parentInstallmentNo === item.installmentNo
+                                );
+
+                                if (childIndex !== -1) {
+                                  const child = updatedRows[childIndex];
+                                  const newRemaining = Number(item.amount) - Number(val || 0);
+
+                                  if (newRemaining <= EPSILON) {
+                                    if (!child.studentPaymentInstallmentId) {
+                                      updatedRows.splice(childIndex, 1);
+                                    } else {
+                                      updatedRows[childIndex] = {
+                                        ...child,
+                                        amount: "0.00",
+                                        balance: "0.00",
+                                      };
+                                    }
+                                  } else {
+                                    updatedRows[childIndex] = {
+                                      ...child,
+                                      amount: newRemaining.toFixed(2),
+                                      balance: newRemaining.toFixed(2),
+                                    };
+                                  }
+                                }
+
+                                return updatedRows;
+                              });
                             }}
                             inputProps={{
                               min: 0,
@@ -1036,13 +1439,8 @@ const formatDateCell = (value) => {
                         ) : (
                           isPaidLike(item.status)
                             ? Number(item.amount || 0).toFixed(2)
-                            : "0.00"
+                            : Number(item.paidAmount || 0).toFixed(2)
                         )}
-                      </TableCell>
-                      <TableCell>                                   
-                        {isPaidLike(item.status)
-                          ? "0.00"
-                          : Number(item.balance ?? item.amount).toFixed(2)}
                       </TableCell>
                       <TableCell>
                       {item.documentUrl ? (
@@ -1061,10 +1459,11 @@ const formatDateCell = (value) => {
                       )}
                     </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={7} align="center">
                       No Payment Schedule
                     </TableCell>
                   </TableRow>
@@ -1099,6 +1498,24 @@ const formatDateCell = (value) => {
             />
           }
           label="Add Bonus"
+        />
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={gstInclusive}
+              onChange={(e) => {
+                setGstInclusive(e.target.checked);
+                setForm((prev) => {
+                  const next = { ...prev };
+                  calculateAmounts(next);
+                  return next;
+                });
+              }}
+              disabled={isEdit}
+            />
+          }
+          label={gstInclusive ? "GST Inclusive" : "GST Exclusive"}
         />
 
         {addBonus && (

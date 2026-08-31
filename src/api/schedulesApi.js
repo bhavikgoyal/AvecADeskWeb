@@ -314,7 +314,28 @@ export async function uploadInstallmentDocument({
     );
   }
 }
+export async function confirmInstallmentByStudent(
+  studentPaymentInstallmentId
+) {
+  try {
+    const { data } = await axiosClient.post(
+      '/api/schedules/ConfirmInstallmentByStudent',
+      {
+        studentPaymentInstallmentId,
+      }
+    );
 
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(
+        err,
+        'Failed to confirm installment by student.'
+      ),
+      { cause: err }
+    );
+  }
+}
 export async function sendInstallmentConfirmationEmail(
   studentPaymentInstallmentId
 ) {
@@ -337,3 +358,4 @@ export async function sendInstallmentConfirmationEmail(
     );
   }
 }
+

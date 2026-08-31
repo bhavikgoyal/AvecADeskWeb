@@ -14,17 +14,36 @@ import {
 } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ResponsiveTable from "../../components/ResponsiveTable";
 import TableContentSkeleton from "../../components/TableContentSkeleton";
 import { getResourceConfig } from "../../config/resourceConfig";
 import { TablePagination } from "@mui/material";
-import { listContainedButtonSx, listSelectFieldSx, listSelectProps, listToolbarRowSx, LIST_FILTER_ALL } from "../../components/forms";
+import {
+  listContainedButtonSx,
+  listOutlinedButtonSx,
+  listSelectFieldSx,
+  listSelectProps,
+  listToolbarRowSx,
+  LIST_FILTER_ALL,
+} from "../../components/forms";
 import { fetchStudentPaymentScheduleList, fetchStudentCourseCompleteList, formatCurrency, formatDisplayDate } from "../../api/schedulesApi";
 
+const INSTITUTE_SCRAPPING_BASE_PATH = "/institutes-scrapping";
+
+function normalizeInstituteName(value) {
+  return String(value || "").trim().replace(/:+\s*$/, "").trim().toLowerCase();
+}
 
 export default function PaymentSchedulesPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const selectedInstituteName = location.state?.instituteName || "";
+  const fromInstitute = Boolean(location.state?.fromInstitute);
+  const selectedInstituteKey = useMemo(
+    () => normalizeInstituteName(selectedInstituteName),
+    [selectedInstituteName],
+  );
 
   const resource = useMemo(() => getResourceConfig("/payment-schedules"), []);
 
@@ -97,11 +116,17 @@ export default function PaymentSchedulesPage() {
         nextMonth
       );
 
-      setRows(result || []);
+      const filteredResult = selectedInstituteKey
+        ? (result || []).filter(
+            (item) => normalizeInstituteName(item.instituteName) === selectedInstituteKey,
+          )
+        : (result || []);
+
+      setRows(filteredResult);
 
       const uniqueStudents = [
         ...new Map(
-          (result || []).map((item) => [
+          filteredResult.map((item) => [
             item.studentId,
             {
               studentId: item.studentId,
@@ -119,7 +144,7 @@ export default function PaymentSchedulesPage() {
     } finally {
       setLoading(false);
     }
-  }, [studentFilter, location.search]);
+  }, [studentFilter, location.search, selectedInstituteKey]);
 
   useEffect(() => {
     loadRows();
@@ -130,14 +155,19 @@ export default function PaymentSchedulesPage() {
     try {
       const studentId = studentFilterValue ? Number(studentFilterValue) : undefined;
       const data = await fetchStudentCourseCompleteList(studentId);
-      setCompleteRows(data || []);
+      const filteredData = selectedInstituteKey
+        ? (data || []).filter(
+            (item) => normalizeInstituteName(item.instituteName) === selectedInstituteKey,
+          )
+        : (data || []);
+      setCompleteRows(filteredData);
     } catch (err) {
       setCompleteRows([]);
       setError(err.message || 'Failed to load complete list.');
     } finally {
       setCompleteLoading(false);
     }
-  }, []);
+  }, [selectedInstituteKey]);
 
   useEffect(() => {
     if (activeTab === 1) loadComplete(studentFilter);
@@ -261,15 +291,40 @@ export default function PaymentSchedulesPage() {
       </TextField>
     </Box>
 
-    <Button
-      variant="contained"
-      size="small"
-      startIcon={<AddIcon />}
-      onClick={() => navigate("/students/new")}
-      sx={listContainedButtonSx}
-    >
-      Add Student
-    </Button>
+    <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+      {fromInstitute && (
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)}
+          sx={listOutlinedButtonSx}
+        >
+          Back to Institute
+        </Button>
+      )}
+
+      <Button
+        variant="contained"
+        size="small"
+        startIcon={<AddIcon />}
+        onClick={() =>
+          navigate('/students/new', {
+            state:
+              location.state?.instituteId || location.state?.instituteName
+                ? {
+                    instituteId: location.state?.instituteId,
+                    instituteName: location.state?.instituteName,
+                    fromInstitute,
+                  }
+                : undefined,
+          })
+        }
+        sx={listContainedButtonSx}
+      >
+        Add Student
+      </Button>
+    </Box>
   </Box>
 </Paper>
 
