@@ -111,8 +111,8 @@ export const GET_MENU = (role) => {
         category: 'FINANCE',
         items: [
          //{ title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
-          { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
-          { title: 'Courses', path: '/courses', Icon: SchoolIcon },
+          { title: 'Institute Contracts', path: '/institute-contracts', Icon: AccountBalanceIcon, },
+         { title: 'Courses', path: '/courses', Icon: SchoolIcon, hidden: true },
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },    ],
       },

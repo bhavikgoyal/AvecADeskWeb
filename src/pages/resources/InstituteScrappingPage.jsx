@@ -58,7 +58,10 @@ import {
 } from '../../api/commissionsApi';
 import { fetchInvoices } from '../../api/invoicesApi';
 import { fetchCourseList } from '../../api/coursesApi';
-import { fetchCoursesByInstitute } from '../../api/lookupApi';
+//import { fetchCoursesByInstitute } from '../../api/lookupApi';
+import InstituteContactDetailsPanel from '../../components/institutes/InstituteContactDetailsPanel';
+import InstituteContractPanel from '../../components/institutes/InstituteContractPanel';
+import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
 import {
   AUTO_FORM_SECTIONS,
   AUTO_REQUIRED_FIELDS,
@@ -66,6 +69,8 @@ import {
   MANUAL_REQUIRED_FIELDS,
   INSTITUTE_SCRAPPING_BASE_PATH,
 } from './instituteScrappingFormConfig';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import { canViewCredentials } from '../../utils/rbac';
 import { useAuth } from '../../hooks/useAuth';
 
 const PENDING_SCRAPES_STORAGE_KEY = 'institutes-scrapping-pending';
@@ -227,6 +232,7 @@ export default function InstituteScrappingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAccounting = user?.role === 'Accounting';
+ const showCredentials = canViewCredentials(user);
 
   const [success, setSuccess] = useState('');
   const [warning, setWarning] = useState('');
@@ -289,12 +295,7 @@ useEffect(() => {
     active = false;
   };
 }, [rows]);
-  // Commission rate (tab 2) state
-  const [commissionForm, setCommissionForm] = useState(() => getEmptyCommissionRateForm());
-  const [commissionCourses, setCommissionCourses] = useState([]);
-  const [commissionSaving, setCommissionSaving] = useState(false);
-  const [commissionError, setCommissionError] = useState('');
-  const [commissionSuccess, setCommissionSuccess] = useState('');
+ 
   const [studentCounts, setStudentCounts] = useState({});
   useEffect(() => {
   if (!success) return;
@@ -394,30 +395,6 @@ useEffect(() => {
     };
   }, [rows]);
 
-  // Load courses for the commission-rate tab once an institute has been created/saved
-  useEffect(() => {
-    let active = true;
-
-    const loadCourses = async () => {
-      if (!createdInstituteId) {
-        if (active) setCommissionCourses([]);
-        return;
-      }
-
-      try {
-        const data = await fetchCoursesByInstitute(createdInstituteId);
-        if (active) setCommissionCourses(data?.courses ?? []);
-      } catch {
-        if (active) setCommissionCourses([]);
-      }
-    };
-
-    void loadCourses();
-
-    return () => {
-      active = false;
-    };
-  }, [createdInstituteId]);
 
   useEffect(() => {
   let active = true;
@@ -514,34 +491,26 @@ useEffect(() => {
     setActiveDialogTab(0);
     setCreatedInstituteId(null);
     setShowSaveFirst(false);
-    setCommissionForm(getEmptyCommissionRateForm());
-    setCommissionCourses([]);
-    setCommissionError('');
-    setCommissionSuccess('');
     setAddDialogOpen(true);
   };
 
   const closeAddDialog = () => {
-    if (manualSaving || commissionSaving) return;
+   if (manualSaving) return;
     setAddDialogOpen(false);
     setManualError('');
     setActiveDialogTab(0);
     setCreatedInstituteId(null);
     setShowSaveFirst(false);
-    setCommissionForm(getEmptyCommissionRateForm());
-    setCommissionCourses([]);
-    setCommissionError('');
-    setCommissionSuccess('');
   };
 
-  const handleDialogTabChange = (_event, value) => {
-    if (value === 1 && !createdInstituteId) {
-      setShowSaveFirst(true);
-      return;
-    }
-    setShowSaveFirst(false);
-    setActiveDialogTab(value);
-  };
+const handleDialogTabChange = (_event, value) => {
+  if (value !== 0 && !createdInstituteId) {
+    setShowSaveFirst(true);
+    return;
+  }
+  setShowSaveFirst(false);
+  setActiveDialogTab(value);
+};
 
   const updateManualField = (field, value) => {
     setManualForm((prev) => ({ ...prev, [field]: value }));
@@ -639,34 +608,6 @@ useEffect(() => {
     }
   };
 
-  const updateCommissionField = (field, value) => {
-    setCommissionForm((prev) => ({ ...prev, [field]: value }));
-    setCommissionError('');
-  };
-
-  const handleAddCommission = async () => {
-    if (!commissionForm.rateType || !commissionForm.rate || !commissionForm.effectiveFrom) {
-      setCommissionError('Rate type, rate and effective from are required.');
-      return;
-    }
-
-    setCommissionSaving(true);
-    setCommissionError('');
-    setCommissionSuccess('');
-
-    try {
-      await createInstituteCommissionRate({
-        ...commissionForm,
-        instituteId: createdInstituteId,
-      });
-      setCommissionSuccess('Commission rate added successfully.');
-      setCommissionForm(getEmptyCommissionRateForm());
-    } catch (err) {
-      setCommissionError(err.message || 'Failed to save commission rate.');
-    } finally {
-      setCommissionSaving(false);
-    }
-  };
 
   const handleRowClick = (row) => {
     if (row?.isPendingScrape) return;
@@ -696,6 +637,15 @@ const handleViewStudents = (event, row) => {
   const handleViewInvoices = (event, row) => {
   event.stopPropagation();
   navigate(`/invoices?institute=${encodeURIComponent(row?.instituteName || '')}`);
+};
+
+const handleViewCredentials = (event, row) => {
+  event.stopPropagation();
+  if (row?.id) {
+    navigate(`${INSTITUTE_SCRAPPING_BASE_PATH}/${row.id}`, {
+      state: { openTab: 'credentials' },
+    });
+  }
 };
 
   const handleChangePage = (_event, newPage) => {
@@ -857,30 +807,42 @@ const handleViewStudents = (event, row) => {
                                     {getCoursesButtonLabel(row, courseCount)}
                                   </Button>
 
-                                  {isAccounting && (
-                                    <>
+                                 {isAccounting && (
+                                      <>
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          startIcon={<PeopleIcon />}
+                                          onClick={(event) => handleViewStudents(event, row)}
+                                          disabled={row.isPendingScrape}
+                                          sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                                        >
+                                          {getStudentsButtonLabel(row, studentCounts[normalizeInstituteKey(row.instituteName)] ?? 0)}
+                                        </Button>
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          startIcon={<ReceiptIcon />}
+                                          onClick={(event) => handleViewInvoices(event, row)}
+                                          disabled={row.isPendingScrape}
+                                          sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
+                                        >
+                                          {getInvoicesButtonLabel(row, invoiceCounts[normalizeInstituteKey(row.instituteName)] ?? 0)}
+                                        </Button>
+                                      </>
+                                    )}
+                                    {canViewCredentials && (
                                       <Button
                                         size="small"
                                         variant="outlined"
-                                        startIcon={<PeopleIcon />}
-                                        onClick={(event) => handleViewStudents(event, row)}
+                                        startIcon={<VpnKeyIcon />}
+                                        onClick={(event) => handleViewCredentials(event, row)}
                                         disabled={row.isPendingScrape}
                                         sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
                                       >
-                                        {getStudentsButtonLabel(row, studentCounts[normalizeInstituteKey(row.instituteName)] ?? 0)}
+                                        Credentials
                                       </Button>
-                                      <Button
-                                        size="small"
-                                        variant="outlined"
-                                        startIcon={<ReceiptIcon />}
-                                        onClick={(event) => handleViewInvoices(event, row)}
-                                        disabled={row.isPendingScrape}
-                                        sx={{ textTransform: 'none', whiteSpace: 'nowrap', fontSize: '0.8125rem' }}
-                                      >
-                                        {getInvoicesButtonLabel(row, invoiceCounts[normalizeInstituteKey(row.instituteName)] ?? 0)}
-                                      </Button>
-                                    </>
-                                  )}
+                                    )}
                                 </Box>
                               </TableCell>
                             </TableRow>
@@ -911,7 +873,11 @@ const handleViewStudents = (event, row) => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
           <Tabs value={activeDialogTab} onChange={handleDialogTabChange}>
             <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-            <Tab label="Commission rate" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            <Tab label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            <Tab label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            {canViewCredentials && (
+              <Tab label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            )}
           </Tabs>
         </Box>
 
@@ -959,7 +925,7 @@ const handleViewStudents = (event, row) => {
             </>
           )}
 
-          {activeDialogTab === 1 && (
+          {/* {activeDialogTab === 1 && (
             <>
               {commissionError && (
                 <Alert severity="error" sx={{ mb: 2 }}>
@@ -1039,46 +1005,47 @@ const handleViewStudents = (event, row) => {
                 />
               </Stack>
             </>
-          )}
+          )} */}{activeDialogTab === 1 && (
+  <InstituteContactDetailsPanel instituteId={createdInstituteId} />
+)}
+
+{activeDialogTab === 2 && (
+  <InstituteContractPanel
+    instituteId={createdInstituteId}
+    courseLookupId={createdInstituteId}
+    instituteName={manualForm.instituteName}
+  />
+)}
+
+{activeDialogTab === 3 && canViewCredentials && (
+  <InstituteCredentialsPanel instituteId={createdInstituteId} />
+)}
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          {activeDialogTab === 0 && (
-            <>
-              <Button onClick={closeAddDialog} disabled={manualSaving} sx={{ textTransform: 'none' }}>
-                {createdInstituteId ? 'Done' : 'Cancel'}
-              </Button>
-              {!createdInstituteId && (
-                <Button
-                  variant="contained"
-                  onClick={handleManualSave}
-                  disabled={!isManualFormValid || manualSaving}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {manualSaving
-                    ? (manualForm.autoDataCollection ? 'Scraping…' : 'Saving…')
-                    : 'Save'}
-                </Button>
-              )}
-            </>
-          )}
-
-          {activeDialogTab === 1 && (
-            <>
-              <Button onClick={closeAddDialog} disabled={commissionSaving} sx={{ textTransform: 'none' }}>
-                Done
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleAddCommission}
-                disabled={commissionSaving}
-                sx={{ textTransform: 'none' }}
-              >
-                {commissionSaving ? 'Saving…' : 'Add Commission Rate'}
-              </Button>
-            </>
-          )}
-        </DialogActions>
+<DialogActions sx={{ px: 3, py: 2 }}>
+  {activeDialogTab === 0 && (
+    <>
+      <Button onClick={closeAddDialog} disabled={manualSaving} sx={{ textTransform: 'none' }}>
+        {createdInstituteId ? 'Done' : 'Cancel'}
+      </Button>
+      {!createdInstituteId && (
+        <Button
+          variant="contained"
+          onClick={handleManualSave}
+          disabled={!isManualFormValid || manualSaving}
+          sx={{ textTransform: 'none' }}
+        >
+          {manualSaving ? (manualForm.autoDataCollection ? 'Scraping…' : 'Saving…') : 'Save'}
+        </Button>
+      )}
+    </>
+  )}
+  {activeDialogTab !== 0 && (
+    <Button onClick={closeAddDialog} sx={{ textTransform: 'none' }}>
+      Done
+    </Button>
+  )}
+</DialogActions>
       </Dialog>
     </Box>
   );

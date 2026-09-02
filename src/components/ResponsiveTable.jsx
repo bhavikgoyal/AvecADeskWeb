@@ -9,6 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -33,7 +34,7 @@ function renderTextCell(value, column, columnIndex, onRowClick) {
         sx={{
           color: isPrimaryLink ? LIST_PRIMARY_COLUMN_COLOR : 'var(--text)',
           fontWeight: isPrimaryLink ? 600 : 400,
-          wordBreak: 'break-word',
+          whiteSpace: 'nowrap',
           fontSize: '0.8125rem',
           lineHeight: 1.45,
           ...column.cellSx,
@@ -214,10 +215,11 @@ if (column.field === 'programLogo') {
       }}
     >
       <Table
+      stickyHeader={Boolean(sx?.maxHeight)}
         sx={{
           width: '100%',
           minWidth: resolvedTableMinWidth,
-          tableLayout: resolvedTableMinWidth ? 'fixed' : 'auto',
+          tableLayout: 'auto',
         }}
       >
         <TableHead>

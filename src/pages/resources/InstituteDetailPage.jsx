@@ -4,7 +4,10 @@ import { Alert, Box, Button, MenuItem, Paper, Tab, Tabs, TextField, Typography }
 import { fetchInstituteForm, updateInstitute } from '../../api/institutesApi';
 import { fetchVendors } from '../../api/lookupApi';
 import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
-import InstituteCommissionRatesPanel from '../../components/institutes/InstituteCommissionRatesPanel';
+import InstituteContactDetailsPanel from '../../components/institutes/InstituteContactDetailsPanel';
+import InstituteContractPanel from '../../components/institutes/InstituteContractPanel';
+import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
+import { canViewCredentials } from '../../utils/rbac';
 import {
   FormActions,
   FormPageLayout,
@@ -12,12 +15,20 @@ import {
   formFieldSx,
   formPaperSx,
 } from '../../components/forms';
+import { useAuth } from '../../hooks/useAuth';
 import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
 import FormContentSkeleton from '../../components/FormContentSkeleton';
+
+const TAB_DETAILS = 0;
+const TAB_CONTACT = 1;
+const TAB_CONTRACT = 2;
+const TAB_CREDENTIALS = 3;
 
 export default function InstituteDetailPage({ basePath }) {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
+   const showCredentials = canViewCredentials(user);
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(null);
   const [vendors, setVendors] = useState([]);
@@ -26,7 +37,7 @@ export default function InstituteDetailPage({ basePath }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(TAB_DETAILS);
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -119,6 +130,8 @@ export default function InstituteDetailPage({ basePath }) {
     );
   }
 
+  const courseLookupId = form.linkedScrappingId ? Number(form.linkedScrappingId) : null;
+
   return (
     <FormPageLayout
       title={`Edit ${resource.singular.toLowerCase()}`}
@@ -133,7 +146,11 @@ export default function InstituteDetailPage({ basePath }) {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
           <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-          <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+           <Tab label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
+  {canViewCredentials && (
+    <Tab label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
+  )}
         </Tabs>
       </Box>
 
@@ -143,7 +160,8 @@ export default function InstituteDetailPage({ basePath }) {
             {error || loadError}
           </Alert>
         )}
-        {activeTab === 0 && (
+
+        {activeTab === TAB_DETAILS && (
           <>
             <FormSectionsLayout
               sections={resource.sections}
@@ -182,13 +200,21 @@ export default function InstituteDetailPage({ basePath }) {
           </>
         )}
 
-        {activeTab === 1 && (
-          <InstituteCommissionRatesPanel
+        {activeTab === TAB_CONTACT && (
+          <InstituteContactDetailsPanel instituteId={id} />
+        )}
+
+        {activeTab === TAB_CONTRACT && (
+          <InstituteContractPanel
             instituteId={id}
-            courseLookupId={form.linkedScrappingId ? Number(form.linkedScrappingId) : null}
-             instituteName={form.instituteName}
+            courseLookupId={courseLookupId}
+            instituteName={form.instituteName}
           />
         )}
+
+        {activeTab === TAB_CREDENTIALS && canViewCredentials && (
+  <InstituteCredentialsPanel instituteId={id} />
+)}
       </Paper>
     </FormPageLayout>
   );
