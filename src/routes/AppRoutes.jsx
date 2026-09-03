@@ -45,6 +45,7 @@ const InstituteScrappingEditPage = lazy(() => import('../pages/resources/Institu
 const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
 const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
 const ReceivablesPage = lazy(() => import('../pages/resources/ReceivablesPage'));
+const AnticipatedReceivables1Page = lazy(() => import('../pages/anticipatedReceivables1/AnticipatedReceivables1Page'));
 const ManageAccountPage = lazy(() => import('../pages/account/ManageAccountPage'));
 const PaymentSchedulesPage = lazy(() => import('../pages/resources/PaymentSchedulesPage'));
 const StudentApplicationDetailsPage = lazy(() => import('../pages/resources/StudentApplicationDetails'));
@@ -297,6 +298,14 @@ export default function AppRoutes() {
             element={
               <RequireRole path="/reports/receivables">
                 <ReceivablesPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="reports/receivables1"
+            element={
+              <RequireRole path="/reports/receivables1">
+                <AnticipatedReceivables1Page />
               </RequireRole>
             }
           />

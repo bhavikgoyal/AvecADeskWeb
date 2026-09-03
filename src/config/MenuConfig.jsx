@@ -81,6 +81,7 @@ export const GET_MENU = (role) => {
         items: [
           // { title: 'AI Scraping Jobs', path: '/reports/ai-scraping', Icon: SmartToyIcon },
           { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
+          { title: 'Anticipated Receivables 1', path: '/reports/receivables1', Icon: PaymentsIcon },
            { title: 'Employee Work Hours', path: '/EmployeeWorkHours', Icon: AssignmentIcon },
           // { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
           // { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
@@ -113,7 +114,8 @@ export const GET_MENU = (role) => {
       {
         category: 'REPORTS',
         items: [
-          { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },       
+          { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
+          { title: 'Anticipated Receivables 1', path: '/reports/receivables1', Icon: PaymentsIcon },
         ],
       },
     ],

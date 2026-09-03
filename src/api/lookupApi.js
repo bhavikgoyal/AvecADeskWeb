@@ -65,11 +65,16 @@ export async function fetchVendors() {
 }
 
 export async function fetchStudentsLookup() {
-  const { data } = await axiosClient.get('/api/students');
-  return data.map((s) => ({
-    studentId: s.studentId ?? s.StudentId,
-    fullName: s.fullName ?? s.FullName ?? '',
-  }));
+  try {
+    const { data } = await axiosClient.get('/api/students');
+    const rows = Array.isArray(data) ? data : [];
+    return rows.map((s) => ({
+      studentId: s.studentId ?? s.StudentId,
+      fullName: s.fullName ?? s.FullName ?? '',
+    })).filter((s) => s.studentId != null);
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchInstitutesForReceivables() {
