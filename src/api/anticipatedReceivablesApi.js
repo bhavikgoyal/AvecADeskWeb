@@ -144,35 +144,39 @@ function resolveRawStatus(row) {
   )
     .toString()
     .toLowerCase()
+    .replace(/\s+/g, '')
     .trim();
 
-  if (raw.includes('paid') || raw === 'received') return 'paid';
+  // DB settled/paid statuses: PaidByCollege, PaidByStudent, ConfirmedByCollege, ConfirmedByStudent
+  if (
+    raw.includes('paid') ||
+    raw.includes('confirm') ||
+    raw === 'received' ||
+    raw === 'settled'
+  ) {
+    return 'paid';
+  }
   if (raw.includes('overdue')) return 'overdue';
-  if (raw.includes('anticipat') || raw.includes('pending') || raw.includes('due')) return 'anticipated';
+  if (raw.includes('anticipat') || raw.includes('pending') || raw === 'partial' || raw.includes('due')) {
+    return 'anticipated';
+  }
   return raw || '';
 }
 
 function resolveCellStatus(row, todayStart) {
   const raw = resolveRawStatus(row);
+  // Paid / settled / confirmed must never be remapped to anticipated/overdue
   if (raw === 'paid') return 'paid';
   if (raw === 'overdue') return 'overdue';
 
   const due = resolveDueDate(row);
-  if (due && due < todayStart && raw !== 'paid') return 'overdue';
-  if (raw === 'anticipated') return 'anticipated';
+  if (due && due < todayStart) return 'overdue';
   return 'anticipated';
-}
-
-const STATUS_RANK = { overdue: 3, anticipated: 2, paid: 1 };
-
-function mergeStatus(a, b) {
-  if (!a) return b;
-  if (!b) return a;
-  return STATUS_RANK[b] > STATUS_RANK[a] ? b : a;
 }
 
 /**
  * Pivot flat installment / receivable rows into college × month matrix.
+ * Amounts are bucketed by status so Paid stays green (Received).
  */
 export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivablesMonthRange()) {
   const todayStart = new Date();
@@ -189,6 +193,7 @@ export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivables
 
     const collegeName = resolveCollegeName(row);
     const amount = resolveAmount(row);
+    if (!amount) continue;
     const status = resolveCellStatus(row, todayStart);
 
     if (!byCollege.has(collegeName)) {
@@ -196,15 +201,41 @@ export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivables
     }
     const college = byCollege.get(collegeName);
     if (!college.cells[key]) {
-      college.cells[key] = { amount: 0, status };
+      college.cells[key] = { paid: 0, overdue: 0, anticipated: 0 };
     }
-    college.cells[key].amount += amount;
-    college.cells[key].status = mergeStatus(college.cells[key].status, status);
+    const bucket = status === 'paid' || status === 'overdue' || status === 'anticipated'
+      ? status
+      : 'anticipated';
+    college.cells[key][bucket] += amount;
   }
 
-  const colleges = Array.from(byCollege.values()).sort((a, b) =>
-    a.collegeName.localeCompare(b.collegeName),
-  );
+  const colleges = Array.from(byCollege.values())
+    .map((college) => {
+      const cells = {};
+      for (const [key, buckets] of Object.entries(college.cells)) {
+        const paid = Number(buckets.paid) || 0;
+        const overdue = Number(buckets.overdue) || 0;
+        const anticipated = Number(buckets.anticipated) || 0;
+        const amount = paid + overdue + anticipated;
+        if (!amount) continue;
+
+        // Color rule: unpaid first; otherwise Paid/Received (green)
+        let status = 'paid';
+        if (overdue > 0) status = 'overdue';
+        else if (anticipated > 0 && paid === 0) status = 'anticipated';
+        else if (anticipated > 0 && paid > 0) {
+          // Mixed month: show dominant bucket; prefer paid when paid >= anticipated
+          status = paid >= anticipated ? 'paid' : 'anticipated';
+        } else {
+          status = 'paid';
+        }
+
+        cells[key] = { amount, status, paid, overdue, anticipated };
+      }
+      return { collegeName: college.collegeName, cells };
+    })
+    .filter((c) => Object.keys(c.cells).length > 0)
+    .sort((a, b) => a.collegeName.localeCompare(b.collegeName));
 
   const totals = {};
   for (const m of range.months) {
