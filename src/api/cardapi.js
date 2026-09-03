@@ -9,6 +9,14 @@ export async function getBoardCards(filters = {}) {
   return response.data;
 }
 
+export async function getMyBoardCards(filters = {}) {
+  const { searchText, fromDate, toDate } = filters;
+  const response = await axiosClient.get('/api/Card/my-board', {
+    params: { searchText, fromDate, toDate },
+  });
+  return response.data;
+}
+
 export async function createCard(payload) {
   const response = await axiosClient.post('/api/Card/create', payload);
   return response.data;
@@ -31,6 +39,11 @@ export async function deleteCard(cardId) {
 
 export async function getCardStatuses() {
   const response = await axiosClient.get('/api/CardStatus/list');
+  return response.data;
+}
+
+export async function createCardStatus(statusName) {
+  const response = await axiosClient.post('/api/CardStatus/create', { statusName });
   return response.data;
 }
 

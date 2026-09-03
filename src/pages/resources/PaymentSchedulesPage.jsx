@@ -14,16 +14,36 @@ import {
 } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ResponsiveTable from "../../components/ResponsiveTable";
 import TableContentSkeleton from "../../components/TableContentSkeleton";
 import { getResourceConfig } from "../../config/resourceConfig";
 import { TablePagination } from "@mui/material";
+import {
+  listContainedButtonSx,
+  listOutlinedButtonSx,
+  listSelectFieldSx,
+  listSelectProps,
+  listToolbarRowSx,
+  LIST_FILTER_ALL,
+} from "../../components/forms";
 import { fetchStudentPaymentScheduleList, fetchStudentCourseCompleteList, formatCurrency, formatDisplayDate } from "../../api/schedulesApi";
 
+const INSTITUTE_SCRAPPING_BASE_PATH = "/institutes-scrapping";
+
+function normalizeInstituteName(value) {
+  return String(value || "").trim().replace(/:+\s*$/, "").trim().toLowerCase();
+}
 
 export default function PaymentSchedulesPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const selectedInstituteName = location.state?.instituteName || "";
+  const fromInstitute = Boolean(location.state?.fromInstitute);
+  const selectedInstituteKey = useMemo(
+    () => normalizeInstituteName(selectedInstituteName),
+    [selectedInstituteName],
+  );
 
   const resource = useMemo(() => getResourceConfig("/payment-schedules"), []);
 
@@ -96,11 +116,17 @@ export default function PaymentSchedulesPage() {
         nextMonth
       );
 
-      setRows(result || []);
+      const filteredResult = selectedInstituteKey
+        ? (result || []).filter(
+            (item) => normalizeInstituteName(item.instituteName) === selectedInstituteKey,
+          )
+        : (result || []);
+
+      setRows(filteredResult);
 
       const uniqueStudents = [
         ...new Map(
-          (result || []).map((item) => [
+          filteredResult.map((item) => [
             item.studentId,
             {
               studentId: item.studentId,
@@ -118,7 +144,7 @@ export default function PaymentSchedulesPage() {
     } finally {
       setLoading(false);
     }
-  }, [studentFilter, location.search]);
+  }, [studentFilter, location.search, selectedInstituteKey]);
 
   useEffect(() => {
     loadRows();
@@ -129,14 +155,19 @@ export default function PaymentSchedulesPage() {
     try {
       const studentId = studentFilterValue ? Number(studentFilterValue) : undefined;
       const data = await fetchStudentCourseCompleteList(studentId);
-      setCompleteRows(data || []);
+      const filteredData = selectedInstituteKey
+        ? (data || []).filter(
+            (item) => normalizeInstituteName(item.instituteName) === selectedInstituteKey,
+          )
+        : (data || []);
+      setCompleteRows(filteredData);
     } catch (err) {
       setCompleteRows([]);
       setError(err.message || 'Failed to load complete list.');
     } finally {
       setCompleteLoading(false);
     }
-  }, []);
+  }, [selectedInstituteKey]);
 
   useEffect(() => {
     if (activeTab === 1) loadComplete(studentFilter);
@@ -171,7 +202,12 @@ export default function PaymentSchedulesPage() {
 
         case "nextDueDate":
           return { ...column, render: (row) => (row.nextDueDate ? formatDisplayDate(row.nextDueDate) : "-") };
-
+         case "studentCreatedAt":
+  return {
+    ...column,
+    render: (row) =>
+      row.studentCreatedAt ? formatDisplayDate(row.studentCreatedAt) : "-",
+  };
         case "installments":
           return { ...column, render: (row) => `${row.paidInstallments ?? 0} / ${row.totalInstallments ?? row.noOfInstallments ?? 0}` };
 
@@ -224,23 +260,28 @@ export default function PaymentSchedulesPage() {
       )}
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-  <Box
-    sx={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-    }}
-  >
-    <Box sx={{ width: 320 }}>
+  <Box sx={listToolbarRowSx}>
+    <Box sx={{ width: { xs: '100%', md: 320 }, minWidth: 0 }}>
       <TextField
         select
         fullWidth
         size="small"
-        label="Filter by Student"
-        value={studentFilter}
-        onChange={(e) => setStudentFilter(e.target.value)}
+        value={studentFilter || LIST_FILTER_ALL}
+        onChange={(e) => {
+          const next = e.target.value;
+          setStudentFilter(next === LIST_FILTER_ALL ? '' : next);
+        }}
+        SelectProps={{
+          ...listSelectProps('All Students'),
+          renderValue: (selected) => {
+            if (!selected || selected === LIST_FILTER_ALL) return 'All Students';
+            const match = studentOptions.find((s) => String(s.value) === String(selected));
+            return match?.label || 'All Students';
+          },
+        }}
+        sx={listSelectFieldSx(Boolean(studentFilter))}
       >
-        <MenuItem value="">All Students</MenuItem>
+        <MenuItem value={LIST_FILTER_ALL}>All Students</MenuItem>
 
         {studentOptions.map((s) => (
           <MenuItem key={s.value} value={s.value}>
@@ -250,13 +291,40 @@ export default function PaymentSchedulesPage() {
       </TextField>
     </Box>
 
-    <Button
-      variant="contained"
-      startIcon={<AddIcon />}
-      onClick={() => navigate("/students/new")}
-    >
-      Add Student
-    </Button>
+    <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+      {fromInstitute && (
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)}
+          sx={listOutlinedButtonSx}
+        >
+          Back to Institute
+        </Button>
+      )}
+
+      <Button
+        variant="contained"
+        size="small"
+        startIcon={<AddIcon />}
+        onClick={() =>
+          navigate('/students/new', {
+            state:
+              location.state?.instituteId || location.state?.instituteName
+                ? {
+                    instituteId: location.state?.instituteId,
+                    instituteName: location.state?.instituteName,
+                    fromInstitute,
+                  }
+                : undefined,
+          })
+        }
+        sx={listContainedButtonSx}
+      >
+        Add Student
+      </Button>
+    </Box>
   </Box>
 </Paper>
 

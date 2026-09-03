@@ -13,6 +13,7 @@ import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
 import { VENDOR_EDIT_SECTIONS } from '../../config/vendorOnboardingEditConfig';
 import DownloadIcon from "@mui/icons-material/Download";
 import { exportVendorDeclarationPdf } from '../../utils/vendorDeclarationPdf';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 export default function VendorDetailPage({ basePath }) {
   const navigate = useNavigate();
@@ -83,9 +84,9 @@ export default function VendorDetailPage({ basePath }) {
 
   if (loading) {
     return (
-      <Box sx={{ py: 4 }}>
-        <Typography sx={{ color: 'var(--muted)' }}>Loading vendor...</Typography>
-      </Box>
+      <FormPageLayout title={`Edit ${resource.singular.toLowerCase()}`}>
+        <FormContentSkeleton rows={9} />
+      </FormPageLayout>
     );
   }
 

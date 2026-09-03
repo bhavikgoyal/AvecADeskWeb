@@ -1,10 +1,20 @@
 import { useEffect, useState, useCallback } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
-import { Box, Paper, Skeleton, Stack } from '@mui/material';
+import { Box, Button, MenuItem, Paper, Skeleton, Stack, TextField } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import BoardColumn from '../components/board/BoardColumn';
 import AddCardModal from '../components/board/AddCardModal';
 import CardDetailModal from '../components/board/CardDetailModal';
-import { getBoardCards, moveCard, createCard, deleteCard, getUsers } from '../api/cardApi';
+import { getBoardCards, getMyBoardCards, getCardStatuses, createCardStatus, moveCard, createCard, deleteCard, getUsers } from '../api/cardApi';
+import { useAuth } from '../hooks/useAuth';
+import {
+  listContainedButtonSx,
+  listSearchFieldSx,
+  listSelectFieldSx,
+  listSelectProps,
+  LIST_FILTER_ALL,
+} from '../components/forms';
+import AddListComposer from '../components/board/AddListComposer';
 
 function BoardCardSkeleton() {
   return (
@@ -88,6 +98,8 @@ function TasksBoardSkeleton() {
 }
 
 export default function BoardPage() {
+  const { user } = useAuth();
+  const isAccounting = user?.role === 'Accounting';
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -101,6 +113,7 @@ export default function BoardPage() {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
+    if (isAccounting) return;
     (async () => {
       try {
         const data = await getUsers();
@@ -109,25 +122,42 @@ export default function BoardPage() {
         console.error('Failed to load users:', err);
       }
     })();
-  }, []);
+  }, [isAccounting]);
 
   const loadBoard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getBoardCards({
+      const filters = {
         searchText,
-        assignedUserId: selectedUserId,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
+      };
+      const [data, allStatuses] = await Promise.all([
+        isAccounting
+          ? getMyBoardCards(filters)
+          : getBoardCards({ ...filters, assignedUserId: selectedUserId }),
+        getCardStatuses(),
+      ]);
+
+      const cardsByStatus = new Map((data || []).map((col) => [col.cardStatusID, col]));
+      const mergedColumns = (allStatuses || []).map((status) => {
+        const existing = cardsByStatus.get(status.cardStatusID);
+        return existing || {
+          cardStatusID: status.cardStatusID,
+          statusName: status.statusName,
+          count: 0,
+          cards: [],
+        };
       });
-      setColumns(data);
+
+      setColumns(mergedColumns.length ? mergedColumns : (data || []));
     } catch (err) {
       setError(err.message || 'Failed to load board');
     } finally {
       setLoading(false);
     }
-  }, [searchText, selectedUserId, fromDate, toDate]);
+  }, [isAccounting, searchText, selectedUserId, fromDate, toDate]);
 
   useEffect(() => {
     loadBoard();
@@ -171,11 +201,36 @@ export default function BoardPage() {
 
   const handleAddCard = async (statusId, title) => {
     try {
-      await createCard({ cardTitle: title, cardStatusID: statusId });
+      await createCard({
+        cardTitle: title,
+        cardStatusID: statusId,
+        assignedUserID: isAccounting ? Number(user?.id) : undefined,
+      });
       setAddModalStatusId(null);
       loadBoard();
     } catch (err) {
       setError(err.message || 'Could not create card.');
+    }
+  };
+
+  const handleAddList = async (statusName) => {
+    try {
+      const status = await createCardStatus(statusName);
+      setColumns((prev) => {
+        if (prev.some((col) => col.cardStatusID === status.cardStatusID)) return prev;
+        return [
+          ...prev,
+          {
+            cardStatusID: status.cardStatusID,
+            statusName: status.statusName,
+            count: 0,
+            cards: [],
+          },
+        ];
+      });
+    } catch (err) {
+      setError(err.message || 'Could not create list.');
+      throw err;
     }
   };
 
@@ -190,63 +245,112 @@ export default function BoardPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: { xs: 'flex-start', md: 'space-between' },
+          alignItems: { xs: 'stretch', md: 'center' },
+          flexDirection: { xs: 'column', md: 'row' },
+          mb: 2,
+          flexWrap: 'wrap',
+          gap: 1.25,
+        }}
+      >
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Tasks</h1>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select
-            value={selectedUserId ?? ''}
-            onChange={(e) => setSelectedUserId(e.target.value ? parseInt(e.target.value, 10) : null)}
-            style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14 }}
-          >
-            <option value="">All Users</option>
-            {users.map((u) => (
-              <option key={u.userId} value={u.userId}>
-                {u.firstName} {u.lastName}
-              </option>
-            ))}
-          </select>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            width: { xs: '100%', md: 'auto' },
+            '& > .MuiTextField-root, & > .MuiButton-root': {
+              height: 40,
+              flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '0 0 auto' },
+            },
+          }}
+        >
+          {!isAccounting && (
+            <TextField
+              select
+              size="small"
+              value={selectedUserId ?? LIST_FILTER_ALL}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSelectedUserId(next === LIST_FILTER_ALL || next === '' ? null : parseInt(next, 10));
+              }}
+              SelectProps={{
+                ...listSelectProps('All Users'),
+                renderValue: (selected) => {
+                  if (selected === LIST_FILTER_ALL || selected === '' || selected == null) return 'All Users';
+                  const userMatch = users.find((u) => String(u.userId) === String(selected));
+                  return userMatch ? `${userMatch.firstName} ${userMatch.lastName}` : 'All Users';
+                },
+              }}
+              sx={{
+                ...listSelectFieldSx(Boolean(selectedUserId)),
+                minWidth: { xs: 0, md: 160 },
+                maxWidth: { xs: '100%', md: 200 },
+              }}
+            >
+              <MenuItem value={LIST_FILTER_ALL}>All Users</MenuItem>
+              {users.map((u) => (
+                <MenuItem key={u.userId} value={u.userId}>
+                  {u.firstName} {u.lastName}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
 
-          <input
-            type="text"
+          <TextField
+            size="small"
             placeholder="Search task"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 180, padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6 }}
+            sx={{
+              ...listSearchFieldSx,
+              minWidth: { xs: 0, md: 160 },
+              maxWidth: { xs: '100%', md: 200 },
+            }}
           />
 
-          <input
+          <TextField
             type="date"
+            size="small"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6 }}
+            sx={{
+              ...listSearchFieldSx,
+              minWidth: { xs: 0, md: 150 },
+              maxWidth: { xs: '100%', md: 170 },
+            }}
           />
 
-          <input
+          <TextField
             type="date"
+            size="small"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
-            style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6 }}
+            sx={{
+              ...listSearchFieldSx,
+              minWidth: { xs: 0, md: 150 },
+              maxWidth: { xs: '100%', md: 170 },
+            }}
           />
 
-          <button
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<RefreshIcon />}
             onClick={loadBoard}
             disabled={loading}
-            style={{
-              padding: '6px 14px',
-              background: '#2563eb',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: 14,
-              opacity: loading ? 0.7 : 1,
-            }}
+            sx={{ ...listContainedButtonSx, width: { xs: '100%', md: 'auto' } }}
           >
-            ⟳ Refresh
-          </button>
-        </div>
-      </div>
+            Refresh
+          </Button>
+        </Box>
+      </Box>
 
       {error && (
         <div style={{ background: '#fef2f2', color: '#b91c1c', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
@@ -282,6 +386,7 @@ export default function BoardPage() {
     onCardClick={(card) => setSelectedCardId(card.cardID)}
   />
 ))}
+            <AddListComposer onAdd={handleAddList} />
           </div>
         </DragDropContext>
       )}

@@ -4,6 +4,7 @@ import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography ,Radio,RadioGroup,InputAdornment } from '@mui/material';
 import { Fragment } from 'react';
 import { FIELD_DEFS } from '../../config/resourceConfig';
+import DateTextField from './DateTextField';
 import { FormGridItem } from './FormSection';
 import { compactFieldGrid, defaultFieldGrid, formFieldSx, selectMenuProps } from './formStyles';
 
@@ -72,6 +73,7 @@ export default function ResourceFormFields({
   stretch = false,
   selectOptions = {},
   requiredFields = [],
+  fieldDefsOverride = {},
   /** When true: empty selects keep label inside; focus/value floats it to the top (Edit Vendor). */
   fixSelectLabels = false,
 }) {
@@ -79,12 +81,17 @@ export default function ResourceFormFields({
     onChange(field, event.target.value);
   };
 
+  const isTenDigitField = (fieldName, def) =>
+    def.type === 'text' && /(phone|mobile)/i.test(fieldName);
+
   const textareaRows = stretch ? 5 : 3;
 
   const renderField = (fieldName) => {
   
-    const def = FIELD_DEFS[fieldName];
-    
+    const def = FIELD_DEFS[fieldName]
+      ? { ...FIELD_DEFS[fieldName], ...(fieldDefsOverride[fieldName] || {}) }
+      : fieldDefsOverride[fieldName];
+
     if (!def) return null;
     const isRequired = Boolean(def.required) || requiredFields.includes(fieldName);
     const isDate = def.type === 'date';
@@ -198,20 +205,19 @@ export default function ResourceFormFields({
         rawValue === '' || rawValue == null ? '' : String(rawValue);
       const selectedLabel = options.find((option) => String(option.value) === currentValue)?.label;
       const hasSelectValue = currentValue !== '';
+      const keepLabelFloated = def.type === 'api-select' || !fixSelectLabels;
 
-      const selectSx = fixSelectLabels
-        ? {
-            ...formFieldSx,
-            '& .MuiInputLabel-root': {
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              transition: 'none',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            },
-          }
-        : formFieldSx;
+      const selectSx = {
+        ...formFieldSx,
+        '& .MuiInputLabel-root': {
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: 'calc(100% - 32px)',
+        },
+      };
 
       return (
         <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
@@ -223,7 +229,7 @@ export default function ResourceFormFields({
           >
           <InputLabel
             id={labelId}
-            shrink={hasSelectValue}
+            shrink={hasSelectValue || def.type === 'api-select'}
             required={isRequired}
           >
             {def.label}
@@ -234,6 +240,7 @@ export default function ResourceFormFields({
               value={currentValue}
               onChange={handleChange(fieldName)}
               displayEmpty={def.type === 'api-select'}
+              notched={keepLabelFloated || hasSelectValue}
               MenuProps={selectMenuProps}
               renderValue={
                 def.type === 'api-select'
@@ -319,24 +326,76 @@ export default function ResourceFormFields({
     </FormGridItem>
   );
    }
+    const shouldRestrictToTenDigits = isTenDigitField(fieldName, def);
+
+    if (isDate) {
+      return (
+        <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          <DateTextField
+            {...fieldProps}
+            {...dateFieldProps}
+            label={def.label}
+            required={isRequired}
+            value={form[fieldName] ?? ''}
+            onChangeValue={(value) => onChange(fieldName, value)}
+            disabled={isFieldDisabled}
+            InputProps={{
+              readOnly: isFieldDisabled,
+            }}
+            sx={{ ...formFieldSx, flex: 1 }}
+          />
+
+  {def.showViewButton && form[`${fieldName}Url`] && (
+   <Button
+  variant="outlined"
+  size="small"
+  onClick={() => {
+    const fileUrl = form[`${fieldName}Url`];
+
+    const relativePath = fileUrl
+      .replace(/\\/g, "/")
+      .replace(/^.*\/uploads\//i, "uploads/");
+
+    const url = `${import.meta.env.VITE_API_BASE_URL}/${relativePath}`;
+
+    console.log("Opening URL:", url);
+
+    window.open(url, "_blank");
+  }}
+>
+  View
+</Button>
+  )}
+</Box>
+        </FormGridItem>
+      );
+    }
+
     return (
       <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
 <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
     <TextField
   {...fieldProps}
-  {...(isDate ? dateFieldProps : {})}
   label={def.label}
   required={isRequired}
-  type={def.type === "textarea" ? undefined : def.type}
+  type={def.type === "textarea" ? undefined : shouldRestrictToTenDigits ? 'tel' : def.type}
   multiline={def.type === "textarea"}
   minRows={def.type === "textarea" ? textareaRows : undefined}
   value={form[fieldName] ?? ""}
-  onChange={handleChange(fieldName)}
+  onChange={(event) => {
+    const nextValue = shouldRestrictToTenDigits
+      ? event.target.value.replace(/\D/g, '').slice(0, 10)
+      : event.target.value;
+
+    onChange(fieldName, nextValue);
+  }}
   disabled={isFieldDisabled}
+  inputProps={shouldRestrictToTenDigits ? { maxLength: 10, inputMode: 'numeric', pattern: '[0-9]*' } : undefined}
   InputProps={{
     readOnly: isFieldDisabled,
   }}
-  sx={{ flex: 1 }}
+  sx={{ ...formFieldSx, flex: 1 }}
 />
 
   {def.showViewButton && form[`${fieldName}Url`] && (

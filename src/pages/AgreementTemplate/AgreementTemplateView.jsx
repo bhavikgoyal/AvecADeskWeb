@@ -1,41 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Box, IconButton } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import {
+  Alert,
+  Checkbox,
+  FormControlLabel,
+  Paper,
+  TextField,
+} from '@mui/material';
 import { fetchAgrrementTemplateById } from '../../api/agrrementTemplateApi';
 import {
-  backButtonSx,
-  cardSx,
-  fieldWrapSx,
-  fullWidthFieldSx,
-  gridSx,
-  headerRowSx,
-  pageSx,
-  titleSx,
-} from './agreementTemplateFormLayout';
-
-const labelStyle = { display: 'block', fontSize: '0.8125rem', fontWeight: 500, color: '#64748b', marginBottom: 6 };
-const readOnlyInputStyle = {
-  display: 'block',
-  width: '100%',
-  border: '1px solid #e2e8f0',
-  borderRadius: 8,
-  padding: '10px 14px',
-  fontSize: '0.875rem',
-  color: '#1e293b',
-  background: '#f8fafc',
-  boxSizing: 'border-box',
-  outline: 'none',
-  fontFamily: 'inherit',
-  cursor: 'default',
-};
-const readOnlyTextareaStyle = {
-  ...readOnlyInputStyle,
-  minHeight: 220,
-  resize: 'none',
-  lineHeight: 1.6,
-  maxWidth: '100%',
-};
+  FormActions,
+  FormGridItem,
+  FormPageLayout,
+  FormSection,
+  formFieldSx,
+  formPaperSx,
+} from '../../components/forms';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 export default function AgreementTemplateView() {
   const { id } = useParams();
@@ -65,7 +46,6 @@ export default function AgreementTemplateView() {
         isActive: data.isActive ?? true,
       });
     } catch (err) {
-      console.error('Load template error', err);
       const resp = err.response || err;
       const details = resp?.data ? JSON.stringify(resp.data) : resp?.statusText || err.message;
       const msg = details || 'Failed to load template.';
@@ -80,73 +60,79 @@ export default function AgreementTemplateView() {
 
   if (initialLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#64748b' }}>
-        Loading...
-      </div>
+      <FormPageLayout title="View Agreement Template">
+        <FormContentSkeleton rows={8} />
+      </FormPageLayout>
     );
   }
 
   return (
-    <Box sx={pageSx}>
-      <Box sx={headerRowSx}>
-        <IconButton
-          aria-label="Back to agreement templates"
-          onClick={() => navigate('/agreement-template')}
-          sx={backButtonSx}
-        >
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
-        <Box component="h2" sx={titleSx}>
-          View Agreement Template
-        </Box>
-      </Box>
-
+    <FormPageLayout title="View Agreement Template">
       {error && (
-        <div style={{ background: '#fee2e2', color: '#dc2626', padding: '10px 16px', borderRadius: 8, marginBottom: 16, fontSize: '0.875rem' }}>
+        <Alert severity="error" sx={{ mb: 1.5 }}>
           {error}
-        </div>
+        </Alert>
       )}
 
-      <Box sx={cardSx}>
-        <Box sx={gridSx}>
-          <Box sx={fieldWrapSx}>
-            <label style={labelStyle}>Template Name</label>
-            <input value={form.templateName} readOnly style={readOnlyInputStyle} />
-          </Box>
+      <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
+        <FormSection title="Template" description="Name and category for this agreement." divider={false}>
+          <FormGridItem size={{ xs: 12, md: 6 }}>
+            <TextField
+              size="small"
+              fullWidth
+              label="Template name"
+              value={form.templateName}
+              InputProps={{ readOnly: true }}
+              sx={formFieldSx}
+            />
+          </FormGridItem>
+          <FormGridItem size={{ xs: 12, md: 6 }}>
+            <TextField
+              size="small"
+              fullWidth
+              label="Category"
+              value={form.agreementType}
+              InputProps={{ readOnly: true }}
+              sx={formFieldSx}
+            />
+          </FormGridItem>
+        </FormSection>
 
-          <Box sx={fieldWrapSx}>
-            <label style={labelStyle}>Category</label>
-            <input value={form.agreementType} readOnly style={readOnlyInputStyle} />
-          </Box>
+        <FormSection title="Body" description="Agreement content." divider={false}>
+          <FormGridItem size={{ xs: 12 }}>
+            <TextField
+              size="small"
+              fullWidth
+              label="Body (HTML)"
+              multiline
+              minRows={8}
+              value={form.bodyHtml}
+              InputProps={{ readOnly: true }}
+              sx={formFieldSx}
+            />
+          </FormGridItem>
+          <FormGridItem size={{ xs: 12 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={form.isActive}
+                  disabled
+                  sx={{ color: 'var(--primary)', '&.Mui-checked': { color: 'var(--primary)' } }}
+                />
+              }
+              label="Active"
+              sx={{ ml: 0, '& .MuiFormControlLabel-label': { fontWeight: 600, fontSize: '0.875rem' } }}
+            />
+          </FormGridItem>
+        </FormSection>
 
-          <Box sx={fullWidthFieldSx}>
-            <label style={labelStyle}>Body Content</label>
-            <textarea value={form.bodyHtml} readOnly rows={10} style={readOnlyTextareaStyle} />
-          </Box>
-
-          <Box sx={{ ...fieldWrapSx, display: 'flex', alignItems: 'flex-end', pb: 0.25 }}>
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                fontSize: '0.875rem',
-                color: '#475569',
-                cursor: 'default',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                readOnly
-                disabled
-                style={{ width: 18, height: 18, accentColor: '#0084fe', cursor: 'default' }}
-              />
-              Active
-            </label>
-          </Box>
-        </Box>
-      </Box>
-    </Box>
+        <FormActions
+          onCancel={() => navigate('/agreement-template')}
+          cancelLabel="Back"
+          onSubmit={() => navigate(`/agreement-template/${id}/edit`)}
+          submitLabel="Edit"
+        />
+      </Paper>
+    </FormPageLayout>
   );
 }

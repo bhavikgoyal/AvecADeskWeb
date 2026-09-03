@@ -4,6 +4,7 @@ import {
   DialogTitle, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
 import ResponsiveTable from '../ResponsiveTable';
+import TableContentSkeleton from '../TableContentSkeleton';
 import {
   createInstituteCommissionRate,
   fetchCommissionRates,
@@ -12,7 +13,7 @@ import {
   getEmptyCommissionRateForm,
 } from '../../api/commissionsApi';
 import { fetchCoursesByInstitute } from '../../api/lookupApi';
-import { primaryButtonSx } from '../forms';
+import { listContainedButtonSx } from '../forms';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -189,8 +190,9 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
         </Box>
         <Button
           variant="contained"
+          size="small"
           onClick={openCreateDialog}
-          sx={{ ...primaryButtonSx, minWidth: { xs: '100%', sm: 160 }, height: 38, px: 2.25, whiteSpace: 'nowrap' }}
+          sx={listContainedButtonSx}
         >
           Add commission rate
         </Button>
@@ -209,7 +211,17 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
       )}
 
       {loading ? (
-        <Typography sx={{ color: 'var(--muted)', py: 2 }}>Loading...</Typography>
+        <TableContentSkeleton
+          rows={5}
+          columns={[
+            { id: 'course', label: 'Course', flex: 1.4 },
+            { id: 'rateType', label: 'Rate type', flex: 0.9 },
+            { id: 'rate', label: 'Rate', flex: 0.7, skeletonWidth: '45%' },
+            { id: 'effectiveFrom', label: 'From', flex: 0.9 },
+            { id: 'effectiveTo', label: 'To', flex: 0.9 },
+            { id: 'actions', label: 'Actions', flex: 0.8, skeletonWidth: 64, skeletonHeight: 28 },
+          ]}
+        />
       ) : rates.length === 0 ? (
         <Typography sx={{ color: 'var(--muted)', py: 2 }}>No commission rates yet.</Typography>
       ) : (

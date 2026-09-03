@@ -5,6 +5,7 @@ import { createCourse, fetchCourseById, updateCourse } from '../../api/coursesAp
 import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig } from '../../config/resourceConfig';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 function toCourseForm(data, emptyForm) {
   return {
@@ -233,9 +234,7 @@ const handleSave = async () => {
   if (loading) {
     return (
       <FormPageLayout title={isEditMode ? 'Edit course' : 'Add new course'}>
-        <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
-          Loading course...
-        </Paper>
+        <FormContentSkeleton rows={8} sx={{ ...formPaperSx, width: '100%' }} />
       </FormPageLayout>
     );
   }

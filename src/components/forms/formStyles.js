@@ -71,18 +71,24 @@ export const formFieldSx = {
   '& .MuiOutlinedInput-root': {
     width: '100%',
     borderRadius: 2,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#fff',
     transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
-    '&:hover': { backgroundColor: '#fff' },
+    '& fieldset': {
+      borderColor: 'var(--card-border)',
+    },
+    '&:hover': {
+      backgroundColor: '#fff',
+      '& fieldset': { borderColor: 'var(--card-border)' },
+    },
     '&.Mui-focused': {
       backgroundColor: '#fff',
       boxShadow: '0 0 0 3px rgba(51, 133, 198, 0.12)',
+      '& fieldset': { borderColor: 'var(--primary)' },
     },
   },
   '& .MuiInputLabel-root': {
     fontWeight: 600,
     fontSize: '0.875rem',
-    transition: 'none',
   },
   '& input[type="date"]': {
     minHeight: 40,
@@ -100,8 +106,10 @@ export const formActionsSx = {
 
 export const outlineButtonSx = {
   textTransform: 'none',
+  whiteSpace: 'nowrap',
   minWidth: 110,
-  height: 36,
+  height: 40,
+  px: 2.25,
   borderRadius: 2,
   fontWeight: 600,
   fontSize: '0.875rem',
@@ -113,13 +121,151 @@ export const outlineButtonSx = {
 
 export const primaryButtonSx = {
   textTransform: 'none',
+  whiteSpace: 'nowrap',
   minWidth: 130,
-  height: 36,
+  height: 40,
+  px: 3,
   borderRadius: 2,
   fontWeight: 600,
   fontSize: '0.875rem',
   bgcolor: 'var(--primary)',
   color: '#fff',
-  boxShadow: '0 2px 8px rgba(51, 133, 198, 0.25)',
-  '&:hover': { bgcolor: 'var(--primary-dark)', boxShadow: '0 4px 12px rgba(51, 133, 198, 0.32)' },
+  boxShadow: 'none',
+  '&:hover': { bgcolor: 'var(--primary-dark)', boxShadow: 'none' },
 };
+
+/** List-page search field — gray fill, 40px, rounded (Courses toolbar) */
+export const listSearchFieldSx = {
+  minWidth: { xs: 0, md: 240 },
+  maxWidth: { xs: '100%', md: 420 },
+  width: { xs: '100%', md: 'auto' },
+  flex: { xs: '1 1 100%', md: '0 1 auto' },
+  '& .MuiOutlinedInput-root': {
+    height: 40,
+    borderRadius: 2,
+    backgroundColor: 'var(--muted-bg)',
+    '& fieldset': {
+      borderColor: 'var(--card-border)',
+    },
+    '&:hover': {
+      backgroundColor: '#fff',
+      '& fieldset': { borderColor: 'var(--card-border)' },
+    },
+    '&.Mui-focused': {
+      backgroundColor: '#fff',
+      '& fieldset': { borderColor: 'var(--primary)' },
+    },
+  },
+  '& .MuiOutlinedInput-input': {
+    py: '8.5px',
+    height: 'auto',
+    boxSizing: 'border-box',
+  },
+  '& .MuiSelect-select': {
+    display: 'flex',
+    alignItems: 'center',
+    py: '8.5px',
+    height: 'auto',
+    minHeight: 'unset',
+    boxSizing: 'border-box',
+  },
+};
+
+export const listToolbarRowSx = {
+  display: 'flex',
+  alignItems: { xs: 'stretch', md: 'center' },
+  justifyContent: 'space-between',
+  gap: { xs: 1.5, md: 2 },
+  flexWrap: 'wrap',
+  flexDirection: { xs: 'column', md: 'row' },
+  width: '100%',
+};
+
+export const listToolbarSearchGroupSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1.5,
+  flexWrap: 'wrap',
+  flex: { xs: '1 1 100%', md: 1 },
+  width: { xs: '100%', md: 'auto' },
+  minWidth: 0,
+};
+
+export const listToolbarActionsSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1,
+  flexWrap: 'wrap',
+  width: { xs: '100%', md: 'auto' },
+  flex: { xs: '1 1 100%', md: '0 0 auto' },
+  '& > *': {
+    flex: { xs: '1 1 calc(50% - 4px)', md: '0 0 auto' },
+    minWidth: { xs: 0, md: 'auto' },
+  },
+  '& .MuiButton-root': {
+    width: { xs: '100%', md: 'auto' },
+  },
+};
+
+export const listContainedButtonSx = {
+  textTransform: 'none',
+  whiteSpace: 'nowrap',
+  height: 40,
+  px: 3,
+  borderRadius: 2,
+  fontWeight: 600,
+  fontSize: '0.875rem',
+  bgcolor: 'var(--primary)',
+  color: '#fff',
+  boxShadow: 'none',
+  width: { xs: '100%', md: 'auto' },
+  '&:hover': {
+    bgcolor: 'var(--primary-dark)',
+    boxShadow: 'none',
+  },
+};
+
+export const listOutlinedButtonSx = {
+  textTransform: 'none',
+  whiteSpace: 'nowrap',
+  height: 40,
+  px: 2.25,
+  borderRadius: 2,
+  fontWeight: 600,
+  fontSize: '0.875rem',
+  width: { xs: '100%', md: 'auto' },
+};
+
+/** Sentinel value for “show all” list filters. Not sent to APIs. */
+export const LIST_FILTER_ALL = 'all';
+
+export function isListFilterAll(value) {
+  return value === '' || value == null || value === LIST_FILTER_ALL;
+}
+
+/** MUI select props so empty / “all” shows a page-specific placeholder. */
+export function listSelectProps(placeholder) {
+  return {
+    displayEmpty: true,
+    renderValue: (selected) => {
+      if (isListFilterAll(selected)) return placeholder;
+      return selected;
+    },
+  };
+}
+
+/** Search-field styles for list filters; muted text when showing the placeholder. */
+export function listSelectFieldSx(hasValue) {
+  return {
+    ...listSearchFieldSx,
+    '& .MuiSelect-select': {
+      display: 'flex',
+      alignItems: 'center',
+      py: '8.5px',
+      height: 'auto',
+      minHeight: 'unset',
+      boxSizing: 'border-box',
+      color: hasValue ? 'inherit' : 'var(--muted, #657792)',
+    },
+  };
+}

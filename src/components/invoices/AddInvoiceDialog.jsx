@@ -16,28 +16,46 @@ import {
   Typography,
 } from '@mui/material';
 import ResponsiveTable from '../ResponsiveTable';
-import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
-import { fetchCoursesByScrappingId } from '../../api/coursesapi';
-import { fetchPaidStudentsForInvoice, generateMonthlyInvoice } from '../../api/invoicesApi';
+import {
+  fetchUniqueInstituteNames,
+  getCampusesForInstitute,
+  getUniqueInstituteNames,
+  normalizeInstituteName,
+  resolveScrappingId,
+} from '../../api/institutesScrappingApi';
+import { fetchPaidStudentsForInvoice, generateMonthlyInvoice ,fetchSettledPaymentStatuses,} from '../../api/invoicesApi';
 
-export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
+export default function AddInvoiceDialog({ open, onClose, onGenerated,initialInstituteName = '', initialCampus = '' ,lockInstitute = false,}) {
   const now = useMemo(() => new Date(), []);
   const [institutes, setInstitutes] = useState([]);
-  const [campuses, setCampuses] = useState([]);
-  const [instituteId, setInstituteId] = useState('');
+  const [instituteName, setInstituteName] = useState('');
   const [campus, setCampus] = useState('');
   const [students, setStudents] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]); // ids of checked rows
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
-  const [loadingCampuses, setLoadingCampuses] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+  const [paidStatuses, setPaidStatuses] = useState(['paid', 'paidbycollege', 'paidbystudent']);
+
+  const uniqueInstituteNames = useMemo(
+    () => getUniqueInstituteNames(institutes),
+    [institutes],
+  );
+
+  const campuses = useMemo(
+    () => getCampusesForInstitute(institutes, instituteName),
+    [institutes, instituteName],
+  );
+
+  const resolvedInstituteId = useMemo(() => {
+    if (!instituteName || !campus) return '';
+    return resolveScrappingId(institutes, instituteName, campus);
+  }, [institutes, instituteName, campus]);
 
   const resetForm = useCallback(() => {
-    setInstituteId('');
+    setInstituteName('');
     setCampus('');
-    setCampuses([]);
     setStudents([]);
     setSelectedIds([]);
     setError('');
@@ -66,53 +84,17 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
       cancelled = true;
     };
   }, [open]);
-
+useEffect(() => {
+  if (!open) return;
+  if (initialInstituteName) {
+    setInstituteName(initialInstituteName);
+  }
+  if (initialCampus) {
+    setCampus(initialCampus);
+  }
+}, [open, initialInstituteName, initialCampus]);
   useEffect(() => {
-    if (!open || !instituteId) {
-      setCampuses([]);
-      setCampus('');
-      setStudents([]);
-      setSelectedIds([]);
-      return undefined;
-    }
-
-    let cancelled = false;
-    setLoadingCampuses(true);
-    setCampus('');
-    setStudents([]);
-    setSelectedIds([]);
-    setError('');
-
-    // Courses.InstituteId = ScrappingId — unique Campus values only
-    fetchCoursesByScrappingId(instituteId)
-      .then((data) => {
-        if (cancelled) return;
-        const list = data?.courses ?? data?.Courses ?? [];
-        const unique = [
-          ...new Set(
-            list
-              .map((c) => (c.campus ?? c.Campus ?? '').trim())
-              .filter(Boolean),
-          ),
-        ].sort((a, b) => a.localeCompare(b));
-        setCampuses(unique);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err.message || 'Failed to load campuses.');
-        setCampuses([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingCampuses(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, instituteId]);
-
-  useEffect(() => {
-    if (!open || !instituteId || !campus) {
+    if (!open || !resolvedInstituteId || !campus) {
       setStudents([]);
       setSelectedIds([]);
       return undefined;
@@ -125,13 +107,12 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     fetchPaidStudentsForInvoice({
       year: now.getFullYear(),
       month: now.getMonth() + 1,
-      instituteId: Number(instituteId),
+      instituteId: Number(resolvedInstituteId),
       campus,
     })
       .then((rows) => {
         if (cancelled) return;
         setStudents(rows);
-        // No auto-selection — user must check each student manually.
         setSelectedIds([]);
       })
       .catch((err) => {
@@ -147,11 +128,47 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     return () => {
       cancelled = true;
     };
-  }, [open, instituteId, campus, now]);
+  }, [open, resolvedInstituteId, campus, now]);
 
-  const isPaidRow = (row) => String(row.paymentStatus).toLowerCase() === 'paid';
 
-  const paidStudents = useMemo(() => students.filter(isPaidRow), [students]);
+  useEffect(() => {
+  if (!open) return;
+
+  let cancelled = false;
+
+  fetchSettledPaymentStatuses()
+    .then((list) => {
+      if (cancelled) return;
+
+      if (Array.isArray(list) && list.length > 0) {
+        setPaidStatuses(
+          list.map((status) =>
+            String(status).trim().toLowerCase()
+          )
+        );
+      }
+    })
+    .catch(() => {
+      // Keep fallback statuses
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [open]);
+
+ const isPaidRow = useCallback(
+  (row) =>
+    paidStatuses.includes(
+      String(row?.paymentStatus ?? '').trim().toLowerCase()
+    ),
+  [paidStatuses]
+);
+
+  const paidStudents = useMemo(
+  () => students.filter(isPaidRow),
+  [students, isPaidRow]
+);
   const paidCount = paidStudents.length;
 
   const selectedPaidCount = useMemo(
@@ -164,7 +181,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
   const somePaidSelected = selectedPaidCount > 0 && !allPaidSelected;
 
   const toggleRow = (row) => {
-    if (!isPaidRow(row)) return; // only Paid rows can be invoiced
+    if (!isPaidRow(row)) return; 
     setSelectedIds((prev) =>
       prev.includes(row.id)
         ? prev.filter((id) => id !== row.id)
@@ -183,12 +200,19 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     }
   };
 
-  const canGenerate = Boolean(instituteId && campus) && selectedPaidCount > 0;
+  const canGenerate = Boolean(resolvedInstituteId && campus) && selectedPaidCount > 0;
 
   const handleClose = () => {
     if (generating) return;
     resetForm();
     onClose?.();
+  };
+
+  const handleInstituteChange = (value) => {
+    setInstituteName(value);
+    setCampus('');
+    setStudents([]);
+    setSelectedIds([]);
   };
 
   const handleGenerate = async () => {
@@ -199,7 +223,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
       const result = await generateMonthlyInvoice({
         year: now.getFullYear(),
         month: now.getMonth() + 1,
-        instituteId: Number(instituteId),
+        instituteId: Number(resolvedInstituteId),
         campus,
         installmentIds: selectedIds.filter((id) =>
           paidStudents.some((s) => s.id === id),
@@ -266,17 +290,17 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
           )}
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              select
-              fullWidth
-              label="Institute"
-              value={instituteId}
-              onChange={(e) => setInstituteId(e.target.value)}
-              disabled={loadingInstitutes || generating}
-            >
-              {institutes.map((item) => (
-                <MenuItem key={item.id} value={String(item.id)}>
-                  {item.name}
+           <TextField
+                select
+                fullWidth
+                label="Institute"
+                value={instituteName}
+                onChange={(e) => handleInstituteChange(e.target.value)}
+                disabled={loadingInstitutes || generating || Boolean(initialInstituteName)}
+              >
+              {uniqueInstituteNames.map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
                 </MenuItem>
               ))}
             </TextField>
@@ -287,15 +311,13 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
               label="Campus"
               value={campus}
               onChange={(e) => setCampus(e.target.value)}
-              disabled={!instituteId || loadingCampuses || generating}
+              disabled={!instituteName || generating}
               helperText={
-                !instituteId
+                !instituteName
                   ? 'Select institute first'
-                  : loadingCampuses
-                    ? 'Loading campuses...'
-                    : campuses.length === 0
-                      ? 'No campus found in Courses for this institute'
-                      : ' '
+                  : campuses.length === 0
+                    ? 'No campus available'
+                    : ' '
               }
             >
               {campuses.map((name) => (
@@ -306,7 +328,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
             </TextField>
           </Stack>
 
-          {instituteId && campus && (
+          {resolvedInstituteId && campus && (
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 700 }}>
                 Students — {now.toLocaleString('en', { month: 'long' })} {now.getFullYear()}
@@ -358,4 +380,3 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated }) {
     </Dialog>
   );
 }
-

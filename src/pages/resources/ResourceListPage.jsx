@@ -23,12 +23,15 @@ import { deleteStudent, fetchEnrolmentRows, fetchStudentRows } from '../../api/s
 import { deleteVendor, fetchVendorRows } from '../../api/vendorsApi';
 import { getEmailTemplates, deleteEmailTemplate } from '../../api/EmailtemplatesApi';
 import { downloadInvoiceDocument, fetchInvoices } from '../../api/invoicesApi';
+import { listOutlinedButtonSx, listSearchFieldSx } from '../../components/forms';
 import AddInvoiceDialog from '../../components/invoices/AddInvoiceDialog';
 import PageShell from '../../components/PageShell';
 import ResponsiveTable from '../../components/ResponsiveTable';
+import TableContentSkeleton from '../../components/TableContentSkeleton';
 import { PAGE_CONFIG } from '../../config/pageConfig';
 import { getResourceConfig } from '../../config/resourceConfig';
 import { deleteRecord, loadRecords } from '../../utils/resourceStorage';
+import { formatDateDisplay } from '../../utils/dateFormat';
 import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
 import { deleteCourse, fetchCourseList } from '../../api/coursesApi';
 import connection from '../../services/signalR';
@@ -37,10 +40,7 @@ import EditInvoiceDialog from '../../components/invoices/EditInvoiceDialog';
 const INSTITUTE_SCRAPPING_BASE_PATH = '/institutes-scrapping';
 
 function formatDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateDisplay(value);
 }
 
 function parseValidDate(value) {
@@ -61,6 +61,11 @@ function isSameLocalDay(date, referenceDate) {
     isSameLocalMonth(date, referenceDate) &&
     date.getDate() === referenceDate.getDate()
   );
+}
+
+
+function normalizeInstituteName(value) {
+  return String(value || '').trim().replace(/:+\s*$/, '').trim().toLowerCase();
 }
 
 function applyStudentSummary(baseStats, summary) {
@@ -170,7 +175,7 @@ export default function ResourceListPage({ basePath }) {
   const usesApi = isStudents || isEnrolment || isInstitutes || isVendors || isTemplates || isCourses || isInvoices;
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState(pageStats);
-  const [loading, setLoading] = useState(usesApi);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [addInvoiceOpen, setAddInvoiceOpen] = useState(false);
@@ -189,12 +194,19 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
 
   return () => clearTimeout(timer);
 }, [success]);
+
   // Courses page: institute filter passed via ?institute=<name> from
   // the "View Courses" button on the Institutes Scrapping list.
   const instituteFilter = useMemo(() => {
     if (!isCourses) return '';
     return new URLSearchParams(location.search).get('institute')?.trim() || '';
   }, [isCourses, location.search]);
+
+
+  const invoiceInstituteFilter = useMemo(() => {
+    if (!isInvoices) return '';
+    return new URLSearchParams(location.search).get('institute')?.trim() || '';
+  }, [isInvoices, location.search]);
 
   const invoiceView = useMemo(() => {
     if (!isInvoices) return '';
@@ -295,14 +307,22 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
       return rows;
     }
 
-   if (isCourses) {
+    if (isCourses) {
       if (!instituteFilter) return rows;
-      const target = instituteFilter.toLowerCase();
-      return rows.filter((row) => (row.instituteName || '').trim().toLowerCase() === target);
+      const target = normalizeInstituteName(instituteFilter);
+      return rows.filter((row) => normalizeInstituteName(row.instituteName) === target);
     }
 
-   if (isInvoices) {
+    if (isInvoices) {
       let filtered = rows;
+
+      if (invoiceInstituteFilter) {
+        const target = normalizeInstituteName(invoiceInstituteFilter);
+        filtered = filtered.filter(
+          (r) => normalizeInstituteName(r.instituteNameRef) === target,
+        );
+      }
+
       if (invoiceView) {
         if (invoiceView === 'paid') filtered = filtered.filter((r) => (((r.invoiceStatus || r.status || '') + '').toLowerCase()) === 'approved');
         else if (invoiceView === 'due') filtered = filtered.filter((r) => {
@@ -345,7 +365,22 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
     }
 
     return rows;
-  }, [rows, isCourses, instituteFilter, isInvoices, invoiceView, invoiceYear, invoiceMonth, isStudents, studentYear, studentMonth, isVendors, vendorYear, vendorMonth]);
+  }, [
+    rows,
+    isCourses,
+    instituteFilter,
+    isInvoices,
+    invoiceInstituteFilter,
+    invoiceView,
+    invoiceYear,
+    invoiceMonth,
+    isStudents,
+    studentYear,
+    studentMonth,
+    isVendors,
+    vendorYear,
+    vendorMonth,
+  ]);
 
   const filteredDisplayRows = useMemo(() => {
     if (!isVendors) {
@@ -390,7 +425,7 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
   const [historyInstituteName, setHistoryInstituteName] = useState('');
 
   const refreshRows = useCallback(async () => {
-    if (usesApi) setLoading(true);
+    setLoading(true);
     setError('');
 
     try {
@@ -411,7 +446,7 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
       setRows([]);
       setStats(pageStats);
     } finally {
-      if (usesApi) setLoading(false);
+      setLoading(false);
     }
   }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isCourses, isInvoices, pageStats, usesApi]);
 useEffect(() => {
@@ -468,14 +503,14 @@ useEffect(() => {
         if (cancelled) return;
         setRows(result.rows);
         setStats(result.stats);
-        if (usesApi) setLoading(false);
+        setLoading(false);
       })
       .catch((err) => {
         if (cancelled) return;
         setError(err.message || getLoadErrorMessage(basePath));
         setRows([]);
         setStats(pageStats);
-        if (usesApi) setLoading(false);
+        setLoading(false);
       });
 
     // If navigated back with a refresh flag, trigger refresh and clear state
@@ -773,20 +808,13 @@ const handleExportInvoicesPdf = useCallback(async () => {
 
   const headerExtra = (
     <>
-      {isCourses && instituteFilter && (
+      {((isCourses && instituteFilter) || (isInvoices && invoiceInstituteFilter)) && (
         <Button
           variant="outlined"
           size="small"
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)}
-          sx={{
-            textTransform: 'none',
-            height: 40,
-            borderRadius: 2,
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            px: 2,
-          }}
+          sx={listOutlinedButtonSx}
         >
           Back to Institute
         </Button>
@@ -800,14 +828,7 @@ const handleExportInvoicesPdf = useCallback(async () => {
               startIcon={<PictureAsPdfOutlinedIcon />}
               onClick={handleExportPdf}
               disabled={selectedIds.length === 0}
-              sx={{
-                textTransform: 'none',
-                height: 40,
-                borderRadius: 2,
-                fontWeight: 600,
-                whiteSpace: 'nowrap',
-                px: 2,
-              }}
+              sx={listOutlinedButtonSx}
             >
               Export PDF{selectedIds.length ? ` (${selectedIds.length})` : ''}
             </Button>
@@ -832,18 +853,24 @@ const handleExportInvoicesPdf = useCallback(async () => {
         </Alert>
       )}
       <PageShell
-        title={isCourses && instituteFilter ? `${page.title} — ${instituteFilter}` : page.title}
+        title={
+          isCourses && instituteFilter
+            ? `${page.title} — ${instituteFilter}`
+            : isInvoices && invoiceInstituteFilter
+              ? `${page.title} — ${invoiceInstituteFilter}`
+              : page.title
+        }
         subtitle={page.subtitle}
         stats={stats}
         showCharts={!isTemplates && !isInvoices && (page.showCharts !== false)}
         columns={columnsWithSelect}
         rows={loading ? [] : filteredDisplayRows}
-        loading={(isVendors || isCourses) && loading}
+        loading={loading}
         actionLabel={resource.actionLabel}
         searchPlaceholder={`Search ${resource.plural.toLowerCase()}...`}
        headerExtra={isVendors ? (
   <>
-    <FormControl size="small" sx={{ minWidth: 130 }}>
+    <FormControl size="small" sx={{ display: 'none', ...listSearchFieldSx, minWidth: { xs: 0, md: 130 }, maxWidth: { xs: '100%', md: 160 } }}>
       <Select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
@@ -854,7 +881,7 @@ const handleExportInvoicesPdf = useCallback(async () => {
       </Select>
     </FormControl>
 
-    <FormControl size="small" sx={{ minWidth: 150 }}>
+    <FormControl size="small" sx={{ ...listSearchFieldSx, minWidth: { xs: 0, md: 150 }, maxWidth: { xs: '100%', md: 180 } }}>
       <Select
         value={activityFilter}
         onChange={(e) => setActivityFilter(e.target.value)}
@@ -878,15 +905,7 @@ const handleExportInvoicesPdf = useCallback(async () => {
             startIcon={<PictureAsPdfOutlinedIcon />}
             onClick={handleExportInvoicesPdf}
             disabled={selectedIds.length === 0}
-            sx={{
-              textTransform: 'none',
-              height: 40,
-              borderRadius: 2,
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              px: 2,
-              ml: 1.25,
-            }}
+            sx={listOutlinedButtonSx}
           >
             Download PDF{selectedIds.length ? ` (${selectedIds.length})` : ''}
           </Button>
@@ -908,12 +927,14 @@ const handleExportInvoicesPdf = useCallback(async () => {
       />
 
       {isInvoices && !invoiceView && (
-        <AddInvoiceDialog
-          open={addInvoiceOpen}
-          onClose={() => setAddInvoiceOpen(false)}
-          onGenerated={handleInvoiceGenerated}
-        />
-      )}
+  <AddInvoiceDialog
+    open={addInvoiceOpen}
+    onClose={() => setAddInvoiceOpen(false)}
+    onGenerated={handleInvoiceGenerated}
+    initialInstituteName={invoiceInstituteFilter}
+    lockInstitute={Boolean(invoiceInstituteFilter)}
+  />
+)}
 {isInvoices && !invoiceView && (
   <EditInvoiceDialog
     open={editInvoiceOpen}
@@ -938,9 +959,15 @@ const handleExportInvoicesPdf = useCallback(async () => {
               </Alert>
             )}
             {historyLoading ? (
-              <Alert severity="info" sx={{ mb: 1.5 }}>
-                Loading history...
-              </Alert>
+              <TableContentSkeleton
+                rows={5}
+                columns={[
+                  { id: 'rateType', label: 'Rate Type', flex: 1 },
+                  { id: 'rate', label: 'Rate', flex: 0.8 },
+                  { id: 'effectiveFrom', label: 'From', flex: 1 },
+                  { id: 'effectiveTo', label: 'To', flex: 1 },
+                ]}
+              />
             ) : historyRows.length === 0 && !historyError ? (
               <Alert severity="info">No commission history for this institute yet.</Alert>
             ) : (

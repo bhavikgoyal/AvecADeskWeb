@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Alert, Box, Button, Paper, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress,
-  TextField, InputAdornment
+  Alert, Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TablePagination, TextField,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { FormPageLayout, formPaperSx } from '../../components/forms';
+import { FormPageLayout, formPaperSx, listOutlinedButtonSx, listSearchFieldSx, listToolbarRowSx } from '../../components/forms';
+import TableContentSkeleton from '../../components/TableContentSkeleton';
+import {
+  resourceTableBodyCellSx,
+  resourceTableBodyRowSx,
+  resourceTableHeadCellSx,
+  resourceTableHeadRowSx,
+} from '../../components/resourceTableStyles';
 import { getStudentApplications } from '../../api/StudentApplicationApi';
 import { getResourceConfig } from '../../config/resourceConfig';
 
@@ -65,21 +71,14 @@ export default function StudentApplicationDetailsPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
 
   const visibleRows = useMemo(() => {
     if (!isNewOnly) return rows;
     const startIndex = (pageNumber - 1) * pageSize;
     return rows.slice(startIndex, startIndex + pageSize);
-  }, [isNewOnly, pageNumber, rows]);
-
-  const totalPages = Math.ceil(totalRecords / pageSize) || 1;
-
-  const start = totalRecords === 0 ? 0 : (pageNumber - 1) * pageSize + 1;
-  const end = Math.min(pageNumber * pageSize, totalRecords);
-
-  const startPage = Math.floor((pageNumber - 1) / 5) * 5 + 1;
+  }, [isNewOnly, pageNumber, pageSize, rows]);
 
   const filteredVendorName = useMemo(() => {
     if (vendorNameFromQuery) return vendorNameFromQuery;
@@ -125,27 +124,44 @@ export default function StudentApplicationDetailsPage() {
     }
   };
 
-  const pageButtonStyle = {
-    width: 34,
-    height: 34,
-    border: "none",
-    borderRight: "1px solid #e5e7eb",
-    background: "#fff",
-    cursor: "pointer",
-    fontSize: "0.8125rem",
-
-    "&:last-child": {
-      borderRight: "none",
-    },
+  const handleChangePage = (_event, newPage) => {
+    const nextPage = newPage + 1;
+    setPageNumber(nextPage);
+    if (!isNewOnly) {
+      loadData(search, nextPage, pageSize);
+    }
   };
+
+  const handleChangeRowsPerPage = (event) => {
+    const nextSize = parseInt(event.target.value, 10);
+    setPageSize(nextSize);
+    setPageNumber(1);
+    if (!isNewOnly) {
+      loadData(search, 1, nextSize);
+    }
+  };
+
+  const skeletonColumns = (resource?.columns || []).map((column) => {
+    const id = column.id || column.field;
+    if (id === 'action') {
+      return { id, label: column.label, flex: 0.7, skeletonWidth: 56, skeletonHeight: 28 };
+    }
+    if (id === 'email' || id === 'vendorName' || id === 'highestQualification') {
+      return { id, label: column.label, flex: 1.4, skeletonWidth: '85%' };
+    }
+    if (id === 'testScore' || id === 'phone') {
+      return { id, label: column.label, flex: 0.8, skeletonWidth: '60%' };
+    }
+    return { id, label: column.label, flex: 1 };
+  });
 
   return (
     <FormPageLayout
-      title={resource?.plural || "Student Applications"}
+      title={resource?.plural || 'Student Applications'}
       subtitle={
         vendorId
           ? `${isNewOnly ? 'New students' : 'Students'} for vendor${filteredVendorName ? `: ${filteredVendorName}` : ''}`
-          : "Student Application Details"
+          : 'Student Application Details'
       }
       metaItems={[
         {
@@ -154,7 +170,7 @@ export default function StudentApplicationDetailsPage() {
         },
       ]}
     >
-      <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
+      <Paper elevation={0} sx={{ ...formPaperSx, width: '100%', minWidth: 0, overflow: 'hidden' }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -163,212 +179,113 @@ export default function StudentApplicationDetailsPage() {
 
         <Box
           sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 2,
-            gap: 1,
-            flexWrap: 'wrap',
+            ...listToolbarRowSx,
+            px: { xs: 0.25, md: 0.5 },
+            pb: 1,
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            {vendorId && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<ArrowBackIcon />}
-                onClick={() => navigate('/vendors')}
-                sx={{ textTransform: 'none', fontWeight: 600, height: 40 }}
-              >
-                Back to Vendors
-              </Button>
-            )}
-            <TextField
+          {vendorId && (
+            <Button
+              variant="outlined"
               size="small"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSearch(value);
-                setPageNumber(1);
-                loadData(value, 1, pageSize);
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                width: "350px",
-                minWidth: "180px",
-                maxWidth: "350px",
-                flex: "0 0 350px",
-              }}
-            />
-          </Box>
-
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
+              startIcon={<ArrowBackIcon />}
+              onClick={() => navigate('/vendors')}
+              sx={listOutlinedButtonSx}
+            >
+              Back to Vendors
+            </Button>
+          )}
+          <TextField
+            size="small"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSearch(value);
+              setPageNumber(1);
+              loadData(value, 1, pageSize);
             }}
-          >
-            <Typography
-              variant="body2"
-              sx={{ whiteSpace: "nowrap" }}
-            >
-              Showing {start}-{end} of {totalRecords}
-            </Typography>
-
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                border: "1px solid #d9d9d9",
-                borderRadius: "6px",
-                overflow: "hidden",
-                background: "#fff",
-              }}
-            >
-              <Box
-                component="button"
-                onClick={() => {
-                  if (pageNumber > 1) {
-                    const prevPage = pageNumber - 1;
-                    setPageNumber(prevPage);
-                    if (!isNewOnly) {
-                      loadData(search, prevPage, pageSize);
-                    }
-                  }
-                }}
-                sx={pageButtonStyle}
-              >
-                ‹
-              </Box>
-
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = startPage + i;
-                if (page > totalPages) return null;
-
-                return (
-                  <Box
-                    key={page}
-                    component="button"
-                    onClick={() => {
-                      setPageNumber(page);
-                      if (!isNewOnly) {
-                        loadData(search, page, pageSize);
-                      }
-                    }}
-                    sx={{
-                      ...pageButtonStyle,
-                      bgcolor: page === pageNumber ? "#1976d2" : "#fff",
-                      color: page === pageNumber ? "#fff" : "#1f2937",
-                      fontWeight: 600,
-                      "&:hover": {
-                        bgcolor: page === pageNumber ? "#1976d2" : "#f3f4f6",
-                      },
-                    }}
-                  >
-                    {page}
-                  </Box>
-                );
-              })}
-
-              <Box
-                component="button"
-                onClick={() => {
-                  if (pageNumber < totalPages) {
-                    const nextPage = pageNumber + 1;
-                    setPageNumber(nextPage);
-                    if (!isNewOnly) {
-                      loadData(search, nextPage, pageSize);
-                    }
-                  }
-                }}
-                sx={pageButtonStyle}
-              >
-                ›
-              </Box>
-            </Box>
-          </Box>
+            sx={listSearchFieldSx}
+          />
         </Box>
 
         {loading ? (
-          <Box
-            sx={{
-              py: 5,
-              display: 'flex',
-              justifyContent: 'center',
-            }}
-          >
-            <CircularProgress />
-          </Box>
+          <TableContentSkeleton rows={pageSize} columns={skeletonColumns} />
         ) : (
-          <TableContainer>
-            <Table>
-              <TableHead
-                sx={{
-                  backgroundColor: '#eef2f6',
-                }}
-              >
-                <TableRow>
-                  {resource?.columns?.map((column) => (
-                    <TableCell
-                      key={column.id || column.field}
-                      sx={{
-                        backgroundColor: '#eef2f6',
-                        color: '#23395d',
-                        fontWeight: 700,
-                        fontSize: '0.8125rem',
-                        borderBottom: '1px solid #d7dde5',
-                        padding: '12px 16px',
-                      }}
-                    >
-                      {column.label}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={resource?.columns?.length || 8}
-                      align="center"
-                    >
-                      No Records Found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  visibleRows.map((row, idx) => (
-                    <TableRow key={row.studentID || row.id || idx} hover>
-                     {resource?.columns?.map((column) => (
-                      <TableCell key={column.id || column.field}>
-                        {column.id === 'action' ? (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            sx={{ textTransform: 'none' }}
-                           onClick={() => navigate(`/application-details/${row.studentID}`)}
-                          >
-                            View
-                          </Button>
-                        ) : (
-                          row[column.field] || '-'
-                        )}
+          <>
+            <TableContainer
+              sx={{
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                display: 'block',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              <Table size="small" sx={{ minWidth: 1100 }}>
+                <TableHead>
+                  <TableRow sx={resourceTableHeadRowSx}>
+                    {resource?.columns?.map((column) => (
+                      <TableCell
+                        key={column.id || column.field}
+                        sx={{ ...resourceTableHeadCellSx, whiteSpace: 'nowrap' }}
+                      >
+                        {column.label}
                       </TableCell>
                     ))}
+                  </TableRow>
+                </TableHead>
+
+                <TableBody>
+                  {rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={resource?.columns?.length || 8}
+                        align="center"
+                        sx={resourceTableBodyCellSx}
+                      >
+                        No Records Found
+                      </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                  ) : (
+                    visibleRows.map((row, idx) => (
+                      <TableRow key={row.studentID || row.id || idx} hover sx={resourceTableBodyRowSx}>
+                        {resource?.columns?.map((column) => (
+                          <TableCell key={column.id || column.field} sx={resourceTableBodyCellSx}>
+                            {column.id === 'action' ? (
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                                onClick={() => navigate(`/application-details/${row.studentID}`)}
+                              >
+                                View
+                              </Button>
+                            ) : (
+                              row[column.field] || '-'
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <TablePagination
+              component="div"
+              count={totalRecords}
+              page={Math.max(0, pageNumber - 1)}
+              onPageChange={handleChangePage}
+              rowsPerPage={pageSize}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="Rows per page:"
+            />
+          </>
         )}
       </Paper>
     </FormPageLayout>

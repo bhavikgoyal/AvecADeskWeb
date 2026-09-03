@@ -29,6 +29,7 @@ export function mapInvoiceRow(item) {
     invoiceNumber: item.invoiceNumber ?? item.InvoiceNumber ?? '',
     instituteId: item.instituteId ?? item.InstituteId,
     instituteNameRef: item.instituteName ?? item.InstituteName ?? '',
+    instituteAddress: item.instituteAddress ?? item.InstituteAddress ?? '',
     invoiceStatus: item.status ?? item.Status ?? '',
     totalAmount: formatCurrency(item.totalAmount ?? item.TotalAmount),
     totalAmountRaw: Number(item.totalAmount ?? item.TotalAmount ?? 0),
@@ -194,6 +195,7 @@ export async function fetchInvoiceLineItems(invoiceId) {
       studentId: item.studentId ?? item.StudentId,
       studentName: item.studentName ?? item.StudentName ?? '—',
       description: item.description ?? item.Description ?? '',
+      cricosCode: item.cricosCode ?? item.CricosCode ?? '',
       amount: formatCurrencyAUD(amountValue),
       amountRaw: Number.isFinite(amountValue) ? amountValue : 0,
     };
@@ -232,4 +234,10 @@ export async function fetchNextMonthInvoiceTotal() {
     "/api/invoices/next-month-totalinvoice"
   );
   return Number(data);
+}
+
+export async function fetchSettledPaymentStatuses() {
+  const { data } = await axiosClient.get('/api/receivables/settled-statuses');
+  const list = Array.isArray(data) ? data : [];
+  return list.map((s) => String(s).toLowerCase());
 }

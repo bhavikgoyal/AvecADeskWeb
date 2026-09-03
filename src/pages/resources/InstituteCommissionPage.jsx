@@ -7,7 +7,7 @@ import ExcelIcon from '@mui/icons-material/TableView';
 // or another icon you're using
 import ResponsiveTable from '../../components/ResponsiveTable';
 import TableContentSkeleton from '../../components/TableContentSkeleton';
-import { primaryButtonSx } from '../../components/forms';
+import { listContainedButtonSx, listOutlinedButtonSx, listSelectFieldSx, listSelectProps, listToolbarActionsSx, listToolbarRowSx, listToolbarSearchGroupSx, LIST_FILTER_ALL } from '../../components/forms';
 import { createInstituteCommissionRate, fetchCommissionRates, fetchCommissionHistory, getEmptyCommissionRateForm, } from '../../api/commissionsApi';
 import { fetchInstitutes, fetchCoursesByInstitute, } from '../../api/lookupApi';
 import Tooltip from '@mui/material/Tooltip';
@@ -453,19 +453,27 @@ export default function InstituteCommissionPage() {
         </Box>
       ) : rates.length ? (
         <>
-          <Stack direction="row" spacing={2} sx={{ mb: 2 }} style={{justifyContent:'space-between'}}>
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          <Box sx={{ ...listToolbarRowSx, mb: 2 }}>
+            <Box sx={listToolbarSearchGroupSx}>
               <TextField
                   select
-                  label="Institute"
                   size="small"
-                  value={selectedInstitute}
+                  value={selectedInstitute || LIST_FILTER_ALL}
                   onChange={(e) => {
-                    setSelectedInstitute(e.target.value);
+                    const next = e.target.value === LIST_FILTER_ALL ? '' : e.target.value;
+                    setSelectedInstitute(next);
                     setSelectedCourse("");
-                  }} sx={{ minWidth: 250 }}
+                  }}
+                  SelectProps={{
+                    ...listSelectProps('All Institutes'),
+                    renderValue: (selected) => {
+                      if (!selected || selected === LIST_FILTER_ALL) return 'All Institutes';
+                      return institutes.find((i) => String(i.instituteId) === String(selected))?.instituteName || 'All Institutes';
+                    },
+                  }}
+                  sx={listSelectFieldSx(Boolean(selectedInstitute))}
                 >
-                  <MenuItem value="">All Institutes</MenuItem>
+                  <MenuItem value={LIST_FILTER_ALL}>All Institutes</MenuItem>
 
                   {institutes.map((i) => (
                     <MenuItem key={i.instituteId} value={i.instituteId}> {i.instituteName} </MenuItem> 
@@ -474,32 +482,40 @@ export default function InstituteCommissionPage() {
 
                 <TextField
                   select
-                  label="Course" size="small" value={selectedCourse}
+                  size="small" value={selectedCourse || LIST_FILTER_ALL}
                   disabled={!selectedInstitute}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
-                  sx={{ minWidth: 250 }}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setSelectedCourse(next === LIST_FILTER_ALL ? '' : next);
+                  }}
+                  SelectProps={{
+                    ...listSelectProps('All Courses'),
+                    renderValue: (selected) => {
+                      if (!selected || selected === LIST_FILTER_ALL) return 'All Courses';
+                      return selectedInstituteCourses.find((c) => String(c.courseId) === String(selected))?.courseName || 'All Courses';
+                    },
+                  }}
+                  sx={listSelectFieldSx(Boolean(selectedCourse))}
                 >
-                  <MenuItem value="">All Courses</MenuItem>
+                  <MenuItem value={LIST_FILTER_ALL}>All Courses</MenuItem>
                   {selectedInstituteCourses
                     .map((c) => (<MenuItem key={c.courseId} value={c.courseId}> {c.courseName} </MenuItem>))}
                 </TextField>
-            </div>
-            <div>
-               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+            </Box>
+            <Box sx={listToolbarActionsSx}>
                 <Tooltip title={selectedIds.length === 0 ? 'Select at least one institute' : ''}>
                   <span>
-                    <Button variant="outlined" size="small" startIcon={<PictureAsPdfOutlinedIcon />} onClick={handleExportPdf} disabled={!selectedIds.length} sx={{ textTransform: 'none', height: 38, borderRadius: 2, fontWeight: 600, whiteSpace: 'nowrap', px: 2 }}>
+                    <Button variant="outlined" size="small" startIcon={<PictureAsPdfOutlinedIcon />} onClick={handleExportPdf} disabled={!selectedIds.length} sx={listOutlinedButtonSx}>
                       Export PDF{selectedIds.length ? ` (${selectedIds.length})` : ''}
                     </Button>
                   </span>
                 </Tooltip>
 
-                <Button variant="contained" onClick={openCreateDialog} sx={{ ...primaryButtonSx, minWidth: 160, height: 38, px: 2.25, whiteSpace: 'nowrap' }}>
+                <Button variant="contained" size="small" onClick={openCreateDialog} sx={listContainedButtonSx}>
                   Add Commission Rate
                 </Button>
-              </Box>
-            </div>
-          </Stack>
+            </Box>
+          </Box>
           <ResponsiveTable columns={columns} rows={filteredRow} getRowKey={(row) => row.commissionId} alwaysTable sx={{ mt: 0.5 }} />
         </>
       ) : (

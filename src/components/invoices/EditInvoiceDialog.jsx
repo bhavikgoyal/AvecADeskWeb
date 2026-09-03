@@ -16,10 +16,9 @@ function normalizeStatusLabel(rawStatus) {
   if (!rawStatus) return '';
   const s = rawStatus.trim().toLowerCase();
   if (s === 'approved' || s === 'paid') return 'Paid';
-  if (s === 'pending') return 'Pending';
-  if (s === 'invoiced') return 'Invoiced';
+  if (s === 'pending' || s === 'draft') return 'Pending';
+  if (s === 'invoiced' || s === 'pendingapproval') return 'Invoiced';
   if (s === 'rejected') return 'Rejected';
- 
   return rawStatus;
 }
 
@@ -56,17 +55,24 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
     return () => { cancelled = true; };
   }, [open, invoiceId]);
 
-  // The dropdown's current value is always the normalized label, so it
-  // always exists in BASE_STATUS_OPTIONS — except for truly unknown raw
-  // statuses (e.g. "Draft"), which get appended so the field never renders
-  // blank.
-  const statusOptions = useMemo(() => {
-    const current = normalizeStatusLabel(invoice?.invoiceStatus);
-    if (current && !BASE_STATUS_OPTIONS.includes(current)) {
-      return [current, ...BASE_STATUS_OPTIONS];
-    }
-    return BASE_STATUS_OPTIONS;
-  }, [invoice]);
+ 
+const statusOptions = useMemo(() => {
+  const current = normalizeStatusLabel(invoice?.invoiceStatus);
+
+  
+  if (current === 'Paid') {
+    return ['Paid'];
+  }
+
+  if (current === 'Rejected') {
+    return ['Rejected', 'Pending'];
+  }
+
+  if (current && !BASE_STATUS_OPTIONS.includes(current)) {
+    return [current, ...BASE_STATUS_OPTIONS];
+  }
+  return BASE_STATUS_OPTIONS;
+}, [invoice]);
 
   const currentNormalizedStatus = normalizeStatusLabel(invoice?.invoiceStatus);
 
@@ -204,7 +210,7 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={saving || loading || !status}
+          disabled={saving || loading || !status || currentNormalizedStatus === 'Paid'}
           sx={{ textTransform: 'none', bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' }, fontWeight: 600 }}
         >
           {saving ? 'Saving...' : 'Save Status'}

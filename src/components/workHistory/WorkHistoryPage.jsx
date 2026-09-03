@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Card,
-    CircularProgress,
     MenuItem,
     Select,
     TextField,
@@ -10,7 +9,6 @@ import {
     ToggleButtonGroup,
     ToggleButton,
     FormControl,
-    InputLabel,
     Alert,
 } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -20,6 +18,8 @@ import IconButton from '@mui/material/IconButton';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import ResponsiveTable from '../../components/ResponsiveTable';
+import TableContentSkeleton from '../../components/TableContentSkeleton';
+import { listSearchFieldSx, listSelectFieldSx, LIST_FILTER_ALL } from '../../components/forms';
 import { getMembers } from '../../api/membersApi';
 import {
     getDailyWorkReport,
@@ -41,29 +41,6 @@ function toISODateString(date) {
         .split('T')[0];
 }
 
-const filterInputSx = {
-    width: '100%',
-    '& .MuiInputBase-root': {
-        height: 40,
-        minHeight: 40,
-        width: '100%',
-        bgcolor: '#fff',
-        borderRadius: '10px',
-    },
-    '& .MuiOutlinedInput-notchedOutline': {
-        borderColor: '#dbe2ea',
-        borderRadius: '10px',
-    },
-    '& .MuiSelect-select': {
-        display: 'flex',
-        alignItems: 'center',
-        minHeight: 24,
-    },
-    '& input[type="date"]': {
-        minHeight: 24,
-        width: '100%',
-    },
-};
 const periodToggleSx = {
     gap: 1,
     '& .MuiToggleButtonGroup-grouped': {
@@ -488,7 +465,8 @@ const WorkHistoryPage = () => {
                         display: 'flex',
                         flexWrap: 'wrap',
                         gap: 2,
-                        alignItems: 'center',
+                        alignItems: { xs: 'stretch', md: 'center' },
+                        flexDirection: { xs: 'column', md: 'row' },
                     }}
                 >
                     <ToggleButtonGroup
@@ -519,18 +497,22 @@ const WorkHistoryPage = () => {
                             maxWidth: { md: 320 },
                         }}
                     >
-                        <FormControl fullWidth size="small" sx={filterInputSx}>
+                        <FormControl fullWidth size="small" sx={listSelectFieldSx(Boolean(selectedUserId))}>
     <Select
-        value={selectedUserId}
+        value={selectedUserId || LIST_FILTER_ALL}
         displayEmpty
         onChange={(e) => {
-            setSelectedUserId(e.target.value);
-            updateFilter('userId', e.target.value);
+            const next = e.target.value === LIST_FILTER_ALL ? '' : e.target.value;
+            setSelectedUserId(next);
+            updateFilter('userId', next);
         }}
-        sx={{ bgcolor: '#fff' }}
+        renderValue={(selected) => {
+            if (!selected || selected === LIST_FILTER_ALL) return 'All Users';
+            return users.find((u) => String(u.id) === String(selected))?.fullName || 'All Users';
+        }}
+        sx={{ bgcolor: 'transparent' }}
     >
-                                <MenuItem value="">
-                                    All Users                                </MenuItem>
+                                <MenuItem value={LIST_FILTER_ALL}>All Users</MenuItem>
                                 {users.map((user) => (
                                     <MenuItem key={user.id} value={user.id}>
                                         {user.fullName}
@@ -557,7 +539,7 @@ const WorkHistoryPage = () => {
         updateFilter('fromDate', e.target.value);
     }}
     fullWidth
-    sx={{ ...filterInputSx, bgcolor: '#fff' }}
+    sx={listSearchFieldSx}
 />
                         </Box>
                     )}
@@ -616,16 +598,17 @@ const WorkHistoryPage = () => {
                     }}
                 >
                     {loading ? (
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                height: 300,
-                            }}
-                        >
-                            <CircularProgress />
-                        </Box>
+                        <TableContentSkeleton
+                            rows={8}
+                            columns={[
+                                { id: 'workDate', label: 'Date', flex: 0.9 },
+                                { id: 'member', label: 'Member', flex: 1.6 },
+                                { id: 'totalTime', label: 'Total Time', flex: 0.9 },
+                                { id: 'productiveTime', label: 'Productive Time', flex: 1 },
+                                { id: 'neutralTime', label: 'Neutral Time', flex: 1 },
+                                { id: 'action', label: 'Action', width: '72px', skeletonWidth: 28, skeletonHeight: 28 },
+                            ]}
+                        />
                     ) : error ? (
                         <Box sx={{ p: 2 }}>
                             <Alert severity="error">{error}</Alert>

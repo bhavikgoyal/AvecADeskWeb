@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Box, TextField, Button, Typography } from '@mui/material';
+import { Alert, Box, TextField, Button, Typography, Paper } from '@mui/material';
 import AgreementTemplateTable from './AgreementTemplateTable';
+import { listContainedButtonSx, listSearchFieldSx, listToolbarRowSx } from '../../components/forms';
 import {
   fetchAgrrementTemplates,
   fetchAgrrementTemplateById,
@@ -138,64 +139,48 @@ const AgreementTemplate = () => {
         sx={{
           fontWeight: 800,
           color: 'var(--text)',
-          mb: 2,
+          mb: 1.5,
         }}
       >
         Agreement Templates
       </Typography>
 
-      <Box
+      <Paper
+        elevation={0}
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          mb: 2,
-          flexDirection: { xs: 'column', sm: 'row' },
+          border: '1px solid var(--card-border)',
+          borderRadius: 2,
+          overflow: 'hidden',
+          width: '100%',
         }}
       >
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search templates..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{
-            backgroundColor: '#fff',
-            '& .MuiOutlinedInput-root': {
-              borderRadius: '8px',
-            },
-          }}
+        <Box sx={{ px: 2, py: 2, borderBottom: '1px solid var(--card-border)' }}>
+          <Box sx={listToolbarRowSx}>
+            <TextField
+              size="small"
+              placeholder="Search templates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={listSearchFieldSx}
+            />
+
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => navigate('/agreement-template/new')}
+              sx={listContainedButtonSx}
+            >
+              Add Template
+            </Button>
+          </Box>
+        </Box>
+
+        <AgreementTemplateTable
+          templates={filteredTemplates}
+          onDelete={handleDelete}
+          loading={loading}
         />
-
-        <Button
-          variant="contained"
-          onClick={() => navigate('/agreement-template/new')}
-          sx={{
-            minWidth: { xs: '100%', sm: 170 },
-            height: 40,
-            backgroundColor: '#2F80C9',
-            color: '#fff',
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '14px',
-            borderRadius: '8px',
-            whiteSpace: 'nowrap',
-            boxShadow: '0 3px 8px rgba(47,128,201,0.35)',
-            '&:hover': {
-              backgroundColor: '#2874B8',
-              boxShadow: '0 4px 10px rgba(47,128,201,0.45)',
-            },
-          }}
-        >
-          Add Template
-        </Button>
-      </Box>
-
-      <AgreementTemplateTable
-        templates={filteredTemplates}
-        onDelete={handleDelete}
-        loading={loading}
-      />
+      </Paper>
     </Box>
   );
 };

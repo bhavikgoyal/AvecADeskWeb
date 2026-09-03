@@ -1,6 +1,7 @@
 import axiosClient from './axiosClient';
 import { fetchVendors } from './lookupApi';
 import { fetchCommissionRates } from './commissionsApi';
+import { formatDateDisplay } from '../utils/dateFormat';
 
 function formatInstituteAddress(institute) {
   const cityState = [institute.city, institute.state].filter(Boolean).join(' ');
@@ -9,10 +10,7 @@ function formatInstituteAddress(institute) {
 }
 
 function formatDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateDisplay(value);
 }
 
 function pickCurrentRate(rates) {

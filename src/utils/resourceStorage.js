@@ -1,5 +1,6 @@
 import { getEmptyForm, getRecordLabel, pathToKey } from '../config/resourceConfig';
 import { getResourceConfig } from '../config/resourceConfig';
+import { formatDateDisplay } from './dateFormat';
 
 const STORAGE_VERSION = 'arch-v2';
 
@@ -39,7 +40,7 @@ function seedRecords(path, count = 6) {
   const key = pathToKey(path);
   const resource = getResourceConfig(path);
   const samples = SEED_SAMPLES[key] || [];
-  const updated = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const updated = formatDateDisplay(new Date(), '');
 
   return Array.from({ length: count }, (_, index) => {
     const base = { ...getEmptyForm(path), ...samples[index % samples.length] };
@@ -80,7 +81,7 @@ export function upsertRecord(path, record) {
   const payload = {
     ...record,
     name: getRecordLabel(resource, record),
-    updated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    updated: formatDateDisplay(new Date(), ''),
   };
   if (index >= 0) {
     records[index] = payload;

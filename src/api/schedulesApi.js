@@ -1,4 +1,5 @@
 import axiosClient from './axiosClient';
+import { formatDateDisplay } from '../utils/dateFormat';
 
 export function formatCurrency(amount) {
   const num = Number(amount) || 0;
@@ -9,10 +10,7 @@ export function formatCurrency(amount) {
 }
 
 export function formatDisplayDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateDisplay(value);
 }
 
 export function toDateInputValue(value) {
@@ -289,3 +287,75 @@ export async function fetchStudentCourseCompleteList(studentId) {
     );
   }
 }
+
+export async function uploadInstallmentDocument({
+  studentPaymentInstallmentId,
+  fileBase64,
+  fileName,
+}) {
+  try {
+    const { data } = await axiosClient.post(
+      '/api/schedules/UploadInstallmentDocument',
+      {
+        studentPaymentInstallmentId,
+        fileBase64,
+        fileName,
+      }
+    );
+
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(
+        err,
+        'Failed to upload document.'
+      ),
+      { cause: err }
+    );
+  }
+}
+export async function confirmInstallmentByStudent(
+  studentPaymentInstallmentId
+) {
+  try {
+    const { data } = await axiosClient.post(
+      '/api/schedules/ConfirmInstallmentByStudent',
+      {
+        studentPaymentInstallmentId,
+      }
+    );
+
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(
+        err,
+        'Failed to confirm installment by student.'
+      ),
+      { cause: err }
+    );
+  }
+}
+export async function sendInstallmentConfirmationEmail(
+  studentPaymentInstallmentId
+) {
+  try {
+    const { data } = await axiosClient.post(
+      '/api/schedules/SendInstallmentConfirmationEmail',
+      {
+        studentPaymentInstallmentId,
+      }
+    );
+
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(
+        err,
+        'Failed to send confirmation email.'
+      ),
+      { cause: err }
+    );
+  }
+}
+

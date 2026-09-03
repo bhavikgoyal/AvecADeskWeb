@@ -9,6 +9,7 @@ import {
   formPaperSx,
 } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 export default function EnrolmentDetailPage({ basePath }) {
   const navigate = useNavigate();
@@ -82,9 +83,9 @@ export default function EnrolmentDetailPage({ basePath }) {
 
   if (loading) {
     return (
-      <Box sx={{ py: 4 }}>
-        <Typography sx={{ color: 'var(--muted)' }}>Loading student...</Typography>
-      </Box>
+      <FormPageLayout title="Update student enrolment">
+        <FormContentSkeleton rows={8} />
+      </FormPageLayout>
     );
   }
 

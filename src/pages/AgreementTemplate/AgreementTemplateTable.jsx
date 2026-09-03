@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link , useNavigate} from 'react-router-dom';
 import {
   Box,
-  Card,
-  CircularProgress,
   IconButton,
   TablePagination,
   Typography,
@@ -12,18 +10,7 @@ import {
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import ResponsiveTable from '../../components/ResponsiveTable';
-
-const sectionCardSx = {
-  width: '100%',
-  minWidth: 0,
-  maxWidth: '100%',
-  border: '1px solid var(--card-border)',
-  bgcolor: 'var(--card-bg)',
-  borderRadius: 2,
-  boxShadow: '0 4px 16px rgba(26, 43, 61, 0.05)',
-};
-
-const contentInset = { xs: 1.5, sm: 2 };
+import TableContentSkeleton from '../../components/TableContentSkeleton';
 
 const scrollContainerSx = {
   scrollbarWidth: 'thin',
@@ -42,15 +29,6 @@ const scrollContainerSx = {
   },
 };
 
-const tableAlignSx = {
-  '& .MuiTableCell-root:first-of-type': {
-    pl: contentInset,
-  },
-  '& .MuiTableCell-root:last-of-type': {
-    pr: contentInset,
-  },
-};
-
 const TABLE_MIN_WIDTH = 1080;
 
 const rollColSx = { width: 56, minWidth: 56, maxWidth: 56, whiteSpace: 'nowrap' };
@@ -65,14 +43,16 @@ const actionColSx = { width: 148, minWidth: 148, maxWidth: 148, whiteSpace: 'now
 const agreementTableSx = {
   width: '100%',
   ...scrollContainerSx,
-  ...tableAlignSx,
-  pb: 0.5,
   '& table': {
     width: '100%',
     minWidth: TABLE_MIN_WIDTH,
     tableLayout: 'fixed',
   },
   '& .MuiTableCell-root': {
+    whiteSpace: 'nowrap',
+    verticalAlign: 'middle',
+  },
+  '& .MuiTableHead-root .MuiTableCell-root': {
     verticalAlign: 'middle',
   },
 };
@@ -304,17 +284,21 @@ export default function AgreementTemplateTable({ templates = [], onDelete, loadi
     navigate(`/agreement-template/${row.templateId}/edit`);
   };
   return (
-    <Card elevation={0} sx={{ ...sectionCardSx, overflow: 'hidden' }}>
-      <Box sx={{ px: contentInset, pt: contentInset, pb: 1 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text)' }}>
-          All Agreement Templates
-        </Typography>
-      </Box>
-
+    <>
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-          <CircularProgress />
-        </Box>
+        <TableContentSkeleton
+          rows={8}
+          columns={[
+            { id: 'roll', label: '', width: '56px', skeletonWidth: 20 },
+            { id: 'templateName', label: 'Name', flex: 1.3 },
+            { id: 'agreementType', label: 'Category', flex: 0.9 },
+            { id: 'preview', label: 'Subject / Body', flex: 1.8 },
+            { id: 'updated', label: 'Updated', flex: 0.9 },
+            { id: 'createdBy', label: 'Created By', flex: 0.8 },
+            { id: 'active', label: 'Active', width: '80px', skeletonWidth: 28 },
+            { id: 'action', label: 'Action', flex: 0.9, skeletonWidth: 72, skeletonHeight: 28 },
+          ]}
+        />
       ) : tableRows.length === 0 ? (
         <Box sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center' }}>
           <Typography color="text.secondary">No templates found.</Typography>
@@ -352,6 +336,6 @@ export default function AgreementTemplateTable({ templates = [], onDelete, loadi
           />
         </Box>
       )}
-    </Card>
+    </>
   );
 }

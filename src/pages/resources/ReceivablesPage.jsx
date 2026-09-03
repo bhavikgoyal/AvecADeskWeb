@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, Fragment } from 'react';
 import {
   Alert, Box, Button, Chip, CircularProgress, Collapse, IconButton,
-  FormControl, InputLabel, MenuItem, Select,
+  FormControl, MenuItem, Select, Skeleton,
   Tab, Tabs, TextField, Typography,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -18,6 +18,9 @@ import {
   fetchInvoiceLineItems,
 } from '../../api/receivablesApi';
 import { fetchInstitutesForReceivables, fetchStudentsLookup } from '../../api/lookupApi';
+import CardListSkeleton from '../../components/CardListSkeleton';
+import TableContentSkeleton from '../../components/TableContentSkeleton';
+import { listContainedButtonSx, listOutlinedButtonSx, listSearchFieldSx, listSelectFieldSx, listToolbarActionsSx, listToolbarRowSx, LIST_FILTER_ALL } from '../../components/forms';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -108,7 +111,7 @@ function StatCard({ label, amount, count, color }) {
 function InstallmentCardList({ rows, loading, variant }) {
   const [expandedInstitute, setExpandedInstitute] = useState(null);
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={32} /></Box>;
+  if (loading) return <CardListSkeleton rows={6} />;
   if (!rows.length) return <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>No records found.</Typography>;
 
   const isOverdue = variant === 'overdue';
@@ -324,7 +327,21 @@ function ReceivedInvoicesTable({ rows, loading }) {
     }
   };
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={32} /></Box>;
+  if (loading) {
+    return (
+      <TableContentSkeleton
+        rows={6}
+        columns={[
+          { id: 'expand', label: '', width: '48px', skeletonWidth: 22, skeletonHeight: 22 },
+          { id: 'invoiceNumber', label: 'Invoice Number', flex: 1.1 },
+          { id: 'institute', label: 'Institute', flex: 1.6 },
+          { id: 'amount', label: 'Amount', flex: 0.8, skeletonWidth: '55%' },
+          { id: 'dueDate', label: 'Due Date', flex: 0.9 },
+          { id: 'status', label: 'Status', flex: 0.7, skeletonWidth: 64, skeletonHeight: 22, round: true },
+        ]}
+      />
+    );
+  }
   if (!rows.length) return <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>No invoices found for last month.</Typography>;
 
   return (
@@ -575,27 +592,30 @@ export default function ReceivablesPage() {
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1, flexDirection: { xs: 'column', md: 'row' } }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Receivables</Typography>
           <Typography variant="body2" color="text.secondary">Track anticipated, overdue, and received payments</Typography>
         </Box>
 
         {/* Export buttons */}
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={listToolbarActionsSx}>
           <Button variant="outlined" size="small" startIcon={<DownloadIcon />}
             onClick={() => exportCsv(currentRows, headers, `receivables-${tabName}.csv`)}
-            disabled={!currentRows.length}>
+            disabled={!currentRows.length}
+            sx={listOutlinedButtonSx}>
             CSV
           </Button>
           <Button variant="outlined" size="small" startIcon={<TableChartIcon />} color="success"
             onClick={() => exportExcel(currentRows, headers, `receivables-${tabName}.xlsx`)}
-            disabled={!currentRows.length}>
+            disabled={!currentRows.length}
+            sx={listOutlinedButtonSx}>
             Excel
           </Button>
           <Button variant="outlined" size="small" startIcon={<PictureAsPdfIcon />} color="error"
             onClick={() => exportPdf(currentRows, headers, `receivables-${tabName}.pdf`, `Receivables – ${tabName}`)}
-            disabled={!currentRows.length}>
+            disabled={!currentRows.length}
+            sx={listOutlinedButtonSx}>
             PDF
           </Button>
         </Box>
@@ -605,7 +625,13 @@ export default function ReceivablesPage() {
 
       {/* Summary Cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        {loadingSummary ? <CircularProgress size={24} /> : (
+        {loadingSummary ? (
+          <>
+            <Skeleton variant="rounded" height={108} sx={{ flex: 1, minWidth: 180, borderRadius: 2 }} />
+            <Skeleton variant="rounded" height={108} sx={{ flex: 1, minWidth: 180, borderRadius: 2 }} />
+            <Skeleton variant="rounded" height={108} sx={{ flex: 1, minWidth: 180, borderRadius: 2 }} />
+          </>
+        ) : (
           <>
             <StatCard label="Anticipated" amount={summary?.totalAnticipated} count={summary?.anticipatedCount} color="var(--primary, #1976d2)" />
             <StatCard label="Overdue" amount={summary?.totalOverdue} count={summary?.overdueCount} color="var(--error, #d32f2f)" />
@@ -620,38 +646,56 @@ export default function ReceivablesPage() {
       </Box>
 
       {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', alignItems: 'flex-end' }}>
-        <TextField label="From Date" type="date" size="small"
-          slotProps={{ inputLabel: { shrink: true } }}
-          value={filters.fromDate} onChange={handleFilterChange('fromDate')} sx={{ minWidth: 150 }} />
-        <TextField label="To Date" type="date" size="small"
-          slotProps={{ inputLabel: { shrink: true } }}
-          value={filters.toDate} onChange={handleFilterChange('toDate')} sx={{ minWidth: 150 }} />
+      <Box sx={{ ...listToolbarRowSx, mb: 3, p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+        <TextField type="date" size="small"
+          value={filters.fromDate} onChange={handleFilterChange('fromDate')} sx={listSearchFieldSx} />
+        <TextField type="date" size="small"
+          value={filters.toDate} onChange={handleFilterChange('toDate')} sx={listSearchFieldSx} />
 
-        {/* Institute */}
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Institute</InputLabel>
-          <Select value={filters.instituteId} onChange={handleFilterChange('instituteId')} label="Institute">
-  <MenuItem value="">All Institutes</MenuItem>
+        <FormControl size="small" sx={listSelectFieldSx(Boolean(filters.instituteId))}>
+          <Select
+            displayEmpty
+            value={filters.instituteId || LIST_FILTER_ALL}
+            onChange={(e) => {
+              const next = e.target.value === LIST_FILTER_ALL ? '' : e.target.value;
+              handleFilterChange('instituteId')({ target: { value: next } });
+            }}
+            renderValue={(selected) => {
+              if (!selected || selected === LIST_FILTER_ALL) return 'All Institutes';
+              return institutes.find((i) => String(i.instituteId) === String(selected))?.instituteName || 'All Institutes';
+            }}
+          >
+  <MenuItem value={LIST_FILTER_ALL}>All Institutes</MenuItem>
   {institutes.map((inst) => (
     <MenuItem key={inst.instituteId} value={inst.instituteId}>{inst.instituteName}</MenuItem>
   ))}
 </Select>
         </FormControl>
 
-        {/* Student filter */}
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Student</InputLabel>
-          <Select value={filters.studentId} onChange={handleFilterChange('studentId')} label="Student">
-            <MenuItem value="">All Students</MenuItem>
+        <FormControl size="small" sx={listSelectFieldSx(Boolean(filters.studentId))}>
+          <Select
+            displayEmpty
+            value={filters.studentId || LIST_FILTER_ALL}
+            onChange={(e) => {
+              const next = e.target.value === LIST_FILTER_ALL ? '' : e.target.value;
+              handleFilterChange('studentId')({ target: { value: next } });
+            }}
+            renderValue={(selected) => {
+              if (!selected || selected === LIST_FILTER_ALL) return 'All Students';
+              return students.find((s) => String(s.studentId) === String(selected))?.fullName || 'All Students';
+            }}
+          >
+            <MenuItem value={LIST_FILTER_ALL}>All Students</MenuItem>
             {students.map((s) => (
               <MenuItem key={s.studentId} value={s.studentId}>{s.fullName}</MenuItem>
             ))}
           </Select>
         </FormControl>
 
-        <Button variant="contained" size="small" onClick={handleApply} sx={{ height: 40 }}>Apply</Button>
-        <Button variant="outlined" size="small" onClick={handleReset} sx={{ height: 40 }}>Reset</Button>
+        <Box sx={listToolbarActionsSx}>
+        <Button variant="contained" size="small" onClick={handleApply} sx={listContainedButtonSx}>Apply</Button>
+        <Button variant="outlined" size="small" onClick={handleReset} sx={listOutlinedButtonSx}>Reset</Button>
+        </Box>
       </Box>
 
       {/* Tabs + Content */}

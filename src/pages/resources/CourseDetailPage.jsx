@@ -4,6 +4,7 @@ import { Alert, Box, Button, Link, Paper, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { fetchCourseList } from '../../api/coursesApi';
 import { getResourceConfig } from '../../config/resourceConfig';
+import TableContentSkeleton from '../../components/TableContentSkeleton';
 
 const INSTITUTE_SCRAPPING_BASE_PATH = '/institutes-scrapping';
 
@@ -57,11 +58,17 @@ export default function CourseDetailPage({
 
   if (loading) {
     return (
-      <Box sx={{ py: 4 }}>
-        <Typography sx={{ color: 'var(--muted)' }}>
-          Loading courses...
-        </Typography>
-      </Box>
+      <TableContentSkeleton
+        rows={8}
+        columns={[
+          { id: 'instituteName', label: 'Institute', flex: 1.4 },
+          { id: 'courseName', label: 'Course', flex: 1.4 },
+          { id: 'category', label: 'Category', flex: 1 },
+          { id: 'level', label: 'Level', flex: 0.8 },
+          { id: 'campus', label: 'Campus', flex: 1 },
+          { id: 'fees', label: 'Fees', flex: 0.7 },
+        ]}
+      />
     );
   }
 
