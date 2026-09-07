@@ -1,5 +1,5 @@
 import axiosClient from './axiosClient';
-import { exportInvoicePdf } from '../utils/invoicePdf';
+import { exportInvoicePdf, exportInvoicesPdf } from '../utils/invoicePdf';
 
 function formatCurrency(value) {
   const amount = Number(value);
@@ -224,10 +224,22 @@ export async function submitInvoice(invoiceId) {
 }
 
 export async function downloadInvoiceDocuments(invoiceIds = []) {
+  if (!invoiceIds?.length) return;
+
+  if (invoiceIds.length === 1) {
+    await downloadInvoiceDocument(invoiceIds[0]);
+    return;
+  }
+
+  const items = [];
   for (const id of invoiceIds) {
     // eslint-disable-next-line no-await-in-loop
-    await downloadInvoiceDocument(id);
+    const invoice = await fetchInvoiceById(id);
+    // eslint-disable-next-line no-await-in-loop
+    const lineItems = await fetchInvoiceLineItems(id);
+    items.push({ invoice, lineItems });
   }
+  await exportInvoicesPdf(items);
 }
 export async function fetchNextMonthInvoiceTotal() {
   const { data } = await axiosClient.get(
