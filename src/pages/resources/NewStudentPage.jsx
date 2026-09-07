@@ -2,10 +2,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem, TextField,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel, Switch,
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel, Switch, Tabs, Tab,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { fetchCoursesByScrappingId } from "../../api/coursesApi";
+import {
+  fetchStudentContracts,
+  createStudentContract,
+  updateStudentContract,
+  deleteStudentContract,
+  uploadStudentContractFile,
+} from "../../api/studentContractsApi";
 import {
   fetchUniqueInstituteNames,
   getCampusesForInstitute,
@@ -187,6 +198,18 @@ const hydratePaymentList = (rows) => {
   }));
 };
 
+const CONTRACT_STATUS_OPTIONS = ["Active", "Inactive", "Expired", "Draft"];
+
+const getEmptyContractForm = () => ({
+  status: "Active",
+  referenceNo: "",
+  fileUrl: "",
+  fileName: "",
+  startDate: "",
+  endDate: "",
+  notes: "",
+});
+
 export default function NewStudentPage({ basePath }) {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -212,6 +235,25 @@ export default function NewStudentPage({ basePath }) {
   const [confirmTargetInstallment, setConfirmTargetInstallment] = useState(null);
    const [instituteLocked, setInstituteLocked] = useState(false);
    const [gstInclusive, setGstInclusive] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set([0]));
+  const handleTabChange = (_e, newValue) => {
+    setActiveTab(newValue);
+    setVisitedTabs((prev) => {
+      if (prev.has(newValue)) return prev;
+      const next = new Set(prev);
+      next.add(newValue);
+      return next;
+    });
+  };
+  const [contracts, setContracts] = useState([]);
+  const [contractDialogOpen, setContractDialogOpen] = useState(false);
+  const [editingContractKey, setEditingContractKey] = useState(null);
+  const [contractForm, setContractForm] = useState(getEmptyContractForm());
+  const [contractSaving, setContractSaving] = useState(false);
+  const [contractUploading, setContractUploading] = useState(false);
+  const contractFileInputRef = useRef(null);
+
   const prefillAppliedRef = useRef(false);
   useEffect(() => {
     let active = true;
@@ -412,6 +454,13 @@ const selectOptions = useMemo(
         }
       } catch (err) {
         setError(err.message || "Failed to load student.");
+      }
+
+      try {
+        const contractList = await fetchStudentContracts(id);
+        setContracts(contractList || []);
+      } catch (err) {
+        console.warn("Failed to load student contracts", err);
       }
     }
 
@@ -795,6 +844,24 @@ const handleCreate = async () => {
       commissionId =
         commission.commissionId ?? commission.CommissionId;
 
+      for (const contract of contracts) {
+        if (contract.contractId) continue;
+        try {
+          await createStudentContract({
+            studentId,
+            status: contract.status,
+            referenceNo: contract.referenceNo,
+            fileUrl: contract.fileUrl,
+            fileName: contract.fileName,
+            startDate: contract.startDate || null,
+            endDate: contract.endDate || null,
+            notes: contract.notes,
+          });
+        } catch (err) {
+          console.warn("Failed to save contract", err);
+        }
+      }
+
     } else {
       const persistedRows = paymentList.filter(
         (x) => x.studentPaymentInstallmentId
@@ -982,6 +1049,7 @@ if (isEdit && !scheduleChanged) {
       setBonusApplied(false);
       setAddBonus(false);
       setGstPercentage(0);
+      setContracts([]);
 
       navigate(basePath);
 
@@ -992,6 +1060,137 @@ if (isEdit && !scheduleChanged) {
       setSubmitting(false);
     }
   };
+  const openAddContract = () => {
+    setEditingContractKey(null);
+    setContractForm(getEmptyContractForm());
+    setContractDialogOpen(true);
+  };
+
+  const openEditContract = (contract, index) => {
+    setEditingContractKey(contract.contractId ?? `local-${index}`);
+    setContractForm({
+      status: contract.status || "Active",
+      referenceNo: contract.referenceNo || "",
+      fileUrl: contract.fileUrl || "",
+      fileName: contract.fileName || "",
+      startDate: contract.startDate || "",
+      endDate: contract.endDate || "",
+      notes: contract.notes || "",
+    });
+    setContractDialogOpen(true);
+  };
+
+  const closeContractDialog = () => {
+    if (contractSaving || contractUploading) return;
+    setContractDialogOpen(false);
+    setEditingContractKey(null);
+  };
+
+  const updateContractField = (field, value) => {
+    setContractForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleContractFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Upload endpoint is scoped to a studentId — a brand-new,
+    // not-yet-saved student doesn't have one yet.
+    const studentId = form?.studentId;
+    if (!studentId) {
+      alert("Please save the student first (Student Details tab), then upload contract files here.");
+      if (contractFileInputRef.current) contractFileInputRef.current.value = "";
+      return;
+    }
+
+    setContractUploading(true);
+    try {
+      const result = await uploadStudentContractFile(studentId, file);
+      updateContractField("fileUrl", result?.fileUrl ?? "");
+      updateContractField("fileName", result?.fileName ?? file.name);
+    } catch (err) {
+      alert(err.message || "Failed to upload file.");
+    } finally {
+      setContractUploading(false);
+      if (contractFileInputRef.current) contractFileInputRef.current.value = "";
+    }
+  };
+  const handleSaveContract = async () => {
+    if (!contractForm.status) {
+      alert("Please select a contract status.");
+      return;
+    }
+
+    setContractSaving(true);
+
+    try {
+      const payload = {
+        status: contractForm.status,
+        referenceNo: contractForm.referenceNo,
+        fileUrl: contractForm.fileUrl,
+        fileName: contractForm.fileName,
+        startDate: contractForm.startDate || null,
+        endDate: contractForm.endDate || null,
+        notes: contractForm.notes,
+      };
+
+      if (form.studentId) {
+        // Existing student — persist immediately.
+        if (editingContractKey && typeof editingContractKey === "number") {
+          const updated = await updateStudentContract(editingContractKey, {
+            ...payload,
+            studentId: form.studentId,
+          });
+          setContracts((prev) =>
+            prev.map((c) => (c.contractId === editingContractKey ? updated : c))
+          );
+        } else {
+          const created = await createStudentContract({
+            ...payload,
+            studentId: form.studentId,
+          });
+
+          setContracts((prev) => {
+            if (editingContractKey) {
+              const idx = Number(String(editingContractKey).replace("local-", ""));
+              return prev.map((c, i) => (i === idx ? created : c));
+            }
+            return [...prev, created];
+          });
+        }
+      } else {
+        // New student not yet saved — keep locally, persist after student is created.
+        setContracts((prev) => {
+          if (editingContractKey && String(editingContractKey).startsWith("local-")) {
+            const idx = Number(String(editingContractKey).replace("local-", ""));
+            return prev.map((c, i) => (i === idx ? { ...c, ...payload } : c));
+          }
+          return [...prev, { contractId: null, ...payload }];
+        });
+      }
+
+      setContractDialogOpen(false);
+      setEditingContractKey(null);
+    } catch (err) {
+      alert(err.message || "Failed to save contract.");
+    } finally {
+      setContractSaving(false);
+    }
+  };
+
+  const handleDeleteContract = async (contract, index) => {
+    if (!window.confirm("Delete this contract?")) return;
+
+    try {
+      if (contract.contractId) {
+        await deleteStudentContract(contract.contractId, form.studentId);
+      }
+      setContracts((prev) => prev.filter((_, i) => i !== index));
+    } catch (err) {
+      alert(err.message || "Failed to delete contract.");
+    }
+  };
+
   const handleApplyBonus = () => {
     if (!form.bonus || Number(form.bonus) <= 0) {
       alert("Please enter Bonus.");
@@ -1097,431 +1296,403 @@ if (isEdit && !scheduleChanged) {
           </Alert>
         )}
 
-        {/* Student Details */}
-        <FormSectionsLayout
-          sections={[resource.sections[0]]}
-          form={form}
-          onChange={updateField}
-          selectOptions={selectOptions}
-          requiredFields={resource.requiredFields}
-          disabled={isEdit}
-        />
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+        >
+          <Tab label="Student Details" sx={{ textTransform: 'none', fontWeight: 700, minHeight: 48 }} />
+          <Tab label="Payment Schedule" sx={{ textTransform: 'none', fontWeight: 700, minHeight: 48 }} />
+          <Tab label="Commission" sx={{ textTransform: 'none', fontWeight: 700, minHeight: 48 }} />
+          <Tab label="Contracts" sx={{ textTransform: 'none', fontWeight: 700, minHeight: 48 }} />
+        </Tabs>
 
-        <Box sx={{ height: 24 }} />
+        {/* Tab 0: Student Details */}
+        {activeTab === 0 && (
+          <FormSectionsLayout
+            sections={[resource.sections[0]]}
+            form={form}
+            onChange={updateField}
+            selectOptions={selectOptions}
+            requiredFields={resource.requiredFields}
+            disabled={isEdit}
+          />
+        )}
 
-        {/* Student Payment Schedule */}
-        <FormSectionsLayout
-          sections={[resource.sections[1]]}
-          form={form}
-          onChange={updateField}
-          selectOptions={selectOptions}
-          requiredFields={resource.requiredFields}
-          disabled={isEdit}
-          disabledFields={[
-            "noOfInstallment",
-            "frequency",
-            "assignment",
-            ...(!form.instituteId ? ["campusname"] : []),
-          ]}
-          fieldDefsOverride={instituteLocked ? { instituteId: { readOnly: true } } : {}}
-        />
-
-        <Box sx={{ height: 24 }} />
-
-        {/* Student Payment List */}
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 700,
-              mb: 1.5,
-            }}
-          >
-            Student Payment List
-          </Typography>
-
-          <TableContainer>
-            <Table size="small">
-              <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
-                <TableRow>
-                  <TableCell>Installment</TableCell>
-                  <TableCell>Fees</TableCell>
-                  <TableCell>Fees Date</TableCell>
-                  <TableCell>Paid Date</TableCell>
-                 
-                  <TableCell>Payment Status</TableCell>
-                  <TableCell>Paid Amount</TableCell>
-                  <TableCell>Document</TableCell> 
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {paymentList.length > 0 ? (
-                  paymentList.map((item, index) => {
-                    const groupNo = getGroupNo(item);
-                    const groupComplete = isGroupFullyCovered(paymentList, groupNo);
-                    const isLastOfGroup = isLastInGroup(paymentList, groupNo, item);
-
-                    return (
-                    <TableRow key={item.installmentNo}>
-                      <TableCell>{item.installmentNo}</TableCell>
-                      <TableCell>{item.amount}</TableCell>
-                      <TableCell>{formatDateCell(item.dueDate)}</TableCell>
-                      <TableCell>
-                        {isEdit && (isPaidLike(item.status) || item.status === "Partial") ? (
-                          <DateTextField
-                            size="small"
-                            sx={{ width: 125 }}
-                            value={item.paidDate || new Date().toISOString().slice(0, 10)}
-                            onChangeValue={(value) => {
-                            setPaymentList((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
-                            setCommissionHistory((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
-                          }}
-                          />
-                        ) : (
-                          formatDateCell(item.paidDate)
-                        )}
-                      </TableCell>
-
-                      <TableCell>
-                        {isEdit ? (
-                          <Select
-                            size="small"
-                            value={item.status}
-                            disabled={
-                              item.originalStatus === "ConfirmedByCollege" ||
-                              item.originalStatus === "PaidByCollege" ||
-                             
-                              (groupComplete && !isLastOfGroup && !isPaidLike(item.status))
-                            }
-                            onChange={async (e) => {
-                              const value = e.target.value;
-                                  if (value === "ConfirmedByStudent") {
-                                  try {
-                                    await confirmInstallmentByStudent(
-                                      item.studentPaymentInstallmentId
-                                    );
-
-                                    setPaymentList((prev) =>
-                                      prev.map((x) =>
-                                        x.installmentNo === item.installmentNo
-                                          ? {
-                                              ...x,
-                                              status: "ConfirmedByStudent",
-                                              paidAmount: x.amount,
-                                              balance: "0.00",
-                                              paidDate:
-                                                x.paidDate ||
-                                                new Date().toISOString().slice(0, 10),
-                                            }
-                                          : x
-                                      )
-                                    );
-
-                                    setConfirmTargetInstallment(item);
-                                    setConfirmDialogOpen(true);
-                                  } catch (err) {
-                                    console.error(
-                                      "Failed to confirm installment by student:",
-                                      err
-                                    );
-                                  }
-
-                                  return;
-                                }
-
-                              setPaymentList((prev) => {
-                                let updated = prev.map((x) => {
-                                  if (x.installmentNo === item.installmentNo) {
-                                    const isPaid = isPaidLike(value);
-                                    const isPartial = value === "Partial";
-                                    return {
-                                      ...x,
-                                      status: value,
-                                      paidAmount: isPaid ? x.amount : (isPartial ? (x.paidAmount || "0.00") : "0.00"),
-                                      balance: isPaid ? "0.00" : (isPartial ? x.balance : x.amount),
-                                      paidDate: (isPaid || isPartial) ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
-                                    };
-                                  }
-
-                                  if (
-                                    value === "Pending" &&
-                                    x.installmentNo > item.installmentNo
-                                  ) {
-                                    return {
-                                      ...x,
-                                      status: "Pending",
-                                      paidAmount: "0.00",
-                                      balance: x.amount,
-                                    };
-                                  }
-
-                                  return x;
-                                });
-
-                                
-                          if (value === "Partial") {
-                                  const alreadySplit = updated.some(
-                                    (x) => x.parentInstallmentNo === item.installmentNo
-                                  );
-
-                                  if (!alreadySplit) {
-                            
-                                    const currentItem = updated.find(
-                                      (x) => x.installmentNo === item.installmentNo
-                                    );
-                                    const remainingAmountNum = Number(
-                                      currentItem?.balance ?? currentItem?.amount ?? 0
-                                    );
-
-                                    if (remainingAmountNum > EPSILON) {
-                                      const remainingAmount = remainingAmountNum.toFixed(2);
-
-                                      const rootNo = item.parentGroupNo ?? item.installmentNo;
-                                      const childCount = updated.filter(
-                                        (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
-                                      ).length;
-                                      const newInstallmentNo = Number(
-                                        (rootNo + (childCount + 1) / 10).toFixed(2)
-                                      );
-
-                                      const remainingRow = {
-                                        installmentNo: newInstallmentNo,
-                                        parentInstallmentNo: item.installmentNo,
-                                        parentGroupNo: rootNo,
-                                        dueDate: item.dueDate,
-                                        amount: remainingAmount,
-                                        paidAmount: "0.00",
-                                        balance: remainingAmount,
-                                        status: "Pending",
-                                      };
-
-                                      const insertIndex =
-                                        updated.findIndex(
-                                          (x) => x.installmentNo === item.installmentNo
-                                        ) + 1;
-
-                                      updated = [
-                                        ...updated.slice(0, insertIndex),
-                                        remainingRow,
-                                        ...updated.slice(insertIndex),
-                                      ];
-                                    }
-                                  }
-                                }
-
-                                return updated;
-                              });
-
-                              setCommissionHistory((prev) =>
-                                prev.map((x) => {
-                                  if (x.installmentNo === item.installmentNo) {
-                                    return {
-                                      ...x,
-                                      paymentStatus: value,
-                                    };
-                                  }
-
-                                  if (
-                                    value === "Pending" &&
-                                    x.installmentNo > item.installmentNo
-                                  ) {
-                                    return {
-                                      ...x,
-                                      paymentStatus: "Pending",
-                                    };
-                                  }
-
-                                  return x;
-                                })
-                              );
-                            }}
-                            MenuProps={{ container: typeof document !== 'undefined' ? document.body : undefined }}
-                            sx={{
-                              width: 150,
-                              height: 40,
-                              "& .MuiSelect-select": {
-                                minWidth: "70px",
-                                padding: "8px 32px 8px 12px",
-                              },
-                            }}
-                          >
-                            <MenuItem value="Pending">Pending</MenuItem>
-
-                            <MenuItem
-                              value="Partial" disabled={!canEditStatus(index)}
-                            >
-                              Partial
-                            </MenuItem>
-
-                            <MenuItem
-                              value="ConfirmedByCollege"
-                              disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
-                            >
-                              Confirmed by College
-                            </MenuItem>
-
-                            <MenuItem
-                              value="ConfirmedByStudent"
-                              disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
-                            >
-                              Confirmed by Student
-                            </MenuItem>
-                          </Select>
-                        ) : (
-                          item.status
-                        )}
-                      </TableCell>
-             
-                      <TableCell>
-                        {isEdit && item.status === "Partial" && !(groupComplete && !isLastOfGroup) ? (
-                          <TextField
-                            size="small"
-                            type="number"
-                            value={item.paidAmount ?? "0"}
-                            onChange={(e) => {
-                              const val = e.target.value;
-
-                              setPaymentList((prev) => {
-                                const updatedRows = prev.map((x) => {
-                                  if (x.installmentNo === item.installmentNo) {
-                                    const newBalance = (
-                                      Number(x.amount) - Number(val || 0)
-                                    ).toFixed(2);
-
-                                    return {
-                                      ...x,
-                                      paidAmount: val,
-                                      balance: newBalance,
-                                    };
-                                  }
-
-                                  return x;
-                                });
-
-                                const childIndex = updatedRows.findIndex(
-                                  (x) => x.parentInstallmentNo === item.installmentNo
-                                );
-
-                                if (childIndex !== -1) {
-                                  const child = updatedRows[childIndex];
-                                  const newRemaining = Number(item.amount) - Number(val || 0);
-
-                                  if (newRemaining <= EPSILON) {
-                                    if (!child.studentPaymentInstallmentId) {
-                                      updatedRows.splice(childIndex, 1);
-                                    } else {
-                                      updatedRows[childIndex] = {
-                                        ...child,
-                                        amount: "0.00",
-                                        balance: "0.00",
-                                      };
-                                    }
-                                  } else {
-                                    updatedRows[childIndex] = {
-                                      ...child,
-                                      amount: newRemaining.toFixed(2),
-                                      balance: newRemaining.toFixed(2),
-                                    };
-                                  }
-                                }
-
-                                return updatedRows;
-                              });
-                            }}
-                            inputProps={{
-                              min: 0,
-                              max: Number(item.amount),
-                              step: "0.01",
-                            }}
-                            sx={{ width: 120 }}
-                          />
-                        ) : (
-                          isPaidLike(item.status)
-                            ? Number(item.amount || 0).toFixed(2)
-                            : Number(item.paidAmount || 0).toFixed(2)
-                        )}
-                      </TableCell>
-                      <TableCell>
-                      {item.documentUrl ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() =>
-                            window.open(item.documentUrl, "_blank")
-                          }
-                          sx={{ textTransform: "none" }}
-                        >
-                          View
-                        </Button>
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                    </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      No Payment Schedule
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-
-        {/* Commission */}
-        <FormSectionsLayout
-          sections={[resource.sections[2]]}
-          form={form}
-          onChange={updateField}
-          selectOptions={selectOptions}
-          requiredFields={resource.requiredFields}
-          disabled={isEdit}
-        />
-
-        <Box sx={{ height: 24 }} />
-
-       
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={addBonus}
-              onChange={(e) => {
-                setAddBonus(e.target.checked);
-                if (!e.target.checked) setBonusApplied(false);
-              }}
-              disabled={isEdit}
-            />
-          }
-          label="Add Bonus"
-        />
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={gstInclusive}
-              onChange={(e) => {
-                setGstInclusive(e.target.checked);
-                setForm((prev) => {
-                  const next = { ...prev };
-                  calculateAmounts(next);
-                  return next;
-                });
-              }}
-              disabled={isEdit}
-            />
-          }
-          label={gstInclusive ? "GST Inclusive" : "GST Exclusive"}
-        />
-
-        {addBonus && (
+        {/* Tab 1: Student Payment Schedule + Student Payment List */}
+        {activeTab === 1 && (
           <>
             <FormSectionsLayout
-              sections={[resource.sections[3]]}
+              sections={[resource.sections[1]]}
+              form={form}
+              onChange={updateField}
+              selectOptions={selectOptions}
+              requiredFields={resource.requiredFields}
+              disabled={isEdit}
+              disabledFields={[
+                "noOfInstallment",
+                "frequency",
+                "assignment",
+                ...(!form.instituteId ? ["campusname"] : []),
+              ]}
+              fieldDefsOverride={instituteLocked ? { instituteId: { readOnly: true } } : {}}
+            />
+
+            <Box sx={{ height: 24 }} />
+
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 700,
+                  mb: 1.5,
+                }}
+              >
+                Student Payment List
+              </Typography>
+
+              <TableContainer>
+                <Table size="small">
+                  <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
+                    <TableRow>
+                      <TableCell>Installment</TableCell>
+                      <TableCell>Fees</TableCell>
+                      <TableCell>Fees Date</TableCell>
+                      <TableCell>Paid Date</TableCell>
+
+                      <TableCell>Payment Status</TableCell>
+                      <TableCell>Paid Amount</TableCell>
+                      <TableCell>Document</TableCell>
+                    </TableRow>
+                  </TableHead>
+
+                  <TableBody>
+                    {paymentList.length > 0 ? (
+                      paymentList.map((item, index) => {
+                        const groupNo = getGroupNo(item);
+                        const groupComplete = isGroupFullyCovered(paymentList, groupNo);
+                        const isLastOfGroup = isLastInGroup(paymentList, groupNo, item);
+
+                        return (
+                        <TableRow key={item.installmentNo}>
+                          <TableCell>{item.installmentNo}</TableCell>
+                          <TableCell>{item.amount}</TableCell>
+                          <TableCell>{formatDateCell(item.dueDate)}</TableCell>
+                          <TableCell>
+                            {isEdit && (isPaidLike(item.status) || item.status === "Partial") ? (
+                              <DateTextField
+                                size="small"
+                                sx={{ width: 125 }}
+                                value={item.paidDate || new Date().toISOString().slice(0, 10)}
+                                onChangeValue={(value) => {
+                                setPaymentList((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
+                                setCommissionHistory((prev) => prev.map((x) => (x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x)));
+                              }}
+                              />
+                            ) : (
+                              formatDateCell(item.paidDate)
+                            )}
+                          </TableCell>
+
+                          <TableCell>
+                            {isEdit ? (
+                              <Select
+                                size="small"
+                                value={item.status}
+                                disabled={
+                                  item.originalStatus === "ConfirmedByCollege" ||
+                                  item.originalStatus === "PaidByCollege" ||
+
+                                  (groupComplete && !isLastOfGroup && !isPaidLike(item.status))
+                                }
+                                onChange={async (e) => {
+                                  const value = e.target.value;
+                                      if (value === "ConfirmedByStudent") {
+                                      try {
+                                        await confirmInstallmentByStudent(
+                                          item.studentPaymentInstallmentId
+                                        );
+
+                                        setPaymentList((prev) =>
+                                          prev.map((x) =>
+                                            x.installmentNo === item.installmentNo
+                                              ? {
+                                                  ...x,
+                                                  status: "ConfirmedByStudent",
+                                                  paidAmount: x.amount,
+                                                  balance: "0.00",
+                                                  paidDate:
+                                                    x.paidDate ||
+                                                    new Date().toISOString().slice(0, 10),
+                                                }
+                                              : x
+                                          )
+                                        );
+
+                                        setConfirmTargetInstallment(item);
+                                        setConfirmDialogOpen(true);
+                                      } catch (err) {
+                                        console.error(
+                                          "Failed to confirm installment by student:",
+                                          err
+                                        );
+                                      }
+
+                                      return;
+                                    }
+
+                                  setPaymentList((prev) => {
+                                    let updated = prev.map((x) => {
+                                      if (x.installmentNo === item.installmentNo) {
+                                        const isPaid = isPaidLike(value);
+                                        const isPartial = value === "Partial";
+                                        return {
+                                          ...x,
+                                          status: value,
+                                          paidAmount: isPaid ? x.amount : (isPartial ? (x.paidAmount || "0.00") : "0.00"),
+                                          balance: isPaid ? "0.00" : (isPartial ? x.balance : x.amount),
+                                          paidDate: (isPaid || isPartial) ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
+                                        };
+                                      }
+
+                                      if (
+                                        value === "Pending" &&
+                                        x.installmentNo > item.installmentNo
+                                      ) {
+                                        return {
+                                          ...x,
+                                          status: "Pending",
+                                          paidAmount: "0.00",
+                                          balance: x.amount,
+                                        };
+                                      }
+
+                                      return x;
+                                    });
+
+
+                              if (value === "Partial") {
+                                      const alreadySplit = updated.some(
+                                        (x) => x.parentInstallmentNo === item.installmentNo
+                                      );
+
+                                      if (!alreadySplit) {
+
+                                        const currentItem = updated.find(
+                                          (x) => x.installmentNo === item.installmentNo
+                                        );
+                                        const remainingAmountNum = Number(
+                                          currentItem?.balance ?? currentItem?.amount ?? 0
+                                        );
+
+                                        if (remainingAmountNum > EPSILON) {
+                                          const remainingAmount = remainingAmountNum.toFixed(2);
+
+                                          const rootNo = item.parentGroupNo ?? item.installmentNo;
+                                          const childCount = updated.filter(
+                                            (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
+                                          ).length;
+                                          const newInstallmentNo = Number(
+                                            (rootNo + (childCount + 1) / 10).toFixed(2)
+                                          );
+
+                                          const remainingRow = {
+                                            installmentNo: newInstallmentNo,
+                                            parentInstallmentNo: item.installmentNo,
+                                            parentGroupNo: rootNo,
+                                            dueDate: item.dueDate,
+                                            amount: remainingAmount,
+                                            paidAmount: "0.00",
+                                            balance: remainingAmount,
+                                            status: "Pending",
+                                          };
+
+                                          const insertIndex =
+                                            updated.findIndex(
+                                              (x) => x.installmentNo === item.installmentNo
+                                            ) + 1;
+
+                                          updated = [
+                                            ...updated.slice(0, insertIndex),
+                                            remainingRow,
+                                            ...updated.slice(insertIndex),
+                                          ];
+                                        }
+                                      }
+                                    }
+
+                                    return updated;
+                                  });
+
+                                  setCommissionHistory((prev) =>
+                                    prev.map((x) => {
+                                      if (x.installmentNo === item.installmentNo) {
+                                        return {
+                                          ...x,
+                                          paymentStatus: value,
+                                        };
+                                      }
+
+                                      if (
+                                        value === "Pending" &&
+                                        x.installmentNo > item.installmentNo
+                                      ) {
+                                        return {
+                                          ...x,
+                                          paymentStatus: "Pending",
+                                        };
+                                      }
+
+                                      return x;
+                                    })
+                                  );
+                                }}
+                                MenuProps={{ container: typeof document !== 'undefined' ? document.body : undefined }}
+                                sx={{
+                                  width: 150,
+                                  height: 40,
+                                  "& .MuiSelect-select": {
+                                    minWidth: "70px",
+                                    padding: "8px 32px 8px 12px",
+                                  },
+                                }}
+                              >
+                                <MenuItem value="Pending">Pending</MenuItem>
+
+                                <MenuItem
+                                  value="Partial" disabled={!canEditStatus(index)}
+                                >
+                                  Partial
+                                </MenuItem>
+
+                                <MenuItem
+                                  value="ConfirmedByCollege"
+                                  disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
+                                >
+                                  Confirmed by College
+                                </MenuItem>
+
+                                <MenuItem
+                                  value="ConfirmedByStudent"
+                                  disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
+                                >
+                                  Confirmed by Student
+                                </MenuItem>
+                              </Select>
+                            ) : (
+                              item.status
+                            )}
+                          </TableCell>
+
+                          <TableCell>
+                            {isEdit && item.status === "Partial" && !(groupComplete && !isLastOfGroup) ? (
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={item.paidAmount ?? "0"}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+
+                                  setPaymentList((prev) => {
+                                    const updatedRows = prev.map((x) => {
+                                      if (x.installmentNo === item.installmentNo) {
+                                        const newBalance = (
+                                          Number(x.amount) - Number(val || 0)
+                                        ).toFixed(2);
+
+                                        return {
+                                          ...x,
+                                          paidAmount: val,
+                                          balance: newBalance,
+                                        };
+                                      }
+
+                                      return x;
+                                    });
+
+                                    const childIndex = updatedRows.findIndex(
+                                      (x) => x.parentInstallmentNo === item.installmentNo
+                                    );
+
+                                    if (childIndex !== -1) {
+                                      const child = updatedRows[childIndex];
+                                      const newRemaining = Number(item.amount) - Number(val || 0);
+
+                                      if (newRemaining <= EPSILON) {
+                                        if (!child.studentPaymentInstallmentId) {
+                                          updatedRows.splice(childIndex, 1);
+                                        } else {
+                                          updatedRows[childIndex] = {
+                                            ...child,
+                                            amount: "0.00",
+                                            balance: "0.00",
+                                          };
+                                        }
+                                      } else {
+                                        updatedRows[childIndex] = {
+                                          ...child,
+                                          amount: newRemaining.toFixed(2),
+                                          balance: newRemaining.toFixed(2),
+                                        };
+                                      }
+                                    }
+
+                                    return updatedRows;
+                                  });
+                                }}
+                                inputProps={{
+                                  min: 0,
+                                  max: Number(item.amount),
+                                  step: "0.01",
+                                }}
+                                sx={{ width: 120 }}
+                              />
+                            ) : (
+                              isPaidLike(item.status)
+                                ? Number(item.amount || 0).toFixed(2)
+                                : Number(item.paidAmount || 0).toFixed(2)
+                            )}
+                          </TableCell>
+                          <TableCell>
+                          {item.documentUrl ? (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() =>
+                                window.open(item.documentUrl, "_blank")
+                              }
+                              sx={{ textTransform: "none" }}
+                            >
+                              View
+                            </Button>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          No Payment Schedule
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </>
+        )}
+
+        {/* Tab 2: Commission, Bonus, GST, Commission History */}
+        {activeTab === 2 && (
+          <>
+            <FormSectionsLayout
+              sections={[resource.sections[2]]}
               form={form}
               onChange={updateField}
               selectOptions={selectOptions}
@@ -1529,151 +1700,279 @@ if (isEdit && !scheduleChanged) {
               disabled={isEdit}
             />
 
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2, mb: 2, }}>
-              <Button
-                variant="contained"
-                color="success"
-                onClick={handleApplyBonus}
-                disabled={isEdit}
-              >
-                Apply Bonus
-              </Button>
-            </Box>
+            <Box sx={{ height: 24 }} />
+
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={addBonus}
+                  onChange={(e) => {
+                    setAddBonus(e.target.checked);
+                    if (!e.target.checked) setBonusApplied(false);
+                  }}
+                  disabled={isEdit}
+                />
+              }
+              label="Add Bonus"
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={gstInclusive}
+                  onChange={(e) => {
+                    setGstInclusive(e.target.checked);
+                    setForm((prev) => {
+                      const next = { ...prev };
+                      calculateAmounts(next);
+                      return next;
+                    });
+                  }}
+                  disabled={isEdit}
+                />
+              }
+              label={gstInclusive ? "GST Inclusive" : "GST Exclusive"}
+            />
+
+            {addBonus && (
+              <>
+                <FormSectionsLayout
+                  sections={[resource.sections[3]]}
+                  form={form}
+                  onChange={updateField}
+                  selectOptions={selectOptions}
+                  requiredFields={resource.requiredFields}
+                  disabled={isEdit}
+                />
+
+                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2, mb: 2, }}>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    onClick={handleApplyBonus}
+                    disabled={isEdit}
+                  >
+                    Apply Bonus
+                  </Button>
+                </Box>
+              </>
+            )}
+
+            <Box sx={{ height: 24 }} />
+
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 700,
+                  mb: 1.5,
+                }}>  Commission History  </Typography>
+
+              <TableContainer>
+                <Table size="small">
+                  <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
+                    <TableRow>
+                      <TableCell>Installment</TableCell>
+                      <TableCell>Fees Date</TableCell>
+                      <TableCell>Fees</TableCell>
+                      <TableCell>Payment Status</TableCell>
+                      <TableCell>Commission</TableCell>
+                      <TableCell>Bonus</TableCell>
+                      <TableCell>GST</TableCell>
+                      <TableCell>Invoice</TableCell>
+                      <TableCell>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
+
+                  <TableBody>
+                    {historyRows.length > 0 ? (
+                      <>
+                        {historyRows.map((row) => (
+                          <TableRow key={row.installmentNo}>
+                            <TableCell>{row.installmentNo}</TableCell>
+                            <TableCell>{formatDateCell(row.dueDate ?? row.feesDate)}</TableCell>
+                            <TableCell>{Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
+                            <TableCell>{row.paymentStatus}</TableCell>
+                            <TableCell>{Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
+                            <TableCell>{Number(row.bonusAmount ?? row.bonus).toFixed(2)}</TableCell>
+                            <TableCell>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
+                            <TableCell>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
+                            <TableCell>
+      {isEdit ? (
+        <Select
+          size="small"
+          value={row.commissionStatus ?? "Pending"}
+          disabled={
+            String(row.commissionHistoryOriginalStatus ?? "")
+              .trim()
+              .toLowerCase() === "paid"
+          }
+          onChange={(e) => {
+            const value = e.target.value;
+
+            setCommissionHistory((prev) =>
+              prev.map((x) => {
+                if (x.installmentNo === row.installmentNo) {
+                  return {
+                    ...x,
+                    commissionStatus: value,
+                  };
+                }
+
+                if (
+                  value === "Pending" &&
+                  x.installmentNo > row.installmentNo
+                ) {
+                  return {
+                    ...x,
+                    paymentStatus: "Pending",
+                    commissionStatus: "Pending",
+                  };
+                }
+
+                return x;
+              })
+            );
+          }}
+          MenuProps={{
+            container:
+              typeof document !== "undefined"
+                ? document.body
+                : undefined,
+          }}
+          sx={{
+            width: 110,
+            height: 40,
+            "& .MuiSelect-select": {
+              minWidth: "70px",
+              padding: "8px 32px 8px 12px",
+            },
+          }}
+        >
+          <MenuItem value="Pending">Pending</MenuItem>
+
+          <MenuItem
+            value="Paid"
+            disabled={!canEditCommissionStatus(row.installmentNo)}
+          >
+            Paid
+          </MenuItem>
+        </Select>
+      ) : (
+        row.commissionStatus ?? "Pending"
+      )}
+    </TableCell>
+                          </TableRow>
+                        ))}
+
+                        <TableRow sx={{ backgroundColor: "#f5f7fb" }}>
+                          <TableCell colSpan={2}><b>Total</b></TableCell>
+                          <TableCell><b>{totals.fees.toFixed(2)}</b></TableCell>
+                          <TableCell />
+                          <TableCell><b>{totals.commission.toFixed(2)}</b></TableCell>
+                          <TableCell><b>{totals.bonus.toFixed(2)}</b></TableCell>
+                          <TableCell><b>{totals.gst.toFixed(2)}</b></TableCell>
+                          <TableCell><b>{totals.invoice.toFixed(2)}</b></TableCell>
+                          <TableCell />
+                        </TableRow>
+                      </>
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={9} align="center">
+                          No Commission History
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
           </>
         )}
 
-        <Box sx={{ height: 24 }} />
+        {/* Tab 3: Contracts */}
+        {activeTab === 3 && (
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                Contracts
+              </Typography>
 
-        {/* Commission History */}
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 700,
-              mb: 1.5,
-            }}>  Commission History  </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={openAddContract}
+              >
+                Add contract
+              </Button>
+            </Box>
 
-          <TableContainer>
-            <Table size="small">
-              <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
-                <TableRow>
-                  <TableCell>Installment</TableCell>
-                  <TableCell>Fees Date</TableCell>
-                  <TableCell>Fees</TableCell>
-                  <TableCell>Payment Status</TableCell>
-                  <TableCell>Commission</TableCell>
-                  <TableCell>Bonus</TableCell>
-                  <TableCell>GST</TableCell>
-                  <TableCell>Invoice</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {historyRows.length > 0 ? (
-                  <>
-                    {historyRows.map((row) => (
-                      <TableRow key={row.installmentNo}>
-                        <TableCell>{row.installmentNo}</TableCell>
-                        <TableCell>{formatDateCell(row.dueDate ?? row.feesDate)}</TableCell>
-                        <TableCell>{Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
-                        <TableCell>{row.paymentStatus}</TableCell>
-                        <TableCell>{Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
-                        <TableCell>{Number(row.bonusAmount ?? row.bonus).toFixed(2)}</TableCell>
-                        <TableCell>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
-                        <TableCell>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
-                        <TableCell>
-  {isEdit ? (
-    <Select
-      size="small"
-      value={row.commissionStatus ?? "Pending"}
-      disabled={
-        String(row.commissionHistoryOriginalStatus ?? "")
-          .trim()
-          .toLowerCase() === "paid"
-      }
-      onChange={(e) => {
-        const value = e.target.value;
-
-        setCommissionHistory((prev) =>
-          prev.map((x) => {
-            if (x.installmentNo === row.installmentNo) {
-              return {
-                ...x,
-                commissionStatus: value,
-              };
-            }
-
-            if (
-              value === "Pending" &&
-              x.installmentNo > row.installmentNo
-            ) {
-              return {
-                ...x,
-                paymentStatus: "Pending",
-                commissionStatus: "Pending",
-              };
-            }
-
-            return x;
-          })
-        );
-      }}
-      MenuProps={{
-        container:
-          typeof document !== "undefined"
-            ? document.body
-            : undefined,
-      }}
-      sx={{
-        width: 110,
-        height: 40,
-        "& .MuiSelect-select": {
-          minWidth: "70px",
-          padding: "8px 32px 8px 12px",
-        },
-      }}
-    >
-      <MenuItem value="Pending">Pending</MenuItem>
-
-      <MenuItem
-        value="Paid"
-        disabled={!canEditCommissionStatus(row.installmentNo)}
-      >
-        Paid
-      </MenuItem>
-    </Select>
-  ) : (
-    row.commissionStatus ?? "Pending"
-  )}
-</TableCell>
-                      </TableRow>
-                    ))}
-
-                    <TableRow sx={{ backgroundColor: "#f5f7fb" }}>
-                      <TableCell colSpan={2}><b>Total</b></TableCell>
-                      <TableCell><b>{totals.fees.toFixed(2)}</b></TableCell>
-                      <TableCell />
-                      <TableCell><b>{totals.commission.toFixed(2)}</b></TableCell>
-                      <TableCell><b>{totals.bonus.toFixed(2)}</b></TableCell>
-                      <TableCell><b>{totals.gst.toFixed(2)}</b></TableCell>
-                      <TableCell><b>{totals.invoice.toFixed(2)}</b></TableCell>
-                      <TableCell />
-                    </TableRow>
-                  </>
-                ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
                   <TableRow>
-                    <TableCell colSpan={9} align="center">
-                      No Commission History
-                    </TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Reference no.</TableCell>
+                    <TableCell>Start date</TableCell>
+                    <TableCell>End date</TableCell>
+                    <TableCell>File</TableCell>
+                    <TableCell align="right">Actions</TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+                </TableHead>
+
+                <TableBody>
+                  {contracts.length > 0 ? (
+                    contracts.map((contract, index) => (
+                      <TableRow key={contract.contractId ?? `local-${index}`}>
+                        <TableCell>{contract.status}</TableCell>
+                        <TableCell>{contract.referenceNo || "-"}</TableCell>
+                        <TableCell>{formatDateCell(contract.startDate)}</TableCell>
+                        <TableCell>{formatDateCell(contract.endDate)}</TableCell>
+                        <TableCell>
+                          {contract.fileUrl ? (
+                            <Button
+                              size="small"
+                              onClick={() => window.open(contract.fileUrl, "_blank")}
+                              sx={{ textTransform: "none" }}
+                            >
+                              View file
+                            </Button>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton size="small" onClick={() => openEditContract(contract, index)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleDeleteContract(contract, index)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        No Contracts
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        )}
 
         <Box sx={{ mt: 4 }} />
+
+        {!isEdit && !visitedTabs.has(2) && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Please review the Commission tab before saving the student.
+          </Alert>
+        )}
 
         <FormActions
           onCancel={() => navigate(basePath)}
@@ -1683,7 +1982,11 @@ if (isEdit && !scheduleChanged) {
               ? (isEdit ? "Updating..." : "Saving...")
               : (isEdit ? "Update Student" : "Save Student")
           }
-          submitDisabled={!isFormValid(resource, form) || submitting}
+          submitDisabled={
+            !isFormValid(resource, form) ||
+            submitting ||
+            (!isEdit && !visitedTabs.has(2))
+          }
         />
 
         <ConfirmByStudentDialog
@@ -1695,6 +1998,142 @@ if (isEdit && !scheduleChanged) {
           }}
           onConfirmed={handleConfirmedByStudent}
         />
+
+        <Dialog open={contractDialogOpen} onClose={closeContractDialog} maxWidth="xs" fullWidth>
+          <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            {editingContractKey !== null ? "Edit contract" : "Add contract"}
+            <IconButton size="small" onClick={closeContractDialog}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </DialogTitle>
+
+          <DialogContent dividers>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 0.5 }}>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Contract status"
+                value={contractForm.status}
+                onChange={(e) => updateContractField("status", e.target.value)}
+              >
+                {CONTRACT_STATUS_OPTIONS.map((opt) => (
+                  <MenuItem key={opt} value={opt}>
+                    {opt}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                fullWidth
+                size="small"
+                label="Contract reference no."
+                value={contractForm.referenceNo}
+                onChange={(e) => updateContractField("referenceNo", e.target.value)}
+              />
+
+              <TextField
+                fullWidth
+                size="small"
+                label="Contract file URL"
+                helperText="Paste a link to the uploaded contract document, or upload a file below."
+                value={contractForm.fileUrl}
+                onChange={(e) => updateContractField("fileUrl", e.target.value)}
+              />
+
+              <Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  component="label"
+                  startIcon={<UploadFileIcon />}
+                  disabled={contractUploading}
+                >
+                  {contractUploading ? "Uploading..." : "Upload file"}
+                  <input
+                    ref={contractFileInputRef}
+                    type="file"
+                    hidden
+                    onChange={handleContractFileSelected}
+                  />
+                </Button>
+
+                {contractForm.fileName && (
+                  <Typography variant="body2" sx={{ mt: 0.75, color: "text.secondary" }}>
+                    {contractForm.fileName}
+                  </Typography>
+                )}
+              </Box>
+
+              <Box sx={{ display: "flex", gap: 2 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      mb: 0.5,
+                      color: "text.secondary",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    Start date
+                  </Typography>
+                  <TextField
+                    type="date"
+                    fullWidth
+                    size="small"
+                    value={contractForm.startDate || ""}
+                    onChange={(e) => updateContractField("startDate", e.target.value)}
+                    disabled={contractSaving}
+                  />
+                </Box>
+
+                <Box sx={{ flex: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      mb: 0.5,
+                      color: "text.secondary",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    End date
+                  </Typography>
+                  <TextField
+                    type="date"
+                    fullWidth
+                    size="small"
+                    value={contractForm.endDate || ""}
+                    onChange={(e) => updateContractField("endDate", e.target.value)}
+                    disabled={contractSaving}
+                  />
+                </Box>
+              </Box>
+
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                size="small"
+                label="Notes"
+                value={contractForm.notes}
+                onChange={(e) => updateContractField("notes", e.target.value)}
+              />
+            </Box>
+          </DialogContent>
+
+          <DialogActions>
+            <Button onClick={closeContractDialog} disabled={contractSaving}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSaveContract}
+              disabled={contractSaving || contractUploading}
+            >
+              {contractSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Paper>
     </FormPageLayout>
   );

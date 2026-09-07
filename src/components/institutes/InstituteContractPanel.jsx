@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -23,11 +24,14 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useRef } from 'react';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   fetchInstituteContracts,
   createInstituteContract,
   updateInstituteContract,
   deleteInstituteContract,
+  uploadInstituteContractFile,
   getEmptyContractForm,
 } from '../../api/institutesExtrasApi';
 import InstituteCommissionRatesPanel from './InstituteCommissionRatesPanel';
@@ -50,7 +54,8 @@ export default function InstituteContractPanel({ instituteId, courseLookupId, in
   const [form, setForm] = useState(getEmptyContractForm());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
-
+const [uploading, setUploading] = useState(false);
+const fileInputRef = useRef(null);
   const loadContracts = async () => {
     if (!instituteId) {
       setRows([]);
@@ -106,7 +111,22 @@ export default function InstituteContractPanel({ instituteId, courseLookupId, in
     setForm((prev) => ({ ...prev, [field]: value }));
     if (formError) setFormError('');
   };
+const handleFileSelect = async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
 
+  setUploading(true);
+  setFormError('');
+  try {
+    const url = await uploadInstituteContractFile(instituteId, file);
+    updateFormField('contractFileUrl', url);
+  } catch (err) {
+    setFormError(err.message || 'Failed to upload file.');
+  } finally {
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+};
   const handleSave = async () => {
     setSaving(true);
     setFormError('');
@@ -249,16 +269,54 @@ export default function InstituteContractPanel({ instituteId, courseLookupId, in
             size="small"
             disabled={saving}
           />
+<Box>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+      <Button
+        variant="outlined"
+        size="small"
+        component="label"
+        startIcon={uploading ? <CircularProgress size={16} /> : <UploadFileIcon />}
+        disabled={saving || uploading}
+        sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+      >
+        {uploading ? 'Uploading…' : 'Upload file'}
+        <input
+          ref={fileInputRef}
+          type="file"
+          hidden
+          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+          onChange={handleFileSelect}
+        />
+      </Button>
 
-          <TextField
-            label="Contract file URL"
-            value={form.contractFileUrl || ''}
-            onChange={(e) => updateFormField('contractFileUrl', e.target.value)}
-            fullWidth
-            size="small"
-            disabled={saving}
-            helperText="Paste a link to the uploaded contract document."
-          />
+      {form.contractFileUrl ? (
+        <Link
+          href={form.contractFileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          underline="hover"
+          sx={{ fontSize: '0.875rem' }}
+        >
+          View uploaded file
+        </Link>
+      ) : (
+        <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
+          No file uploaded yet
+        </Typography>
+      )}
+    </Box>
+
+  <TextField
+    label="Contract file URL"
+    value={form.contractFileUrl || ''}
+    onChange={(e) => updateFormField('contractFileUrl', e.target.value)}
+    fullWidth
+    size="small"
+    disabled={saving || uploading}
+    helperText="Auto-filled after upload, or paste an external link manually."
+  />
+</Box>
+     
 
           <Box
   sx={{

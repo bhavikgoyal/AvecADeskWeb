@@ -167,3 +167,15 @@ export async function updateInstituteCredential(instituteId, credentialId, form)
 export async function deleteInstituteCredential(instituteId, credentialId) {
   await axiosClient.delete(`/api/institutes/${instituteId}/credentials/${credentialId}`);
 }
+
+export async function uploadInstituteContractFile(instituteId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const { data } = await axiosClient.post(
+    `/api/institutes/${instituteId}/contracts/upload`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data.url;
+}
