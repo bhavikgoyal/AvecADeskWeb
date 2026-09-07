@@ -109,7 +109,9 @@ export default function Sidebar({
               {group.category}
             </Typography>
             <List disablePadding>
-              {group.items.map((item) => (
+              {group.items
+  .filter((item) => !item.hidden)
+  .map((item) => (
                 <ListItemButton
                   key={item.path}
                   component={NavLink}

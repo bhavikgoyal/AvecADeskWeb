@@ -241,3 +241,12 @@ export async function fetchSettledPaymentStatuses() {
   const list = Array.isArray(data) ? data : [];
   return list.map((s) => String(s).toLowerCase());
 }
+
+export async function updateInvoiceLineItemAmounts(invoiceId, items) {
+  const payload = items.map((item) => ({
+    LineItemId: Number(item.lineItemId),
+    Amount: Number(item.amount),
+  }));
+  const { data } = await axiosClient.put(`/api/invoices/${invoiceId}/line-items`, payload);
+  return mapInvoiceRow(data);
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation  } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -22,8 +22,12 @@ import {
   listContainedButtonSx,
   listOutlinedButtonSx,
 } from '../../components/forms';
-import InstituteCommissionRatesPanel from '../../components/institutes/InstituteCommissionRatesPanel';
+import { useAuth } from '../../hooks/useAuth';
+import InstituteContactDetailsPanel from '../../components/institutes/InstituteContactDetailsPanel';
+import InstituteContractPanel from '../../components/institutes/InstituteContractPanel';
+import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
 import FormContentSkeleton from '../../components/FormContentSkeleton';
+import { canViewCredentials } from '../../utils/rbac';
 import {
   deleteInstituteScrapping,
   fetchInstituteScrappingById,
@@ -37,17 +41,37 @@ import {
   recordToManualForm,
 } from './instituteScrappingFormConfig';
 
+const TAB_DETAILS = 0;
+const TAB_CONTACT = 1;
+const TAB_CONTRACT = 2;
+const TAB_CREDENTIALS = 3;
+
+const TAB_BY_KEY = {
+  details: TAB_DETAILS,
+  contact: TAB_CONTACT,
+  contract: TAB_CONTRACT,
+  credentials: TAB_CREDENTIALS,
+};
 export default function InstituteScrappingEditPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
+  const { user } = useAuth();
+  const showCredentials = canViewCredentials(user);
   const [form, setForm] = useState(() => recordToManualForm());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
-
+  const [activeTab, setActiveTab] = useState(
+    () => TAB_BY_KEY[location.state?.openTab] ?? TAB_DETAILS,
+  );
+useEffect(() => {
+  if (activeTab === TAB_CREDENTIALS && !canViewCredentials) {
+    setActiveTab(TAB_DETAILS);
+  }
+}, [activeTab, canViewCredentials]);
   useEffect(() => {
     let active = true;
 
@@ -133,7 +157,11 @@ export default function InstituteScrappingEditPage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
           <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-          <Tab label="Commission rate" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          {canViewCredentials && (
+            <Tab label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          )}
         </Tabs>
       </Box>
 
@@ -144,7 +172,7 @@ export default function InstituteScrappingEditPage() {
       )}
 
       <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
-        {activeTab === 0 && (
+        {activeTab === TAB_DETAILS && (
           <>
             <FormSectionsLayout
               sections={MANUAL_FORM_SECTIONS}
@@ -194,11 +222,21 @@ export default function InstituteScrappingEditPage() {
           </>
         )}
 
-        {activeTab === 1 && (
-          <Box sx={{ px: { xs: 2, md: 3 }, py: 3 }}>
-            <InstituteCommissionRatesPanel instituteId={id} courseLookupId={id} instituteName={form.instituteName} />
-          </Box>
+        {activeTab === TAB_CONTACT && (
+          <InstituteContactDetailsPanel instituteId={id} />
         )}
+
+        {activeTab === TAB_CONTRACT && (
+          <InstituteContractPanel
+            instituteId={id}
+            courseLookupId={id}
+            instituteName={form.instituteName}
+          />
+        )}
+
+        {activeTab === TAB_CREDENTIALS && canViewCredentials && (
+  <InstituteCredentialsPanel instituteId={id} />
+)}
       </Paper>
 
       <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>

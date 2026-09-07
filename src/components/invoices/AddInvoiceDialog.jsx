@@ -31,7 +31,7 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated,initialIns
   const [instituteName, setInstituteName] = useState('');
   const [campus, setCampus] = useState('');
   const [students, setStudents] = useState([]);
-  const [selectedIds, setSelectedIds] = useState([]); // ids of checked rows
+  const [selectedIds, setSelectedIds] = useState([]); 
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -348,12 +348,16 @@ useEffect(() => {
                   No student installments found for this institute and campus in the current month.
                 </Alert>
               ) : (
-                <ResponsiveTable
-                  columns={columns}
-                  rows={students}
-                  getRowKey={(row) => row.id}
-                  alwaysTable
-                />
+             <ResponsiveTable
+                columns={columns}
+                rows={students}
+                getRowKey={(row) => row.id}
+                alwaysTable
+                sx={{
+                  maxHeight: 400,
+                  overflowY: 'auto',
+                }}
+              />
               )}
             </Box>
           )}

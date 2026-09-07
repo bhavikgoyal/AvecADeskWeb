@@ -9,6 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  //Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -214,10 +215,11 @@ if (column.field === 'programLogo') {
       }}
     >
       <Table
+      
         sx={{
           width: '100%',
           minWidth: resolvedTableMinWidth,
-          tableLayout: resolvedTableMinWidth ? 'fixed' : 'auto',
+         tableLayout: resolvedTableMinWidth ? 'fixed' : 'auto',
         }}
       >
         <TableHead>

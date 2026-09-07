@@ -6,7 +6,7 @@ import {
 import ResponsiveTable from '../ResponsiveTable';
 import {
   fetchInvoiceById, fetchInvoiceLineItems,
-  approveInvoice, rejectInvoice, submitInvoice,
+  approveInvoice, rejectInvoice, submitInvoice,updateInvoiceLineItemAmounts,
 } from '../../api/invoicesApi';
 
 
@@ -30,6 +30,7 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
   const [lineItems, setLineItems] = useState([]);
   const [status, setStatus] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
+ const [editedAmounts, setEditedAmounts] = useState({});
 
   useEffect(() => {
     if (!open || !invoiceId) return undefined;
@@ -43,6 +44,11 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
         setInvoice(inv);
         setLineItems(items);
         setStatus(normalizeStatusLabel(inv.invoiceStatus));
+        const seeded = {};
+        items.forEach((item) => {
+          seeded[item.id] = String(item.amountRaw ?? 0);
+        });
+        setEditedAmounts(seeded);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -75,7 +81,31 @@ const statusOptions = useMemo(() => {
 }, [invoice]);
 
   const currentNormalizedStatus = normalizeStatusLabel(invoice?.invoiceStatus);
+ const isAmountEditable = currentNormalizedStatus === 'Pending';
+const hasAmountChanges = useMemo(() => {
+    if (!isAmountEditable) return false;
+    return lineItems.some((item) => {
+      const edited = editedAmounts[item.id];
+      if (edited === undefined) return false;
+      const num = Number(edited);
+      if (!Number.isFinite(num)) return false;
+      return num !== Number(item.amountRaw ?? 0);
+    });
+  }, [lineItems, editedAmounts, isAmountEditable]);
+  const editedTotal = useMemo(() => {
+    return lineItems.reduce((sum, item) => {
+      const edited = editedAmounts[item.id];
+      const num = Number(edited);
+      const value = Number.isFinite(num) ? num : Number(item.amountRaw ?? 0);
+      return sum + value;
+    }, 0);
+  }, [lineItems, editedAmounts]);
 
+  const handleAmountChange = (lineItemId, value) => {
+    // Sirf digits aur ek decimal point allow karo, negative nahi
+    if (value !== '' && !/^\d*\.?\d{0,2}$/.test(value)) return;
+    setEditedAmounts((prev) => ({ ...prev, [lineItemId]: value }));
+  };
   const handleClose = () => {
     if (saving) return;
     setInvoice(null);
@@ -86,32 +116,59 @@ const statusOptions = useMemo(() => {
     onClose?.();
   };
 
-  const handleSave = async () => {
-    if (!invoiceId || !status) return;
-    if (status === currentNormalizedStatus) {
-      handleClose();
-      return;
+const handleSave = async () => {
+  if (!invoiceId || !status) return;
+
+  const statusChanged = status !== currentNormalizedStatus;
+
+  if (!statusChanged && !(isAmountEditable && hasAmountChanges)) {
+    // Kuch change hi nahi hua — bas close kar do
+    handleClose();
+    return;
+  }
+
+  if (status === 'Rejected' && !rejectionReason.trim()) {
+    setError('Rejection reason is required.');
+    return;
+  }
+
+  setSaving(true);
+  setError('');
+  try {
+    if (isAmountEditable && hasAmountChanges) {
+      const changedItems = lineItems
+        .filter((item) => {
+          const edited = editedAmounts[item.id];
+          if (edited === undefined) return false;
+          const num = Number(edited);
+          return Number.isFinite(num) && num !== Number(item.amountRaw ?? 0);
+        })
+        .map((item) => ({
+          lineItemId: item.id,
+          amount: Number(editedAmounts[item.id]),
+        }));
+
+      if (changedItems.length > 0) {
+        const updatedInvoice = await updateInvoiceLineItemAmounts(invoiceId, changedItems);
+        setInvoice(updatedInvoice);
+      }
     }
-    if (status === 'Rejected' && !rejectionReason.trim()) {
-      setError('Rejection reason is required.');
-      return;
-    }
-    setSaving(true);
-    setError('');
-    try {
+
+    if (statusChanged) {
       if (status === 'Paid') await approveInvoice(invoiceId);
       else if (status === 'Rejected') await rejectInvoice(invoiceId, rejectionReason.trim());
       else if (status === 'Invoiced') await submitInvoice(invoiceId);
-
-      onUpdated?.();
-      handleClose();
-    } catch (err) {
-      const apiMessage = err.response?.data;
-      setError(typeof apiMessage === 'string' ? apiMessage : err.message || 'Failed to update status.');
-    } finally {
-      setSaving(false);
     }
-  };
+
+    onUpdated?.();
+    handleClose();
+  } catch (err) {
+    const apiMessage = err.response?.data;
+    setError(typeof apiMessage === 'string' ? apiMessage : err.message || 'Failed to save changes.');
+  } finally {
+    setSaving(false);
+  }
+};
 
   const columns = [
     { id: 'studentName', label: 'Student', field: 'studentName', headerSx: { width: 130 } },
@@ -128,6 +185,23 @@ const statusOptions = useMemo(() => {
       align: 'right',
       headerSx: { width: 110, whiteSpace: 'nowrap' },
       cellSx: { width: 110, whiteSpace: 'nowrap' },
+       render: (row) =>
+        isAmountEditable ? (
+          <TextField
+            size="small"
+            value={editedAmounts[row.id] ?? ''}
+            onChange={(e) => handleAmountChange(row.id, e.target.value)}
+            disabled={saving}
+            inputProps={{
+              inputMode: 'decimal',
+              style: { textAlign: 'right' },
+            }}
+            sx={{ width: 120 }}
+          />
+        ) : (
+          row.amount
+        ),
+
     },
   ];
 
