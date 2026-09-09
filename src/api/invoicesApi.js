@@ -177,7 +177,7 @@ export async function generateMonthlyInvoice({ year, month, instituteId, campus,
 export async function downloadInvoiceDocument(invoiceId) {
   const invoice = await fetchInvoiceById(invoiceId);
   const lineItems = await fetchInvoiceLineItems(invoiceId);
-  exportInvoicePdf(invoice, lineItems);
+  await exportInvoicePdf(invoice, lineItems);
 }
 
 export async function fetchInvoiceById(invoiceId) {
@@ -231,6 +231,7 @@ export async function downloadInvoiceDocuments(invoiceIds = []) {
     return;
   }
 
+  // Fetch all invoices first, then save one separate PDF per invoice.
   const items = [];
   for (const id of invoiceIds) {
     // eslint-disable-next-line no-await-in-loop
