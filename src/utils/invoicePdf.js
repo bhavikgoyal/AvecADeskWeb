@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { saveAs } from 'file-saver';
 import logoSrc from '../assets/avec-global-logo-full.png';
 
 const COMPANY_ADDRESS = 'Unit 3, 380 Clayton Road, Clayton, Victoria 3168';
@@ -497,98 +498,59 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
   return { nextSrNo: srNo, lastPageNumber: pageNumber, educationHeaderDrawn };
 }
 
-export async function exportInvoicePdf(invoice, lineItems = []) {
+/** Build one invoice PDF blob (does not download). */
+export async function buildInvoicePdf(invoice, lineItems = []) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   await drawInvoiceSection(doc, invoice, lineItems, {
     startSrNo: 1,
     showEducationHeader: true,
   });
   const fileName = `${safeText(invoice.invoiceNumber) || `invoice-${invoice.invoiceId || 'document'}`}.pdf`;
-  doc.save(fileName);
+  return { blob: doc.output('blob'), fileName };
 }
 
-function instituteKey(invoice = {}) {
-  if (invoice.instituteId != null && invoice.instituteId !== '') return `id:${invoice.instituteId}`;
-  return `name:${safeText(invoice.instituteNameRef || invoice.instituteName)}`;
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
-/** Invoices of the same institute become one continuous section (rows keep flowing). */
-function groupItemsByInstitute(items) {
-  const groups = [];
-  const indexByKey = new Map();
+function triggerPdfDownload(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.rel = 'noopener';
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
 
-  items.forEach((item) => {
-    const invoice = item.invoice || {};
-    const key = instituteKey(invoice);
-    let group = indexByKey.get(key);
-
-    if (!group) {
-      group = { invoices: [], lineItems: [] };
-      indexByKey.set(key, group);
-      groups.push(group);
-    }
-
-    group.invoices.push(invoice);
-    group.lineItems.push(...(item.lineItems || []));
-  });
-
-  return groups.map(({ invoices, lineItems }) => {
-    const first = invoices[0] || {};
-    const total = invoices.reduce(
-      (sum, inv) => sum + Number(inv.totalAmountRaw ?? inv.totalAmount ?? 0),
-      0,
-    );
-    const numbers = invoices.map((inv) => safeText(inv.invoiceNumber)).filter(Boolean);
-    const gstInvoice = invoices.find((inv) => inv.gstPercent != null);
-
-    return {
-      invoice: {
-        ...first,
-        invoiceNumber: numbers.join(', '),
-        totalAmountRaw: total,
-        totalAmount: total,
-        gstPercent: gstInvoice ? gstInvoice.gstPercent : null,
-      },
-      lineItems,
-    };
-  });
+export async function exportInvoicePdf(invoice, lineItems = []) {
+  const { blob, fileName } = await buildInvoicePdf(invoice, lineItems);
+  saveAs(blob, fileName);
 }
 
 /**
- * Multiple invoices → one PDF.
- * Same-institute invoices merge into a single section so Sr. No. 1, 2, 3… continue on the
- * same page; a new page starts only for another institute or when rows overflow.
+ * Never merges invoices into one PDF — each invoice downloads as its own .pdf file.
  */
 export async function exportInvoicesPdf(items = []) {
   if (!items.length) return;
 
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const groups = groupItemsByInstitute(items);
-  let srNo = 1;
-  let educationShown = false;
-
-  for (let idx = 0; idx < groups.length; idx += 1) {
-    if (idx > 0) doc.addPage();
-
-    const result = await drawInvoiceSection(doc, groups[idx].invoice, groups[idx].lineItems, {
-      startSrNo: srNo,
-      showEducationHeader: !educationShown,
-      pageNumberStart: doc.getNumberOfPages(),
-    });
-
-    srNo = result.nextSrNo;
-    if (result.educationHeaderDrawn) educationShown = true;
+  const files = [];
+  for (let i = 0; i < items.length; i += 1) {
+    const { invoice, lineItems = [] } = items[i] || {};
+    // eslint-disable-next-line no-await-in-loop
+    files.push(await buildInvoicePdf(invoice, lineItems));
   }
 
-  // Re-stamp page numbers with final page count
-  const totalPages = doc.getNumberOfPages();
-  for (let p = 1; p <= totalPages; p += 1) {
-    doc.setPage(p);
-    drawPageNumber(doc, p, totalPages);
+  for (let i = 0; i < files.length; i += 1) {
+    triggerPdfDownload(files[i].blob, files[i].fileName);
+    if (i < files.length - 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await delay(1500);
+    }
   }
-
-  const fileName = items.length === 1
-    ? `${safeText(items[0]?.invoice?.invoiceNumber) || 'invoice'}.pdf`
-    : `invoices-${items.length}.pdf`;
-  doc.save(fileName);
 }
