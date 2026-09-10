@@ -48,7 +48,18 @@ const getGroupMembers = (list, groupNo) =>
 const getGroupRoot = (list, groupNo) =>
   list.find((x) => x.installmentNo === groupNo);
 
+const hasSplitChild = (list, installmentNo) =>
+  list.some((row) => row.parentInstallmentNo === installmentNo);
 
+const getEffectivePaidAmount = (list, row) => {
+  if (isPaidLike(row.status)) {
+    return hasSplitChild(list, row.installmentNo)
+      ? Number(row.paidAmount || 0)
+      : Number(row.amount || 0);
+  }
+  if (row.status === "Partial") return Number(row.paidAmount || 0);
+  return 0;
+};
 const isGroupFullyCovered = (list, groupNo) => {
   const root = getGroupRoot(list, groupNo);
   if (!root) return false;
@@ -57,8 +68,18 @@ const isGroupFullyCovered = (list, groupNo) => {
   if (totalOriginal <= 0) return false;
 
   const members = getGroupMembers(list, groupNo);
+
   const sumPaid = members.reduce((sum, x) => {
-    if (isPaidLike(x.status)) return sum + Number(x.amount || 0);
+    const hasSplitChild = list.some(
+      (row) => row.parentInstallmentNo === x.installmentNo
+    );
+
+    if (isPaidLike(x.status)) {
+      // Agar ye row aage split hui hai, toh iska "confirmed" amount
+      // poora x.amount nahi — sirf jo actually collect hua tha (paidAmount).
+      return sum + Number(hasSplitChild ? (x.paidAmount || 0) : x.amount || 0);
+    }
+
     return sum + Number(x.paidAmount || 0);
   }, 0);
 
@@ -1199,22 +1220,26 @@ if (isEdit && !scheduleChanged) {
 
     setBonusApplied(true);
   };
-  const handleConfirmedByStudent = (installment, documentUrl) => {
+const handleConfirmedByStudent = (installment, documentUrl) => {
   setPaymentList((prev) =>
-    prev.map((x) =>
-      x.installmentNo === installment.installmentNo
-        ? {
-            ...x,
-            status: "ConfirmedByStudent",
-            paidAmount: Number(x.amount || 0).toFixed(2),
-            balance: "0.00",
-            paidDate:
-              x.paidDate || new Date().toISOString().slice(0, 10),
-            documentUrl,
-          }
-        : x
-    )
+    prev.map((x) => {
+      if (x.installmentNo !== installment.installmentNo) return x;
+
+      const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
+        ? (x.paidAmount || "0.00")
+        : Number(x.amount || 0).toFixed(2);
+
+      return {
+        ...x,
+        status: "ConfirmedByStudent",
+        paidAmount: paidLikeAmount,
+        balance: "0.00",
+        paidDate: x.paidDate || new Date().toISOString().slice(0, 10),
+        documentUrl,
+      };
+    })
   );
+  
 
   setCommissionHistory((prev) =>
     prev.map((x) =>
@@ -1414,22 +1439,23 @@ if (isEdit && !scheduleChanged) {
                                         await confirmInstallmentByStudent(
                                           item.studentPaymentInstallmentId
                                         );
+setPaymentList((prev) =>
+  prev.map((x) => {
+    if (x.installmentNo !== item.installmentNo) return x;
 
-                                        setPaymentList((prev) =>
-                                          prev.map((x) =>
-                                            x.installmentNo === item.installmentNo
-                                              ? {
-                                                  ...x,
-                                                  status: "ConfirmedByStudent",
-                                                  paidAmount: x.amount,
-                                                  balance: "0.00",
-                                                  paidDate:
-                                                    x.paidDate ||
-                                                    new Date().toISOString().slice(0, 10),
-                                                }
-                                              : x
-                                          )
-                                        );
+    const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
+      ? (x.paidAmount || "0.00")
+      : x.amount;
+
+    return {
+      ...x,
+      status: "ConfirmedByStudent",
+      paidAmount: paidLikeAmount,
+      balance: "0.00",
+      paidDate: x.paidDate || new Date().toISOString().slice(0, 10),
+    };
+  })
+);
 
                                         setConfirmTargetInstallment(item);
                                         setConfirmDialogOpen(true);
@@ -1443,31 +1469,24 @@ if (isEdit && !scheduleChanged) {
                                       return;
                                     }
 
-                                  setPaymentList((prev) => {
-                                    let updated = prev.map((x) => {
-                                      if (x.installmentNo === item.installmentNo) {
-                                        const isPaid = isPaidLike(value);
-                                        const isPartial = value === "Partial";
-                                        return {
-                                          ...x,
-                                          status: value,
-                                          paidAmount: isPaid ? x.amount : (isPartial ? (x.paidAmount || "0.00") : "0.00"),
-                                          balance: isPaid ? "0.00" : (isPartial ? x.balance : x.amount),
-                                          paidDate: (isPaid || isPartial) ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
-                                        };
-                                      }
+                     setPaymentList((prev) => {
+  let updated = prev.map((x) => {
+    if (x.installmentNo === item.installmentNo) {
+      const isPaid = isPaidLike(value);
+const isPartial = value === "Partial";
 
-                                      if (
-                                        value === "Pending" &&
-                                        x.installmentNo > item.installmentNo
-                                      ) {
-                                        return {
-                                          ...x,
-                                          status: "Pending",
-                                          paidAmount: "0.00",
-                                          balance: x.amount,
-                                        };
-                                      }
+const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
+  ? (x.paidAmount || "0.00")
+  : x.amount;
+
+return {
+  ...x,
+  status: value,
+  paidAmount: isPaid ? paidLikeAmount : (isPartial ? (x.paidAmount || "0.00") : "0.00"),
+  balance: isPaid ? "0.00" : (isPartial ? x.balance : x.amount),
+  paidDate: (isPaid || isPartial) ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
+};
+    }
 
                                       return x;
                                     });
@@ -1588,71 +1607,113 @@ if (isEdit && !scheduleChanged) {
 
                           <TableCell>
                             {isEdit && item.status === "Partial" && !(groupComplete && !isLastOfGroup) ? (
-                              <TextField
-                                size="small"
-                                type="number"
-                                value={item.paidAmount ?? "0"}
-                                onChange={(e) => {
-                                  const val = e.target.value;
+                             <TextField
+  size="small"
+  type="number"
+  value={item.paidAmount ?? "0"}
+onChange={(e) => {
+  const rawVal = e.target.value;
+  const maxAmount = Number(item.amount || 0);
 
-                                  setPaymentList((prev) => {
-                                    const updatedRows = prev.map((x) => {
-                                      if (x.installmentNo === item.installmentNo) {
-                                        const newBalance = (
-                                          Number(x.amount) - Number(val || 0)
-                                        ).toFixed(2);
+  let numVal = Number(rawVal || 0);
+  if (Number.isNaN(numVal)) numVal = 0;
+  if (numVal > maxAmount) numVal = maxAmount;
+  if (numVal < 0) numVal = 0;
 
-                                        return {
-                                          ...x,
-                                          paidAmount: val,
-                                          balance: newBalance,
-                                        };
-                                      }
+  const val = rawVal === "" ? "" : String(numVal);
 
-                                      return x;
-                                    });
+  setPaymentList((prev) => {
+    let updatedRows = prev.map((x) => {
+      if (x.installmentNo === item.installmentNo) {
+        const newBalance = (
+          Number(x.amount) - Number(val || 0)
+        ).toFixed(2);
 
-                                    const childIndex = updatedRows.findIndex(
-                                      (x) => x.parentInstallmentNo === item.installmentNo
-                                    );
+        return {
+          ...x,
+          paidAmount: val,
+          balance: newBalance,
+        };
+      }
 
-                                    if (childIndex !== -1) {
-                                      const child = updatedRows[childIndex];
-                                      const newRemaining = Number(item.amount) - Number(val || 0);
+      return x;
+    });
 
-                                      if (newRemaining <= EPSILON) {
-                                        if (!child.studentPaymentInstallmentId) {
-                                          updatedRows.splice(childIndex, 1);
-                                        } else {
-                                          updatedRows[childIndex] = {
-                                            ...child,
-                                            amount: "0.00",
-                                            balance: "0.00",
-                                          };
-                                        }
-                                      } else {
-                                        updatedRows[childIndex] = {
-                                          ...child,
-                                          amount: newRemaining.toFixed(2),
-                                          balance: newRemaining.toFixed(2),
-                                        };
-                                      }
-                                    }
+    const childIndex = updatedRows.findIndex(
+      (x) => x.parentInstallmentNo === item.installmentNo
+    );
 
-                                    return updatedRows;
-                                  });
-                                }}
-                                inputProps={{
-                                  min: 0,
-                                  max: Number(item.amount),
-                                  step: "0.01",
-                                }}
-                                sx={{ width: 120 }}
-                              />
+    const newRemaining = Number(item.amount) - Number(val || 0);
+
+    if (childIndex !== -1) {
+      // Existing child row hai — usko update ya remove karo (jaisa pehle tha).
+      const child = updatedRows[childIndex];
+
+      if (newRemaining <= EPSILON) {
+        if (!child.studentPaymentInstallmentId) {
+          updatedRows.splice(childIndex, 1);
+        } else {
+          updatedRows[childIndex] = {
+            ...child,
+            amount: "0.00",
+            balance: "0.00",
+          };
+        }
+      } else {
+        updatedRows[childIndex] = {
+          ...child,
+          amount: newRemaining.toFixed(2),
+          balance: newRemaining.toFixed(2),
+        };
+      }
+    } else if (newRemaining > EPSILON) {
+      // Koi child row maujood nahi (pehle delete ho chuki thi kyunki
+      // fully paid tha), lekin ab dobara balance bach gaya hai —
+      // isliye naya split/child row banao, warna ye remaining
+      // amount kahin track hi nahi hoga.
+      const rootNo = item.parentGroupNo ?? item.installmentNo;
+      const childCount = updatedRows.filter(
+        (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
+      ).length;
+      const newInstallmentNo = Number(
+        (rootNo + (childCount + 1) / 10).toFixed(2)
+      );
+
+      const remainingRow = {
+        installmentNo: newInstallmentNo,
+        parentInstallmentNo: item.installmentNo,
+        parentGroupNo: rootNo,
+        dueDate: item.dueDate,
+        amount: newRemaining.toFixed(2),
+        paidAmount: "0.00",
+        balance: newRemaining.toFixed(2),
+        status: "Pending",
+      };
+
+      const insertIndex =
+        updatedRows.findIndex(
+          (x) => x.installmentNo === item.installmentNo
+        ) + 1;
+
+      updatedRows = [
+        ...updatedRows.slice(0, insertIndex),
+        remainingRow,
+        ...updatedRows.slice(insertIndex),
+      ];
+    }
+
+    return updatedRows;
+  });
+}}
+inputProps={{
+  min: 0,
+  max: Number(item.amount),
+  step: "0.01",
+}}
+sx={{ width: 120 }}
+/>
                             ) : (
-                              isPaidLike(item.status)
-                                ? Number(item.amount || 0).toFixed(2)
-                                : Number(item.paidAmount || 0).toFixed(2)
+                              Number(getEffectivePaidAmount(paymentList, item)).toFixed(2)
                             )}
                           </TableCell>
                           <TableCell>
