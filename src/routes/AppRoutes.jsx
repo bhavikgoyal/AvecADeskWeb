@@ -292,6 +292,22 @@ export default function AppRoutes() {
               </RequireRole>
             }
           />
+         <Route
+  path="institute-contracts"
+  element={
+    <RequireRole path="/institute-contracts">
+      <InstituteScrappingPage basePath="/institute-contracts" />
+    </RequireRole>
+  }
+/>
+<Route
+  path="institute-contracts/:id"
+  element={
+    <RequireRole path="/institute-contracts">
+      <InstituteScrappingEditPage basePath="/institute-contracts" />
+    </RequireRole>
+  }
+/>
           <Route
             path="reports/receivables"
             element={
