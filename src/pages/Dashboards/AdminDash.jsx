@@ -15,11 +15,12 @@ import { CHART_COLORS } from '../../theme/chartTheme';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Grid, Paper, Typography, Button } from '@mui/material';
-import { ResponsiveContainer, LineChart, Line, Tooltip, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar,LineChart, Line, Tooltip, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { fetchWeekChecklistStats } from '../../utils/checklistStats';
 import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
 import { fetchInvoicesWithMonthlyTotals, fetchNextMonthInvoiceTotal } from '../../api/invoicesApi';
 import { fetchVendorRows } from '../../api/vendorsApi';
+import AnticipatedReceivables1Page from '../anticipatedReceivables1/AnticipatedReceivables1Page';
 const kpiStats = [
   {
     label: 'Open tasks',
@@ -33,6 +34,7 @@ const kpiStats = [
 ];
 export default function AdminDash() {
   const navigate = useNavigate();
+  const now = useMemo(() => new Date(), []);
   const [nextMonthInvoiceTotal, setNextMonthInvoiceTotal] = useState(0);
   const [vendorStats, setVendorStats] = useState({
     total: 0,
@@ -112,8 +114,8 @@ export default function AdminDash() {
   const [monthRevenue, setMonthRevenue] = useState(null);
   useEffect(() => {
     let mounted = true;
-    const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+    const from = new Date(now.getFullYear(), now.getMonth() -11,1).toISOString();
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0,23,59,59,999).toISOString();
     fetchMonthRevenueDashboard({ fromDate: from, toDate: to })
       .then((res) => {
         if (!mounted) return;
@@ -126,7 +128,7 @@ export default function AdminDash() {
   const [newStudentsList, setNewStudents] = useState([]);
   const [installmentSummary, setInstallmentSummary] = useState({ weeksPrev: [], weeksThis: [], weeksNext: [], upcomingNext: [] });
   const [invoiceTotals, setInvoiceTotals] = useState(null);
-  const now = useMemo(() => new Date(), []);
+  //const now = useMemo(() => new Date(), []);
   useEffect(() => {
     const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
     const cur = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -333,7 +335,7 @@ export default function AdminDash() {
   return (
     <>
       <DashboardTemplate
-        title="Admin Overview"
+        //  title="Admin Overview"
         welcomeFooterStats={(() => {
           if (invoiceTotals) {
             const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
@@ -407,44 +409,89 @@ export default function AdminDash() {
         upcomingItems={[]}
         areaChartData={revenueTrend}
       />
-      <Box sx={{ mt: 1.5, width: '100%', minHeight: 280 }}>
-        <GroupedBarChartCard
-          items={(() => {
-            const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
-            const cur = new Date(now.getFullYear(), now.getMonth(), 1);
-            const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-            const buckets = { last: { paid: 0, due: 0 }, cur: { paid: 0, due: 0 }, next: { paid: 0, due: 0 } };
-            for (const it of rows) {
-              const due = it.dueDate ? new Date(it.dueDate) : null;
-              if (!due) continue;
-              const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
-              const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
-              const amount = comm + bonus;
-              const status = (it.commissionStatus || it.paymentStatus || '').toString().toLowerCase();
-              if (due.getFullYear() === last.getFullYear() && due.getMonth() === last.getMonth()) {
-                if (status === 'paid') buckets.last.paid += amount; else buckets.last.due += amount;
-              } else if (due.getFullYear() === cur.getFullYear() && due.getMonth() === cur.getMonth()) {
-                if (status === 'paid') buckets.cur.paid += amount; else buckets.cur.due += amount;
-              } else if (due.getFullYear() === next.getFullYear() && due.getMonth() === next.getMonth()) {
-                if (status === 'paid') buckets.next.paid += amount; else buckets.next.due += amount;
+    <Box sx={{ mt: 1.5, width: '100%', minHeight: 280 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          border: '1px solid var(--card-border)',
+          borderRadius: 3,
+          p: { xs: 1.5, md: 2 },
+        }}
+      >
+    <Typography
+      sx={{
+        fontWeight: 700,
+        color: 'var(--text)',
+        fontSize: '0.95rem',
+        mb: 2,
+      }}
+    >
+      Payment Overview - Last 12 Months
+    </Typography>
+
+      <Box sx={{ width: '100%', height: 320 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={(() => {
+              const rows = Array.isArray(monthRevenue)? monthRevenue   : monthRevenue?.installments || [];
+              const months = Array.from({ length: 12 }, (_, index) => {
+              const date = new Date(now.getFullYear(), now.getMonth() - 11 + index,1);
+
+                return {
+                  name: date.toLocaleString('en-US', {month: 'short',
+                  }),year: date.getFullYear(),month: date.getMonth(),
+                  paid: 0,due: 0,
+                };
+              });
+
+              rows.forEach((item) => {const dueDate = item.dueDate? new Date(item.dueDate): null;
+                if (!dueDate) return;
+                const month = months.find((m) => m.year === dueDate.getFullYear() && m.month === dueDate.getMonth() );
+                if (!month) return;
+                const commission =Number(item.commissionAmount ??item.commission?.amount ??0) || 0;
+                const bonus =Number(item.bonusAmount ??item.bonus?.amount ??0) || 0;
+                const amount = commission + bonus;
+                const status = (item.commissionStatus ||item.paymentStatus ||'').toString().toLowerCase();
+                if (status === 'paid') {
+                  month.paid += amount;
+                } else {
+                  month.due += amount;
+                }
+              });
+
+              if (invoiceTotals?.thisMonth) {const currentMonth = months[months.length - 1];
+                currentMonth.paid = Number(invoiceTotals.thisMonth.paid || 0);
+                currentMonth.due = Number(invoiceTotals.thisMonth.due || 0);
               }
-            }
-            if (invoiceTotals) {
-              try {
-                buckets.last.paid = Number(invoiceTotals.lastMonth?.paid ?? buckets.last.paid) || 0;
-                buckets.last.due = Number(invoiceTotals.lastMonth?.due ?? buckets.last.due) || 0;
-                buckets.cur.paid = Number(invoiceTotals.thisMonth?.paid ?? buckets.cur.paid) || 0;
-                buckets.cur.due = Number(invoiceTotals.thisMonth?.due ?? buckets.cur.due) || 0;
-              } catch (e) { }
-            }
-            return [
-              { title: 'Last Month', data: [{ name: '', paid: buckets.last.paid, due: buckets.last.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
-              { title: 'This Month', data: [{ name: '', paid: buckets.cur.paid, due: buckets.cur.due }], keys: ['paid', 'due'], colors: [CHART_COLORS.teal, CHART_COLORS.danger] },
-            ];
-          })()}
-        />
-        <Box sx={{ mt: 1.5 }}>
+             
+              if (invoiceTotals?.lastMonth) {const previousMonth = months[months.length - 2];
+                previousMonth.paid = Number(invoiceTotals.lastMonth.paid || 0);
+                previousMonth.due = Number(invoiceTotals.lastMonth.due || 0);
+              }
+              return months;
+            })()}
+            margin={{top: 10,right: 20,left: 10,bottom: 5,}}
+            barCategoryGap="20%"
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke={CHART_COLORS.grid}
+              vertical={false}
+            />
+
+            <XAxis dataKey="name" axisLine={false} tickLine={false}tick={{ fontSize: 12 }}  />
+            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(value) => `$${Number(value).toLocaleString()}` } />
+            <Tooltip
+              contentStyle={{ borderRadius: 8,border: '1px solid var(--card-border)',fontSize: 12, }}
+              formatter={(value, name) => [ `$${Number(value).toLocaleString()}`,name,]}
+            />
+            <Bar dataKey="paid" name="Paid" fill={CHART_COLORS.teal} radius={[4, 4, 0, 0]} barSize={18}/>
+            <Bar dataKey="due" name="Due" fill={CHART_COLORS.danger} radius={[4, 4, 0, 0]} barSize={18}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </Box>
+    </Paper>
+        {/* <Box sx={{ mt: 1.5 }}>
           <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 }, cursor: "pointer", }}
             onClick={() => { navigate("/students?filter=next-month"); }}>
             <Typography sx={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem' }}>
@@ -454,7 +501,7 @@ export default function AdminDash() {
               {`$${Number(nextMonthInvoiceTotal || 0).toLocaleString()}`}
             </Typography>
           </Paper>
-        </Box>
+        </Box> */}
         <Box sx={{ mt: 1.5 }}>
           <Grid container spacing={1.25} sx={{ alignItems: 'stretch' }}>
             <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
@@ -541,6 +588,9 @@ export default function AdminDash() {
             </Grid>
           </Grid>
         </Box>
+      </Box>
+        <Box sx={{ mt: 1.5, width: '100%' }}>
+        <AnticipatedReceivables1Page />
       </Box>
     </>
   );

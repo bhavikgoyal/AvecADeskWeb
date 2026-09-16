@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState,useRef,} from 'react';
 import {
   Alert,
   Box,
@@ -216,6 +216,15 @@ function exportPdf(rows, headers, filename, title) {
 }
 
 function MonthGrid({ matrix, loading }) {
+  const tableScrollRef = useRef(null);
+
+  useEffect(() => {
+    if (!loading && matrix && tableScrollRef.current) {
+      tableScrollRef.current.scrollLeft =
+        tableScrollRef.current.scrollWidth;
+    }
+  }, [loading, matrix]);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -241,7 +250,7 @@ function MonthGrid({ matrix, loading }) {
         bgcolor: '#fff',
       }}
     >
-      <Box sx={{ overflowX: 'auto', maxHeight: 'calc(100vh - 420px)', overflowY: 'auto' }}>
+      <Box  ref={tableScrollRef} sx={{ overflowX: 'auto', maxHeight: 'calc(100vh - 420px)', overflowY: 'auto' }}>
         <Box
           component="table"
           sx={{
@@ -487,8 +496,8 @@ export default function AnticipatedReceivables1Page() {
   const hasRows = (viewMatrix?.colleges || []).length > 0;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
-      <Box
+    <Box sx={{ width: '100%' }}>
+      {/* <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -571,7 +580,7 @@ export default function AnticipatedReceivables1Page() {
             />
           </>
         )}
-      </Box>
+      </Box> */}
 
       <Box
         sx={{
@@ -662,7 +671,7 @@ export default function AnticipatedReceivables1Page() {
           <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                Anticipated
+                All OverDue Recieved
                 <Chip label={summary.anticipated.count} size="small" sx={{ height: 18, fontSize: 11 }} />
               </Box>
             }

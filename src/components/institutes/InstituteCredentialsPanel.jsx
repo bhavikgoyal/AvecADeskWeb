@@ -44,7 +44,7 @@ export default function InstituteCredentialsPanel({ instituteId }) {
   const [form, setForm] = useState(getEmptyCredentialForm());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
-
+ const [showPassword, setShowPassword] = useState(false);
   const loadCredentials = async () => {
     setLoading(true);
     setListError('');
@@ -131,14 +131,28 @@ export default function InstituteCredentialsPanel({ instituteId }) {
   };
 
   const togglePasswordVisibility = (id) => {
-    setVisiblePasswordIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  setVisiblePasswordIds((prev) => {
+    const next = new Set(prev);
 
+    if (next.has(id)) {
+      next.delete(id);
+      return next;
+    }
+
+    next.add(id);
+
+    // Automatically hide after 1 minute
+    setTimeout(() => {
+      setVisiblePasswordIds((current) => {
+        const updated = new Set(current);
+        updated.delete(id);
+        return updated;
+      });
+    }, 60 * 1000);
+
+    return next;
+  });
+};
   const handleCopy = async (value) => {
     try {
       await navigator.clipboard.writeText(value || '');
@@ -264,14 +278,33 @@ export default function InstituteCredentialsPanel({ instituteId }) {
             fullWidth
             required
             disabled={saving}
+            autoComplete="off"
           />
           <TextField
             label="Password"
+            type={showPassword ? 'text' : 'password'}
             value={form.password}
             onChange={(e) => updateFormField('password', e.target.value)}
             fullWidth
             required
             disabled={saving}
+            autoComplete="new-password"
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <IconButton
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    edge="end"
+                  >
+                    {showPassword ? (
+                      <VisibilityOffIcon />
+                    ) : (
+                      <VisibilityIcon />
+                    )}
+                  </IconButton>
+                ),
+              },
+            }}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>

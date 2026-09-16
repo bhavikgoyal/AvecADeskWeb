@@ -63,7 +63,7 @@ export default function NewVendorPage({ basePath }) {
     <FormPageLayout title={`Add new ${resource.singular.toLowerCase()}`}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tab label="Vendor details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Invite vendor" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
       </Box>

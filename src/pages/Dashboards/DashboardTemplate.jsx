@@ -82,9 +82,9 @@ export default function DashboardTemplate({
     <Box sx={{ width: '100%', maxWidth: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.25, mb: 1.5, flexWrap: 'wrap' }}>
         <Box>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase' }}>
+          {/* <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase' }}>
             Overview
-          </Typography>
+          </Typography> */}
           <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text)', mt: 0.5 }}>
             {title}
           </Typography>
