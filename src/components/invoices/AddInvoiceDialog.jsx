@@ -20,23 +20,46 @@ import {
   fetchUniqueInstituteNames,
   getCampusesForInstitute,
   getUniqueInstituteNames,
-  normalizeInstituteName,
   resolveScrappingId,
 } from '../../api/institutesScrappingApi';
-import { fetchPaidStudentsForInvoice, generateMonthlyInvoice ,fetchSettledPaymentStatuses,} from '../../api/invoicesApi';
+import {
+  fetchPaidStudentsForInvoice,
+  generateMonthlyInvoice,
+  fetchSettledPaymentStatuses,
+  updateInstallmentFeesAndInvoiceAmounts,
+} from '../../api/invoicesApi';
 
-export default function AddInvoiceDialog({ open, onClose, onGenerated,initialInstituteName = '', initialCampus = '' ,lockInstitute = false,}) {
+function isValidAmountInput(value) {
+  return value === '' || /^\d*\.?\d{0,2}$/.test(value);
+}
+
+export default function AddInvoiceDialog({
+  open,
+  onClose,
+  onGenerated,
+  initialInstituteName = '',
+  initialCampus = '',
+  lockInstitute = false,
+}) {
   const now = useMemo(() => new Date(), []);
   const [institutes, setInstitutes] = useState([]);
   const [instituteName, setInstituteName] = useState('');
   const [campus, setCampus] = useState('');
   const [students, setStudents] = useState([]);
-  const [selectedIds, setSelectedIds] = useState([]); 
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [editedFees, setEditedFees] = useState({});
+  const [editedInvoiceAmts, setEditedInvoiceAmts] = useState({});
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
-  const [paidStatuses, setPaidStatuses] = useState(['paid', 'paidbycollege', 'paidbystudent']);
+  const [paidStatuses, setPaidStatuses] = useState([
+    'paid',
+    'paidbycollege',
+    'paidbystudent',
+    'confirmedbycollege',
+    'confirmedbystudent',
+  ]);
 
   const uniqueInstituteNames = useMemo(
     () => getUniqueInstituteNames(institutes),
@@ -58,6 +81,8 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated,initialIns
     setCampus('');
     setStudents([]);
     setSelectedIds([]);
+    setEditedFees({});
+    setEditedInvoiceAmts({});
     setError('');
     setGenerating(false);
   }, []);
@@ -84,19 +109,23 @@ export default function AddInvoiceDialog({ open, onClose, onGenerated,initialIns
       cancelled = true;
     };
   }, [open]);
-useEffect(() => {
-  if (!open) return;
-  if (initialInstituteName) {
-    setInstituteName(initialInstituteName);
-  }
-  if (initialCampus) {
-    setCampus(initialCampus);
-  }
-}, [open, initialInstituteName, initialCampus]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (initialInstituteName) {
+      setInstituteName(initialInstituteName);
+    }
+    if (initialCampus) {
+      setCampus(initialCampus);
+    }
+  }, [open, initialInstituteName, initialCampus]);
+
   useEffect(() => {
     if (!open || !resolvedInstituteId || !campus) {
       setStudents([]);
       setSelectedIds([]);
+      setEditedFees({});
+      setEditedInvoiceAmts({});
       return undefined;
     }
 
@@ -114,12 +143,22 @@ useEffect(() => {
         if (cancelled) return;
         setStudents(rows);
         setSelectedIds([]);
+        const feesSeed = {};
+        const invoiceSeed = {};
+        rows.forEach((row) => {
+          feesSeed[row.id] = String(row.feesAmountRaw ?? 0);
+          invoiceSeed[row.id] = String(row.invoiceAmountRaw ?? 0);
+        });
+        setEditedFees(feesSeed);
+        setEditedInvoiceAmts(invoiceSeed);
       })
       .catch((err) => {
         if (cancelled) return;
         setError(err.message || 'Failed to load students.');
         setStudents([]);
         setSelectedIds([]);
+        setEditedFees({});
+        setEditedInvoiceAmts({});
       })
       .finally(() => {
         if (!cancelled) setLoadingStudents(false);
@@ -130,45 +169,40 @@ useEffect(() => {
     };
   }, [open, resolvedInstituteId, campus, now]);
 
-
   useEffect(() => {
-  if (!open) return;
+    if (!open) return;
 
-  let cancelled = false;
+    let cancelled = false;
 
-  fetchSettledPaymentStatuses()
-    .then((list) => {
-      if (cancelled) return;
+    fetchSettledPaymentStatuses()
+      .then((list) => {
+        if (cancelled) return;
 
-      if (Array.isArray(list) && list.length > 0) {
-        setPaidStatuses(
-          list.map((status) =>
-            String(status).trim().toLowerCase()
-          )
-        );
-      }
-    })
-    .catch(() => {
-      // Keep fallback statuses
-    });
+        if (Array.isArray(list) && list.length > 0) {
+          setPaidStatuses(
+            list.map((status) => String(status).trim().toLowerCase()),
+          );
+        }
+      })
+      .catch(() => {
+        // Keep fallback statuses
+      });
 
-  return () => {
-    cancelled = true;
-  };
-}, [open]);
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
- const isPaidRow = useCallback(
-  (row) =>
-    paidStatuses.includes(
-      String(row?.paymentStatus ?? '').trim().toLowerCase()
-    ),
-  [paidStatuses]
-);
+  const isPaidRow = useCallback(
+    (row) =>
+      paidStatuses.includes(String(row?.paymentStatus ?? '').trim().toLowerCase()),
+    [paidStatuses],
+  );
 
   const paidStudents = useMemo(
-  () => students.filter(isPaidRow),
-  [students, isPaidRow]
-);
+    () => students.filter(isPaidRow),
+    [students, isPaidRow],
+  );
   const paidCount = paidStudents.length;
 
   const selectedPaidCount = useMemo(
@@ -181,7 +215,7 @@ useEffect(() => {
   const somePaidSelected = selectedPaidCount > 0 && !allPaidSelected;
 
   const toggleRow = (row) => {
-    if (!isPaidRow(row)) return; 
+    if (!isPaidRow(row)) return;
     setSelectedIds((prev) =>
       prev.includes(row.id)
         ? prev.filter((id) => id !== row.id)
@@ -191,13 +225,25 @@ useEffect(() => {
 
   const toggleSelectAll = () => {
     if (allPaidSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !paidStudents.some((s) => s.id === id)));
+      setSelectedIds((prev) =>
+        prev.filter((id) => !paidStudents.some((s) => s.id === id)),
+      );
     } else {
       setSelectedIds((prev) => [
         ...prev.filter((id) => !paidStudents.some((s) => s.id === id)),
         ...paidStudents.map((s) => s.id),
       ]);
     }
+  };
+
+  const handleFeesChange = (rowId, value) => {
+    if (!isValidAmountInput(value)) return;
+    setEditedFees((prev) => ({ ...prev, [rowId]: value }));
+  };
+
+  const handleInvoiceAmtChange = (rowId, value) => {
+    if (!isValidAmountInput(value)) return;
+    setEditedInvoiceAmts((prev) => ({ ...prev, [rowId]: value }));
   };
 
   const canGenerate = Boolean(resolvedInstituteId && campus) && selectedPaidCount > 0;
@@ -213,6 +259,8 @@ useEffect(() => {
     setCampus('');
     setStudents([]);
     setSelectedIds([]);
+    setEditedFees({});
+    setEditedInvoiceAmts({});
   };
 
   const handleGenerate = async () => {
@@ -220,14 +268,38 @@ useEffect(() => {
     setGenerating(true);
     setError('');
     try {
+      const selectedPaid = paidStudents.filter((s) => selectedIds.includes(s.id));
+
+      const amountUpdates = selectedPaid
+        .map((row) => {
+          const feesNum = Number(editedFees[row.id]);
+          const invoiceNum = Number(editedInvoiceAmts[row.id]);
+          const feesChanged =
+            Number.isFinite(feesNum) && feesNum !== Number(row.feesAmountRaw ?? 0);
+          const invoiceChanged =
+            Number.isFinite(invoiceNum) &&
+            invoiceNum !== Number(row.invoiceAmountRaw ?? 0);
+
+          if (!feesChanged && !invoiceChanged) return null;
+
+          return {
+            installmentId: Number(row.id),
+            feesAmount: feesChanged ? feesNum : null,
+            invoiceAmount: invoiceChanged ? invoiceNum : null,
+          };
+        })
+        .filter(Boolean);
+
+      if (amountUpdates.length > 0) {
+        await updateInstallmentFeesAndInvoiceAmounts(amountUpdates);
+      }
+
       const result = await generateMonthlyInvoice({
         year: now.getFullYear(),
         month: now.getMonth() + 1,
         instituteId: Number(resolvedInstituteId),
         campus,
-        installmentIds: selectedIds.filter((id) =>
-          paidStudents.some((s) => s.id === id),
-        ),
+        installmentIds: selectedPaid.map((s) => s.id),
       });
       onGenerated?.(result);
       resetForm();
@@ -237,7 +309,7 @@ useEffect(() => {
       setError(
         typeof apiMessage === 'string'
           ? apiMessage
-          : err.message || 'Failed to generate invoice.',
+          : apiMessage?.message || err.message || 'Failed to generate invoice.',
       );
     } finally {
       setGenerating(false);
@@ -253,18 +325,24 @@ useEffect(() => {
           checked={allPaidSelected}
           indeterminate={somePaidSelected}
           onChange={toggleSelectAll}
-          disabled={paidCount === 0}
+          disabled={paidCount === 0 || generating}
         />
       ),
       field: 'select',
       render: (row) => (
-        <Tooltip title={isPaidRow(row) ? '' : 'Only paid installments can be invoiced'}>
+        <Tooltip
+          title={
+            isPaidRow(row)
+              ? 'Checked rows can edit Fees / Invoice Amt and will be included in the invoice'
+              : 'Only settled (paid/confirmed) installments can be selected. Partial and Pending stay disabled.'
+          }
+        >
           <span>
             <Checkbox
               size="small"
               checked={selectedIds.includes(row.id)}
               onChange={() => toggleRow(row)}
-              disabled={!isPaidRow(row)}
+              disabled={!isPaidRow(row) || generating}
             />
           </span>
         </Tooltip>
@@ -273,8 +351,48 @@ useEffect(() => {
     { id: 'fullName', label: 'Student', field: 'fullName' },
     { id: 'courseName', label: 'Course', field: 'courseName' },
     { id: 'installmentNo', label: 'Installment', field: 'installmentNo' },
-    { id: 'feesAmount', label: 'Fees', field: 'feesAmount' },
-    { id: 'invoiceAmount', label: 'Invoice Amt', field: 'invoiceAmount' },
+    {
+      id: 'feesAmount',
+      label: 'Fees',
+      field: 'feesAmount',
+      render: (row) => {
+        const checked = selectedIds.includes(row.id);
+        if (checked && isPaidRow(row)) {
+          return (
+            <TextField
+              size="small"
+              value={editedFees[row.id] ?? ''}
+              onChange={(e) => handleFeesChange(row.id, e.target.value)}
+              disabled={generating}
+              inputProps={{ inputMode: 'decimal', style: { textAlign: 'right' } }}
+              sx={{ width: 120 }}
+            />
+          );
+        }
+        return row.feesAmount;
+      },
+    },
+    {
+      id: 'invoiceAmount',
+      label: 'Invoice Amt',
+      field: 'invoiceAmount',
+      render: (row) => {
+        const checked = selectedIds.includes(row.id);
+        if (checked && isPaidRow(row)) {
+          return (
+            <TextField
+              size="small"
+              value={editedInvoiceAmts[row.id] ?? ''}
+              onChange={(e) => handleInvoiceAmtChange(row.id, e.target.value)}
+              disabled={generating}
+              inputProps={{ inputMode: 'decimal', style: { textAlign: 'right' } }}
+              sx={{ width: 120 }}
+            />
+          );
+        }
+        return row.invoiceAmount;
+      },
+    },
     { id: 'paymentStatus', label: 'Status', field: 'paymentStatus' },
   ];
 
@@ -290,14 +408,19 @@ useEffect(() => {
           )}
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-           <TextField
-                select
-                fullWidth
-                label="Institute"
-                value={instituteName}
-                onChange={(e) => handleInstituteChange(e.target.value)}
-                disabled={loadingInstitutes || generating || Boolean(initialInstituteName)}
-              >
+            <TextField
+              select
+              fullWidth
+              label="Institute"
+              value={instituteName}
+              onChange={(e) => handleInstituteChange(e.target.value)}
+              disabled={
+                loadingInstitutes ||
+                generating ||
+                Boolean(initialInstituteName) ||
+                lockInstitute
+              }
+            >
               {uniqueInstituteNames.map((name) => (
                 <MenuItem key={name} value={name}>
                   {name}
@@ -331,12 +454,19 @@ useEffect(() => {
           {resolvedInstituteId && campus && (
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 700 }}>
-                Students — {now.toLocaleString('en', { month: 'long' })} {now.getFullYear()}
+                Students — {now.toLocaleString('en', { month: 'long' })}{' '}
+                {now.getFullYear()}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--muted)', display: 'block', mb: 1 }}>
-                All installments due this month are listed. Only checked (Paid) students will be
-                included in the invoice
-                {selectedPaidCount > 0 ? ` (${selectedPaidCount} selected)` : ''}.
+              <Typography
+                variant="caption"
+                sx={{ color: 'var(--muted)', display: 'block', mb: 1 }}
+              >
+                All installments due this month are listed. Only checked (Paid)
+                students will be included in the invoice
+                {selectedPaidCount > 0
+                  ? ` (${selectedPaidCount} selected)`
+                  : ''}
+                . Fees and Invoice Amt become editable after you check a row.
               </Typography>
 
               {loadingStudents ? (
@@ -345,19 +475,20 @@ useEffect(() => {
                 </Box>
               ) : students.length === 0 ? (
                 <Alert severity="info">
-                  No student installments found for this institute and campus in the current month.
+                  No student installments found for this institute and campus in
+                  the current month.
                 </Alert>
               ) : (
-             <ResponsiveTable
-                columns={columns}
-                rows={students}
-                getRowKey={(row) => row.id}
-                alwaysTable
-                sx={{
-                  maxHeight: 400,
-                  overflowY: 'auto',
-                }}
-              />
+                <ResponsiveTable
+                  columns={columns}
+                  rows={students}
+                  getRowKey={(row) => row.id}
+                  alwaysTable
+                  sx={{
+                    maxHeight: 400,
+                    overflowY: 'auto',
+                  }}
+                />
               )}
             </Box>
           )}

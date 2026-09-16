@@ -16,10 +16,12 @@ import {
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DownloadIcon from '@mui/icons-material/Download';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getVendorStudentById } from '../../api/vendorStudentApi';
 import { API_BASE_URL } from '../../api/api';
 import FormContentSkeleton from '../../components/FormContentSkeleton';
+import { exportStudentApplicationPdf } from '../../utils/studentApplicationPdf';
 
 function val(data, key) {
   if (!data) return '—';
@@ -295,6 +297,22 @@ export default function ApplicationDetailPage() {
                   </Grid>
                 </>
               )}
+
+              <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => exportStudentApplicationPdf(data)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    bgcolor: 'var(--primary)',
+                    '&:hover': { bgcolor: 'var(--primary-dark)' },
+                  }}
+                >
+                  Download
+                </Button>
+              </Stack>
             </Paper>
           ) : (
             <Alert severity="info">Application not found.</Alert>
