@@ -19,6 +19,7 @@ export default function PageShell({
   actionLabel = 'Add New',
   searchPlaceholder = 'Search...',
   showCharts = true,
+  showSearch = true, 
   headerExtra = null,
    headerActionsAfterAdd = null,
   loading = false,
@@ -134,7 +135,8 @@ useEffect(() => {
       <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 2, overflow: 'hidden', width: '100%' }}>
         <Box sx={{ px: 2, py: 2, borderBottom: '1px solid var(--card-border)' }}>
         <Box sx={listToolbarRowSx}>
-        <Box sx={listToolbarSearchGroupSx}>
+     <Box sx={listToolbarSearchGroupSx}>
+  {showSearch && (
     <TextField
       size="small"
       placeholder={searchPlaceholder}
@@ -142,8 +144,9 @@ useEffect(() => {
       onChange={(event) => setQuery(event.target.value)}
       sx={listSearchFieldSx}
     />
-    {headerExtra}
-  </Box>
+  )}
+  {headerExtra}
+</Box>
 
    <Box sx={listToolbarActionsSx}>
    <Button

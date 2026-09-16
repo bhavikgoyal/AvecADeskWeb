@@ -99,10 +99,17 @@ export default function CourseDetailPage({
       )}
 
       <Paper elevation={0}>
-        <Button onClick={() => navigate(`${basePath}/new`)}>
-          Add Course
-        </Button>
-
+      <Button
+        onClick={() =>
+          navigate(
+            instituteFilter
+              ? `${basePath}/new?institute=${encodeURIComponent(instituteFilter)}`
+              : `${basePath}/new`
+          )
+        }
+      >
+        Add Course
+      </Button>
         {filteredRows.map((item) => (
           <Box
             key={item.courseId}

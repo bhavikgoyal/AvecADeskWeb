@@ -35,10 +35,17 @@ import { formatDateDisplay } from '../../utils/dateFormat';
 const isPaidLike = (status) =>
   status === "ConfirmedByCollege" ||
   status === "ConfirmedByStudent" ||
-  status === "PaidByCollege" ||       
-  status === "PaidByStudent";        
+  status === "PaidByCollege" ||
+  status === "PaidByStudent";
 
-
+// Fee-type configuration: which course-fee field feeds the amount, and
+// which student-form field holds how many installments that fee splits into.
+const FEE_TYPES = [
+  { key: "Enrolment", label: "Enrolment Fee", amountField: "enrollmentFee" },
+  { key: "Material", label: "Material Fee", amountField: "materialFee" },
+  { key: "Tuition", label: "Tuition Fee", amountField: "tuitionFee" },
+  { key: "OSHC", label: "OSHC Fee", amountField: "oshcFee" },
+];
 const EPSILON = 0.01;
 const getGroupNo = (row) => row.parentGroupNo ?? row.installmentNo;
 
@@ -70,14 +77,14 @@ const isGroupFullyCovered = (list, groupNo) => {
   const members = getGroupMembers(list, groupNo);
 
   const sumPaid = members.reduce((sum, x) => {
-    const hasSplitChild = list.some(
+    const hasChild = list.some(
       (row) => row.parentInstallmentNo === x.installmentNo
     );
 
     if (isPaidLike(x.status)) {
       // Agar ye row aage split hui hai, toh iska "confirmed" amount
       // poora x.amount nahi — sirf jo actually collect hua tha (paidAmount).
-      return sum + Number(hasSplitChild ? (x.paidAmount || 0) : x.amount || 0);
+      return sum + Number(hasChild ? (x.paidAmount || 0) : x.amount || 0);
     }
 
     return sum + Number(x.paidAmount || 0);
@@ -180,13 +187,15 @@ const hydratePaymentList = (rows) => {
       ...item,
       installmentNo: item.apiInstallmentNo,
     });
+    let installmentNo;
+  if (item.parentInstallmentId) {
     const processedInGroup = groupCounts.get(parentGroupNo) ?? 0;
-    const installmentNo = item.parentInstallmentId
-      ? Number((parentGroupNo + (processedInGroup + 1) / 10).toFixed(2))
-      : item.apiInstallmentNo;
+    installmentNo = Number((parentGroupNo + (processedInGroup + 1) / 10).toFixed(2));
 
     groupCounts.set(parentGroupNo, processedInGroup + 1);
-
+} else {
+    installmentNo = item.apiInstallmentNo;
+  }
     return {
       studentPaymentInstallmentId: item.studentPaymentInstallmentId,
       apiInstallmentNo: item.apiInstallmentNo,
@@ -194,6 +203,7 @@ const hydratePaymentList = (rows) => {
       parentInstallmentId: item.parentInstallmentId,
       parentInstallmentNo: null,
       parentGroupNo,
+      feeType: item.feeType ?? item.FeeType ?? null,
       dueDate: item.dueDate?.substring(0, 10),
       paidDate: item.paidDate?.substring(0, 10),
       amount: item.feesAmount,
@@ -247,15 +257,15 @@ export default function NewStudentPage({ basePath }) {
   const submittingRef = useRef(false);
   const [gstPercentage, setGstPercentage] = useState(0);
   const [bonusApplied, setBonusApplied] = useState(false);
-  const [addBonus, setAddBonus] = useState(false); 
+  const [addBonus, setAddBonus] = useState(false);
   const [commissionHistory, setCommissionHistory] = useState([]);
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
   const [originalSchedule, setOriginalSchedule] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmTargetInstallment, setConfirmTargetInstallment] = useState(null);
-   const [instituteLocked, setInstituteLocked] = useState(false);
-   const [gstInclusive, setGstInclusive] = useState(false);
+  const [instituteLocked, setInstituteLocked] = useState(false);
+  const [gstInclusive, setGstInclusive] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [visitedTabs, setVisitedTabs] = useState(() => new Set([0]));
   const handleTabChange = (_e, newValue) => {
@@ -299,7 +309,7 @@ export default function NewStudentPage({ basePath }) {
     };
   }, []);
 
-  
+
   useEffect(() => {
     if (isEdit || prefillAppliedRef.current) return;
     const preselectedInstituteName = normalizeInstituteName(location.state?.instituteName);
@@ -314,7 +324,7 @@ export default function NewStudentPage({ basePath }) {
     } else if (preselectedInstituteId) {
       setForm((prev) => ({ ...prev, instituteId: String(preselectedInstituteId) }));
     }
- if (location.state?.fromInstitute) {
+    if (location.state?.fromInstitute) {
       setInstituteLocked(true);
     }
 
@@ -341,16 +351,16 @@ export default function NewStudentPage({ basePath }) {
     () => getUniqueInstituteNames(institutes),
     [institutes],
   );
-const instituteSelectOptions = useMemo(() => {
-  const names = uniqueInstituteNames.map((name) => ({ value: name, label: name }));
-  const current = normalizeInstituteName(form.instituteId);
+  const instituteSelectOptions = useMemo(() => {
+    const names = uniqueInstituteNames.map((name) => ({ value: name, label: name }));
+    const current = normalizeInstituteName(form.instituteId);
 
-  if (current && !names.some((n) => String(n.value) === current)) {
-    names.push({ value: current, label: current });
-  }
+    if (current && !names.some((n) => String(n.value) === current)) {
+      names.push({ value: current, label: current });
+    }
 
-  return names;
-}, [uniqueInstituteNames, form.instituteId]);
+    return names;
+  }, [uniqueInstituteNames, form.instituteId]);
   const campusOptions = useMemo(
     () => getCampusesForInstitute(institutes, form.instituteId),
     [institutes, form.instituteId],
@@ -388,23 +398,37 @@ const instituteSelectOptions = useMemo(() => {
       active = false;
     };
   }, [resolvedScrappingId]);
+  useEffect(() => {
+    if (!isEdit || !form.courseId || !courses.length) return;
+    const selectedCourse = courses.find(
+      (c) => String(c.courseId) === String(form.courseId)
+    );
+    if (!selectedCourse) return;
 
-const selectOptions = useMemo(
-  () => ({
-    instituteId: instituteSelectOptions,  
+    setForm((prev) => ({
+      ...prev,
+      enrollmentFee: selectedCourse.enrollmentFee ?? prev.enrollmentFee,
+      materialFee: selectedCourse.materialFee ?? prev.materialFee,
+      tuitionFee: selectedCourse.tuitionFee ?? prev.tuitionFee,
+      oshcFee: selectedCourse.oshcFee ?? prev.oshcFee,
+    }));
+  }, [isEdit, courses, form.courseId]);
+  const selectOptions = useMemo(
+    () => ({
+      instituteId: instituteSelectOptions,
 
-    courseId: courses.map((item) => ({
-      value: item.courseId,
-      label: item.courseName,
-    })),
+      courseId: courses.map((item) => ({
+        value: item.courseId,
+        label: item.courseName,
+      })),
 
-    campusname: campusOptions.map((c) => ({
-      value: c,
-      label: c,
-    })),
-  }),
-  [instituteSelectOptions, courses, campusOptions]
-);
+      campusname: campusOptions.map((c) => ({
+        value: c,
+        label: c,
+      })),
+    }),
+    [instituteSelectOptions, courses, campusOptions]
+  );
 
   const buildStudentPayload = (base = form) => ({
     ...base,
@@ -424,7 +448,7 @@ const selectOptions = useMemo(
         setForm({
           ...getEmptyForm(basePath),
           studentId: data.studentId,
-          scheduleId: data.scheduleId, 
+          scheduleId: data.scheduleId,
           assignment: data.assignment ?? data.Assignment ?? '',
           instituteId: String(data.instituteId),
           courseId: String(data.courseId),
@@ -440,11 +464,10 @@ const selectOptions = useMemo(
           bonus: data.bonusAmount,
           dueDate: data.dueDate?.substring(0, 10),
           courseFee: data.totalCourseFee,
-          amountDue: data.totalCourseFee, 
-          noOfInstallment: data.noOfInstallments,
+          amountDue: data.totalCourseFee,
           frequency: data.frequency,
           startDate: data.firstDueDate?.substring(0, 10),
-
+          noOfInstallment: Number(data.noOfInstallments), 
           commissionPercentage: data.commissionPercentage,
           gstPercentage: data.gstPercentage,
           bonusType: data.bonusType,
@@ -468,6 +491,30 @@ const selectOptions = useMemo(
         setOriginalPaymentList(list);
         setPaymentList(list);
         setCommissionHistory(history);
+
+        // Derive the per-fee-type breakdown (amount + installment count) from
+        // the loaded payment list, since the schedule detail endpoint doesn't
+        // return the course's fee breakdown directly. Legacy rows saved
+        // before feeType existed fall back to "Tuition".
+        // const feeSums = {};
+        // const feeCounts = {};
+        // list.forEach((x) => {
+        //   const key = x.feeType || "Tuition";
+        //   feeSums[key] = (feeSums[key] || 0) + Number(x.amount || 0);
+        //   feeCounts[key] = (feeCounts[key] || 0) + 1;
+        // });
+
+        // setForm((prev) => ({
+        //   ...prev,
+        //   enrollmentFee: feeSums["Enrolment"] ? feeSums["Enrolment"].toFixed(2) : '',
+        //   materialFee: feeSums["Material"] ? feeSums["Material"].toFixed(2) : '',
+        //   tuitionFee: feeSums["Tuition"] ? feeSums["Tuition"].toFixed(2) : '',
+        //   oshcFee: feeSums["OSHC"] ? feeSums["OSHC"].toFixed(2) : '',
+        //   enrollmentInstallments: feeCounts["Enrolment"] || '',
+        //   materialInstallments: feeCounts["Material"] || '',
+        //   tuitionInstallments: feeCounts["Tuition"] || '',
+        //   oshcInstallments: feeCounts["OSHC"] || '',
+        // }));
 
         if (data.bonusAmount > 0) {
           setBonusApplied(true);
@@ -508,103 +555,558 @@ const selectOptions = useMemo(
     return date;
   };
 
-const formatDateCell = (value) => {
-  return formatDateDisplay(value, '-');
-};
-  const generateInstallments = (data) => {
-    const fee = Number(data.courseFee || 0);
-    const count = Number(data.noOfInstallment || 0);
+  const formatDateCell = (value) => {
+    return formatDateDisplay(value, '-');
+  };
+const computeCourseEndDate = (startDateStr, durationStr) => {
+    const start = parseIsoDate(startDateStr);
+    if (!start || !durationStr) return "";
 
-    if (!fee || !count || !data.startDate || !data.frequency) {
-      setPaymentList([]);
-      return;
-    }
+    const match = durationStr.match(/(\d+)\s*(Year|Years|Month|Months|Week|Weeks)/i);
+    if (!match) return "";
 
-    let installmentAmount;
+    const value = Number(match[1]);
+    const unit = match[2].toLowerCase();
+    const end = new Date(start);
 
-    const paidInstallments = isEdit
-      ? originalPaymentList.filter(x => isPaidLike(x.status))
-      : [];
+    if (unit.startsWith("year")) end.setFullYear(end.getFullYear() + value);
+    else if (unit.startsWith("month")) end.setMonth(end.getMonth() + value);
+    else if (unit.startsWith("week")) end.setDate(end.getDate() + value * 7);
 
-    if (isEdit) {
+    const y = end.getFullYear();
+    const m = String(end.getMonth() + 1).padStart(2, "0");
+    const d = String(end.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+  // Generates the merged, due-date-sorted payment schedule from the
+  // per-fee-type amounts + installment counts on `data`. In edit mode,
+  // installments already marked paid-like are preserved at their original
+  // installmentNo rather than being regenerated (to avoid clobbering
+  // recorded payments).
+  // const generateInstallments = (data) => {
+  //   const startDate = parseIsoDate(data.startDate);
+  //   if (!startDate || !data.frequency) {
+  //     setPaymentList([]);
+  //     return;
+  //   }
 
-      const paidAmount = paidInstallments.reduce(
-        (sum, x) => sum + Number(x.paidAmount || x.amount || 0),
-        0
-      );
+  //   const formatDate = (date) => {
+  //     const y = date.getFullYear();
+  //     const m = String(date.getMonth() + 1).padStart(2, "0");
+  //     const d = String(date.getDate()).padStart(2, "0");
+  //     return `${y}-${m}-${d}`;
+  //   };
 
-      const remainingAmount = fee - paidAmount;
-      const remainingInstallments = count - paidInstallments.length;
+  //   const paidInstallments = isEdit
+  //     ? originalPaymentList.filter((x) => isPaidLike(x.status))
+  //     : [];
 
-      installmentAmount =
-        remainingInstallments > 0
-          ? remainingAmount / remainingInstallments
-          : 0;
-    }
-    else {
+  //   let combined = [];
 
-      installmentAmount = fee / count;
+  //   FEE_TYPES.forEach(({ key, amountField, countField }) => {
+  //     const totalAmount = Number(data[amountField] || 0);
+  //     const count = Number(data[countField] || 0);
+  //     if (!totalAmount || !count) return;
 
-    }
+  //     const perInstallment = totalAmount / count;
 
-    const startDate = parseIsoDate(data.startDate);
+  //     for (let i = 0; i < count; i++) {
+  //       const dueDate = new Date(startDate);
+  //       if (data.frequency === "Monthly") dueDate.setMonth(startDate.getMonth() + i);
+  //       else if (data.frequency === "Quarterly") dueDate.setMonth(startDate.getMonth() + i * 3);
 
-    if (!startDate) {
-      setPaymentList([]);
-      return;
-    }
-    const formatDate = (date) => {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      const d = String(date.getDate()).padStart(2, "0");
+  //       combined.push({
+  //         feeType: key,
+  //         dueDate: formatDate(dueDate),
+  //         amount: perInstallment.toFixed(2),
+  //         paidAmount: "0.00",
+  //         balance: perInstallment.toFixed(2),
+  //         status: "Pending",
+  //       });
+  //     }
+  //   });
 
-      return `${y}-${m}-${d}`;
-    };
+  //   combined.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  //   combined = combined.map((item, idx) => ({ ...item, installmentNo: idx + 1 }));
 
-    const list = [];
+  //   // Edit mode: re-insert already-paid installments at their original
+  //   // installmentNo instead of letting the freshly generated row overwrite
+  //   // them. Best-effort — if counts change enough to shift the sequence,
+  //   // this may not line up perfectly; verify carefully after edits.
+  //   if (isEdit && paidInstallments.length) {
+  //     paidInstallments.forEach((paidRow) => {
+  //       const idx = combined.findIndex((x) => x.installmentNo === paidRow.installmentNo);
+  //       if (idx !== -1) {
+  //         combined[idx] = paidRow;
+  //       } else {
+  //         combined.push(paidRow);
+  //       }
+  //     });
+  //     combined.sort((a, b) => a.installmentNo - b.installmentNo);
+  //   }
 
-    for (let i = 0; i < count; i++) {
+  //   setPaymentList(combined);
+  // };
+const generateInstallments = (data) => {
+  const fee = Number(data.courseFee || 0);
+  const count = Number(data.noOfInstallment || 0);
 
-      const paidRow = paidInstallments.find(
-        x => x.installmentNo === i + 1
-      );
+  if (!fee || !count || !data.startDate || !data.frequency) {
+    setPaymentList([]);
+    return;
+  }
 
-      if (paidRow) {
-        list.push(paidRow);
-        continue;
-      }
+  const startDate = parseIsoDate(data.startDate);
+  if (!startDate) {
+    setPaymentList([]);
+    return;
+  }
 
-      const dueDate = new Date(startDate);
-
-      if (data.frequency === "Monthly") {
-        dueDate.setMonth(startDate.getMonth() + i);
-      } else if (data.frequency === "Quarterly") {
-        dueDate.setMonth(startDate.getMonth() + (i * 3));
-      }
-
-      list.push({
-        installmentNo: i + 1,
-        dueDate: formatDate(dueDate),
-        amount: installmentAmount.toFixed(2),
-        paidAmount: "0.00",
-        balance: installmentAmount.toFixed(2),
-        status: "Pending",
-      });
-    }
-
-    setPaymentList(list);
+  const formatDate = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
   };
 
-  const calculateAmounts = (next) => {
-    const fee = Number(next.courseFee || 0);
-    const installments = Number(next.noOfInstallment || 1);
-    const installmentFee = installments > 0 ? fee / installments : fee;
+  const paidInstallments = isEdit
+    ? originalPaymentList.filter((x) => isPaidLike(x.status))
+    : [];
 
-    const rawCommission = (installmentFee * Number(next.commissionPercentage || 0)) / 100;
-    const gstPct = Number(next.gstPercentage || 0);
+  let installmentAmount;
+  if (isEdit) {
+    const paidAmount = paidInstallments.reduce(
+      (sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0
+    );
+    const remainingAmount = fee - paidAmount;
+    const remainingInstallments = count - paidInstallments.length;
+    installmentAmount = remainingInstallments > 0 ? remainingAmount / remainingInstallments : 0;
+  } else {
+    installmentAmount = fee / count;
+  }
+
+  const list = [];
+  for (let i = 0; i < count; i++) {
+    const paidRow = paidInstallments.find((x) => x.installmentNo === i + 1);
+    if (paidRow) {
+      list.push(paidRow);
+      continue;
+    }
+
+    const dueDate = new Date(startDate);
+    if (data.frequency === "Monthly") dueDate.setMonth(startDate.getMonth() + i);
+    else if (data.frequency === "Quarterly") dueDate.setMonth(startDate.getMonth() + i * 3);
+
+    list.push({
+      installmentNo: i + 1,
+      feeType: null,
+      dueDate: formatDate(dueDate),
+      amount: installmentAmount.toFixed(2),
+      paidAmount: "0.00",
+      balance: installmentAmount.toFixed(2),
+      status: "Pending",
+    });
+  }
+
+  setPaymentList(list);
+};
+  // Commission preview (top-of-tab summary) is based on the Tuition Fee
+  // share only — Enrolment/Material/OSHC installments never earn commission.
+  // const calculateAmounts = (next) => {
+  //   const tuitionFee = Number(next.tuitionFee || 0);
+  //   const tuitionInstallments = Number(next.tuitionInstallments || 1);
+  //   const installmentTuitionShare = tuitionInstallments > 0 ? tuitionFee / tuitionInstallments : tuitionFee;
+
+  //   const rawCommission = (installmentTuitionShare * Number(next.commissionPercentage || 0)) / 100;
+  //   const gstPct = Number(next.gstPercentage || 0);
+
+  //   let commission, gst;
+
+  //   if (gstInclusive) {
+  //     gst = rawCommission - rawCommission / (1 + gstPct / 100);
+  //     commission = rawCommission - gst;
+  //   } else {
+  //     commission = rawCommission;
+  //     gst = (rawCommission * gstPct) / 100;
+  //   }
+
+  //   next.commissionAmount = commission.toFixed(2);
+  //   next.gstAmount = gst.toFixed(2);
+  //   next.invoiceAmount = gstInclusive ? rawCommission.toFixed(2) : (commission + gst).toFixed(2);
+  // };
+const calculateAmounts = (next) => {
+  const fee = Number(next.courseFee || 0);
+  const tuitionFee = Number(next.tuitionFee || 0);
+  const installments = Number(next.noOfInstallment || 1);
+  const installmentFee = installments > 0 ? fee / installments : fee;
+
+  // Har installment mein Tuition ka proportional hissa — agar tuitionFee
+  // set nahi hai (legacy course), poori installment ko tuition maan lo.
+  const tuitionShare = fee > 0 && tuitionFee > 0 ? installmentFee * (tuitionFee / fee) : installmentFee;
+
+  const rawCommission = (tuitionShare * Number(next.commissionPercentage || 0)) / 100;
+  const gstPct = Number(next.gstPercentage || 0);
+
+  let commission, gst;
+  if (gstInclusive) {
+    gst = rawCommission - rawCommission / (1 + gstPct / 100);
+    commission = rawCommission - gst;
+  } else {
+    commission = rawCommission;
+    gst = (rawCommission * gstPct) / 100;
+  }
+
+  next.commissionAmount = commission.toFixed(2);
+  next.gstAmount = gst.toFixed(2);
+  next.invoiceAmount = gstInclusive ? rawCommission.toFixed(2) : (commission + gst).toFixed(2);
+};
+  //const INSTALLMENT_COUNT_FIELDS = FEE_TYPES.map((ft) => ft.countField);
+
+//   const updateField = (field, value) => {
+//     setForm((prev) => {
+//       const next = { ...prev, [field]: value };
+
+//       if (field === "instituteId" && value !== prev.instituteId) {
+
+//         next.campusname = "";
+//         next.courseId = "";
+//         next.courseFee = "";
+//         next.amountDue = "";
+//         next.enrollmentFee = 0;
+//         next.materialFee = 0;
+//         next.tuitionFee = 0;
+//         next.oshcFee = 0;
+//         next.enrollmentInstallments = "";
+//         next.materialInstallments = "";
+//         next.tuitionInstallments = "";
+//         next.oshcInstallments = "";
+
+//         next.commissionRate = 0;
+//         next.rateType = "";
+//         next.commissionPercentage = 0;
+//         next.gstPercentage = Number(gstPercentage || 0);
+
+//         next.commissionAmount = 0;
+//         next.gstAmount = 0;
+//         next.invoiceAmount = 0;
+
+//         setPaymentList([]);
+//       }
+
+//       // Bonus Changed
+//       if (field === "bonus" || field === "bonusType" || field === "bonusOption") {
+//         next[field] = value;
+//         setBonusApplied(false);
+//       }
+
+//       // Course Changed
+// if (!isEdit && field === "courseId") {
+//   const selectedCourse = courses.find(
+//     (c) => String(c.courseId) === String(value)
+//   );
+
+//   next.courseFee = selectedCourse?.fees ?? "";
+//   next.amountDue = selectedCourse?.fees ?? "";
+
+//   const ef = Number(selectedCourse?.enrollmentFee || 0);
+//   const mf = Number(selectedCourse?.materialFee || 0);
+//   const tf = Number(selectedCourse?.tuitionFee || 0);
+//   const of = Number(selectedCourse?.oshcFee || 0);
+//   const hasBreakdown = (ef + mf + tf + of) > 0;
+
+//   next.enrollmentFee = ef;
+//   next.materialFee = mf;
+//   next.oshcFee = of;
+//   // Legacy courses jinka breakdown kabhi fill nahi hua — poori fee ko
+//   // Tuition maan lo, taaki installment schedule generate ho sake aur
+//   // commission bhi sahi (100% tuition-based) calculate ho.
+//   next.tuitionFee = hasBreakdown ? tf : Number(selectedCourse?.fees || 0);
+
+//   next.commissionRate = Number(selectedCourse?.commissionRate ?? 0);
+//   next.rateType = selectedCourse?.rateType ?? "";
+//   next.commissionPercentage = Number(next.commissionRate ?? 0);
+//   next.gstPercentage = Number(gstPercentage || 0);
+
+//         const today = new Date();
+//         // next.courseStartDate = today.toISOString().split("T")[0];
+// next.courseStartDate = next.startDate || next.courseStartDate || "";
+//         if (selectedCourse?.duration) {
+//           const endDate = new Date(today);
+
+//           const match = selectedCourse.duration.match(/(\d+)\s*(Year|Years|Month|Months|Week|Weeks)/i);
+
+//           if (match) {
+//             const value = Number(match[1]);
+//             const unit = match[2].toLowerCase();
+
+//             if (unit.startsWith("year")) {
+//               endDate.setFullYear(endDate.getFullYear() + value);
+//             } else if (unit.startsWith("month")) {
+//               endDate.setMonth(endDate.getMonth() + value);
+//             } else if (unit.startsWith("week")) {
+//               endDate.setDate(endDate.getDate() + value * 7);
+//             }
+
+//             //next.courseEndDate = endDate.toISOString().split("T")[0];
+//             next.courseEndDate = computeCourseEndDate(next.courseStartDate, selectedCourse?.duration);
+//           }
+//         }
+//       }
+//      if (field === "startDate") {
+//         next.courseStartDate = value;
+//       }
+
+//       // Course Start Date (chahe course-select se, startDate-sync se, ya
+//       // manual edit se aayi ho) — hamesha Course End Date recompute karo.
+//       if (field === "startDate" || field === "courseStartDate" || field === "courseId") {
+//         const selectedCourseForDuration = courses.find(
+//           (c) => String(c.courseId) === String(next.courseId)
+//         );
+//         next.courseEndDate = computeCourseEndDate(next.courseStartDate, selectedCourseForDuration?.duration);
+//       }
+//       // Commission Calculation — depends on Tuition Fee + Tuition Installments only.
+//       if (
+//         field === "courseId" ||
+//         field === "commissionPercentage" ||
+//         field === "gstPercentage" ||
+//         field === "tuitionInstallments"
+//       ) {
+//         if (field === "commissionPercentage") {
+//           next.commissionPercentage = Number(value || 0);
+//         }
+
+//         if (field === "gstPercentage") {
+//           next.gstPercentage = Number(value || 0);
+//         }
+
+//         calculateAmounts(next);
+//       }
+
+//       // Generate Installments — regenerate whenever course, frequency, start
+//       // date, or any per-fee-type installment count changes.
+//       if (
+//         field === "courseId" ||
+//         field === "frequency" ||
+//         field === "startDate" ||
+//         INSTALLMENT_COUNT_FIELDS.includes(field)
+//       ) {
+//         generateInstallments(next);
+//       }
+
+//       return next;
+//     });
+
+//     if (error) setError("");
+//     if (loadError) setLoadError("");
+//   };
+const FEE_COMPONENT_FIELDS = FEE_TYPES.map((ft) => ft.amountField);
+
+const updateField = (field, value) => {
+  setForm((prev) => {
+    const next = { ...prev, [field]: value };
+
+    if (field === "instituteId" && value !== prev.instituteId) {
+      next.campusname = "";
+      next.courseId = "";
+      next.courseFee = "";
+      next.amountDue = "";
+      next.enrollmentFee = 0;
+      next.materialFee = 0;
+      next.tuitionFee = 0;
+      next.oshcFee = 0;
+      next.commissionRate = 0;
+      next.rateType = "";
+      next.commissionPercentage = 0;
+      next.gstPercentage = Number(gstPercentage || 0);
+      next.commissionAmount = 0;
+      next.gstAmount = 0;
+      next.invoiceAmount = 0;
+      setPaymentList([]);
+    }
+
+    if (field === "bonus" || field === "bonusType" || field === "bonusOption") {
+      next[field] = value;
+      setBonusApplied(false);
+    }
+
+    // Course Changed
+    if (!isEdit && field === "courseId") {
+      const selectedCourse = courses.find((c) => String(c.courseId) === String(value));
+
+      const ef = Number(selectedCourse?.enrollmentFee || 0);
+      const mf = Number(selectedCourse?.materialFee || 0);
+      const tf = Number(selectedCourse?.tuitionFee || 0);
+      const of = Number(selectedCourse?.oshcFee || 0);
+      const hasBreakdown = (ef + mf + tf + of) > 0;
+
+      next.enrollmentFee = ef;
+      next.materialFee = mf;
+      next.oshcFee = of;
+      next.tuitionFee = hasBreakdown ? tf : Number(selectedCourse?.fees || 0);
+      next.courseFee = selectedCourse?.fees ?? "";
+      next.amountDue = selectedCourse?.fees ?? "";
+
+      next.commissionRate = Number(selectedCourse?.commissionRate ?? 0);
+      next.rateType = selectedCourse?.rateType ?? "";
+      next.commissionPercentage = Number(next.commissionRate ?? 0);
+      next.gstPercentage = Number(gstPercentage || 0);
+
+      next.courseStartDate = next.startDate || next.courseStartDate || "";
+      next.courseEndDate = computeCourseEndDate(next.courseStartDate, selectedCourse?.duration);
+    }
+
+    // Fee-breakdown field changed (Enrollment/Material/Tuition/OSHC) —
+    // recompute the total Course Fee. User can still override Course Fee
+    // directly afterwards (editing it doesn't get overwritten again).
+    if (FEE_COMPONENT_FIELDS.includes(field)) {
+      const total =
+        Number(next.enrollmentFee || 0) +
+        Number(next.materialFee || 0) +
+        Number(next.tuitionFee || 0) +
+        Number(next.oshcFee || 0);
+      next.courseFee = total.toFixed(2);
+      next.amountDue = next.courseFee;
+    }
+
+    // Installment Start Date badalne par Course Start Date bhi sync karo
+    if (field === "startDate") {
+      next.courseStartDate = value;
+    }
+
+    if (field === "startDate" || field === "courseStartDate" || field === "courseId") {
+      const selectedCourseForDuration = courses.find(
+        (c) => String(c.courseId) === String(next.courseId)
+      );
+      next.courseEndDate = computeCourseEndDate(next.courseStartDate, selectedCourseForDuration?.duration);
+    }
+
+    // Commission Calculation
+    if (
+      field === "courseId" ||
+      field === "courseFee" ||
+      field === "noOfInstallment" ||
+      field === "commissionPercentage" ||
+      field === "gstPercentage" ||
+      FEE_COMPONENT_FIELDS.includes(field)
+    ) {
+      if (field === "commissionPercentage") next.commissionPercentage = Number(value || 0);
+      if (field === "gstPercentage") next.gstPercentage = Number(value || 0);
+      calculateAmounts(next);
+    }
+
+    // Generate Installments
+    if (
+      field === "courseId" ||
+      field === "courseFee" ||
+      field === "noOfInstallment" ||
+      field === "frequency" ||
+      field === "startDate" ||
+      FEE_COMPONENT_FIELDS.includes(field)
+    ) {
+      generateInstallments(next);
+    }
+
+    return next;
+  });
+
+  if (error) setError("");
+  if (loadError) setLoadError("");
+};
+  // Commission earned only on Tuition-fee installments; Enrolment/Material/OSHC
+  // rows always show zero commission, GST, and bonus.
+  // const commissionRows = useMemo(() => {
+  //   return paymentList.map((item) => {
+  //     const fees = Number(item.amount || 0);
+  //     const isTuition = item.feeType === "Tuition";
+
+  //     const rawCommission = isTuition
+  //       ? (fees * Number(form.commissionPercentage || 0)) / 100
+  //       : 0;
+  //     const gstPct = Number(form.gstPercentage || 0);
+
+  //     let commission, gst;
+
+  //     if (gstInclusive) {
+  //       gst = rawCommission - rawCommission / (1 + gstPct / 100);
+  //       commission = rawCommission - gst;
+  //     } else {
+  //       commission = rawCommission;
+  //       gst = (rawCommission * gstPct) / 100;
+  //     }
+
+  //     let applyBonus = false;
+
+  //     if (isTuition) {
+  //       switch (form.bonusOption) {
+  //         case "Everytime":
+  //           applyBonus = true;
+  //           break;
+
+  //         case "Quarterly":
+  //           applyBonus = item.installmentNo % 3 === 0;
+  //           break;
+
+  //         case "HalfYearly":
+  //           applyBonus = item.installmentNo % 6 === 0;
+  //           break;
+
+  //         case "Yearly":
+  //           applyBonus = item.installmentNo === paymentList.length;
+  //           break;
+
+  //         default:
+  //           applyBonus = false;
+  //       }
+  //     }
+
+  //     let bonus = 0;
+
+  //     if (addBonus && bonusApplied && applyBonus) {
+  //       if (form.bonusType === "Percentage") {
+  //         bonus = (fees * Number(form.bonus || 0)) / 100;
+  //       } else if (form.bonusType === "Fixed") {
+  //         bonus = Number(form.bonus || 0);
+  //       }
+  //     }
+
+  //     const invoice = gstInclusive ? rawCommission + bonus : commission + gst + bonus;
+
+  //     return {
+  //       installmentNo: item.installmentNo,
+  //       feeType: item.feeType,
+  //       feesDate: item.dueDate,
+  //       fees: fees.toFixed(2),
+  //       paymentStatus: item.status,
+  //       commission: commission.toFixed(2),
+  //       gst: gst.toFixed(2),
+  //       bonus: bonus.toFixed(2),
+  //       invoice: invoice.toFixed(2),
+  //       status: "Pending",
+  //     };
+  //   });
+  // }, [
+  //   paymentList,
+  //   form.commissionPercentage,
+  //   form.gstPercentage,
+  //   form.bonus,
+  //   form.bonusType,
+  //   form.bonusOption,
+  //   bonusApplied,
+  //   addBonus,
+  //   gstInclusive,
+  // ]);
+const commissionRows = useMemo(() => {
+  const totalFee = Number(form.courseFee || 0);
+  const tuitionFee = Number(form.tuitionFee || 0);
+
+  return paymentList.map((item) => {
+    const fees = Number(item.amount || 0);
+    const tuitionShare = totalFee > 0 && tuitionFee > 0 ? (fees * tuitionFee) / totalFee : fees;
+
+    const rawCommission = (tuitionShare * Number(form.commissionPercentage || 0)) / 100;
+    const gstPct = Number(form.gstPercentage || 0);
 
     let commission, gst;
-
     if (gstInclusive) {
       gst = rawCommission - rawCommission / (1 + gstPct / 100);
       commission = rawCommission - gst;
@@ -613,307 +1115,132 @@ const formatDateCell = (value) => {
       gst = (rawCommission * gstPct) / 100;
     }
 
-    next.commissionAmount = commission.toFixed(2);
-    next.gstAmount = gst.toFixed(2);
-    next.invoiceAmount = gstInclusive ? rawCommission.toFixed(2) : (commission + gst).toFixed(2);
-  };
-
-  const updateField = (field, value) => {
-
-    if (field === "noOfInstallment" && isEdit) {
-
-      const paidCount = paymentList.filter(x => isPaidLike(x.status)).length;
-
-      const paidAmount = paymentList
-        .filter(x => isPaidLike(x.status))
-        .reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0);
-
-      const remainingAmount = Number(form.courseFee || 0) - paidAmount;
-
-      const minInstallments =
-        remainingAmount > 0 ? paidCount + 1 : paidCount;
-
-      if (
-        value !== "" &&
-        Number(value) < minInstallments
-      ) {
-        alert(`Minimum allowed installments is ${minInstallments}.`);
-        return;
-      }
+    let applyBonus = false;
+    switch (form.bonusOption) {
+      case "Everytime": applyBonus = true; break;
+      case "Quarterly": applyBonus = item.installmentNo % 3 === 0; break;
+      case "HalfYearly": applyBonus = item.installmentNo % 6 === 0; break;
+      case "Yearly": applyBonus = item.installmentNo === paymentList.length; break;
+      default: applyBonus = false;
     }
 
-    setForm((prev) => {
-      const next = { ...prev, [field]: value };
+    let bonus = 0;
+    if (addBonus && bonusApplied && applyBonus) {
+      if (form.bonusType === "Percentage") bonus = (fees * Number(form.bonus || 0)) / 100;
+      else if (form.bonusType === "Fixed") bonus = Number(form.bonus || 0);
+    }
 
-      if (field === "instituteId" && value !== prev.instituteId) {
+    const invoice = gstInclusive ? rawCommission + bonus : commission + gst + bonus;
 
-        next.campusname = "";  
-        next.courseId = "";
-        next.courseFee = "";
-        next.amountDue = "";
+    return {
+      installmentNo: item.installmentNo,
+      feesDate: item.dueDate,
+      fees: fees.toFixed(2),
+      paymentStatus: item.status,
+      commission: commission.toFixed(2),
+      gst: gst.toFixed(2),
+      bonus: bonus.toFixed(2),
+      invoice: invoice.toFixed(2),
+      status: "Pending",
+    };
+  });
+}, [paymentList, form.courseFee, form.tuitionFee, form.commissionPercentage, form.gstPercentage, form.bonus, form.bonusType, form.bonusOption, bonusApplied, addBonus, gstInclusive]);
+  const handleCreate = async () => {
+    if (submittingRef.current) return;
 
-        next.commissionRate = 0;
-        next.rateType = "";
-        next.commissionPercentage = 0;
-        next.gstPercentage = Number(gstPercentage || 0);
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError("");
 
-        next.commissionAmount = 0;
-        next.gstAmount = 0;
-        next.invoiceAmount = 0;
+    // Total installment count across all fee types — replaces the old
+    // single "noOfInstallment" field.
+ const totalInstallmentCount = Number(form.noOfInstallment || 0);
+const totalScheduledAmount = paymentList.reduce((sum, x) => sum + Number(x.amount || 0), 0);
+    try {
+      let studentId;
+      let scheduleId;
+      let commissionId;
+      let scheduleChanged = false;
 
-        setPaymentList([]);
-      }
+      if (!isEdit) {
 
-      // Bonus Changed
-      if (field === "bonus" || field === "bonusType" || field === "bonusOption") {
-        next[field] = value;
-        setBonusApplied(false);
-      }
-
-      // Course Changed
-      if (!isEdit && field === "courseId") {
-        const selectedCourse = courses.find(
-          (c) => String(c.courseId) === String(value)
+        const student = await createStudentWithPaymentSchedule(
+          buildStudentPayload()
         );
 
-        next.courseFee = selectedCourse?.fees ?? "";
-        next.amountDue = selectedCourse?.fees ?? "";
+        studentId = student.studentId ?? student.StudentId;
 
-        next.commissionRate = Number(selectedCourse?.commissionRate ?? 0);
-        next.rateType = selectedCourse?.rateType ?? "";
-        next.commissionPercentage = Number(next.commissionRate ?? 0);
-        next.gstPercentage = Number(gstPercentage || 0);
+        const schedule = await createPaymentSchedule({
+          studentId,
+          totalCourseFee: totalScheduledAmount,
+          noOfInstallments: totalInstallmentCount,
+          frequency: form.frequency,
+          firstDueDate: form.startDate,
+        });
 
-        const today = new Date();
-        next.courseStartDate = today.toISOString().split("T")[0];
+        scheduleId = schedule.scheduleId ?? schedule.ScheduleId;
 
-        if (selectedCourse?.duration) {
-          const endDate = new Date(today);
+        const commission = await createStudentCommission({
+          scheduleId,
+          commissionPercentage: Number(form.commissionPercentage),
+          gstPercentage: Number(form.gstPercentage),
+          bonus: addBonus ? Number(form.bonus) : 0,
+          bonusType: addBonus ? form.bonusType : null,
+          bonusOption: addBonus ? form.bonusOption : null,
+        });
 
-          const match = selectedCourse.duration.match(/(\d+)\s*(Year|Years|Month|Months|Week|Weeks)/i);
+        commissionId =
+          commission.commissionId ?? commission.CommissionId;
 
-          if (match) {
-            const value = Number(match[1]);
-            const unit = match[2].toLowerCase();
-
-            if (unit.startsWith("year")) {
-              endDate.setFullYear(endDate.getFullYear() + value);
-            } else if (unit.startsWith("month")) {
-              endDate.setMonth(endDate.getMonth() + value);
-            } else if (unit.startsWith("week")) {
-              endDate.setDate(endDate.getDate() + value * 7);
-            }
-
-            next.courseEndDate = endDate.toISOString().split("T")[0];
+        for (const contract of contracts) {
+          if (contract.contractId) continue;
+          try {
+            await createStudentContract({
+              studentId,
+              status: contract.status,
+              referenceNo: contract.referenceNo,
+              fileUrl: contract.fileUrl,
+              fileName: contract.fileName,
+              startDate: contract.startDate || null,
+              endDate: contract.endDate || null,
+              notes: contract.notes,
+            });
+          } catch (err) {
+            console.warn("Failed to save contract", err);
           }
         }
-      }
 
-      // Commission Calculation
-      if (
-        field === "courseId" ||
-        field === "courseFee" ||
-        field === "noOfInstallment" ||
-        field === "commissionPercentage" ||
-        field === "gstPercentage"
-      ) {
-        if (field === "commissionPercentage") {
-          next.commissionPercentage = Number(value || 0);
-        }
-
-        if (field === "gstPercentage") {
-          next.gstPercentage = Number(value || 0);
-        }
-
-        calculateAmounts(next);
-      }
-
-      // Generate Installments
-      if (
-        field === "courseId" ||
-        field === "courseFee" ||
-        field === "noOfInstallment" ||
-        field === "frequency" ||
-        field === "startDate"
-      ) {
-        generateInstallments(next);
-      }
-
-      return next;
-    });
-
-    if (error) setError("");
-    if (loadError) setLoadError("");
-  };
-
-  const commissionRows = useMemo(() => {
-    return paymentList.map((item) => {
-      const fees = Number(item.amount || 0);
-
-      const rawCommission = (fees * Number(form.commissionPercentage || 0)) / 100;
-      const gstPct = Number(form.gstPercentage || 0);
-
-      let commission, gst;
-
-      if (gstInclusive) {
-        gst = rawCommission - rawCommission / (1 + gstPct / 100);
-        commission = rawCommission - gst;
       } else {
-        commission = rawCommission;
-        gst = (rawCommission * gstPct) / 100;
-      }
+        const persistedRows = paymentList.filter(
+          (x) => x.studentPaymentInstallmentId
+        );
 
-      let applyBonus = false;
-
-      switch (form.bonusOption) {
-        case "Everytime":
-          applyBonus = true;
-          break;
-
-        case "Quarterly":
-          applyBonus = item.installmentNo % 3 === 0;
-          break;
-
-        case "HalfYearly":
-          applyBonus = item.installmentNo % 6 === 0;
-          break;
-
-        case "Yearly":
-          applyBonus = item.installmentNo === paymentList.length;
-          break;
-
-        default:
-          applyBonus = false;
-      }
-
-      let bonus = 0;
-
-      if (addBonus && bonusApplied && applyBonus) {
-        if (form.bonusType === "Percentage") {
-          bonus = (fees * Number(form.bonus || 0)) / 100;
-        } else if (form.bonusType === "Fixed") {
-          bonus = Number(form.bonus || 0);
-        }
-      }
-
-      const invoice = gstInclusive ? rawCommission + bonus : commission + gst + bonus;
-
-      return {
-        installmentNo: item.installmentNo,
-        feesDate: item.dueDate,
-        fees: fees.toFixed(2),
-        paymentStatus: item.status,
-        commission: commission.toFixed(2),
-        gst: gst.toFixed(2),
-        bonus: bonus.toFixed(2),
-        invoice: invoice.toFixed(2),
-        status: "Pending",
-      };
-    });
-  }, [
-    paymentList,
-    form.commissionPercentage,
-    form.gstPercentage,
-    form.bonus,
-    form.bonusType,
-    form.bonusOption,
-    bonusApplied,
-    addBonus,
-    gstInclusive,
-  ]);
-
-const handleCreate = async () => {
-  if (submittingRef.current) return;
-
-  submittingRef.current = true;
-  setSubmitting(true);
-  setError("");
-
-  try {
-    let studentId;
-    let scheduleId;
-    let commissionId;
-    let scheduleChanged = false;
-
-    if (!isEdit) {
-
-      const student = await createStudentWithPaymentSchedule(
-        buildStudentPayload()
-      );
-
-      studentId = student.studentId ?? student.StudentId;
-
-      const schedule = await createPaymentSchedule({
-        studentId,
-        totalCourseFee: Number(form.courseFee),
-        noOfInstallments: Number(form.noOfInstallment),
-        frequency: form.frequency,
-        firstDueDate: form.startDate,
-      });
-
-      scheduleId = schedule.scheduleId ?? schedule.ScheduleId;
-
-      const commission = await createStudentCommission({
-        scheduleId,
-        commissionPercentage: Number(form.commissionPercentage),
-        gstPercentage: Number(form.gstPercentage),
-        bonus: addBonus ? Number(form.bonus) : 0,
-        bonusType: addBonus ? form.bonusType : null,
-        bonusOption: addBonus ? form.bonusOption : null,
-      });
-
-      commissionId =
-        commission.commissionId ?? commission.CommissionId;
-
-      for (const contract of contracts) {
-        if (contract.contractId) continue;
         try {
-          await createStudentContract({
-            studentId,
-            status: contract.status,
-            referenceNo: contract.referenceNo,
-            fileUrl: contract.fileUrl,
-            fileName: contract.fileName,
-            startDate: contract.startDate || null,
-            endDate: contract.endDate || null,
-            notes: contract.notes,
-          });
+          const studentUpdatePayload = {
+            ...buildStudentPayload(),
+            studentId: form.studentId,
+            assignment: form.assignment ?? form.Assignment ?? null,
+          };
+
+          await updateStudentWithPaymentSchedule(
+            form.studentId,
+            studentUpdatePayload
+          );
         } catch (err) {
-          console.warn("Failed to save contract", err);
+          console.warn(
+            "Failed updating student core data",
+            err
+          );
         }
-      }
-
-    } else {
-      const persistedRows = paymentList.filter(
-        (x) => x.studentPaymentInstallmentId
-      );
-
-      try {
-        const studentUpdatePayload = {
-          ...buildStudentPayload(),
-          studentId: form.studentId,
-          assignment: form.assignment ?? form.Assignment ?? null,
-        };
-
-        await updateStudentWithPaymentSchedule(
-          form.studentId,
-          studentUpdatePayload
-        );
-      } catch (err) {
-        console.warn(
-          "Failed updating student core data",
-          err
-        );
-      }
 
         scheduleChanged =
-          originalSchedule.noOfInstallment !== Number(form.noOfInstallment) ||
+          originalSchedule.noOfInstallment !== totalInstallmentCount ||
           originalSchedule.frequency !== form.frequency ||
           originalSchedule.startDate !== form.startDate;
 
         const result = await updateStudentPaymentSchedule({
           studentId: form.studentId,
-          noOfInstallments: Number(form.noOfInstallment),
+          noOfInstallments: totalInstallmentCount,
           frequency: form.frequency,
           firstDueDate: form.startDate,
 
@@ -932,6 +1259,7 @@ const handleCreate = async () => {
             paidDate: x.paidDate || null,
             documentUrl: x.documentUrl ?? null,
             installmentImage: x.documentUrl ?? x.installmentImage ?? null,
+            feeType: x.feeType ?? null,
           })),
           commissionHistory: commissionHistory.map(x => ({
             CommissionDetailId: x.commissionDetailId,
@@ -955,15 +1283,16 @@ const handleCreate = async () => {
           const installment = await createStudentPaymentInstallment({
             scheduleId,
             installmentNo: item.installmentNo,
-          parentInstallmentId: item.parentInstallmentNo
-    ? paymentList.find(x => x.installmentNo === item.parentInstallmentNo)?.studentPaymentInstallmentId ?? null
-    : null,
+            parentInstallmentId: item.parentInstallmentNo
+              ? paymentList.find(x => x.installmentNo === item.parentInstallmentNo)?.studentPaymentInstallmentId ?? null
+              : null,
             dueDate: item.dueDate,
             feesAmount: Number(item.amount),
             paidAmount: Number(item.paidAmount),
             balanceAmount: Number(item.balance),
             paymentStatus: item.status,
             documentUrl: item.documentUrl ?? null,
+            feeType: item.feeType ?? null,
           });
 
           installmentIds.push(
@@ -996,71 +1325,69 @@ const handleCreate = async () => {
         }
       }
 
-  
-if (isEdit && !scheduleChanged) {
-  const newSplitRows = paymentList.filter(x => !x.studentPaymentInstallmentId);
 
-  const splitBase = Math.max(
-    9000,
-    Number(form.noOfInstallment || 0) + 9000
-  );
-  let nextInstallmentNo = splitBase +
-    paymentList.filter(x => Number(x.apiInstallmentNo) >= splitBase).length +
-    1;
+      if (isEdit && !scheduleChanged) {
+        const newSplitRows = paymentList.filter(x => !x.studentPaymentInstallmentId);
+
+        const splitBase = Math.max(9000, totalInstallmentCount + 9000);
+        let nextInstallmentNo = splitBase +
+          paymentList.filter(x => Number(x.apiInstallmentNo) >= splitBase).length +
+          1;
 
 
-  const idByInstallmentNo = new Map(
-    paymentList
-      .filter(x => x.studentPaymentInstallmentId)
-      .map(x => [x.installmentNo, x.studentPaymentInstallmentId])
-  );
+        const idByInstallmentNo = new Map(
+          paymentList
+            .filter(x => x.studentPaymentInstallmentId)
+            .map(x => [x.installmentNo, x.studentPaymentInstallmentId])
+        );
 
 
-  const sortedNewSplitRows = [...newSplitRows].sort(
-    (a, b) => a.installmentNo - b.installmentNo
-  );
+        const sortedNewSplitRows = [...newSplitRows].sort(
+          (a, b) => a.installmentNo - b.installmentNo
+        );
 
-  for (const item of sortedNewSplitRows) {
-    const parentId = item.parentInstallmentNo
-      ? idByInstallmentNo.get(item.parentInstallmentNo) ?? null
-      : null;
+        for (const item of sortedNewSplitRows) {
+          const parentId = item.parentInstallmentNo
+            ? idByInstallmentNo.get(item.parentInstallmentNo) ?? null
+            : null;
 
-    const installment = await createStudentPaymentInstallment({
-      scheduleId,
-      installmentNo: nextInstallmentNo++,
-      parentInstallmentId: parentId,
-      dueDate: item.dueDate,
-      feesAmount: Number(item.amount),
-      paidAmount: Number(item.paidAmount || 0),
-      balanceAmount: Number(item.balance ?? item.amount),
-      paymentStatus: item.status,
-      documentUrl: item.documentUrl ?? null,
-    });
+          const installment = await createStudentPaymentInstallment({
+            scheduleId,
+            installmentNo: nextInstallmentNo++,
+            parentInstallmentId: parentId,
+            dueDate: item.dueDate,
+            feesAmount: Number(item.amount),
+            paidAmount: Number(item.paidAmount || 0),
+            balanceAmount: Number(item.balance ?? item.amount),
+            paymentStatus: item.status,
+            documentUrl: item.documentUrl ?? null,
+            feeType: item.feeType ?? null,
+          });
 
-    const newInstallmentId =
-      installment.studentPaymentInstallmentId ??
-      installment.StudentPaymentInstallmentId;
+          const newInstallmentId =
+            installment.studentPaymentInstallmentId ??
+            installment.StudentPaymentInstallmentId;
 
-    idByInstallmentNo.set(item.installmentNo, newInstallmentId);
+          idByInstallmentNo.set(item.installmentNo, newInstallmentId);
 
-    const row = commissionRows.find(x => x.installmentNo === item.installmentNo);
+          const row = commissionRows.find(x => x.installmentNo === item.installmentNo);
 
-    if (row) {
-      await createStudentCommissionDetail({
-        commissionId,
-        studentPaymentInstallmentId: newInstallmentId,
-        commissionAmount: Number(row.commission),
-        gstAmount: Number(row.gst),
-        bonusAmount: Number(row.bonus),
-        invoiceAmount: Number(row.invoice),
-        invoiceNo: null,
-        receivedDate: null,
-        commissionStatus: row.status,
-        remark: form.remark ?? "",
-      });
-    }
-  }
-}
+          if (row) {
+            await createStudentCommissionDetail({
+              commissionId,
+              studentPaymentInstallmentId: newInstallmentId,
+              commissionAmount: Number(row.commission),
+              gstAmount: Number(row.gst),
+              bonusAmount: Number(row.bonus),
+              invoiceAmount: Number(row.invoice),
+              invoiceNo: null,
+              receivedDate: null,
+              commissionStatus: row.status,
+              remark: form.remark ?? "",
+            });
+          }
+        }
+      }
 
       alert(isEdit ? "Student updated successfully." : "Student created successfully.");
 
@@ -1220,41 +1547,41 @@ if (isEdit && !scheduleChanged) {
 
     setBonusApplied(true);
   };
-const handleConfirmedByStudent = (installment, documentUrl) => {
-  setPaymentList((prev) =>
-    prev.map((x) => {
-      if (x.installmentNo !== installment.installmentNo) return x;
+  const handleConfirmedByStudent = (installment, documentUrl) => {
+    setPaymentList((prev) =>
+      prev.map((x) => {
+        if (x.installmentNo !== installment.installmentNo) return x;
 
-      const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
-        ? (x.paidAmount || "0.00")
-        : Number(x.amount || 0).toFixed(2);
+        const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
+          ? (x.paidAmount || "0.00")
+          : Number(x.amount || 0).toFixed(2);
 
-      return {
-        ...x,
-        status: "ConfirmedByStudent",
-        paidAmount: paidLikeAmount,
-        balance: "0.00",
-        paidDate: x.paidDate || new Date().toISOString().slice(0, 10),
-        documentUrl,
-      };
-    })
-  );
-  
+        return {
+          ...x,
+          status: "ConfirmedByStudent",
+          paidAmount: paidLikeAmount,
+          balance: "0.00",
+          paidDate: x.paidDate || new Date().toISOString().slice(0, 10),
+          documentUrl,
+        };
+      })
+    );
 
-  setCommissionHistory((prev) =>
-    prev.map((x) =>
-      x.installmentNo === installment.installmentNo
-        ? {
-            ...x,
-            paymentStatus: "ConfirmedByStudent",
-          }
-        : x
-    )
-  );
 
-  setConfirmDialogOpen(false);
-  setConfirmTargetInstallment(null);
-};
+    setCommissionHistory((prev) =>
+      prev.map((x) =>
+        x.installmentNo === installment.installmentNo
+          ? {
+              ...x,
+              paymentStatus: "ConfirmedByStudent",
+            }
+          : x
+      )
+    );
+
+    setConfirmDialogOpen(false);
+    setConfirmTargetInstallment(null);
+  };
 
   const historyRows = useMemo(() => {
     if (!isEdit) return commissionRows;
@@ -1290,18 +1617,18 @@ const handleConfirmedByStudent = (installment, documentUrl) => {
     invoice: historyRows.reduce((sum, x) => sum + Number(x.invoiceAmount ?? x.invoice ?? 0), 0),
   }), [historyRows]);
 
- 
+
   const canEditStatus = (index) => {
-  const item = paymentList[index];
-  const groupNo = getGroupNo(item);
-  const isRootOfGroup = item.installmentNo === groupNo;
+    const item = paymentList[index];
+    const groupNo = getGroupNo(item);
+    const isRootOfGroup = item.installmentNo === groupNo;
 
-  if (!isRootOfGroup) return true;
+    if (!isRootOfGroup) return true;
 
-  if (index === 0) return true;
+    if (index === 0) return true;
 
-  return isPaidLike(paymentList[index - 1]?.status);
-};
+    return isPaidLike(paymentList[index - 1]?.status);
+  };
   const canEditCommissionStatus = (installmentNo) => {
     if (installmentNo === 1) return true;
 
@@ -1357,13 +1684,138 @@ const handleConfirmedByStudent = (installment, documentUrl) => {
               requiredFields={resource.requiredFields}
               disabled={isEdit}
               disabledFields={[
-                "noOfInstallment",
                 "frequency",
                 "assignment",
                 ...(!form.instituteId ? ["campusname"] : []),
               ]}
-              fieldDefsOverride={instituteLocked ? { instituteId: { readOnly: true } } : {}}
+              fieldDefsOverride={{
+                ...(instituteLocked ? { instituteId: { readOnly: true } } : {}),
+               
+              }}
             />
+
+       <Paper
+  variant="outlined"
+  sx={{
+    p: 3,
+    borderRadius: 3,
+    mb: 3,
+    borderColor: "divider",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+  }}
+>
+  <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.25 }}>
+    Course Cost
+  </Typography>
+  <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
+    Fee breakdown for the selected course
+  </Typography>
+
+  <TableContainer
+    sx={{
+      border: "1px solid",
+      borderColor: "divider",
+      borderRadius: 2,
+      overflow: "hidden",
+    }}
+  >
+    <Table size="small">
+      <TableHead>
+        <TableRow sx={{ backgroundColor: "#f8f9fc" }}>
+          <TableCell
+            sx={{
+              fontWeight: 700,
+              color: "text.secondary",
+              textTransform: "uppercase",
+              fontSize: "0.72rem",
+              letterSpacing: 0.4,
+              py: 1.25,
+            }}
+          >
+            Description
+          </TableCell>
+          <TableCell
+            align="right"
+            sx={{
+              fontWeight: 700,
+              color: "text.secondary",
+              textTransform: "uppercase",
+              fontSize: "0.72rem",
+              letterSpacing: 0.4,
+              width: 220,
+              py: 1.25,
+            }}
+          >
+            Amount
+          </TableCell>
+        </TableRow>
+      </TableHead>
+
+      <TableBody>
+        {FEE_TYPES.map(({ key, label, amountField }, idx) => (
+          <TableRow
+            key={key}
+            sx={{
+              backgroundColor: idx % 2 === 0 ? "#fff" : "#fafbfd",
+              "&:hover": { backgroundColor: "#f2f5fa" },
+              "& td": { borderBottom: "1px solid", borderColor: "divider" },
+            }}
+          >
+            <TableCell sx={{ fontWeight: 500, py: 1.25 }}>{label}</TableCell>
+            <TableCell align="right" sx={{ py: 1 }}>
+              <TextField
+                size="small"
+                type="number"
+                value={form[amountField] ?? 0}
+                onChange={(e) => updateField(amountField, e.target.value)}
+                disabled={isEdit}
+                inputProps={{ min: 0, step: "0.01", style: { textAlign: "right" } }}
+                InputProps={{
+                  startAdornment: (
+                    <Typography sx={{ color: "text.secondary", mr: 0.5 }}>$</Typography>
+                  ),
+                }}
+                sx={{
+                  width: 170,
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 1.5,
+                    backgroundColor: "#fff",
+                  },
+                }}
+              />
+            </TableCell>
+          </TableRow>
+        ))}
+
+        <TableRow sx={{ backgroundColor: "#eef1f8" }}>
+          <TableCell sx={{ fontWeight: 700, py: 1.5 }}>Total course fees due</TableCell>
+          <TableCell align="right" sx={{ py: 1.25 }}>
+            <TextField
+              size="small"
+              value={form.courseFee ?? 0}
+              disabled
+              InputProps={{
+                startAdornment: (
+                  <Typography sx={{ color: "text.secondary", mr: 0.5, fontWeight: 700 }}>$</Typography>
+                ),
+              }}
+              inputProps={{ style: { textAlign: "right", fontWeight: 700 } }}
+              sx={{
+                width: 170,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 1.5,
+                  backgroundColor: "#fff",
+                },
+              }}
+            />
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
+  </TableContainer>
+</Paper>
+
+<Box sx={{ height: 24 }} />
 
             <Box sx={{ height: 24 }} />
 
@@ -1403,7 +1855,33 @@ const handleConfirmedByStudent = (installment, documentUrl) => {
                         return (
                         <TableRow key={item.installmentNo}>
                           <TableCell>{item.installmentNo}</TableCell>
-                          <TableCell>{item.amount}</TableCell>
+                         <TableCell>
+                            {!item.studentPaymentInstallmentId ? (
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={item.amount}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setPaymentList((prev) =>
+                                    prev.map((x) =>
+                                      x.installmentNo === item.installmentNo
+                                        ? {
+                                            ...x,
+                                            amount: val,
+                                            balance: (Number(val || 0) - Number(x.paidAmount || 0)).toFixed(2),
+                                          }
+                                        : x
+                                    )
+                                  );
+                                }}
+                                inputProps={{ min: 0, step: "0.01" }}
+                                sx={{ width: 110 }}
+                              />
+                            ) : (
+                              item.amount
+                            )}
+                          </TableCell>
                           <TableCell>{formatDateCell(item.dueDate)}</TableCell>
                           <TableCell>
                             {isEdit && (isPaidLike(item.status) || item.status === "Partial") ? (
@@ -1439,23 +1917,23 @@ const handleConfirmedByStudent = (installment, documentUrl) => {
                                         await confirmInstallmentByStudent(
                                           item.studentPaymentInstallmentId
                                         );
-setPaymentList((prev) =>
-  prev.map((x) => {
-    if (x.installmentNo !== item.installmentNo) return x;
+                                        setPaymentList((prev) =>
+                                          prev.map((x) => {
+                                            if (x.installmentNo !== item.installmentNo) return x;
 
-    const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
-      ? (x.paidAmount || "0.00")
-      : x.amount;
+                                            const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
+                                              ? (x.paidAmount || "0.00")
+                                              : x.amount;
 
-    return {
-      ...x,
-      status: "ConfirmedByStudent",
-      paidAmount: paidLikeAmount,
-      balance: "0.00",
-      paidDate: x.paidDate || new Date().toISOString().slice(0, 10),
-    };
-  })
-);
+                                            return {
+                                              ...x,
+                                              status: "ConfirmedByStudent",
+                                              paidAmount: paidLikeAmount,
+                                              balance: "0.00",
+                                              paidDate: x.paidDate || new Date().toISOString().slice(0, 10),
+                                            };
+                                          })
+                                        );
 
                                         setConfirmTargetInstallment(item);
                                         setConfirmDialogOpen(true);
@@ -1469,24 +1947,24 @@ setPaymentList((prev) =>
                                       return;
                                     }
 
-                     setPaymentList((prev) => {
-  let updated = prev.map((x) => {
-    if (x.installmentNo === item.installmentNo) {
-      const isPaid = isPaidLike(value);
-const isPartial = value === "Partial";
+                                  setPaymentList((prev) => {
+                                    let updated = prev.map((x) => {
+                                      if (x.installmentNo === item.installmentNo) {
+                                        const isPaid = isPaidLike(value);
+                                        const isPartial = value === "Partial";
 
-const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
-  ? (x.paidAmount || "0.00")
-  : x.amount;
+                                        const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
+                                          ? (x.paidAmount || "0.00")
+                                          : x.amount;
 
-return {
-  ...x,
-  status: value,
-  paidAmount: isPaid ? paidLikeAmount : (isPartial ? (x.paidAmount || "0.00") : "0.00"),
-  balance: isPaid ? "0.00" : (isPartial ? x.balance : x.amount),
-  paidDate: (isPaid || isPartial) ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
-};
-    }
+                                        return {
+                                          ...x,
+                                          status: value,
+                                          paidAmount: isPaid ? paidLikeAmount : (isPartial ? (x.paidAmount || "0.00") : "0.00"),
+                                          balance: isPaid ? "0.00" : (isPartial ? x.balance : x.amount),
+                                          paidDate: (isPaid || isPartial) ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
+                                        };
+                                      }
 
                                       return x;
                                     });
@@ -1521,6 +1999,7 @@ return {
                                             installmentNo: newInstallmentNo,
                                             parentInstallmentNo: item.installmentNo,
                                             parentGroupNo: rootNo,
+                                            feeType: item.feeType,
                                             dueDate: item.dueDate,
                                             amount: remainingAmount,
                                             paidAmount: "0.00",
@@ -1608,110 +2087,111 @@ return {
                           <TableCell>
                             {isEdit && item.status === "Partial" && !(groupComplete && !isLastOfGroup) ? (
                              <TextField
-  size="small"
-  type="number"
-  value={item.paidAmount ?? "0"}
-onChange={(e) => {
-  const rawVal = e.target.value;
-  const maxAmount = Number(item.amount || 0);
+                              size="small"
+                              type="number"
+                              value={item.paidAmount ?? "0"}
+                              onChange={(e) => {
+                                const rawVal = e.target.value;
+                                const maxAmount = Number(item.amount || 0);
 
-  let numVal = Number(rawVal || 0);
-  if (Number.isNaN(numVal)) numVal = 0;
-  if (numVal > maxAmount) numVal = maxAmount;
-  if (numVal < 0) numVal = 0;
+                                let numVal = Number(rawVal || 0);
+                                if (Number.isNaN(numVal)) numVal = 0;
+                                if (numVal > maxAmount) numVal = maxAmount;
+                                if (numVal < 0) numVal = 0;
 
-  const val = rawVal === "" ? "" : String(numVal);
+                                const val = rawVal === "" ? "" : String(numVal);
 
-  setPaymentList((prev) => {
-    let updatedRows = prev.map((x) => {
-      if (x.installmentNo === item.installmentNo) {
-        const newBalance = (
-          Number(x.amount) - Number(val || 0)
-        ).toFixed(2);
+                                setPaymentList((prev) => {
+                                  let updatedRows = prev.map((x) => {
+                                    if (x.installmentNo === item.installmentNo) {
+                                      const newBalance = (
+                                        Number(x.amount) - Number(val || 0)
+                                      ).toFixed(2);
 
-        return {
-          ...x,
-          paidAmount: val,
-          balance: newBalance,
-        };
-      }
+                                      return {
+                                        ...x,
+                                        paidAmount: val,
+                                        balance: newBalance,
+                                      };
+                                    }
 
-      return x;
-    });
+                                    return x;
+                                  });
 
-    const childIndex = updatedRows.findIndex(
-      (x) => x.parentInstallmentNo === item.installmentNo
-    );
+                                  const childIndex = updatedRows.findIndex(
+                                    (x) => x.parentInstallmentNo === item.installmentNo
+                                  );
 
-    const newRemaining = Number(item.amount) - Number(val || 0);
+                                  const newRemaining = Number(item.amount) - Number(val || 0);
 
-    if (childIndex !== -1) {
-      // Existing child row hai — usko update ya remove karo (jaisa pehle tha).
-      const child = updatedRows[childIndex];
+                                  if (childIndex !== -1) {
+                                    // Existing child row hai — usko update ya remove karo (jaisa pehle tha).
+                                    const child = updatedRows[childIndex];
 
-      if (newRemaining <= EPSILON) {
-        if (!child.studentPaymentInstallmentId) {
-          updatedRows.splice(childIndex, 1);
-        } else {
-          updatedRows[childIndex] = {
-            ...child,
-            amount: "0.00",
-            balance: "0.00",
-          };
-        }
-      } else {
-        updatedRows[childIndex] = {
-          ...child,
-          amount: newRemaining.toFixed(2),
-          balance: newRemaining.toFixed(2),
-        };
-      }
-    } else if (newRemaining > EPSILON) {
-      // Koi child row maujood nahi (pehle delete ho chuki thi kyunki
-      // fully paid tha), lekin ab dobara balance bach gaya hai —
-      // isliye naya split/child row banao, warna ye remaining
-      // amount kahin track hi nahi hoga.
-      const rootNo = item.parentGroupNo ?? item.installmentNo;
-      const childCount = updatedRows.filter(
-        (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
-      ).length;
-      const newInstallmentNo = Number(
-        (rootNo + (childCount + 1) / 10).toFixed(2)
-      );
+                                    if (newRemaining <= EPSILON) {
+                                      if (!child.studentPaymentInstallmentId) {
+                                        updatedRows.splice(childIndex, 1);
+                                      } else {
+                                        updatedRows[childIndex] = {
+                                          ...child,
+                                          amount: "0.00",
+                                          balance: "0.00",
+                                        };
+                                      }
+                                    } else {
+                                      updatedRows[childIndex] = {
+                                        ...child,
+                                        amount: newRemaining.toFixed(2),
+                                        balance: newRemaining.toFixed(2),
+                                      };
+                                    }
+                                  } else if (newRemaining > EPSILON) {
+                                    // Koi child row maujood nahi (pehle delete ho chuki thi kyunki
+                                    // fully paid tha), lekin ab dobara balance bach gaya hai —
+                                    // isliye naya split/child row banao, warna ye remaining
+                                    // amount kahin track hi nahi hoga.
+                                    const rootNo = item.parentGroupNo ?? item.installmentNo;
+                                    const childCount = updatedRows.filter(
+                                      (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
+                                    ).length;
+                                    const newInstallmentNo = Number(
+                                      (rootNo + (childCount + 1) / 10).toFixed(2)
+                                    );
 
-      const remainingRow = {
-        installmentNo: newInstallmentNo,
-        parentInstallmentNo: item.installmentNo,
-        parentGroupNo: rootNo,
-        dueDate: item.dueDate,
-        amount: newRemaining.toFixed(2),
-        paidAmount: "0.00",
-        balance: newRemaining.toFixed(2),
-        status: "Pending",
-      };
+                                    const remainingRow = {
+                                      installmentNo: newInstallmentNo,
+                                      parentInstallmentNo: item.installmentNo,
+                                      parentGroupNo: rootNo,
+                                      feeType: item.feeType,
+                                      dueDate: item.dueDate,
+                                      amount: newRemaining.toFixed(2),
+                                      paidAmount: "0.00",
+                                      balance: newRemaining.toFixed(2),
+                                      status: "Pending",
+                                    };
 
-      const insertIndex =
-        updatedRows.findIndex(
-          (x) => x.installmentNo === item.installmentNo
-        ) + 1;
+                                    const insertIndex =
+                                      updatedRows.findIndex(
+                                        (x) => x.installmentNo === item.installmentNo
+                                      ) + 1;
 
-      updatedRows = [
-        ...updatedRows.slice(0, insertIndex),
-        remainingRow,
-        ...updatedRows.slice(insertIndex),
-      ];
-    }
+                                    updatedRows = [
+                                      ...updatedRows.slice(0, insertIndex),
+                                      remainingRow,
+                                      ...updatedRows.slice(insertIndex),
+                                    ];
+                                  }
 
-    return updatedRows;
-  });
-}}
-inputProps={{
-  min: 0,
-  max: Number(item.amount),
-  step: "0.01",
-}}
-sx={{ width: 120 }}
-/>
+                                  return updatedRows;
+                                });
+                              }}
+                              inputProps={{
+                                min: 0,
+                                max: Number(item.amount),
+                                step: "0.01",
+                              }}
+                              sx={{ width: 120 }}
+                            />
                             ) : (
                               Number(getEffectivePaidAmount(paymentList, item)).toFixed(2)
                             )}
@@ -1736,6 +2216,7 @@ sx={{ width: 120 }}
                         );
                       })
                     ) : (
+                      
                       <TableRow>
                         <TableCell colSpan={7} align="center">
                           No Payment Schedule
@@ -1835,6 +2316,7 @@ sx={{ width: 120 }}
                   <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
                     <TableRow>
                       <TableCell>Installment</TableCell>
+                      <TableCell>Fee Type</TableCell>
                       <TableCell>Fees Date</TableCell>
                       <TableCell>Fees</TableCell>
                       <TableCell>Payment Status</TableCell>
@@ -1852,6 +2334,7 @@ sx={{ width: 120 }}
                         {historyRows.map((row) => (
                           <TableRow key={row.installmentNo}>
                             <TableCell>{row.installmentNo}</TableCell>
+                            <TableCell>{row.feeType || "-"}</TableCell>
                             <TableCell>{formatDateCell(row.dueDate ?? row.feesDate)}</TableCell>
                             <TableCell>{Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
                             <TableCell>{row.paymentStatus}</TableCell>
@@ -1928,7 +2411,7 @@ sx={{ width: 120 }}
                         ))}
 
                         <TableRow sx={{ backgroundColor: "#f5f7fb" }}>
-                          <TableCell colSpan={2}><b>Total</b></TableCell>
+                          <TableCell colSpan={3}><b>Total</b></TableCell>
                           <TableCell><b>{totals.fees.toFixed(2)}</b></TableCell>
                           <TableCell />
                           <TableCell><b>{totals.commission.toFixed(2)}</b></TableCell>
@@ -1940,7 +2423,7 @@ sx={{ width: 120 }}
                       </>
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={9} align="center">
+                        <TableCell colSpan={10} align="center">
                           No Commission History
                         </TableCell>
                       </TableRow>
