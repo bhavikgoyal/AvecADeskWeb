@@ -41,6 +41,8 @@ export function mapInvoiceRow(item) {
 }
 
 export function mapPaidStudentRow(item) {
+  const feesRaw = Number(item.feesAmount ?? item.FeesAmount ?? 0);
+  const invoiceRaw = Number(item.invoiceAmount ?? item.InvoiceAmount ?? 0);
   return {
     id: String(item.studentPaymentInstallmentId ?? item.StudentPaymentInstallmentId ?? item.studentId),
     studentId: item.studentId ?? item.StudentId,
@@ -52,8 +54,10 @@ export function mapPaidStudentRow(item) {
     instituteName: item.instituteName ?? item.InstituteName ?? '',
     installmentNo: item.installmentNo ?? item.InstallmentNo,
     dueDate: formatDate(item.dueDate ?? item.DueDate),
-    feesAmount: formatCurrency(item.feesAmount ?? item.FeesAmount),
-    invoiceAmount: formatCurrency(item.invoiceAmount ?? item.InvoiceAmount),
+    feesAmount: formatCurrency(feesRaw),
+    feesAmountRaw: Number.isFinite(feesRaw) ? feesRaw : 0,
+    invoiceAmount: formatCurrency(invoiceRaw),
+    invoiceAmountRaw: Number.isFinite(invoiceRaw) ? invoiceRaw : 0,
     paymentStatus: item.paymentStatus ?? item.PaymentStatus ?? '',
   };
 }
@@ -262,4 +266,14 @@ export async function updateInvoiceLineItemAmounts(invoiceId, items) {
   }));
   const { data } = await axiosClient.put(`/api/invoices/${invoiceId}/line-items`, payload);
   return mapInvoiceRow(data);
+}
+
+export async function updateInstallmentFeesAndInvoiceAmounts(items = []) {
+  const payload = items.map((item) => ({
+    InstallmentId: Number(item.installmentId),
+    FeesAmount: item.feesAmount == null ? null : Number(item.feesAmount),
+    InvoiceAmount: item.invoiceAmount == null ? null : Number(item.invoiceAmount),
+  }));
+  const { data } = await axiosClient.post('/api/invoices/installment-amounts', payload);
+  return data;
 }
