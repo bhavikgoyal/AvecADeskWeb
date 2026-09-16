@@ -80,7 +80,7 @@ export const GET_MENU = (role) => {
         category: 'REPORTS',
         items: [
           // { title: 'AI Scraping Jobs', path: '/reports/ai-scraping', Icon: SmartToyIcon },
-          { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
+          //{ title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
            { title: 'Employee Work Hours', path: '/EmployeeWorkHours', Icon: AssignmentIcon },
           // { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
           // { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
@@ -116,12 +116,12 @@ export const GET_MENU = (role) => {
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },    ],
       },
-      {
-        category: 'REPORTS',
-        items: [
-          { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
-        ],
-      },
+      // {
+      //   category: 'REPORTS',
+      //   items: [
+      //     { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
+      //   ],
+      // },
     ],
 
     'Admission': [

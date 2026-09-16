@@ -264,7 +264,7 @@ export const DOMAIN_RESOURCES = {
     requiredFields: ['businessName', 'phone', 'email'],
     sections: [
       {
-        title: 'Vendor Details',
+        title: 'Invite vendor',
         description: 'Basic vendor information. An onboarding email with a link will be sent after registration.',
         fields: ['businessName', 'contactPerson', 'phone', 'email'],
       },
