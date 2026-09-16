@@ -32,7 +32,17 @@ import AddIcon from '@mui/icons-material/Add';
 import SchoolIcon from '@mui/icons-material/School';
 import TableContentSkeleton from '../../components/TableContentSkeleton';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { listContainedButtonSx, listOutlinedButtonSx, listSearchFieldSx, listToolbarActionsSx, listToolbarRowSx, listToolbarSearchGroupSx } from '../../components/forms';
+import {
+  listContainedButtonSx,
+  listOutlinedButtonSx,
+  listSearchFieldSx,
+  listSelectFieldSx,
+  listSelectProps,
+  listToolbarActionsSx,
+  listToolbarRowSx,
+  listToolbarSearchGroupSx,
+  LIST_FILTER_ALL,
+} from '../../components/forms';
 import {
   resourceTableBodyCellSx,
   resourceTableBodyRowSx,
@@ -443,6 +453,20 @@ useEffect(() => {
   };
 }, [rows]);
 
+const instituteNameOptions = useMemo(() => {
+  const seen = new Set();
+  const names = [];
+  for (const row of rows) {
+    const name = (row.instituteName || '').trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+  }
+  return names.sort((a, b) => a.localeCompare(b));
+}, [rows]);
+
   const displayRows = useMemo(() => {
     const filterValue = instituteNameFilter.trim().toLowerCase();
     const persistedKeys = new Set(
@@ -699,14 +723,32 @@ const handleViewCredentials = (event, row) => {
                 }}
               >
                 <Box sx={listToolbarSearchGroupSx}>
-                  <TextField
-                    placeholder="Institute name"
-                    size="small"
-                    value={instituteNameFilter}
-                    onChange={handleInstituteNameFilterChange}
-                    sx={listSearchFieldSx}
-                    disabled={listLoading}
-                  />
+                 <TextField
+                select
+                size="small"
+                value={instituteNameFilter || LIST_FILTER_ALL}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setInstituteNameFilter(next === LIST_FILTER_ALL ? '' : next);
+                  setPage(0);
+                }}
+                SelectProps={{
+                  ...listSelectProps('All Institutes'),
+                  renderValue: (selected) => {
+                    if (!selected || selected === LIST_FILTER_ALL) return 'All Institutes';
+                    return selected;
+                  },
+                }}
+                disabled={listLoading}
+                sx={listSelectFieldSx(Boolean(instituteNameFilter))}
+              >
+                <MenuItem value={LIST_FILTER_ALL}>All Institutes</MenuItem>
+                {instituteNameOptions.map((name) => (
+                  <MenuItem key={name} value={name}>
+                    {name}
+                  </MenuItem>
+                ))}
+              </TextField>
                 </Box>
                 <Box sx={listToolbarActionsSx}>
                   <Button

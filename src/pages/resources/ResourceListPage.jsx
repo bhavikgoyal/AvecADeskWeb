@@ -11,7 +11,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  Tooltip,FormControl, Select, MenuItem
+  Tooltip,FormControl, Select, MenuItem,TextField
 } from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
@@ -23,7 +23,7 @@ import { deleteStudent, fetchEnrolmentRows, fetchStudentRows } from '../../api/s
 import { deleteVendor, fetchVendorRows } from '../../api/vendorsApi';
 import { getEmailTemplates, deleteEmailTemplate } from '../../api/EmailtemplatesApi';
 import { downloadInvoiceDocument, fetchInvoices } from '../../api/invoicesApi';
-import { listOutlinedButtonSx, listSearchFieldSx } from '../../components/forms';
+import { listOutlinedButtonSx, listSearchFieldSx, listSelectFieldSx, listSelectProps, LIST_FILTER_ALL  } from '../../components/forms';
 import AddInvoiceDialog from '../../components/invoices/AddInvoiceDialog';
 import PageShell from '../../components/PageShell';
 import ResponsiveTable from '../../components/ResponsiveTable';
@@ -182,6 +182,7 @@ export default function ResourceListPage({ basePath }) {
     const [editInvoiceOpen, setEditInvoiceOpen] = useState(false);
 const [editInvoiceId, setEditInvoiceId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [courseNameFilter, setCourseNameFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [activityFilter, setActivityFilter] = useState('All');
 
@@ -197,12 +198,21 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
 
   // Courses page: institute filter passed via ?institute=<name> from
   // the "View Courses" button on the Institutes Scrapping list.
-  const instituteFilter = useMemo(() => {
-    if (!isCourses) return '';
-    return new URLSearchParams(location.search).get('institute')?.trim() || '';
-  }, [isCourses, location.search]);
+  // const instituteFilter = useMemo(() => {
+  //   if (!isCourses) return '';
+  //   return new URLSearchParams(location.search).get('institute')?.trim() || '';
+  // }, [isCourses, location.search]);
 
+const [courseInstituteFilter, setCourseInstituteFilter] = useState('');
 
+useEffect(() => {
+  if (!isCourses) return;
+  const fromUrl = new URLSearchParams(location.search).get('institute')?.trim() || '';
+  setCourseInstituteFilter(fromUrl);
+}, [isCourses, location.search]);
+
+const instituteFilter = courseInstituteFilter; // baaki code isi naam se reference karta hai, ab state-backed hai
+  
   const invoiceInstituteFilter = useMemo(() => {
     if (!isInvoices) return '';
     return new URLSearchParams(location.search).get('institute')?.trim() || '';
@@ -289,6 +299,21 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
     setActivityFilter('All');
   }, [isVendors, vendorActivityParam]);
 
+const courseNameOptions = useMemo(() => {
+  if (!isCourses) return [];
+  const seen = new Set();
+  const names = [];
+  for (const row of rows) {
+    const name = (row.courseName || '').trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+  }
+  return names.sort((a, b) => a.localeCompare(b));
+}, [isCourses, rows]);
+
   const displayRows = useMemo(() => {
     if (isStudents) {
       if (studentYear || studentMonth) {
@@ -307,11 +332,20 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
       return rows;
     }
 
-    if (isCourses) {
-      if (!instituteFilter) return rows;
-      const target = normalizeInstituteName(instituteFilter);
-      return rows.filter((row) => normalizeInstituteName(row.instituteName) === target);
-    }
+   if (isCourses) {
+  let filtered = rows;
+
+  if (instituteFilter) {
+    const target = normalizeInstituteName(instituteFilter);
+    filtered = filtered.filter((row) => normalizeInstituteName(row.instituteName) === target);
+  }
+
+  if (courseNameFilter) {
+    filtered = filtered.filter((row) => (row.courseName || '').trim() === courseNameFilter);
+  }
+
+  return filtered;
+}
 
     if (isInvoices) {
       let filtered = rows;
@@ -371,6 +405,7 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
     instituteFilter,
     isInvoices,
     invoiceInstituteFilter,
+    courseNameFilter, 
     invoiceView,
     invoiceYear,
     invoiceMonth,
@@ -808,6 +843,35 @@ const handleExportInvoicesPdf = useCallback(async () => {
 
   const headerExtra = (
     <>
+{isCourses && (
+  <Box sx={{ width: { xs: '100%', md: 260 }, minWidth: 0 }}>
+    <TextField
+      select
+      fullWidth
+      size="small"
+      value={courseNameFilter || LIST_FILTER_ALL}
+      onChange={(e) => {
+        const next = e.target.value;
+        setCourseNameFilter(next === LIST_FILTER_ALL ? '' : next);
+      }}
+      SelectProps={{
+        ...listSelectProps('All Courses'),
+        renderValue: (selected) => {
+          if (!selected || selected === LIST_FILTER_ALL) return 'All Courses';
+          return selected;
+        },
+      }}
+      sx={listSelectFieldSx(Boolean(courseNameFilter))}
+    >
+      <MenuItem value={LIST_FILTER_ALL}>All Courses</MenuItem>
+      {courseNameOptions.map((name) => (
+        <MenuItem key={name} value={name}>
+          {name}
+        </MenuItem>
+      ))}
+    </TextField>
+  </Box>
+)}
       {((isCourses && instituteFilter) || (isInvoices && invoiceInstituteFilter)) && (
         <Button
           variant="outlined"
@@ -863,6 +927,7 @@ const handleExportInvoicesPdf = useCallback(async () => {
         subtitle={page.subtitle}
         stats={stats}
         showCharts={!isTemplates && !isInvoices && (page.showCharts !== false)}
+        showSearch={!isCourses}  
         columns={columnsWithSelect}
         rows={loading ? [] : filteredDisplayRows}
         loading={loading}
@@ -913,7 +978,16 @@ const handleExportInvoicesPdf = useCallback(async () => {
       </Tooltip>
     ) : null
   }
-        onAdd={isInvoices ? handleOpenAddInvoice : () => navigate(`${basePath}/new`)}
+        onAdd={
+  isInvoices
+    ? handleOpenAddInvoice
+    : () =>
+        navigate(
+          isCourses && instituteFilter
+            ? `${basePath}/new?institute=${encodeURIComponent(instituteFilter)}`
+            : `${basePath}/new`
+        )
+}
      onRowClick={
   isInvoices
     ? (row) => {

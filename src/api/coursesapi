@@ -26,7 +26,11 @@ function normalizeCourse(course) {
     programDescription: course.programDescription ?? course.ProgramDescription ?? '',
     addmissionRequirements: course.addmissionRequirements ?? course.AddmissionRequirements ?? '',
     programLogo: course.programLogo ?? course.ProgramLogo ?? '',
-    instituteName: course.instituteName ?? course.InstituteName ?? '',
+    instituteName: course.instituteName ?? course.InstituteName ?? '', 
+    enrollmentFee: course.enrollmentFee ?? course.EnrollmentFee ?? null,
+    materialFee: course.materialFee ?? course.MaterialFee ?? null,
+    tuitionFee: course.tuitionFee ?? course.TuitionFee ?? null,
+    oshcFee: course.oshcFee ?? course.OSHCFee ?? null,
   };
 }
 
@@ -53,9 +57,7 @@ export async function fetchCourseById(courseId) {
 }
 
 export async function createCourse(form) {
-  
   const instituteId = Number(form.instituteId);
-
   if (!instituteId) {
     throw new Error('Please select an institute');
   }
@@ -85,6 +87,10 @@ export async function createCourse(form) {
   formData.append('ProgramLogo', form.programLogo);
   formData.append('IsApproved', Boolean(form.isApproved));
   formData.append('IsActive', Boolean(form.isActive));
+  formData.append('EnrollmentFee', String(form.enrollmentFee ?? ''));
+  formData.append('MaterialFee', String(form.materialFee ?? ''));
+  formData.append('TuitionFee', String(form.tuitionFee ?? ''));
+  formData.append('OSHCFee', String(form.oshcFee ?? ''));
 
   const { data } = await axiosClient.post(
     '/api/courses',
@@ -130,6 +136,10 @@ export async function updateCourse(courseId, form) {
 
   formData.append("IsApproved", form.isApproved === "Yes");
   formData.append("IsActive", form.isActive === "Yes");
+  formData.append("EnrollmentFee", form.enrollmentFee !== '' && form.enrollmentFee != null ? Number(form.enrollmentFee) : '');
+  formData.append("MaterialFee", form.materialFee !== '' && form.materialFee != null ? Number(form.materialFee) : '');
+  formData.append("TuitionFee", form.tuitionFee !== '' && form.tuitionFee != null ? Number(form.tuitionFee) : '');
+  formData.append("OSHCFee", form.oshcFee !== '' && form.oshcFee != null ? Number(form.oshcFee) : '');
 
   const { data } = await axiosClient.post(
       `/api/courses/${courseId}/update`,
