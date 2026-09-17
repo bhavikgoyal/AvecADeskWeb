@@ -242,7 +242,8 @@ export default function InstituteScrappingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAccounting = user?.role === 'Accounting';
- const showCredentials = canViewCredentials(user);
+  const isAdmin = user?.role === 'Admin' || user?.role === 'Super Admin';
+  const showCredentials = canViewCredentials(user);
 
   const [success, setSuccess] = useState('');
   const [warning, setWarning] = useState('');
@@ -640,13 +641,20 @@ const handleDialogTabChange = (_event, value) => {
     }
   };
 
-  const handleViewCourses = (event, row) => {
-    event.stopPropagation();
-    if (row?.instituteName) {
-      navigate(`/courses?institute=${encodeURIComponent(row.instituteName)}`);
-    }
-  };
+const handleViewCourses = (event, row) => {
+  event.stopPropagation();
 
+  if (row?.instituteName) {
+    navigate(
+      `/courses?institute=${encodeURIComponent(row.instituteName)}`,
+      {
+        state: {
+          fromInstitute: true,
+        },
+      }
+    );
+  }
+};
 const handleViewStudents = (event, row) => {
   event.stopPropagation();
   navigate('/students', {
@@ -849,7 +857,7 @@ const handleViewCredentials = (event, row) => {
                                     {getCoursesButtonLabel(row, courseCount)}
                                   </Button>
 
-                                 {isAccounting && (
+                                 {isAccounting || isAdmin && (
                                       <>
                                         <Button
                                           size="small"

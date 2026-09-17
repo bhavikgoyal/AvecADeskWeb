@@ -76,20 +76,33 @@ export function mapWorkHistoryRow(report) {
   };
 }
 
-export async function getDailyWorkReport({ userName, fromDate, toDate, }) {
-  const query = buildQuery({ employeeName: userName, fromDate, toDate, });
-  const response = await fetch(`/api/UserActivity/daily?${query}`,
-    {
-      headers: authHeaders(),
-    }
-  );
-  const result = await response.json();
-  if (!response.ok) {
-    throw new Error(result?.message || "Request failed");
-  }
-  return (result.data ?? []).map(normalizeWorkReport);
-}
+// export async function getDailyWorkReport({ userName, fromDate, toDate, }) {
+//   const query = buildQuery({ employeeName: userName, fromDate, toDate, });
+//   const response = await fetch(`/api/UserActivity/daily?${query}`,
+//     {
+//       headers: authHeaders(),
+//     }
+//   );
+//   const result = await response.json();
+//   if (!response.ok) {
+//     throw new Error(result?.message || "Request failed");
+//   }
+//   return (result.data ?? []).map(normalizeWorkReport);
+// }
+export async function getDailyWorkReport({ userName, fromDate, toDate }) {
+    const response = await axiosClient.get(
+        '/api/UserActivity/daily',
+        {
+            params: {
+                employeeName: userName,
+                fromDate,
+                toDate,
+            },
+        }
+    );
 
+    return (response.data?.data ?? []).map(normalizeWorkReport);
+}
 export async function getWeeklyWorkReport({ userName, fromDate, toDate }) {
   const response = await axiosClient.get("/api/UserActivity/weekly",
     {

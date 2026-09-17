@@ -30,7 +30,7 @@ export async function fetchInstituteContact(instituteId) {
 }
 
 export async function updateInstituteContact(instituteId, form) {
-  const { data } = await axiosClient.put(`/api/institutes/${instituteId}/contact`, {
+  const { data } = await axiosClient.post(`/api/institutes/${instituteId}/contact`, {
     contactName: form.contactName?.trim() || null,
     designation: form.designation?.trim() || null,
     email: form.email?.trim() || null,
@@ -91,7 +91,7 @@ export async function createInstituteContract(instituteId, form) {
 }
 
 export async function updateInstituteContract(instituteId, contractId, form) {
-  const { data } = await axiosClient.put(
+  const { data } = await axiosClient.post(
     `/api/institutes/${instituteId}/contracts/${contractId}`,
     toContractRequestBody(form),
   );
@@ -157,7 +157,7 @@ export async function updateInstituteCredential(instituteId, credentialId, form)
     throw new Error(validationError);
   }
 
-  const { data } = await axiosClient.put(
+  const { data } = await axiosClient.post(
     `/api/institutes/${instituteId}/credentials/${credentialId}`,
     toCredentialRequestBody(form),
   );

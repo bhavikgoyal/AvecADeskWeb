@@ -135,7 +135,7 @@ export const GET_MENU = (role) => {
         category: 'MANAGEMENT',
         items: [
           { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
-          { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
+          // { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
           { title: 'Courses', path: '/courses', Icon: SchoolIcon },
          

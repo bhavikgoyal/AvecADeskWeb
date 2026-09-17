@@ -671,7 +671,7 @@ export default function AnticipatedReceivables1Page() {
           <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                All OverDue Recieved
+                All
                 <Chip label={summary.anticipated.count} size="small" sx={{ height: 18, fontSize: 11 }} />
               </Box>
             }

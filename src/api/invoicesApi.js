@@ -264,7 +264,7 @@ export async function updateInvoiceLineItemAmounts(invoiceId, items) {
     LineItemId: Number(item.lineItemId),
     Amount: Number(item.amount),
   }));
-  const { data } = await axiosClient.put(`/api/invoices/${invoiceId}/line-items`, payload);
+  const { data } = await axiosClient.post(`/api/invoices/${invoiceId}/line-items`, payload);
   return mapInvoiceRow(data);
 }
 
