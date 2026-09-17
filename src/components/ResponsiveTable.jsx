@@ -13,6 +13,7 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
+  TableFooter,
 } from '@mui/material';
 import {
   LIST_PRIMARY_COLUMN_COLOR,
@@ -57,6 +58,8 @@ export default function ResponsiveTable({
   variant = 'default',
   collapseToCardsBelow = 'md',
   tableMinWidth,
+  showInvoiceTotal = false,
+  totalInvoiceAmount = 0,
 }) {
   const theme = useTheme();
   const cardBreakpoint =
@@ -295,6 +298,36 @@ if (column.field === 'programLogo') {
             </TableRow>
           ))}
         </TableBody>
+        {showInvoiceTotal && (
+          <TableFooter
+            sx={{
+              position: 'sticky',
+              bottom: 0,
+              zIndex: 3,
+              backgroundColor: 'var(--card-bg)',
+            }}
+          >
+            <TableRow>
+              {columns.map((column) => (
+                <TableCell
+                  key={column.id}
+                  align={column.id === 'invoiceAmount' ? 'left' : 'left'}
+                  sx={{
+                    fontWeight: 700,
+                    py: 1,
+                    backgroundColor: 'var(--card-bg)',
+                    borderTop: '1px solid var(--muted-border)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {column.id === 'invoiceAmount'
+                    ? `Total: ${Number(totalInvoiceAmount || 0).toFixed(2)}`
+                    : ''}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
     </TableContainer>
   );

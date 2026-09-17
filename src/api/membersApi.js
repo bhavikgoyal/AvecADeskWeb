@@ -16,7 +16,7 @@ export const deleteMember = async (userId) => {
 
 export const resignMember = async (userId) => {
   try {
-    const { data } = await axiosClient.patch(`/api/Members/Resign/${userId}`);
+    const { data } = await axiosClient.post(`/api/Members/Resign/${userId}`);
     return { success: true, data };
   } catch (err) {
     return { success: false, message: err.message || 'Failed to mark member as resigned' };

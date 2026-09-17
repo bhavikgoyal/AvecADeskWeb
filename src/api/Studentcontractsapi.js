@@ -41,7 +41,7 @@ export async function createStudentContract(contract) {
 
 // PUT api/students/{studentId}/contracts/{contractId}
 export async function updateStudentContract(contractId, contract) {
-  const { data } = await axiosClient.put(
+  const { data } = await axiosClient.post(
     `${API_BASE(contract.studentId)}/${contractId}`,
     toApiPayload(contract)
   );

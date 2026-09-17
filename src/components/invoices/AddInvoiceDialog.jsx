@@ -209,7 +209,15 @@ export default function AddInvoiceDialog({
     () => paidStudents.filter((s) => selectedIds.includes(s.id)).length,
     [paidStudents, selectedIds],
   );
-
+const totalInvoiceAmount = useMemo(
+  () =>
+    students.reduce(
+      (total, row) =>
+        total + Number(editedInvoiceAmts[row.id] || 0),
+      0
+    ),
+  [students, editedInvoiceAmts]
+);
   const allPaidSelected =
     paidStudents.length > 0 && selectedPaidCount === paidStudents.length;
   const somePaidSelected = selectedPaidCount > 0 && !allPaidSelected;
@@ -351,27 +359,7 @@ export default function AddInvoiceDialog({
     { id: 'fullName', label: 'Student', field: 'fullName' },
     { id: 'courseName', label: 'Course', field: 'courseName' },
     { id: 'installmentNo', label: 'Installment', field: 'installmentNo' },
-    {
-      id: 'feesAmount',
-      label: 'Fees',
-      field: 'feesAmount',
-      render: (row) => {
-        const checked = selectedIds.includes(row.id);
-        if (checked && isPaidRow(row)) {
-          return (
-            <TextField
-              size="small"
-              value={editedFees[row.id] ?? ''}
-              onChange={(e) => handleFeesChange(row.id, e.target.value)}
-              disabled={generating}
-              inputProps={{ inputMode: 'decimal', style: { textAlign: 'right' } }}
-              sx={{ width: 120 }}
-            />
-          );
-        }
-        return row.feesAmount;
-      },
-    },
+    { id: 'feesAmount', label: 'Fees',  field: 'feesAmount', render: (row) => row.feesAmount,},
     {
       id: 'invoiceAmount',
       label: 'Invoice Amt',
@@ -484,6 +472,8 @@ export default function AddInvoiceDialog({
                   rows={students}
                   getRowKey={(row) => row.id}
                   alwaysTable
+                  showInvoiceTotal
+                  totalInvoiceAmount={totalInvoiceAmount}
                   sx={{
                     maxHeight: 400,
                     overflowY: 'auto',
