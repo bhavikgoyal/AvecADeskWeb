@@ -81,6 +81,7 @@ oshcInstallments: { label: 'OSHC Installments', type: 'number', grid: grid.quart
   campusname: { label: 'Campus', type: 'text', required: true, grid: grid.half, readOnly: true, },
   courseId: { label: 'Course', type: 'api-select', required: true, grid: grid.half },
   courseFee: { label: 'Course Fee', type: 'number', grid: grid.full, readOnly: false },
+  initialPayment: { label: 'Initial Payment', type: 'number', grid: grid.half }, 
   PaymentStatus: {
     label: 'Payment Status', type: 'radio', options: [
       { value: 'Paid', label: 'Paid' },
@@ -397,6 +398,7 @@ export const DOMAIN_RESOURCES = {
       fullName: '', email: '', phone: '',
       instituteId: '', courseId: '', courseFee: '', FolderNo: '', courseStartDate: '', courseEndDate: '',
       enrollmentFee: '', materialFee: '', tuitionFee: '', oshcFee: '', 
+      initialPayment: '', 
       noOfInstallment: '', 
       //enrollmentInstallments: '', materialInstallments: '', tuitionInstallments: '', oshcInstallments: '',
       amountDue: '', amountPaid: '', paymentStatus: 'Pending', startDate: '',

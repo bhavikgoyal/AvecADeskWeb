@@ -175,6 +175,10 @@ export async function createStudentWithPaymentSchedule(form) {
     folderNo: form.FolderNo || null,
     courseStartDate: form.courseStartDate || null,
     courseEndDate: form.courseEndDate || null,
+      enrollmentFee: form.enrollmentFee !== '' && form.enrollmentFee != null ? Number(form.enrollmentFee) : null,   
+  materialFee: form.materialFee !== '' && form.materialFee != null ? Number(form.materialFee) : null,         
+  tuitionFee: form.tuitionFee !== '' && form.tuitionFee != null ? Number(form.tuitionFee) : null,             
+  oshcFee: form.oshcFee !== '' && form.oshcFee != null ? Number(form.oshcFee) : null,    
     assignment: form.assignment ?? form.Assignment ?? null,
   });
   return normalizeStudent(student);
@@ -256,6 +260,10 @@ export async function updateStudentWithPaymentSchedule(studentId, form) {
     enrollmentNumber: form.enrollmentNumber?.trim() || null,
     isActive: existing.isActive,
     assignment: form.assignment ?? form.Assignment ?? existing.assignment ?? existing.Assignment ?? null,
+      enrollmentFee: form.enrollmentFee !== '' && form.enrollmentFee != null ? Number(form.enrollmentFee) : null,   
+  materialFee: form.materialFee !== '' && form.materialFee != null ? Number(form.materialFee) : null,          
+  tuitionFee: form.tuitionFee !== '' && form.tuitionFee != null ? Number(form.tuitionFee) : null,               
+  oshcFee: form.oshcFee !== '' && form.oshcFee != null ? Number(form.oshcFee) : null,  
   });
 
   const { data: schedule } = await axiosClient.post(`/api/schedules/${form.scheduleId}`, {
@@ -388,7 +396,10 @@ export async function fetchStudentPaymentDetail(studentId) {
     totalCourseFee: data.totalCourseFee ?? data.TotalCourseFee,
     noOfInstallments: data.noOfInstallments ?? data.NoOfInstallments,
     frequency: data.frequency ?? data.Frequency,
-
+   enrollmentFee: data.enrollmentFee ?? data.EnrollmentFee ?? null,
+    materialFee: data.materialFee ?? data.MaterialFee ?? null,        
+  tuitionFee: data.tuitionFee ?? data.TuitionFee ?? null,           
+  oshcFee: data.oshcFee ?? data.OSHCFee ?? null,        
     commissionId: data.commissionId ?? data.CommissionId,
     commissionPercentage: data.commissionPercentage ?? data.CommissionPercentage,
     gstPercentage: data.gstPercentage ?? data.GSTPercentage,

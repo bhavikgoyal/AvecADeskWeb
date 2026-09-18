@@ -209,6 +209,10 @@ export function buildCourseForm(course) {
     isApproved: course.isApproved || false,
     isActive: course.isActive || false,
     isAIFetched: course.isAIFetched || false,
+    enrollmentFee: course.enrollmentFee ?? '',  
+    materialFee: course.materialFee ?? '',       
+    tuitionFee: course.tuitionFee ?? '',        
+    oshcFee: course.oshcFee ?? '',   
   };
 }
 
@@ -234,6 +238,10 @@ export function getEmptyCourseForm(instituteId) {
     isApproved: false,
     isActive: true,
     isAIFetched: false,
+     enrollmentFee: '',   
+    materialFee: '',  
+    tuitionFee: '',    
+    oshcFee: '',  
   };
 }
 
