@@ -49,6 +49,8 @@ export default function PaymentSchedulesPage() {
 
   const [students, setStudents] = useState([]);
   const [studentFilter, setStudentFilter] = useState("");
+  const [instituteFilter, setInstituteFilter] = useState('');
+  const [studentNameFilter, setStudentNameFilter] = useState('');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -111,16 +113,48 @@ export default function PaymentSchedulesPage() {
     try {
       const { nextMonth } = parseFilterFromUrl();
 
+      // Do not send student name as studentId
       const result = await fetchStudentPaymentScheduleList(
-        studentFilter || undefined,
+        undefined,
         nextMonth
       );
 
-      const filteredResult = selectedInstituteKey
-        ? (result || []).filter(
-            (item) => normalizeInstituteName(item.instituteName) === selectedInstituteKey,
-          )
-        : (result || []);
+      let filteredResult = result || [];
+
+      // Existing institute filter from navigation
+      if (selectedInstituteKey) {
+        filteredResult = filteredResult.filter(
+          (item) =>
+            normalizeInstituteName(item.instituteName) ===
+            selectedInstituteKey
+        );
+      }
+
+      // Institute dropdown filter
+      if (instituteFilter.trim()) {
+        const instituteSearch = instituteFilter
+          .trim()
+          .toLowerCase();
+
+        filteredResult = filteredResult.filter((item) =>
+          String(item.instituteName || '')
+            .toLowerCase()
+            .includes(instituteSearch)
+        );
+      }
+
+      // Student name textbox filter
+      if (studentNameFilter.trim()) {
+        const studentSearch = studentNameFilter
+          .trim()
+          .toLowerCase();
+
+        filteredResult = filteredResult.filter((item) =>
+          String(item.studentName || '')
+            .toLowerCase()
+            .includes(studentSearch)
+        );
+      }
 
       setRows(filteredResult);
 
@@ -137,6 +171,7 @@ export default function PaymentSchedulesPage() {
       ];
 
       setStudents(uniqueStudents);
+      setPage(0);
     } catch (err) {
       setRows([]);
       setStudents([]);
@@ -144,7 +179,7 @@ export default function PaymentSchedulesPage() {
     } finally {
       setLoading(false);
     }
-  }, [studentFilter, location.search, selectedInstituteKey]);
+  }, [location.search, selectedInstituteKey, instituteFilter, studentNameFilter,]);
 
   useEffect(() => {
     loadRows();
@@ -157,8 +192,8 @@ export default function PaymentSchedulesPage() {
       const data = await fetchStudentCourseCompleteList(studentId);
       const filteredData = selectedInstituteKey
         ? (data || []).filter(
-            (item) => normalizeInstituteName(item.instituteName) === selectedInstituteKey,
-          )
+          (item) => normalizeInstituteName(item.instituteName) === selectedInstituteKey,
+        )
         : (data || []);
       setCompleteRows(filteredData);
     } catch (err) {
@@ -202,12 +237,12 @@ export default function PaymentSchedulesPage() {
 
         case "nextDueDate":
           return { ...column, render: (row) => (row.nextDueDate ? formatDisplayDate(row.nextDueDate) : "-") };
-         case "studentCreatedAt":
-  return {
-    ...column,
-    render: (row) =>
-      row.studentCreatedAt ? formatDisplayDate(row.studentCreatedAt) : "-",
-  };
+        case "studentCreatedAt":
+          return {
+            ...column,
+            render: (row) =>
+              row.studentCreatedAt ? formatDisplayDate(row.studentCreatedAt) : "-",
+          };
         case "installments":
           return { ...column, render: (row) => `${row.paidInstallments ?? 0} / ${row.totalInstallments ?? row.noOfInstallments ?? 0}` };
 
@@ -238,7 +273,23 @@ export default function PaymentSchedulesPage() {
   }, [resource, navigate]);
 
   const handleRowClick = useCallback((row) => navigate(`/students/${row.studentId}`), [navigate]);
+  const instituteOptions = useMemo(() => {
+    const seen = new Set();
 
+    return rows
+      .map((row) => String(row.instituteName || '').trim())
+      .filter((name) => {
+        if (!name) return false;
+
+        const key = name.toLowerCase();
+
+        if (seen.has(key)) return false;
+
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => a.localeCompare(b));
+  }, [rows]);
   return (
     <Box>
       {/* Header */}
@@ -252,81 +303,104 @@ export default function PaymentSchedulesPage() {
             Add schedules per student, track status and payment details.
           </Typography>
         </Box>
-  
+
       </Box>
 
       {!!error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}> {error} </Alert>
       )}
-
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-  <Box sx={listToolbarRowSx}>
-    <Box sx={{ width: { xs: '100%', md: 320 }, minWidth: 0 }}>
-      <TextField
-        select
-        fullWidth
-        size="small"
-        value={studentFilter || LIST_FILTER_ALL}
-        onChange={(e) => {
-          const next = e.target.value;
-          setStudentFilter(next === LIST_FILTER_ALL ? '' : next);
-        }}
-        SelectProps={{
-          ...listSelectProps('All Students'),
-          renderValue: (selected) => {
-            if (!selected || selected === LIST_FILTER_ALL) return 'All Students';
-            const match = studentOptions.find((s) => String(s.value) === String(selected));
-            return match?.label || 'All Students';
-          },
-        }}
-        sx={listSelectFieldSx(Boolean(studentFilter))}
-      >
-        <MenuItem value={LIST_FILTER_ALL}>All Students</MenuItem>
-
-        {studentOptions.map((s) => (
-          <MenuItem key={s.value} value={s.value}>
-            {s.label}
-          </MenuItem>
-        ))}
-      </TextField>
-    </Box>
-
-    <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
-      {fromInstitute && (
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)}
-          sx={listOutlinedButtonSx}
+        <Box
+          sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'nowrap', }}
         >
-          Back to Institute
-        </Button>
-      )}
+          {/* 1. Institute Dropdown */}
+          <Box
+            sx={{ width: 280, minWidth: 280, maxWidth: 280, flexShrink: 0, }}
+          >
+            <TextField
+              select
+              fullWidth
+              size="small"
+              value={instituteFilter || LIST_FILTER_ALL}
+              onChange={(e) => {
+                const next = e.target.value;
+                setInstituteFilter(next === LIST_FILTER_ALL ? '' : next);
+                setPage(0);
+              }}
+              SelectProps={{
+                ...listSelectProps('All Institutes'),
+                renderValue: (selected) => {
+                  if (!selected || selected === LIST_FILTER_ALL) { return 'All Institutes'; }
+                  return selected;
+                },
+              }}
+              sx={{
+                ...listSelectFieldSx(Boolean(instituteFilter)),
+                width: '100%',
+                '& .MuiSelect-select': { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', },
+              }}
+            >
+              <MenuItem value={LIST_FILTER_ALL}> All Institutes  </MenuItem>
 
-      <Button
-        variant="contained"
-        size="small"
-        startIcon={<AddIcon />}
-        onClick={() =>
-          navigate('/students/new', {
-            state:
-              location.state?.instituteId || location.state?.instituteName
-                ? {
-                    instituteId: location.state?.instituteId,
-                    instituteName: location.state?.instituteName,
-                    fromInstitute,
-                  }
-                : undefined,
-          })
-        }
-        sx={listContainedButtonSx}
-      >
-        Add Student
-      </Button>
-    </Box>
-  </Box>
-</Paper>
+              {instituteOptions.map((institute) => (
+                <MenuItem key={institute} value={institute}> {institute}</MenuItem>
+              ))} </TextField>
+          </Box>
+
+          {/* 2. Student Name TextField */}
+          <Box sx={{ width: 280, minWidth: 280, maxWidth: 280, flexShrink: 0 }} >
+            <TextField
+              fullWidth
+              size="small"
+              label="Student"
+              placeholder="Enter Student Name"
+              value={studentNameFilter}
+              onChange={(e) => {
+                setStudentNameFilter(e.target.value);
+                setPage(0);
+              }}
+              sx={listSelectFieldSx(Boolean(studentNameFilter))}
+            />
+          </Box>
+
+          {/* 3. Buttons */}
+          <Box
+            sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap', ml: 'auto', }}   >
+            {fromInstitute && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ArrowBackIcon />}
+                onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)
+                }
+                sx={listOutlinedButtonSx}
+              > Back to Institute  </Button>
+            )}
+
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() =>
+                navigate('/students/new', {
+                  state:
+                    location.state?.instituteId ||
+                      location.state?.instituteName
+                      ? {
+                        instituteId: location.state?.instituteId,
+                        instituteName: location.state?.instituteName,
+                        fromInstitute,
+                      }
+                      : undefined,
+                })
+              }
+              sx={listContainedButtonSx}
+            >
+              Add Student
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
 
       <Paper variant="outlined">
         <Tabs

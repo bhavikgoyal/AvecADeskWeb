@@ -360,10 +360,16 @@ const courseInstituteOptions = useMemo(() => {
     filtered = filtered.filter((row) => normalizeInstituteName(row.instituteName) === target);
   }
 
-  if (courseNameFilter) {
-    filtered = filtered.filter((row) => (row.courseName || '').trim() === courseNameFilter);
-  }
+if (courseNameFilter.trim()) {
+  const searchText = courseNameFilter.trim().toLowerCase();
 
+  filtered = filtered.filter((row) =>
+    String(row.courseName || '')
+      .trim()
+      .toLowerCase()
+      .includes(searchText)
+  );
+}
   return filtered;
 }
 
@@ -863,98 +869,61 @@ const handleExportInvoicesPdf = useCallback(async () => {
 
   const headerExtra = (
     <>
-{isCourses && (
-  <Box
-    sx={{
-      display: 'flex',
-      gap: 1.5,
-      alignItems: 'center',
-      flexWrap: 'nowrap',
-    }}
-  >
-    {/* Course Dropdown */}
-    <Box sx={{ width: 260, flexShrink: 0 }}>
-      <TextField
-        select
-        fullWidth
-        size="small"
-        value={courseNameFilter || LIST_FILTER_ALL}
-        onChange={(e) => {
-          const next = e.target.value;
-          setCourseNameFilter(
-            next === LIST_FILTER_ALL ? '' : next
-          );
-        }}
-        SelectProps={{
-          ...listSelectProps('All Courses'),
-          renderValue: (selected) => {
-            if (!selected || selected === LIST_FILTER_ALL) {
-              return 'All Courses';
-            }
-            return selected;
-          },
-        }}
-        sx={listSelectFieldSx(Boolean(courseNameFilter))}
-      >
-        <MenuItem value={LIST_FILTER_ALL}>
-          All Courses
-        </MenuItem>
-
-        {courseNameOptions.map((name) => (
-          <MenuItem key={name} value={name}>
-            {name}
-          </MenuItem>
-        ))}
-      </TextField>
-    </Box>
-
-    {/* Institute Dropdown */}
-    <Box sx={{ width: 280, minWidth: 280,  maxWidth: 280,flexShrink: 0 }}>
-      <TextField
-        select
-        fullWidth
-        size="small"
-        value={instituteFilter || LIST_FILTER_ALL}
-        onChange={(e) => {
-          const next = e.target.value;
-
-          setCourseInstituteFilter(
-            next === LIST_FILTER_ALL ? '' : next
-          );
-        }}
-        SelectProps={{
-          ...listSelectProps('All Institutes'),
-          renderValue: (selected) => {
-            if (!selected || selected === LIST_FILTER_ALL) {
-              return 'All Institutes';
-            }
-            return selected;
-          },
-        }}
-       sx={{
-      ...listSelectFieldSx(Boolean(instituteFilter)),
-      width: '100%',
-      '& .MuiSelect-select': {
-        minWidth: 0,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      },
-    }}
+      {isCourses && (
+        <Box
+          sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'nowrap', }}
+        >
+          {/* 1. Institute Dropdown */}
+          <Box
+            sx={{ width: 280, minWidth: 280, maxWidth: 280, flexShrink: 0, }}
           >
-        <MenuItem value={LIST_FILTER_ALL}>
-          All Institutes
-        </MenuItem>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              value={instituteFilter || LIST_FILTER_ALL}
+              onChange={(e) => {
+                const next = e.target.value;
+                setCourseInstituteFilter(next === LIST_FILTER_ALL ? '' : next);
+                // setCourseNameFilter('');
+              }}
+              SelectProps={{
+                ...listSelectProps('All Institutes'),
+                renderValue: (selected) => {
+                  if (!selected || selected === LIST_FILTER_ALL) {
+                    return 'All Institutes';
+                  }
 
-        {courseInstituteOptions.map((institute) => (
-          <MenuItem key={institute} value={institute}>
-            {institute}
-          </MenuItem>
-        ))}
-      </TextField>
-    </Box>
-  </Box>
-)}
+                  return selected;
+                },
+              }}
+              sx={{
+                ...listSelectFieldSx(Boolean(instituteFilter)),
+                width: '100%',
+                '& .MuiSelect-select': { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', },
+              }}
+            >
+              <MenuItem value={LIST_FILTER_ALL}>  All Institutes  </MenuItem>
+              {courseInstituteOptions.map((institute) => (
+                <MenuItem key={institute} value={institute}> {institute} </MenuItem>
+              ))}
+            </TextField>
+          </Box>
+
+          {/* 2. Course Name TextField */}
+          <Box sx={{ width: 260, flexShrink: 0 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Course Name"
+              placeholder="Enter Course Name"
+              value={courseNameFilter}
+              onChange={(e) => { setCourseNameFilter(e.target.value); }}
+              sx={listSelectFieldSx(Boolean(courseNameFilter))}
+            />
+          </Box>
+        </Box>
+      )}
      {(cameFromInstitute || (isInvoices && invoiceInstituteFilter)) && (
         <Button
           variant="outlined"

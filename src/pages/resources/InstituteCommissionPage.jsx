@@ -480,27 +480,18 @@ export default function InstituteCommissionPage() {
                   ))}
                 </TextField>
 
-                <TextField
-                  select
-                  size="small" value={selectedCourse || LIST_FILTER_ALL}
-                  disabled={!selectedInstitute}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setSelectedCourse(next === LIST_FILTER_ALL ? '' : next);
-                  }}
-                  SelectProps={{
-                    ...listSelectProps('All Courses'),
-                    renderValue: (selected) => {
-                      if (!selected || selected === LIST_FILTER_ALL) return 'All Courses';
-                      return selectedInstituteCourses.find((c) => String(c.courseId) === String(selected))?.courseName || 'All Courses';
-                    },
-                  }}
-                  sx={listSelectFieldSx(Boolean(selectedCourse))}
-                >
-                  <MenuItem value={LIST_FILTER_ALL}>All Courses</MenuItem>
-                  {selectedInstituteCourses
-                    .map((c) => (<MenuItem key={c.courseId} value={c.courseId}> {c.courseName} </MenuItem>))}
-                </TextField>
+               <TextField
+  size="small"
+  fullWidth
+  label="Course Name"
+  placeholder="Enter Course Name"
+  value={selectedCourse || ''}
+  disabled={!selectedInstitute}
+  onChange={(e) => {
+    setSelectedCourse(e.target.value);
+  }}
+  sx={listSelectFieldSx(Boolean(selectedCourse))}
+/>
             </Box>
             <Box sx={listToolbarActionsSx}>
                 <Tooltip title={selectedIds.length === 0 ? 'Select at least one institute' : ''}>
