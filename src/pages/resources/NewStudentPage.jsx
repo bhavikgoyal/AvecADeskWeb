@@ -931,23 +931,7 @@ const totalScheduledAmount = Number(form.courseFee || 0);
           (x) => x.studentPaymentInstallmentId
         );
 
-        try {
-          const studentUpdatePayload = {
-            ...buildStudentPayload(),
-            studentId: form.studentId,
-            assignment: form.assignment ?? form.Assignment ?? null,
-          };
-
-          await updateStudentWithPaymentSchedule(
-            form.studentId,
-            studentUpdatePayload
-          );
-        } catch (err) {
-          console.warn(
-            "Failed updating student core data",
-            err
-          );
-        }
+      
 
         scheduleChanged =
           originalSchedule.noOfInstallment !== totalInstallmentCount ||
@@ -1591,31 +1575,37 @@ const toggleRowPastData = (installmentNo) => {
               >
                 Student Payment List
               </Typography>
-               <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={editPastDataAll}
-                    onChange={(e) => {
-                      setEditPastDataAll(e.target.checked);
-                      if (e.target.checked) setEditPastDataRows(new Set());
-                    }}
-                  />
-                }
-                label="Edit past data (all rows)"
-                sx={{ ml: 3 }}
-              />
+  
               <TableContainer>
                 <Table size="small">
                   <TableHead sx={{ "& .MuiTableCell-root": { fontWeight: 700 } }}>
                     <TableRow>
-                      <TableCell></TableCell>  
+                      
                       <TableCell>Installment</TableCell>
                       <TableCell>Fees</TableCell>
                       <TableCell>Fees Date</TableCell>
-                      <TableCell>Paid Date</TableCell>
+                       <TableCell>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              size="small"
+                              checked={editPastDataAll}
+                              onChange={(e) => {
+                                setEditPastDataAll(e.target.checked);
 
+                                if (e.target.checked) {
+                                  setEditPastDataRows(new Set());
+                                }
+                              }}
+                            />
+                          }
+                          label="Paid"
+                          sx={{ m: 0 }}
+                        />
+                      </TableCell>  
+                      <TableCell>Paid Date</TableCell>
                       <TableCell>Payment Status</TableCell>
+                      
                       <TableCell>Paid Amount</TableCell>
                       <TableCell>Document</TableCell>
                     </TableRow>
@@ -1630,6 +1620,73 @@ const toggleRowPastData = (installmentNo) => {
 
                         return (
                         <TableRow key={item.installmentNo}>
+                          <TableCell>{item.isInitialPayment ? "Initial Payment" : item.installmentNo}</TableCell>
+                         <TableCell>
+                                        {(!item.studentPaymentInstallmentId || item.isInitialPayment) && !isPaidLike(item.status) ? (
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={item.amount}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const newAmount = Number(val || 0);
+                              const oldAmount = Number(item.amount || 0);
+                              const delta = newAmount - oldAmount;
+
+                            
+                              setPaymentList((prev) =>
+                                prev.map((x) =>
+                                  x.installmentNo === item.installmentNo
+                                    ? {
+                                        ...x,
+                                        amount: val,
+                                        balance: (newAmount - Number(x.paidAmount || 0)).toFixed(2),
+                                      }
+                                    : x
+                                )
+                              );
+
+                              
+                              setForm((prev) => {
+                                const next = { ...prev };
+                                next.tuitionFee = (Number(prev.tuitionFee || 0) + delta).toFixed(2);
+                                next.courseFee = (Number(prev.courseFee || 0) + delta).toFixed(2);
+                                next.amountDue = next.courseFee;
+                                calculateAmounts(next); 
+                                return next;
+                              });
+                            }}
+                            inputProps={{ min: 0, step: "0.01" }}
+                            sx={{ width: 110 }}
+                          />
+                          ) : (
+                            item.amount
+                          )}
+                          </TableCell>
+                         <TableCell>
+                            {isEdit && (item.isInitialPayment || isRowPastDataEditable(item.installmentNo)) ? (
+                             <DateTextField
+  size="small"
+  sx={{ width: 125 }}
+  value={item.dueDate}
+  onChangeValue={(value) => {
+    setPaymentList((prev) =>
+      prev.map((x) =>
+        x.installmentNo === item.installmentNo ? { ...x, dueDate: value } : x
+      )
+    );
+  }}
+  slotProps={{
+    htmlInput: {
+      name: `dueDate-${item.installmentNo}`,
+      autoComplete: "off",
+    },
+  }}
+/>
+                            ) : (
+                              formatDateCell(item.dueDate)
+                            )}
+                          </TableCell>
                           <TableCell>
                             <Checkbox 
                               size="small"
@@ -1638,71 +1695,31 @@ const toggleRowPastData = (installmentNo) => {
                               onChange={() => toggleRowPastData(item.installmentNo)}
                             />
                           </TableCell>
-                          <TableCell>{item.isInitialPayment ? "Initial Payment" : item.installmentNo}</TableCell>
-                         <TableCell>
-                                        {(!item.studentPaymentInstallmentId || item.isInitialPayment) && !isPaidLike(item.status) ? (
-                            <TextField
-                              size="small"
-                              type="number"
-                              value={item.amount}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setPaymentList((prev) =>
-                                  prev.map((x) =>
-                                    x.installmentNo === item.installmentNo
-                                      ? {
-                                          ...x,
-                                          amount: val,
-                                          balance: (Number(val || 0) - Number(x.paidAmount || 0)).toFixed(2),
-                                        }
-                                      : x
-                                  )
-                                );
-                              }}
-                              inputProps={{ min: 0, step: "0.01" }}
-                              sx={{ width: 110 }}
-                            />
-                          ) : (
-                            item.amount
-                          )}
-                          </TableCell>
-                         <TableCell>
-                            {isEdit && (item.isInitialPayment || isRowPastDataEditable(item.installmentNo)) ? (
-                              <DateTextField
-                                size="small"
-                                sx={{ width: 125 }}
-                                value={item.dueDate}
-                                onChangeValue={(value) => {
-                                  setPaymentList((prev) =>
-                                    prev.map((x) =>
-                                      x.installmentNo === item.installmentNo ? { ...x, dueDate: value } : x
-                                    )
-                                  );
-                                }}
-                              />
-                            ) : (
-                              formatDateCell(item.dueDate)
-                            )}
-                          </TableCell>
                           <TableCell>
                             {isEdit && (item.isInitialPayment || isPaidLike(item.status) || item.status === "Partial" || isRowPastDataEditable(item.installmentNo)) ? (
-                              <DateTextField
-                                size="small"
-                                sx={{ width: 125 }}
-                                value={item.paidDate || new Date().toISOString().slice(0, 10)}
-                                onChangeValue={(value) => {
-                                  setPaymentList((prev) =>
-                                    prev.map((x) =>
-                                      x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x
-                                    )
-                                  );
-                                  setCommissionHistory((prev) =>
-                                    prev.map((x) =>
-                                      x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x
-                                    )
-                                  );
-                                }}
-                              />
+                             <DateTextField
+  size="small"
+  sx={{ width: 125 }}
+  value={item.paidDate || new Date().toISOString().slice(0, 10)}
+  onChangeValue={(value) => {
+    setPaymentList((prev) =>
+      prev.map((x) =>
+        x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x
+      )
+    );
+    setCommissionHistory((prev) =>
+      prev.map((x) =>
+        x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x
+      )
+    );
+  }}
+  slotProps={{
+    htmlInput: {
+      name: `paidDate-${item.installmentNo}`,
+      autoComplete: "off",
+    },
+  }}
+/>
                             ) : (
                               formatDateCell(item.paidDate)
                             )}

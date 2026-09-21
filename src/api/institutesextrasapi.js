@@ -1,6 +1,8 @@
 import axiosClient from './axiosClient';
+
 function normalizeContact(raw) {
   return {
+    id: raw.id ?? raw.Id,
     instituteId: raw.instituteId ?? raw.InstituteId,
     contactName: raw.contactName ?? raw.ContactName ?? '',
     designation: raw.designation ?? raw.Designation ?? '',
@@ -24,13 +26,8 @@ export function getEmptyContactForm() {
   };
 }
 
-export async function fetchInstituteContact(instituteId) {
-  const { data } = await axiosClient.get(`/api/institutes/${instituteId}/contact`);
-  return normalizeContact(data);
-}
-
-export async function updateInstituteContact(instituteId, form) {
-  const { data } = await axiosClient.post(`/api/institutes/${instituteId}/contact`, {
+function toContactRequestBody(form) {
+  return {
     contactName: form.contactName?.trim() || null,
     designation: form.designation?.trim() || null,
     email: form.email?.trim() || null,
@@ -38,9 +35,36 @@ export async function updateInstituteContact(instituteId, form) {
     alternatePhone: form.alternatePhone?.trim() || null,
     address: form.address?.trim() || null,
     notes: form.notes?.trim() || null,
-  });
+  };
+}
+
+export async function fetchInstituteContacts(instituteId) {
+  const { data } = await axiosClient.get(`/api/institutes/${instituteId}/contacts`);
+  return (data ?? []).map(normalizeContact);
+}
+
+export async function createInstituteContact(instituteId, form) {
+  const { data } = await axiosClient.post(
+    `/api/institutes/${instituteId}/contacts`,
+    toContactRequestBody(form),
+  );
   return normalizeContact(data);
 }
+
+export async function updateInstituteContact(instituteId, contactId, form) {
+  const { data } = await axiosClient.put(
+    `/api/institutes/${instituteId}/contacts/${contactId}`,
+    toContactRequestBody(form),
+  );
+  return normalizeContact(data);
+}
+
+export async function deleteInstituteContact(instituteId, contactId) {
+  await axiosClient.delete(`/api/institutes/${instituteId}/contacts/${contactId}`);
+}
+
+
+
 
 function normalizeContract(raw) {
   return {
