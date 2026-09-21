@@ -180,6 +180,10 @@ export async function createStudentWithPaymentSchedule(form) {
   tuitionFee: form.tuitionFee !== '' && form.tuitionFee != null ? Number(form.tuitionFee) : null,             
   oshcFee: form.oshcFee !== '' && form.oshcFee != null ? Number(form.oshcFee) : null,    
     assignment: form.assignment ?? form.Assignment ?? null,
+    leadNo: form.leadNo?.trim() || null,
+  coeVoe: form.coeVoe || null,
+  serviceType: form.serviceTypeStudent || null,
+  agent: form.agent || null,
   });
   return normalizeStudent(student);
 }
@@ -260,7 +264,11 @@ export async function updateStudentWithPaymentSchedule(studentId, form) {
     enrollmentNumber: form.enrollmentNumber?.trim() || null,
     isActive: existing.isActive,
     assignment: form.assignment ?? form.Assignment ?? existing.assignment ?? existing.Assignment ?? null,
-      enrollmentFee: form.enrollmentFee !== '' && form.enrollmentFee != null ? Number(form.enrollmentFee) : null,   
+    leadNo: form.leadNo?.trim() || null,
+  coeVoe: form.coeVoe || null,
+  serviceType: form.serviceTypeStudent || null,
+  agent: form.agent || null,
+   enrollmentFee: form.enrollmentFee !== '' && form.enrollmentFee != null ? Number(form.enrollmentFee) : null,   
   materialFee: form.materialFee !== '' && form.materialFee != null ? Number(form.materialFee) : null,          
   tuitionFee: form.tuitionFee !== '' && form.tuitionFee != null ? Number(form.tuitionFee) : null,               
   oshcFee: form.oshcFee !== '' && form.oshcFee != null ? Number(form.oshcFee) : null,  
@@ -376,7 +384,10 @@ export async function fetchStudentPaymentDetail(studentId) {
     courseId: data.courseId ?? data.CourseId,
     courseName: data.courseName ?? data.CourseName,
     campus: data.campus ?? data.Campus,
-
+    leadNo: data.leadNo ?? data.LeadNo ?? '',
+    coeVoe: data.coeVoe ?? data.CoeVoe ?? data.CoEVoE ?? '',
+    serviceType: data.serviceType ?? data.ServiceType ?? '',
+    agent: data.agent ?? data.Agent ?? '',
     fullName: data.fullName ?? data.FullName,
     email: data.email ?? data.Email,
     phone: data.phone ?? data.Phone,
