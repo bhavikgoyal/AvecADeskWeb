@@ -6,7 +6,7 @@ function pick(data, camel, pascal) {
 }
 
 function listToCsv(list) {
-  if (!Array.isArray(list) || list.length === 0) return '';
+  if (!Array.isArray(list) || list.length === 0) return ''; 
   return list.join(', ');
 }
 
