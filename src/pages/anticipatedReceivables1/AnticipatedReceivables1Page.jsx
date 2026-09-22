@@ -19,6 +19,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import { fetchAnticipatedReceivablesMatrix } from '../../api/anticipatedReceivablesApi';
 import { fetchInstitutesForReceivables, fetchStudentsLookup } from '../../api/lookupApi';
+import { CollegeReceivablesDetailView } from './CollegeReceivablesDetailPage';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -34,8 +35,8 @@ const COLORS = {
   stickyBg: '#ffffff',
 };
 
-const TAB_STATUS = ['anticipated', 'overdue', 'paid'];
-const TAB_NAMES = ['anticipated', 'overdue', 'received'];
+const TAB_BUCKET = [null, 'overdue', 'paid']; // All | Overdue | Received
+const TAB_NAMES = ['all', 'overdue', 'received'];
 
 function fmtMoney(amount) {
   if (amount == null) return '—';
@@ -84,7 +85,7 @@ function StatCard({ label, amount, count, color }) {
   );
 }
 
-function cellStyles(status) {
+function cellStyles(status, { colorize = true } = {}) {
   const base = {
     border: `1px solid ${COLORS.border}`,
     px: 0.75,
@@ -95,6 +96,11 @@ function cellStyles(status) {
     fontVariantNumeric: 'tabular-nums',
     minWidth: 84,
   };
+
+  // ALL tab: plain cells, no status colors
+  if (!colorize || !status) {
+    return { ...base, bgcolor: '#fff', color: status ? '#222' : '#999', fontWeight: status ? 600 : 400 };
+  }
 
   if (status === 'paid') {
     return { ...base, bgcolor: COLORS.paidBg, color: '#006100', fontWeight: 600 };
@@ -108,9 +114,22 @@ function cellStyles(status) {
   return { ...base, bgcolor: '#fff', color: '#999' };
 }
 
-function filterMatrixByStatus(matrix, statusFilter) {
+function cellBucketAmount(cell, bucket) {
+  if (!cell) return 0;
+  if (bucket === 'overdue') return Number(cell.overdue) || 0;
+  if (bucket === 'paid') return Number(cell.paid) || 0;
+  // ALL: received + overdue + generated invoices (anticipated)
+  return (Number(cell.paid) || 0) + (Number(cell.overdue) || 0) + (Number(cell.anticipated) || 0);
+}
+
+/**
+ * Build a view of the matrix for a tab.
+ * - All: paid + overdue + anticipated, no color
+ * - Overdue: only overdue bucket amounts
+ * - Received: only paid bucket amounts
+ */
+function filterMatrixByBucket(matrix, bucket) {
   if (!matrix) return null;
-  if (!statusFilter) return matrix;
 
   const colleges = [];
   const totals = {};
@@ -120,10 +139,20 @@ function filterMatrixByStatus(matrix, statusFilter) {
     const cells = {};
     let hasAny = false;
     for (const m of matrix.months) {
-      const cell = college.cells?.[m.key];
-      if (!cell || cell.status !== statusFilter || !cell.amount) continue;
-      cells[m.key] = cell;
-      totals[m.key] += Number(cell.amount) || 0;
+      const src = college.cells?.[m.key];
+      const amount = cellBucketAmount(src, bucket);
+      if (!amount) continue;
+
+      const status = bucket || src.status;
+      cells[m.key] = {
+        ...src,
+        amount,
+        status,
+        paid: bucket === 'paid' ? amount : (Number(src.paid) || 0),
+        overdue: bucket === 'overdue' ? amount : (Number(src.overdue) || 0),
+        anticipated: bucket ? 0 : (Number(src.anticipated) || 0),
+      };
+      totals[m.key] += amount;
       hasAny = true;
     }
     if (hasAny) colleges.push({ ...college, cells });
@@ -134,6 +163,7 @@ function filterMatrixByStatus(matrix, statusFilter) {
 
 function summarizeMatrix(matrix) {
   const summary = {
+    all: { amount: 0, count: 0 },
     anticipated: { amount: 0, count: 0 },
     overdue: { amount: 0, count: 0 },
     paid: { amount: 0, count: 0 },
@@ -142,12 +172,27 @@ function summarizeMatrix(matrix) {
 
   for (const college of matrix.colleges) {
     for (const cell of Object.values(college.cells || {})) {
-      const status = cell?.status;
-      if (!status || !summary[status]) continue;
-      const amount = Number(cell.amount) || 0;
-      if (!amount) continue;
-      summary[status].amount += amount;
-      summary[status].count += 1;
+      const paid = Number(cell.paid) || 0;
+      const overdue = Number(cell.overdue) || 0;
+      const anticipated = Number(cell.anticipated) || 0;
+      const total = paid + overdue + anticipated;
+      if (!total) continue;
+
+      summary.all.amount += total;
+      summary.all.count += 1;
+
+      if (paid > 0) {
+        summary.paid.amount += paid;
+        summary.paid.count += 1;
+      }
+      if (overdue > 0) {
+        summary.overdue.amount += overdue;
+        summary.overdue.count += 1;
+      }
+      if (anticipated > 0) {
+        summary.anticipated.amount += anticipated;
+        summary.anticipated.count += 1;
+      }
     }
   }
   return summary;
@@ -215,7 +260,7 @@ function exportPdf(rows, headers, filename, title) {
   doc.save(filename);
 }
 
-function MonthGrid({ matrix, loading }) {
+function MonthGrid({ matrix, loading, colorize = true, onCollegeClick }) {
   const tableScrollRef = useRef(null);
 
   useEffect(() => {
@@ -342,9 +387,33 @@ function MonthGrid({ matrix, loading }) {
                       fontWeight: 600,
                       textTransform: 'uppercase',
                       whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                      color: 'var(--primary, #1976d2)',
+                      textDecoration: 'underline',
+                      userSelect: 'none',
+                      '&:hover': { bgcolor: 'var(--primary-soft, #e3f2fd)' },
                     }}
                   >
-                    {college.collegeName}
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onCollegeClick?.(college);
+                      }}
+                      sx={{
+                        all: 'unset',
+                        cursor: 'pointer',
+                        display: 'inline',
+                        color: 'inherit',
+                        font: 'inherit',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {college.collegeName}
+                    </Box>
                   </Box>
                   {matrix.months.map((m) => {
                     const cell = college.cells?.[m.key];
@@ -353,7 +422,7 @@ function MonthGrid({ matrix, loading }) {
                       <Box
                         component="td"
                         key={`${college.collegeName}-${m.key}`}
-                        sx={cellStyles(display ? cell?.status : null)}
+                        sx={cellStyles(display ? cell?.status : null, { colorize })}
                       >
                         {display || '—'}
                       </Box>
@@ -416,6 +485,7 @@ function MonthGrid({ matrix, loading }) {
 
 export default function AnticipatedReceivables1Page() {
   const [tab, setTab] = useState(0);
+  const [selectedCollege, setSelectedCollege] = useState(null);
   const [institutes, setInstitutes] = useState([]);
   const [students, setStudents] = useState([]);
   const [filters, setFilters] = useState({
@@ -469,9 +539,7 @@ export default function AnticipatedReceivables1Page() {
   const summary = useMemo(() => summarizeMatrix(matrix), [matrix]);
 
   const viewMatrix = useMemo(() => {
-    // Anticipated tab = full Excel estimate (all statuses, colored)
-    if (tab === 0) return matrix;
-    return filterMatrixByStatus(matrix, TAB_STATUS[tab]);
+    return filterMatrixByBucket(matrix, TAB_BUCKET[tab]);
   }, [matrix, tab]);
 
   const handleFilterChange = (field) => (e) =>
@@ -494,6 +562,30 @@ export default function AnticipatedReceivables1Page() {
   };
 
   const hasRows = (viewMatrix?.colleges || []).length > 0;
+
+  const handleCollegeClick = useCallback(
+    (college) => {
+      if (!college?.collegeName) return;
+      const institute = institutes.find(
+        (i) => String(i.instituteName || '').trim().toLowerCase() === String(college.collegeName).trim().toLowerCase(),
+      );
+      setSelectedCollege({
+        collegeName: college.collegeName,
+        instituteId: institute?.instituteId ?? college.instituteId ?? null,
+      });
+    },
+    [institutes],
+  );
+
+  if (selectedCollege?.collegeName) {
+    return (
+      <CollegeReceivablesDetailView
+        collegeName={selectedCollege.collegeName}
+        instituteId={selectedCollege.instituteId}
+        onBack={() => setSelectedCollege(null)}
+      />
+    );
+  }
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -672,7 +764,7 @@ export default function AnticipatedReceivables1Page() {
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 All
-                <Chip label={summary.anticipated.count} size="small" sx={{ height: 18, fontSize: 11 }} />
+                <Chip label={summary.all.count} size="small" sx={{ height: 18, fontSize: 11 }} />
               </Box>
             }
           />
@@ -705,7 +797,12 @@ export default function AnticipatedReceivables1Page() {
         </Tabs>
 
         <Box sx={{ p: 2 }}>
-          <MonthGrid matrix={viewMatrix} loading={loading} />
+          <MonthGrid
+            matrix={viewMatrix}
+            loading={loading}
+            colorize={tab !== 0}
+            onCollegeClick={handleCollegeClick}
+          />
         </Box>
       </Box>
     </Box>

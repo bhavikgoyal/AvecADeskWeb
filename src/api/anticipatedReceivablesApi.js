@@ -165,18 +165,24 @@ function resolveRawStatus(row) {
 
 function resolveCellStatus(row, todayStart) {
   const raw = resolveRawStatus(row);
-  // Paid / settled / confirmed must never be remapped to anticipated/overdue
+  // Paid / settled / confirmed always stays Received
   if (raw === 'paid') return 'paid';
-  if (raw === 'overdue') return 'overdue';
 
   const due = resolveDueDate(row);
+  // Month already passed + unpaid → Overdue
   if (due && due < todayStart) return 'overdue';
+  // Present / future unpaid invoice → not overdue yet (show as pending invoice)
   return 'anticipated';
 }
 
 /**
  * Pivot flat installment / receivable rows into college × month matrix.
- * Amounts are bucketed by status so Paid stays green (Received).
+ *
+ * Flow:
+ * - Paid → Received bucket
+ * - Unpaid + due date in past → Overdue
+ * - Unpaid + due date today/future → Anticipated (generated invoice, not overdue yet)
+ * Future months are never marked overdue.
  */
 export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivablesMonthRange()) {
   const todayStart = new Date();
@@ -213,18 +219,24 @@ export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivables
     .map((college) => {
       const cells = {};
       for (const [key, buckets] of Object.entries(college.cells)) {
-        const paid = Number(buckets.paid) || 0;
-        const overdue = Number(buckets.overdue) || 0;
-        const anticipated = Number(buckets.anticipated) || 0;
+        const monthMeta = range.months.find((m) => m.key === key);
+        let paid = Number(buckets.paid) || 0;
+        let overdue = Number(buckets.overdue) || 0;
+        let anticipated = Number(buckets.anticipated) || 0;
+
+        // Future months cannot be overdue — move any overdue amount into anticipated
+        if (monthMeta?.isFuture && overdue > 0) {
+          anticipated += overdue;
+          overdue = 0;
+        }
+
         const amount = paid + overdue + anticipated;
         if (!amount) continue;
 
-        // Color rule: unpaid first; otherwise Paid/Received (green)
         let status = 'paid';
         if (overdue > 0) status = 'overdue';
         else if (anticipated > 0 && paid === 0) status = 'anticipated';
         else if (anticipated > 0 && paid > 0) {
-          // Mixed month: show dominant bucket; prefer paid when paid >= anticipated
           status = paid >= anticipated ? 'paid' : 'anticipated';
         } else {
           status = 'paid';
@@ -252,6 +264,73 @@ export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivables
   };
 }
 
+/** Ensure API-built matrix cells have paid/overdue/anticipated buckets + correct future rules. */
+export function normalizeReceivablesMatrix(matrix) {
+  if (!matrix?.months || !Array.isArray(matrix.colleges)) return matrix;
+
+  const currentKey = monthKey(new Date());
+  const months = (matrix.months || []).map((m) => {
+    if (typeof m.isFuture === 'boolean') return m;
+    return {
+      ...m,
+      isCurrent: m.key === currentKey,
+      isFuture: m.key > currentKey,
+    };
+  });
+
+  const colleges = matrix.colleges.map((college) => {
+    const cells = {};
+    for (const [key, rawCell] of Object.entries(college.cells || {})) {
+      const monthMeta = months.find((m) => m.key === key);
+      let paid = Number(rawCell?.paid);
+      let overdue = Number(rawCell?.overdue);
+      let anticipated = Number(rawCell?.anticipated);
+      const hasBuckets = Number.isFinite(paid) || Number.isFinite(overdue) || Number.isFinite(anticipated);
+
+      if (!hasBuckets) {
+        const amount = Number(rawCell?.amount) || 0;
+        const status = rawCell?.status;
+        paid = status === 'paid' ? amount : 0;
+        overdue = status === 'overdue' ? amount : 0;
+        anticipated = status === 'anticipated' ? amount : 0;
+        if (!paid && !overdue && !anticipated && amount) {
+          // Unknown status — treat by month timing
+          if (monthMeta?.isFuture) anticipated = amount;
+          else overdue = amount;
+        }
+      } else {
+        paid = Number.isFinite(paid) ? paid : 0;
+        overdue = Number.isFinite(overdue) ? overdue : 0;
+        anticipated = Number.isFinite(anticipated) ? anticipated : 0;
+      }
+
+      if (monthMeta?.isFuture && overdue > 0) {
+        anticipated += overdue;
+        overdue = 0;
+      }
+
+      const amount = paid + overdue + anticipated;
+      if (!amount) continue;
+
+      let status = 'paid';
+      if (overdue > 0) status = 'overdue';
+      else if (anticipated > 0 && paid === 0) status = 'anticipated';
+      else if (anticipated > 0 && paid > 0) status = paid >= anticipated ? 'paid' : 'anticipated';
+      else status = 'paid';
+
+      cells[key] = { amount, status, paid, overdue, anticipated };
+    }
+    return { ...college, cells };
+  }).filter((c) => Object.keys(c.cells).length > 0);
+
+  const totals = {};
+  for (const m of months) {
+    totals[m.key] = colleges.reduce((sum, c) => sum + (Number(c.cells[m.key]?.amount) || 0), 0);
+  }
+
+  return { ...matrix, months, colleges, totals };
+}
+
 /**
  * New Anticipated Receivables API — 24-month college grid.
  * Calls GET /api/receivables/anticipated-receivables (sp_GetAnticipatedReceivablesGrid).
@@ -269,14 +348,14 @@ export async function fetchAnticipatedReceivablesMatrix(filters = {}) {
   });
 
   if (data?.months && Array.isArray(data?.colleges)) {
-    return {
+    return normalizeReceivablesMatrix({
       title: data.title || `Estimated ${range.titleYears}`,
       months: data.months,
       fromDate: data.fromDate || range.fromDate,
       toDate: data.toDate || range.toDate,
       colleges: data.colleges,
       totals: data.totals || {},
-    };
+    });
   }
 
   return buildAnticipatedReceivablesMatrix(data, range);

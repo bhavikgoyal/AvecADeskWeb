@@ -45,6 +45,7 @@ const InstituteScrappingEditPage = lazy(() => import('../pages/resources/Institu
 const WorkHistoryPage = lazy(() => import('../components/workHistory/WorkHistoryPage'));
 const WorkHistoryDetailPage = lazy(() => import('../components/workHistory/ViewActivityHistoryPage'));
 const AnticipatedReceivables1Page = lazy(() => import('../pages/anticipatedReceivables1/AnticipatedReceivables1Page'));
+const CollegeReceivablesDetailPage = lazy(() => import('../pages/anticipatedReceivables1/CollegeReceivablesDetailPage'));
 const ManageAccountPage = lazy(() => import('../pages/account/ManageAccountPage'));
 const PaymentSchedulesPage = lazy(() => import('../pages/resources/PaymentSchedulesPage'));
 const StudentApplicationDetailsPage = lazy(() => import('../pages/resources/StudentApplicationDetails'));
@@ -313,6 +314,14 @@ export default function AppRoutes() {
             element={
               <RequireRole path="/reports/receivables">
                 <AnticipatedReceivables1Page />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="reports/receivables/college/:collegeName"
+            element={
+              <RequireRole path="/reports/receivables">
+                <CollegeReceivablesDetailPage />
               </RequireRole>
             }
           />
