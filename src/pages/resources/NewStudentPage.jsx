@@ -58,6 +58,48 @@ const getGroupRoot = (list, groupNo) =>
 const hasSplitChild = (list, installmentNo) =>
   list.some((row) => row.parentInstallmentNo === installmentNo);
 
+
+const resyncSplitChain = (rows, startInstallmentNo) => {
+  let result = [...rows];
+  let currentParentNo = startInstallmentNo;
+
+  while (true) {
+    const parent = result.find((x) => x.installmentNo === currentParentNo);
+    if (!parent) break;
+
+    const childIndex = result.findIndex(
+      (x) => x.parentInstallmentNo === currentParentNo
+    );
+    if (childIndex === -1) break;
+
+    const child = result[childIndex];
+
+    const isLocked = child.studentPaymentInstallmentId && isPaidLike(child.status);
+    if (isLocked) break;
+
+    const remaining = Number(parent.amount || 0) - Number(parent.paidAmount || 0);
+
+    if (remaining <= EPSILON) {
+      if (!child.studentPaymentInstallmentId) {
+        result.splice(childIndex, 1);
+        break;
+      }
+      result[childIndex] = { ...child, amount: "0.00", balance: "0.00" };
+      break;
+    }
+
+    result[childIndex] = {
+      ...child,
+      amount: remaining.toFixed(2),
+      balance: (remaining - Number(child.paidAmount || 0)).toFixed(2),
+    };
+
+    currentParentNo = child.installmentNo;
+  }
+
+  return result;
+};
+
 const getEffectivePaidAmount = (list, row) => {
   if (isPaidLike(row.status)) {
     return hasSplitChild(list, row.installmentNo)
@@ -67,6 +109,13 @@ const getEffectivePaidAmount = (list, row) => {
   if (row.status === "Partial") return Number(row.paidAmount || 0);
   return 0;
 };
+const isRowLocked = (item, paymentList) => {
+  // Add your group-lock or confirmation check logic here based on your app architecture
+  const groupNo = getGroupNo(item);
+  return isGroupFullyCovered(paymentList, groupNo) && !isPaidLike(item.status);
+};
+
+
 const isGroupFullyCovered = (list, groupNo) => {
   const root = getGroupRoot(list, groupNo);
   if (!root) return false;
@@ -107,14 +156,30 @@ const deriveParentGroupNo = (rowById, item) => {
     return Number(item.installmentNo ?? item.InstallmentNo ?? 0);
   }
 
-  const parent = rowById.get(parentId);
+  const parent = rowById.get(String(parentId));
   if (!parent) {
     return Number(item.installmentNo ?? item.InstallmentNo ?? 0);
   }
 
   return deriveParentGroupNo(rowById, parent);
 };
+const getLockedDescendantAmount = (list, installmentNo) => {
+  let total = 0;
+  let currentParentNo = installmentNo;
 
+  while (true) {
+    const child = list.find((x) => x.parentInstallmentNo === currentParentNo);
+    if (!child) break;
+
+    const isLocked = child.studentPaymentInstallmentId && isPaidLike(child.status);
+    if (!isLocked) break; // unlocked/pending child ko resync karna sahi hai
+
+    total += Number(child.amount || 0);
+    currentParentNo = child.installmentNo;
+  }
+
+  return total;
+};
 const hydratePaymentList = (rows) => {
   const rawRows = (rows || [])
     .map((item) => ({
@@ -127,11 +192,16 @@ const hydratePaymentList = (rows) => {
   const compareByApiInstallmentNo = (left, right) =>
     Number(left.apiInstallmentNo) - Number(right.apiInstallmentNo);
 
+  // const rowById = new Map(
+  //   rawRows
+  //     .filter((item) => item.studentPaymentInstallmentId != null)
+  //     .map((item) => [item.studentPaymentInstallmentId, item])
+  // );
   const rowById = new Map(
-    rawRows
-      .filter((item) => item.studentPaymentInstallmentId != null)
-      .map((item) => [item.studentPaymentInstallmentId, item])
-  );
+  rawRows
+    .filter((item) => item.studentPaymentInstallmentId != null)
+    .map((item) => [String(item.studentPaymentInstallmentId), item])
+);
   const childrenByParentId = new Map();
 
   for (const item of rawRows) {
@@ -372,6 +442,19 @@ useEffect(() => {
     () => getCampusesForInstitute(institutes, form.instituteId),
     [institutes, form.instituteId],
   );
+const computeCourseEndDateFromWeeks = (startDateStr, weeks) => {
+  const start = parseIsoDate(startDateStr);
+  const numWeeks = Number(weeks);
+  if (!start || !numWeeks) return "";
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + numWeeks * 7);
+
+  const y = end.getFullYear();
+  const m = String(end.getMonth() + 1).padStart(2, "0");
+  const d = String(end.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
 
   // Only resolve after campus is chosen so courses match that institute+campus row.
   const resolvedScrappingId = useMemo(() => {
@@ -485,11 +568,15 @@ useEffect(() => {
         const apiInstallmentMap = new Map(
           list.map((x) => [Number(x.apiInstallmentNo), x.installmentNo])
         );
-        const initialRow = list.find((x) => x.installmentNo === 0);
-        setForm((prev) => ({
-          ...prev,
-          initialPayment: initialRow ? initialRow.amount : "",
-        }));
+   const initialRow = list.find((x) => x.installmentNo === 0);
+        setForm((prev) => {
+          const next = {
+            ...prev,
+            initialPayment: initialRow ? initialRow.amount : "",
+          };
+          calculateAmounts(next);
+          return next;
+        });
         const history = (data.commissionHistory || []).map((x) => ({
           ...x,
           installmentNo: apiInstallmentMap.get(Number(x.installmentNo)) ?? x.installmentNo,
@@ -724,10 +811,9 @@ const updateField = (field, value) => {
       setPaymentList([]);
     }
 
-    if (field === "bonus" || field === "bonusType" || field === "bonusOption") {
-      next[field] = value;
-      setBonusApplied(false);
-    }
+   if (field === "bonus") {
+  setBonusApplied(false);
+}
 
     // Course Changed
     if (!isEdit && field === "courseId") {
@@ -773,12 +859,22 @@ const updateField = (field, value) => {
       next.courseStartDate = value;
     }
 
-    if (field === "startDate" || field === "courseStartDate" || field === "courseId") {
-      const selectedCourseForDuration = courses.find(
-        (c) => String(c.courseId) === String(next.courseId)
-      );
-      next.courseEndDate = computeCourseEndDate(next.courseStartDate, selectedCourseForDuration?.duration);
-    }
+   if (field === "startDate" || field === "courseStartDate" || field === "courseId") {
+  if (next.courseDurationWeeks) {
+    // Weeks field manually edit ho chuka ho sakta hai — usi ko source of truth maano
+    next.courseEndDate = computeCourseEndDateFromWeeks(next.courseStartDate, next.courseDurationWeeks);
+  } else {
+    const selectedCourseForDuration = courses.find(
+      (c) => String(c.courseId) === String(next.courseId)
+    );
+    next.courseEndDate = computeCourseEndDate(next.courseStartDate, selectedCourseForDuration?.duration);
+  }
+}
+
+// Naya block — courseDurationWeeks khud edit hone par end date turant sync ho
+if (field === "courseDurationWeeks") {
+  next.courseEndDate = computeCourseEndDateFromWeeks(next.courseStartDate, value);
+}
 
     // Commission Calculation
     if (
@@ -820,7 +916,10 @@ const commissionRows = useMemo(() => {
   const tuitionFee = Number(form.tuitionFee || 0);
 
   return paymentList.map((item) => {
-  const fees = getEffectivePaidAmount(paymentList, item);
+  // const fees = getEffectivePaidAmount(paymentList, item);
+  const fees = (isPaidLike(item.status) || item.status === "Partial")
+  ? getEffectivePaidAmount(paymentList, item)
+  : Number(item.amount || 0);
     const tuitionShare = totalFee > 0 && tuitionFee > 0 ? (fees * tuitionFee) / totalFee : fees;
 
     const rawCommission = (tuitionShare * Number(form.commissionPercentage || 0)) / 100;
@@ -926,6 +1025,8 @@ const totalScheduledAmount = Number(form.courseFee || 0);
           scheduleId,
           commissionPercentage: Number(form.commissionPercentage),
           gstPercentage: Number(form.gstPercentage),
+          commissionAmount: Number(form.commissionAmount || 0),
+          gstAmount: Number(form.gstAmount || 0),
           bonus: addBonus ? Number(form.bonus) : 0,
           bonusType: addBonus ? form.bonusType : null,
           bonusOption: addBonus ? form.bonusOption : null,
@@ -1358,6 +1459,41 @@ const [editPastDataRows, setEditPastDataRows] = useState(() => new Set());
 const isRowPastDataEditable = (installmentNo) =>
   editPastDataAll || editPastDataRows.has(installmentNo);
 
+const canEditPaidFields = (item) => {
+  // Bilkul naya row (abhi DB mein save nahi hua) — freely editable.
+  if (!item.studentPaymentInstallmentId) return true;
+
+  // Confirmed by College — hamesha locked, sirf checkbox se edit.
+  if (isConfirmedByCollege(item)) return isRowPastDataEditable(item.installmentNo);
+
+  // Pehle se saved Partial — locked, sirf checkbox se edit.
+  if (isPersistedPartial(item)) return isRowPastDataEditable(item.installmentNo);
+
+  // Newly-set Partial (abhi session mein badla) — ek baar entry allow karo.
+  if (isNewlySetPartial(item)) return true;
+
+  // Pending row — sirf checkbox se editable (past-data correction).
+  return isRowPastDataEditable(item.installmentNo);
+};
+const isNewlySetPartial = (item) =>
+  item.status === "Partial" && item.originalStatus !== "Partial";
+const isPersistedPartial = (item) =>
+  item.status === "Partial" && item.originalStatus === "Partial";
+const isConfirmedByCollege = (item) =>
+  item.status === "ConfirmedByCollege" ||
+  item.originalStatus === "ConfirmedByCollege" ||
+  item.originalStatus === "PaidByCollege";
+
+const isRowLocked = (item) => {
+  const groupNo = getGroupNo(item);
+  const groupComplete = isGroupFullyCovered(paymentList, groupNo);
+  const isLastOfGroup = isLastInGroup(paymentList, groupNo, item);
+  return (
+    isConfirmedByCollege(item) ||
+    (groupComplete && !isLastOfGroup && !isPaidLike(item.status) && !isRowPastDataEditable(item.installmentNo))
+  );
+};
+
 const toggleRowPastData = (installmentNo) => {
   setEditPastDataRows((prev) => {
     const next = new Set(prev);
@@ -1367,16 +1503,17 @@ const toggleRowPastData = (installmentNo) => {
   });
 };
   const canEditStatus = (index) => {
-    const item = paymentList[index];
-    const groupNo = getGroupNo(item);
-    const isRootOfGroup = item.installmentNo === groupNo;
+  const item = paymentList[index];
+  const groupNo = getGroupNo(item);
+  const isRootOfGroup = item.installmentNo === groupNo;
 
-    if (!isRootOfGroup) return true;
+  if (!isRootOfGroup) return true;
 
-    if (index === 0) return true;
+  if (index === 0) return true;
 
-    return isPaidLike(paymentList[index - 1]?.status);
-  };
+  const prevStatus = paymentList[index - 1]?.status;
+  return isPaidLike(prevStatus) || prevStatus === "Partial";
+};
   const canEditCommissionStatus = (installmentNo) => {
     if (installmentNo === 1) return true;
 
@@ -1638,452 +1775,386 @@ const toggleRowPastData = (installmentNo) => {
                   </TableHead>
 
                   <TableBody>
-                    {paymentList.length > 0 ? (
-                      paymentList.map((item, index) => {
-                        const groupNo = getGroupNo(item);
-                        const groupComplete = isGroupFullyCovered(paymentList, groupNo);
-                        const isLastOfGroup = isLastInGroup(paymentList, groupNo, item);
+                {paymentList.length > 0 ? (
+  paymentList.map((item, index) => {
+    const groupNo = getGroupNo(item);
+    const groupComplete = isGroupFullyCovered(paymentList, groupNo);
+    const isLastOfGroup = isLastInGroup(paymentList, groupNo, item);
 
-                        return (
-                        <TableRow key={item.installmentNo}>
-                          <TableCell>{item.isInitialPayment ? "Initial Payment" : item.installmentNo}</TableCell>
-                         <TableCell>
-                                        {(!item.studentPaymentInstallmentId || item.isInitialPayment) && !isPaidLike(item.status) ? (
-                          <TextField
-                            size="small"
-                            type="number"
-                            value={item.amount}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const newAmount = Number(val || 0);
-                              const oldAmount = Number(item.amount || 0);
-                              const delta = newAmount - oldAmount;
+    return (
+      <TableRow key={item.installmentNo}>
+        {/* 1. Installment */}
+        <TableCell>{item.isInitialPayment ? "Initial Payment" : item.installmentNo}</TableCell>
 
-                            
-                              setPaymentList((prev) =>
-                                prev.map((x) =>
-                                  x.installmentNo === item.installmentNo
-                                    ? {
-                                        ...x,
-                                        amount: val,
-                                        balance: (newAmount - Number(x.paidAmount || 0)).toFixed(2),
-                                      }
-                                    : x
-                                )
-                              );
+        {/* 2. Fees */}
+        <TableCell>
+          {(!item.studentPaymentInstallmentId || item.isInitialPayment) && !isPaidLike(item.status) ? (
+            <TextField
+              size="small"
+              type="number"
+              value={item.amount}
+              onChange={(e) => {
+                const val = e.target.value;
+                const newAmount = Number(val || 0);
+                const oldAmount = Number(item.amount || 0);
+                const delta = newAmount - oldAmount;
 
-                              
-                              setForm((prev) => {
-                                const next = { ...prev };
-                                next.tuitionFee = (Number(prev.tuitionFee || 0) + delta).toFixed(2);
-                                next.courseFee = (Number(prev.courseFee || 0) + delta).toFixed(2);
-                                next.amountDue = next.courseFee;
-                                calculateAmounts(next); 
-                                return next;
-                              });
-                            }}
-                            inputProps={{ min: 0, step: "0.01" }}
-                            sx={{ width: 110 }}
-                          />
-                          ) : (
-                            item.amount
-                          )}
-                          </TableCell>
-                         <TableCell>
-  {(!isEdit || item.isInitialPayment || isRowPastDataEditable(item.installmentNo)) ? (
-    <DateTextField
+                setPaymentList((prev) =>
+                  prev.map((x) =>
+                    x.installmentNo === item.installmentNo
+                      ? {
+                          ...x,
+                          amount: val,
+                          balance: (newAmount - Number(x.paidAmount || 0)).toFixed(2),
+                        }
+                      : x
+                  )
+                );
+
+                setForm((prev) => {
+                  const next = { ...prev };
+                  next.tuitionFee = (Number(prev.tuitionFee || 0) + delta).toFixed(2);
+                  next.courseFee = (Number(prev.courseFee || 0) + delta).toFixed(2);
+                  next.amountDue = next.courseFee;
+                  calculateAmounts(next);
+                  return next;
+                });
+              }}
+              inputProps={{ min: 0, step: "0.01" }}
+              sx={{ width: 110 }}
+            />
+          ) : (
+            item.amount
+          )}
+        </TableCell>
+
+        {/* 3. Fees Date */}
+        <TableCell>{formatDateCell(item.dueDate)}</TableCell>
+
+        {/* 4. Paid Checkbox - Sirf Pending status hone par enable rahega */}
+        <TableCell>
+          <Checkbox
+            size="small"
+            checked={isRowPastDataEditable(item.installmentNo)}
+            disabled={editPastDataAll || item.status !== "Pending"}
+            onChange={() => toggleRowPastData(item.installmentNo)}
+          />
+        </TableCell>
+
+        {/* 5. Paid Date - Status Pending hone par hi edit hoga, warna lock / plain text rahega */}
+        <TableCell>
+          {canEditPaidFields(item) ? (
+            <TextField
+              size="small"
+              type="date"
+              value={item.paidDate || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPaymentList((prev) =>
+                  prev.map((x) =>
+                    x.installmentNo === item.installmentNo ? { ...x, paidDate: val } : x
+                  )
+                );
+              }}
+              sx={{ width: 140 }}
+            />
+          ) : (
+            formatDateCell(item.paidDate) || "-"
+          )}
+        </TableCell>
+
+        {/* 6. Payment Status */}
+        <TableCell>
+          {isEdit ? (
+            <Select
+              size="small"
+              value={item.status}
+              disabled={
+                (item.originalStatus && item.originalStatus !== "Pending" && !isRowPastDataEditable(item.installmentNo)) ||
+    item.originalStatus === "ConfirmedByCollege" ||
+    item.originalStatus === "PaidByCollege" ||
+    (isPersistedPartial(item) && !isRowPastDataEditable(item.installmentNo)) || 
+    (groupComplete && !isLastOfGroup && !isPaidLike(item.status) && item.status !== "Partial" && !isRowPastDataEditable(item.installmentNo))
+  }
+              onChange={async (e) => {
+                const value = e.target.value;
+                if (value === "ConfirmedByStudent") {
+                  try {
+                    await confirmInstallmentByStudent(
+                      item.studentPaymentInstallmentId
+                    );
+                    setPaymentList((prev) =>
+                      prev.map((x) => {
+                        if (x.installmentNo !== item.installmentNo) return x;
+
+                        const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
+                          ? (x.paidAmount || "0.00")
+                          : x.amount;
+
+                        return {
+                          ...x,
+                          status: "ConfirmedByStudent",
+                          paidAmount: paidLikeAmount,
+                          balance: "0.00",
+                          paidDate: x.paidDate || new Date().toISOString().slice(0, 10),
+                        };
+                      })
+                    );
+
+                    setConfirmTargetInstallment(item);
+                    setConfirmDialogOpen(true);
+                  } catch (err) {
+                    console.error("Failed to confirm installment by student:", err);
+                  }
+                  return;
+                }
+
+                setPaymentList((prev) => {
+                  let updated = prev.map((x) => {
+                    if (x.installmentNo === item.installmentNo) {
+                      const isPaid = isPaidLike(value);
+                      const isPartial = value === "Partial";
+
+                      const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
+                        ? (x.paidAmount || "0.00")
+                        : x.amount;
+
+                      return {
+                        ...x,
+                        status: value,
+                        paidAmount: isPaid ? paidLikeAmount : (isPartial ? (x.paidAmount || "0.00") : "0.00"),
+                        balance: isPaid ? "0.00" : (isPartial ? x.balance : x.amount),
+                        paidDate: (isPaid || isPartial) ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
+                      };
+                    }
+                    return x;
+                  });
+
+                  if (value === "Partial") {
+                    const alreadySplit = updated.some(
+                      (x) => x.parentInstallmentNo === item.installmentNo
+                    );
+
+                    if (!alreadySplit) {
+                      const currentItem = updated.find(
+                        (x) => x.installmentNo === item.installmentNo
+                      );
+                      const remainingAmountNum = Number(
+                        currentItem?.balance ?? currentItem?.amount ?? 0
+                      );
+
+                      if (remainingAmountNum > EPSILON) {
+                        const remainingAmount = remainingAmountNum.toFixed(2);
+                        const rootNo = item.parentGroupNo ?? item.installmentNo;
+                        const childCount = updated.filter(
+                          (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
+                        ).length;
+                        const newInstallmentNo = Number(
+                          (rootNo + (childCount + 1) / 10).toFixed(2)
+                        );
+
+                        const remainingRow = {
+                          installmentNo: newInstallmentNo,
+                          parentInstallmentNo: item.installmentNo,
+                          parentGroupNo: rootNo,
+                          feeType: item.feeType,
+                          dueDate: item.dueDate,
+                          amount: remainingAmount,
+                          paidAmount: "0.00",
+                          balance: remainingAmount,
+                          status: "Pending",
+                        };
+
+                        const insertIndex =
+                          updated.findIndex(
+                            (x) => x.installmentNo === item.installmentNo
+                          ) + 1;
+
+                        updated = [
+                          ...updated.slice(0, insertIndex),
+                          remainingRow,
+                          ...updated.slice(insertIndex),
+                        ];
+                      }
+                    }
+                  } else {
+                    const existingChild = updated.find(
+                      (x) => x.parentInstallmentNo === item.installmentNo && !x.studentPaymentInstallmentId
+                    );
+
+                    if (existingChild) {
+                      updated = updated.filter((x) => x !== existingChild);
+                      updated = updated.map((x) =>
+                        x.installmentNo === item.installmentNo
+                          ? { ...x, balance: isPaidLike(value) ? "0.00" : x.amount }
+                          : x
+                      );
+                    }
+                  }
+
+                  return updated;
+                });
+
+                setCommissionHistory((prev) =>
+                  prev.map((x) => {
+                    if (x.installmentNo === item.installmentNo) {
+                      return {
+                        ...x,
+                        paymentStatus: value,
+                      };
+                    }
+                    if (value === "Pending" && x.installmentNo > item.installmentNo) {
+                      return {
+                        ...x,
+                        paymentStatus: "Pending",
+                      };
+                    }
+                    return x;
+                  })
+                );
+              }}
+              MenuProps={{ container: typeof document !== 'undefined' ? document.body : undefined }}
+              sx={{
+                width: 150,
+                height: 40,
+                "& .MuiSelect-select": {
+                  minWidth: "70px",
+                  padding: "8px 32px 8px 12px",
+                },
+              }}
+            >
+              <MenuItem value="Pending">Pending</MenuItem>
+              {!item.isInitialPayment && (
+                <MenuItem value="Partial" disabled={!canEditStatus(index)}>
+                  Partial
+                </MenuItem>
+              )}
+              <MenuItem
+                value="ConfirmedByCollege"
+                disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
+              >
+                Confirmed by College
+              </MenuItem>
+              <MenuItem
+                value="ConfirmedByStudent"
+                disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
+              >
+                Confirmed by Student
+              </MenuItem>
+            </Select>
+          ) : (
+            item.status
+          )}
+        </TableCell>
+
+        {/* 7. Paid Amount - Status Pending hone par hi edit hoga, warna lock / plain text rahega */}
+       <TableCell>
+{canEditPaidFields(item) ? (
+    <TextField
       size="small"
-      sx={{ width: 125 }}
-      value={item.dueDate}
-      onChangeValue={(value) => {
-        setPaymentList((prev) =>
-          prev.map((x) =>
-            x.installmentNo === item.installmentNo ? { ...x, dueDate: value } : x
-          )
-        );
+      type="number"
+      value={item.paidAmount ?? "0"}
+      onChange={(e) => {
+        const rawVal = e.target.value;
+        const lockedAmount = getLockedDescendantAmount(paymentList, item.installmentNo);
+        const maxAmount = Number(item.amount || 0) - lockedAmount;
+
+        let numVal = Number(rawVal || 0);
+        if (Number.isNaN(numVal)) numVal = 0;
+        if (numVal > maxAmount) numVal = maxAmount;
+        if (numVal < 0) numVal = 0;
+
+        const val = rawVal === "" ? "" : String(numVal);
+
+        setPaymentList((prev) => {
+          let updatedRows = prev.map((x) => {
+            if (x.installmentNo === item.installmentNo) {
+              const newBalance = (Number(x.amount) - Number(val || 0)).toFixed(2);
+              return { ...x, paidAmount: val, balance: newBalance };
+            }
+            return x;
+          });
+
+          updatedRows = resyncSplitChain(updatedRows, item.installmentNo);
+
+          const hasChild = updatedRows.some(
+            (x) => x.parentInstallmentNo === item.installmentNo
+          );
+          const newRemaining = Number(item.amount) - Number(val || 0);
+
+       if (!hasChild && item.status === "Partial" && newRemaining > EPSILON) {
+  const rootNo = item.parentGroupNo ?? item.installmentNo;
+  const childCount = updatedRows.filter(
+    (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
+  ).length;
+  const newInstallmentNo = Number(
+    (rootNo + (childCount + 1) / 10).toFixed(2)
+  );
+
+  const remainingRow = {
+    installmentNo: newInstallmentNo,
+    parentInstallmentNo: item.installmentNo,
+    parentGroupNo: rootNo,
+    feeType: item.feeType,
+    dueDate: item.dueDate,
+    amount: newRemaining.toFixed(2),
+    paidAmount: "0.00",
+    balance: newRemaining.toFixed(2),
+    status: "Pending",
+  };
+
+  const insertIndex =
+    updatedRows.findIndex(
+      (x) => x.installmentNo === item.installmentNo
+    ) + 1;
+
+  updatedRows = [
+    ...updatedRows.slice(0, insertIndex),
+    remainingRow,
+    ...updatedRows.slice(insertIndex),
+  ];
+}
+
+          return updatedRows;
+        });
       }}
-      slotProps={{ htmlInput: { name: `dueDate-${item.installmentNo}`, autoComplete: "off" } }}
+      inputProps={{
+        min: 0,
+        max: Number(item.amount || 0) - getLockedDescendantAmount(paymentList, item.installmentNo),
+        step: "0.01",
+      }}
+      sx={{ width: 120 }}
     />
   ) : (
-    formatDateCell(item.dueDate)
+    Number(getEffectivePaidAmount(paymentList, item)).toFixed(2)
   )}
 </TableCell>
-                          <TableCell>
-                            <Checkbox 
-                              size="small"
-                              checked={isRowPastDataEditable(item.installmentNo)}
-                              disabled={editPastDataAll}
-                              onChange={() => toggleRowPastData(item.installmentNo)}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {isEdit && (item.isInitialPayment || isPaidLike(item.status) || item.status === "Partial" || isRowPastDataEditable(item.installmentNo)) ? (
-                             <DateTextField
-  size="small"
-  sx={{ width: 125 }}
-  value={item.paidDate || new Date().toISOString().slice(0, 10)}
-  onChangeValue={(value) => {
-    setPaymentList((prev) =>
-      prev.map((x) =>
-        x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x
-      )
+
+        {/* 8. Document */}
+        <TableCell>
+          {item.documentUrl ? (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => window.open(item.documentUrl, "_blank")}
+              sx={{ textTransform: "none" }}
+            >
+              View
+            </Button>
+          ) : (
+            "-"
+          )}
+        </TableCell>
+      </TableRow>
     );
-    setCommissionHistory((prev) =>
-      prev.map((x) =>
-        x.installmentNo === item.installmentNo ? { ...x, paidDate: value } : x
-      )
-    );
-  }}
-  slotProps={{
-    htmlInput: {
-      name: `paidDate-${item.installmentNo}`,
-      autoComplete: "off",
-    },
-  }}
-/>
-                            ) : (
-                              formatDateCell(item.paidDate)
-                            )}
-                          </TableCell>
-
-                          <TableCell>
-                            {isEdit ? (
-                              <Select
-                                size="small"
-                                value={item.status}
-                                disabled={
-                                  item.originalStatus === "ConfirmedByCollege" ||
-                                  item.originalStatus === "PaidByCollege" ||
-
-                                  (groupComplete && !isLastOfGroup && !isPaidLike(item.status) && !isRowPastDataEditable(item.installmentNo))
-                                }
-                                onChange={async (e) => {
-                                  const value = e.target.value;
-                                      if (value === "ConfirmedByStudent") {
-                                      try {
-                                        await confirmInstallmentByStudent(
-                                          item.studentPaymentInstallmentId
-                                        );
-                                        setPaymentList((prev) =>
-                                          prev.map((x) => {
-                                            if (x.installmentNo !== item.installmentNo) return x;
-
-                                            const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
-                                              ? (x.paidAmount || "0.00")
-                                              : x.amount;
-
-                                            return {
-                                              ...x,
-                                              status: "ConfirmedByStudent",
-                                              paidAmount: paidLikeAmount,
-                                              balance: "0.00",
-                                              paidDate: x.paidDate || new Date().toISOString().slice(0, 10),
-                                            };
-                                          })
-                                        );
-
-                                        setConfirmTargetInstallment(item);
-                                        setConfirmDialogOpen(true);
-                                      } catch (err) {
-                                        console.error(
-                                          "Failed to confirm installment by student:",
-                                          err
-                                        );
-                                      }
-
-                                      return;
-                                    }
-
-                                  setPaymentList((prev) => {
-                                    let updated = prev.map((x) => {
-                                      if (x.installmentNo === item.installmentNo) {
-                                        const isPaid = isPaidLike(value);
-                                        const isPartial = value === "Partial";
-
-                                        const paidLikeAmount = hasSplitChild(prev, x.installmentNo)
-                                          ? (x.paidAmount || "0.00")
-                                          : x.amount;
-
-                                        return {
-                                          ...x,
-                                          status: value,
-                                          paidAmount: isPaid ? paidLikeAmount : (isPartial ? (x.paidAmount || "0.00") : "0.00"),
-                                          balance: isPaid ? "0.00" : (isPartial ? x.balance : x.amount),
-                                          paidDate: (isPaid || isPartial) ? (x.paidDate || new Date().toISOString().slice(0, 10)) : null,
-                                        };
-                                      }
-
-                                      return x;
-                                    });
-
-
-                              if (value === "Partial") {
-                                      const alreadySplit = updated.some(
-                                        (x) => x.parentInstallmentNo === item.installmentNo
-                                      );
-
-                                      if (!alreadySplit) {
-
-                                        const currentItem = updated.find(
-                                          (x) => x.installmentNo === item.installmentNo
-                                        );
-                                        const remainingAmountNum = Number(
-                                          currentItem?.balance ?? currentItem?.amount ?? 0
-                                        );
-
-                                        if (remainingAmountNum > EPSILON) {
-                                          const remainingAmount = remainingAmountNum.toFixed(2);
-
-                                          const rootNo = item.parentGroupNo ?? item.installmentNo;
-                                          const childCount = updated.filter(
-                                            (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
-                                          ).length;
-                                          const newInstallmentNo = Number(
-                                            (rootNo + (childCount + 1) / 10).toFixed(2)
-                                          );
-
-                                          const remainingRow = {
-                                            installmentNo: newInstallmentNo,
-                                            parentInstallmentNo: item.installmentNo,
-                                            parentGroupNo: rootNo,
-                                            feeType: item.feeType,
-                                            dueDate: item.dueDate,
-                                            amount: remainingAmount,
-                                            paidAmount: "0.00",
-                                            balance: remainingAmount,
-                                            status: "Pending",
-                                          };
-
-                                          const insertIndex =
-                                            updated.findIndex(
-                                              (x) => x.installmentNo === item.installmentNo
-                                            ) + 1;
-
-                                          updated = [
-                                            ...updated.slice(0, insertIndex),
-                                            remainingRow,
-                                            ...updated.slice(insertIndex),
-                                          ];
-                                        }
-                                      }
-                                    }else {
-    const existingChild = updated.find(
-      (x) => x.parentInstallmentNo === item.installmentNo && !x.studentPaymentInstallmentId
-    );
-
-    if (existingChild) {
-      updated = updated.filter((x) => x !== existingChild);
-
-      updated = updated.map((x) =>
-        x.installmentNo === item.installmentNo
-          ? { ...x, balance: isPaidLike(value) ? "0.00" : x.amount }
-          : x
-      );
-    }
-  }
-
-                                    return updated;
-                                  });
-
-                                  setCommissionHistory((prev) =>
-                                    prev.map((x) => {
-                                      if (x.installmentNo === item.installmentNo) {
-                                        return {
-                                          ...x,
-                                          paymentStatus: value,
-                                        };
-                                      }
-
-                                      if (
-                                        value === "Pending" &&
-                                        x.installmentNo > item.installmentNo
-                                      ) {
-                                        return {
-                                          ...x,
-                                          paymentStatus: "Pending",
-                                        };
-                                      }
-
-                                      return x;
-                                    })
-                                  );
-                                }}
-                                MenuProps={{ container: typeof document !== 'undefined' ? document.body : undefined }}
-                                sx={{
-                                  width: 150,
-                                  height: 40,
-                                  "& .MuiSelect-select": {
-                                    minWidth: "70px",
-                                    padding: "8px 32px 8px 12px",
-                                  },
-                                }}
-                              >
-                                <MenuItem value="Pending">Pending</MenuItem>
-
-                                {!item.isInitialPayment && (
-                                <MenuItem value="Partial" disabled={!canEditStatus(index)}>
-                                  Partial
-                                </MenuItem>
-                              )}
-
-                                <MenuItem
-                                  value="ConfirmedByCollege"
-                                  disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
-                                >
-                                  Confirmed by College
-                                </MenuItem>
-
-                                <MenuItem
-                                  value="ConfirmedByStudent"
-                                  disabled={!(canEditStatus(index) || (groupComplete && isLastOfGroup))}
-                                >
-                                  Confirmed by Student
-                                </MenuItem>
-                              </Select>
-                            ) : (
-                              item.status
-                            )}
-                          </TableCell>
-
-                          <TableCell>
-                            {isEdit && (item.status === "Partial" || isRowPastDataEditable(item.installmentNo)) && !(groupComplete && !isLastOfGroup && !isRowPastDataEditable(item.installmentNo)) ? (
-                             <TextField
-                              size="small"
-                              type="number"
-                              value={item.paidAmount ?? "0"}
-                              onChange={(e) => {
-                                const rawVal = e.target.value;
-                                const maxAmount = Number(item.amount || 0);
-
-                                let numVal = Number(rawVal || 0);
-                                if (Number.isNaN(numVal)) numVal = 0;
-                                if (numVal > maxAmount) numVal = maxAmount;
-                                if (numVal < 0) numVal = 0;
-
-                                const val = rawVal === "" ? "" : String(numVal);
-
-                                setPaymentList((prev) => {
-                                  let updatedRows = prev.map((x) => {
-                                    if (x.installmentNo === item.installmentNo) {
-                                      const newBalance = (
-                                        Number(x.amount) - Number(val || 0)
-                                      ).toFixed(2);
-
-                                      return {
-                                        ...x,
-                                        paidAmount: val,
-                                        balance: newBalance,
-                                      };
-                                    }
-
-                                    return x;
-                                  });
-
-                                  const childIndex = updatedRows.findIndex(
-                                    (x) => x.parentInstallmentNo === item.installmentNo
-                                  );
-
-                                  const newRemaining = Number(item.amount) - Number(val || 0);
-
-                                  if (childIndex !== -1) {
-                                    // Existing child row hai — usko update ya remove karo (jaisa pehle tha).
-                                    const child = updatedRows[childIndex];
-
-                                    if (newRemaining <= EPSILON) {
-                                      if (!child.studentPaymentInstallmentId) {
-                                        updatedRows.splice(childIndex, 1);
-                                      } else {
-                                        updatedRows[childIndex] = {
-                                          ...child,
-                                          amount: "0.00",
-                                          balance: "0.00",
-                                        };
-                                      }
-                                    } else {
-                                      updatedRows[childIndex] = {
-                                        ...child,
-                                        amount: newRemaining.toFixed(2),
-                                        balance: newRemaining.toFixed(2),
-                                      };
-                                    }
-                                  } else if (newRemaining > EPSILON) {
-                                    // Koi child row maujood nahi (pehle delete ho chuki thi kyunki
-                                    // fully paid tha), lekin ab dobara balance bach gaya hai —
-                                    // isliye naya split/child row banao, warna ye remaining
-                                    // amount kahin track hi nahi hoga.
-                                    const rootNo = item.parentGroupNo ?? item.installmentNo;
-                                    const childCount = updatedRows.filter(
-                                      (x) => x.parentGroupNo === rootNo && x.installmentNo !== item.installmentNo
-                                    ).length;
-                                    const newInstallmentNo = Number(
-                                      (rootNo + (childCount + 1) / 10).toFixed(2)
-                                    );
-
-                                    const remainingRow = {
-                                      installmentNo: newInstallmentNo,
-                                      parentInstallmentNo: item.installmentNo,
-                                      parentGroupNo: rootNo,
-                                      feeType: item.feeType,
-                                      dueDate: item.dueDate,
-                                      amount: newRemaining.toFixed(2),
-                                      paidAmount: "0.00",
-                                      balance: newRemaining.toFixed(2),
-                                      status: "Pending",
-                                    };
-
-                                    const insertIndex =
-                                      updatedRows.findIndex(
-                                        (x) => x.installmentNo === item.installmentNo
-                                      ) + 1;
-
-                                    updatedRows = [
-                                      ...updatedRows.slice(0, insertIndex),
-                                      remainingRow,
-                                      ...updatedRows.slice(insertIndex),
-                                    ];
-                                  }
-
-                                  return updatedRows;
-                                });
-                              }}
-                              inputProps={{
-                                min: 0,
-                                max: Number(item.amount),
-                                step: "0.01",
-                              }}
-                              sx={{ width: 120 }}
-                            />
-                            ) : (
-                              Number(getEffectivePaidAmount(paymentList, item)).toFixed(2)
-                            )}
-                          </TableCell>
-                          <TableCell>
-                          {item.documentUrl ? (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() =>
-                                window.open(item.documentUrl, "_blank")
-                              }
-                              sx={{ textTransform: "none" }}
-                            >
-                              View
-                            </Button>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                        </TableRow>
-                        );
-                      })
-                    ) : (
-                      
-                      <TableRow>
-                        <TableCell colSpan={7} align="center">
-                          No Payment Schedule
-                        </TableCell>
-                      </TableRow>
-                    )}
+  })
+) : (
+  <TableRow>
+    <TableCell colSpan={8} align="center">
+      No Payment Schedule
+    </TableCell>
+  </TableRow>
+)}
                   </TableBody>
                 </Table>
               </TableContainer>
