@@ -49,6 +49,7 @@ export default function AddInvoiceDialog({
   const [selectedIds, setSelectedIds] = useState([]);
   const [editedFees, setEditedFees] = useState({});
   const [editedInvoiceAmts, setEditedInvoiceAmts] = useState({});
+  const [editedBonuses, setEditedBonuses] = useState({});
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -85,6 +86,7 @@ export default function AddInvoiceDialog({
     setEditedInvoiceAmts({});
     setError('');
     setGenerating(false);
+    setEditedBonuses({});
   }, []);
 
   useEffect(() => {
@@ -145,12 +147,15 @@ export default function AddInvoiceDialog({
         setSelectedIds([]);
         const feesSeed = {};
         const invoiceSeed = {};
+        const bonusSeed = {};
         rows.forEach((row) => {
           feesSeed[row.id] = String(row.feesAmountRaw ?? 0);
           invoiceSeed[row.id] = String(row.invoiceAmountRaw ?? 0);
+          bonusSeed[row.id] = String(row.bonusAmountRaw ?? 0);
         });
         setEditedFees(feesSeed);
         setEditedInvoiceAmts(invoiceSeed);
+        setEditedBonuses(bonusSeed);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -209,21 +214,24 @@ export default function AddInvoiceDialog({
     () => paidStudents.filter((s) => selectedIds.includes(s.id)).length,
     [paidStudents, selectedIds],
   );
-const totalInvoiceAmount = useMemo(
-  () =>
-    students.reduce(
-      (total, row) =>
-        total + Number(editedInvoiceAmts[row.id] || 0),
-      0
-    ),
-  [students, editedInvoiceAmts]
-);
+const totalInvoiceAmount = useMemo(() => {
+  const rowsToTotal =
+    selectedIds.length > 0
+      ? students.filter((row) => selectedIds.includes(row.id))
+      : students;
+
+  return rowsToTotal.reduce(
+    (total, row) =>
+      total + Number(editedInvoiceAmts[row.id] || 0),
+    0
+  );
+}, [students, selectedIds, editedInvoiceAmts]);
   const allPaidSelected =
     paidStudents.length > 0 && selectedPaidCount === paidStudents.length;
   const somePaidSelected = selectedPaidCount > 0 && !allPaidSelected;
 
   const toggleRow = (row) => {
-    if (!isPaidRow(row)) return;
+   // if (!isPaidRow(row)) return;
     setSelectedIds((prev) =>
       prev.includes(row.id)
         ? prev.filter((id) => id !== row.id)
@@ -253,7 +261,14 @@ const totalInvoiceAmount = useMemo(
     if (!isValidAmountInput(value)) return;
     setEditedInvoiceAmts((prev) => ({ ...prev, [rowId]: value }));
   };
+const handleBonusChange = (rowId, value) => {
+  if (!isValidAmountInput(value)) return;
 
+  setEditedBonuses((prev) => ({
+    ...prev,
+    [rowId]: value,
+  }));
+};
   const canGenerate = Boolean(resolvedInstituteId && campus) && selectedPaidCount > 0;
 
   const handleClose = () => {
@@ -350,15 +365,52 @@ const totalInvoiceAmount = useMemo(
               size="small"
               checked={selectedIds.includes(row.id)}
               onChange={() => toggleRow(row)}
-              disabled={!isPaidRow(row) || generating}
+              disabled={generating}
             />
           </span>
         </Tooltip>
       ),
     },
     { id: 'fullName', label: 'Student', field: 'fullName' },
-    { id: 'courseName', label: 'Course', field: 'courseName' },
-    { id: 'installmentNo', label: 'Installment', field: 'installmentNo' },
+ {
+  id: 'courseName',
+  label: 'Course',
+  field: 'courseName',
+  render: (row) => (
+    <Typography
+      variant="body2"
+      sx={{
+        display: 'block',
+        width: 150,
+        maxWidth: 150,
+        whiteSpace: 'normal',
+        overflowWrap: 'break-word',
+        wordBreak: 'normal',
+        lineHeight: 1.4,
+      }}
+    >
+      {row.courseName || '-'}
+    </Typography>
+  ),
+},
+    {
+  id: 'installmentNo',
+  label: 'Installment',
+  field: 'installmentNo',
+  render: (row) => (
+    <Typography
+      variant="body2"
+      sx={{
+        display: 'block',
+        minWidth: 70,
+        textAlign: 'center',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {row.installmentNo}
+    </Typography>
+  ),
+},
     { id: 'feesAmount', label: 'Fees',  field: 'feesAmount', render: (row) => row.feesAmount,},
     {
       id: 'invoiceAmount',
@@ -368,19 +420,63 @@ const totalInvoiceAmount = useMemo(
         const checked = selectedIds.includes(row.id);
         if (checked && isPaidRow(row)) {
           return (
-            <TextField
-              size="small"
-              value={editedInvoiceAmts[row.id] ?? ''}
-              onChange={(e) => handleInvoiceAmtChange(row.id, e.target.value)}
-              disabled={generating}
-              inputProps={{ inputMode: 'decimal', style: { textAlign: 'right' } }}
-              sx={{ width: 120 }}
-            />
+           <TextField
+  size="small"
+  value={editedInvoiceAmts[row.id] ?? ''}
+  onChange={(e) =>
+    handleInvoiceAmtChange(row.id, e.target.value)
+  }
+  disabled={generating}
+  inputProps={{
+    inputMode: 'decimal',
+    style: { textAlign: 'center' },
+  }}
+  sx={{
+    width: 120,
+    '& .MuiOutlinedInput-root': {
+      borderRadius: '4px',
+    },
+  }}
+/>
           );
         }
         return row.invoiceAmount;
       },
     },
+    {
+  id: 'bonus',
+  label: 'Bonus',
+  field: 'bonus',
+  render: (row) => {
+    const checked = selectedIds.includes(row.id);
+
+    if (checked) {
+      return (
+        <TextField
+  size="small"
+  value={editedBonuses[row.id] ?? ''}
+  onChange={(e) =>
+    handleBonusChange(row.id, e.target.value)
+  }
+  disabled={generating}
+  inputProps={{
+    inputMode: 'decimal',
+    style: { textAlign: 'center' },
+  }}
+  sx={{
+    width: 110,
+    ml: 1,
+    '& .MuiOutlinedInput-root': {
+      borderRadius: '4px',
+    },
+  }}
+/>
+      );
+    }
+
+    return row.bonusAmount ?? '-';
+  },
+},
     { id: 'paymentStatus', label: 'Status', field: 'paymentStatus' },
   ];
 

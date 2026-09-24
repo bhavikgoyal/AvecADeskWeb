@@ -43,6 +43,7 @@ export function mapInvoiceRow(item) {
 export function mapPaidStudentRow(item) {
   const feesRaw = Number(item.feesAmount ?? item.FeesAmount ?? 0);
   const invoiceRaw = Number(item.invoiceAmount ?? item.InvoiceAmount ?? 0);
+  const bonusRaw = Number(item.bonusAmount ?? item.BonusAmount ?? 0);
   return {
     id: String(item.studentPaymentInstallmentId ?? item.StudentPaymentInstallmentId ?? item.studentId),
     studentId: item.studentId ?? item.StudentId,
@@ -58,6 +59,8 @@ export function mapPaidStudentRow(item) {
     feesAmountRaw: Number.isFinite(feesRaw) ? feesRaw : 0,
     invoiceAmount: formatCurrency(invoiceRaw),
     invoiceAmountRaw: Number.isFinite(invoiceRaw) ? invoiceRaw : 0,
+    bonusAmount: formatCurrency(bonusRaw),
+    bonusAmountRaw: Number.isFinite(bonusRaw) ? bonusRaw: 0,
     paymentStatus: item.paymentStatus ?? item.PaymentStatus ?? '',
   };
 }
