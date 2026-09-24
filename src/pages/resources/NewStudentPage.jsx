@@ -747,8 +747,8 @@ const calculateAmounts = (next) => {
         feeType: null,
         dueDate: formatDate(startDate),
         amount: initialPayment.toFixed(2),
-        paidAmount: "0.00",
-        balance: initialPayment.toFixed(2),
+        paidAmount: initialPayment.toFixed(2), 
+       balance: "0.00",   
         status: "Pending",
         isInitialPayment: true,
       });
@@ -762,6 +762,14 @@ const calculateAmounts = (next) => {
     else if (data.frequency === "Quarterly") regularStartDate.setMonth(regularStartDate.getMonth() + 3);
   }
 
+let allocatedSoFar = 0;
+const totalRegularAmount = isEdit
+  ? (remainingFee - paidRegularInstallments.reduce((sum, x) => sum + Number(x.paidAmount || x.amount || 0), 0))
+  : remainingFee;
+const regularCount = isEdit ? (count - paidRegularInstallments.length) : count;
+let regularIndex = 0;
+
+
   for (let i = 0; i < count; i++) {
     const paidRow = paidRegularInstallments.find((x) => x.installmentNo === i + 1);
     if (paidRow) {
@@ -773,13 +781,23 @@ const calculateAmounts = (next) => {
     if (data.frequency === "Monthly") dueDate.setMonth(regularStartDate.getMonth() + i);
     else if (data.frequency === "Quarterly") dueDate.setMonth(regularStartDate.getMonth() + i * 3);
 
+ regularIndex++;
+  const isLastRegular = regularIndex === regularCount;
+
+const thisAmount = isLastRegular
+    ? (totalRegularAmount - allocatedSoFar)
+    : installmentAmount;
+
+  allocatedSoFar += Number(thisAmount.toFixed(2));
+
+
     list.push({
       installmentNo: i + 1,
       feeType: null,
       dueDate: formatDate(dueDate),
-      amount: installmentAmount.toFixed(2),
+      amount: thisAmount.toFixed(2),
       paidAmount: "0.00",
-      balance: installmentAmount.toFixed(2),
+      balance: thisAmount.toFixed(2), 
       status: "Pending",
     });
   }
@@ -1460,19 +1478,18 @@ const isRowPastDataEditable = (installmentNo) =>
   editPastDataAll || editPastDataRows.has(installmentNo);
 
 const canEditPaidFields = (item) => {
-  // Bilkul naya row (abhi DB mein save nahi hua) — freely editable.
+  
   if (!item.studentPaymentInstallmentId) return true;
 
-  // Confirmed by College — hamesha locked, sirf checkbox se edit.
+  
   if (isConfirmedByCollege(item)) return isRowPastDataEditable(item.installmentNo);
 
-  // Pehle se saved Partial — locked, sirf checkbox se edit.
   if (isPersistedPartial(item)) return isRowPastDataEditable(item.installmentNo);
 
-  // Newly-set Partial (abhi session mein badla) — ek baar entry allow karo.
+ 
   if (isNewlySetPartial(item)) return true;
 
-  // Pending row — sirf checkbox se editable (past-data correction).
+  
   return isRowPastDataEditable(item.installmentNo);
 };
 const isNewlySetPartial = (item) =>
@@ -1841,7 +1858,7 @@ const toggleRowPastData = (installmentNo) => {
           />
         </TableCell>
 
-        {/* 5. Paid Date - Status Pending hone par hi edit hoga, warna lock / plain text rahega */}
+        {/* 5. Paid Date - Status Pending editable otherwise lock */}
         <TableCell>
           {canEditPaidFields(item) ? (
             <TextField
@@ -2049,7 +2066,7 @@ const toggleRowPastData = (installmentNo) => {
 
         {/* 7. Paid Amount - Status Pending hone par hi edit hoga, warna lock / plain text rahega */}
        <TableCell>
-{canEditPaidFields(item) ? (
+{(!item.isInitialPayment && canEditPaidFields(item)) ? (
     <TextField
       size="small"
       type="number"
