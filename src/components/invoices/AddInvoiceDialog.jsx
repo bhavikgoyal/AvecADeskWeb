@@ -1,46 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  MenuItem,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import {  Alert,  Box,  Button,  Checkbox,  CircularProgress,  Dialog,  DialogActions,  DialogContent,  DialogTitle,  MenuItem,
+  Stack,  TextField,  Tooltip,  Typography,} from '@mui/material';
 import ResponsiveTable from '../ResponsiveTable';
-import {
-  fetchUniqueInstituteNames,
-  getCampusesForInstitute,
-  getUniqueInstituteNames,
-  resolveScrappingId,
-} from '../../api/institutesScrappingApi';
-import {
-  fetchPaidStudentsForInvoice,
-  generateMonthlyInvoice,
-  fetchSettledPaymentStatuses,
-  updateInstallmentFeesAndInvoiceAmounts,
+import { fetchUniqueInstituteNames, getCampusesForInstitute, getUniqueInstituteNames, resolveScrappingId, } from '../../api/institutesScrappingApi';
+import { fetchPaidStudentsForInvoice, generateMonthlyInvoice, fetchSettledPaymentStatuses, updateInstallmentFeesAndInvoiceAmounts, insertBonusInstallments,
 } from '../../api/invoicesApi';
 
 function isValidAmountInput(value) {
   return value === '' || /^\d*\.?\d{0,2}$/.test(value);
 }
 
-export default function AddInvoiceDialog({
-  open,
-  onClose,
-  onGenerated,
-  initialInstituteName = '',
-  initialCampus = '',
-  lockInstitute = false,
-}) {
+export default function AddInvoiceDialog({ open,onClose, onGenerated, initialInstituteName = '',
+  initialCampus = '',  lockInstitute = false,}) {
   const now = useMemo(() => new Date(), []);
   const [institutes, setInstitutes] = useState([]);
   const [instituteName, setInstituteName] = useState('');
@@ -62,15 +33,28 @@ export default function AddInvoiceDialog({
     'confirmedbystudent',
   ]);
 
-  const uniqueInstituteNames = useMemo(
-    () => getUniqueInstituteNames(institutes),
-    [institutes],
-  );
+  const getDisplayInstallmentNo = (row, rows) => {
+    if (!row.isBonus) {
+      return row.installmentNo;
+    }
+
+    const sameInstallmentBonusRows = rows.filter(
+      (x) =>
+        x.isBonus &&
+        x.studentPaymentInstallmentId === row.studentPaymentInstallmentId
+    );
+
+    const bonusIndex =
+      sameInstallmentBonusRows.findIndex(
+        (x) => x.commissionDetailId === row.commissionDetailId
+      ) + 1;
+      return `${row.installmentNo}.1.${bonusIndex}`;
+    };
+   const uniqueInstituteNames = useMemo(
+    () => getUniqueInstituteNames(institutes),[institutes],);
 
   const campuses = useMemo(
-    () => getCampusesForInstitute(institutes, instituteName),
-    [institutes, instituteName],
-  );
+    () => getCampusesForInstitute(institutes, instituteName), [institutes, instituteName],);
 
   const resolvedInstituteId = useMemo(() => {
     if (!instituteName || !campus) return '';
@@ -104,12 +88,8 @@ export default function AddInvoiceDialog({
         setError(err.message || 'Failed to load institutes.');
         setInstitutes([]);
       })
-      .finally(() => {
-        if (!cancelled) setLoadingInstitutes(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .finally(() => { if (!cancelled) setLoadingInstitutes(false); });
+    return () => { cancelled = true; };
   }, [open]);
 
   useEffect(() => {
@@ -178,11 +158,9 @@ export default function AddInvoiceDialog({
     if (!open) return;
 
     let cancelled = false;
-
     fetchSettledPaymentStatuses()
       .then((list) => {
         if (cancelled) return;
-
         if (Array.isArray(list) && list.length > 0) {
           setPaidStatuses(
             list.map((status) => String(status).trim().toLowerCase()),
@@ -190,12 +168,9 @@ export default function AddInvoiceDialog({
         }
       })
       .catch(() => {
-        // Keep fallback statuses
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => {cancelled = true;};
   }, [open]);
 
   const isPaidRow = useCallback(
@@ -214,28 +189,34 @@ export default function AddInvoiceDialog({
     () => paidStudents.filter((s) => selectedIds.includes(s.id)).length,
     [paidStudents, selectedIds],
   );
-const totalInvoiceAmount = useMemo(() => {
-  const rowsToTotal =
-    selectedIds.length > 0
-      ? students.filter((row) => selectedIds.includes(row.id))
-      : students;
+  const totalInvoiceAmount = useMemo(() => {
 
-  return rowsToTotal.reduce(
-    (total, row) =>
-      total + Number(editedInvoiceAmts[row.id] || 0),
-    0
-  );
-}, [students, selectedIds, editedInvoiceAmts]);
-  const allPaidSelected =
-    paidStudents.length > 0 && selectedPaidCount === paidStudents.length;
+    if (selectedIds.length === 0) {
+      return 0;
+    }
+
+    const selectedRows = students.filter((row) =>
+      selectedIds.includes(row.id)
+    );
+
+    return selectedRows.reduce(
+      (total, row) => total + Number(editedInvoiceAmts[row.id] || 0), 0 );
+    }, [students, selectedIds, editedInvoiceAmts]);
+
+  const allPaidSelected = paidStudents.length > 0 && selectedPaidCount === paidStudents.length;
   const somePaidSelected = selectedPaidCount > 0 && !allPaidSelected;
 
   const toggleRow = (row) => {
-   // if (!isPaidRow(row)) return;
+    console.log("Selected Row:", {
+      id: row.id,
+      studentPaymentInstallmentId: row.studentPaymentInstallmentId,
+      installmentNo: row.installmentNo,
+    });
+
     setSelectedIds((prev) =>
       prev.includes(row.id)
         ? prev.filter((id) => id !== row.id)
-        : [...prev, row.id],
+        : [...prev, row.id]
     );
   };
 
@@ -252,23 +233,19 @@ const totalInvoiceAmount = useMemo(() => {
     }
   };
 
-  const handleFeesChange = (rowId, value) => {
-    if (!isValidAmountInput(value)) return;
-    setEditedFees((prev) => ({ ...prev, [rowId]: value }));
-  };
 
   const handleInvoiceAmtChange = (rowId, value) => {
     if (!isValidAmountInput(value)) return;
     setEditedInvoiceAmts((prev) => ({ ...prev, [rowId]: value }));
   };
-const handleBonusChange = (rowId, value) => {
-  if (!isValidAmountInput(value)) return;
+  const handleBonusChange = (rowId, value) => {
+    if (!isValidAmountInput(value)) return;
 
-  setEditedBonuses((prev) => ({
-    ...prev,
-    [rowId]: value,
-  }));
-};
+    setEditedBonuses((prev) => ({
+      ...prev,
+      [rowId]: value,
+    }));
+  };
   const canGenerate = Boolean(resolvedInstituteId && campus) && selectedPaidCount > 0;
 
   const handleClose = () => {
@@ -297,25 +274,70 @@ const handleBonusChange = (rowId, value) => {
         .map((row) => {
           const feesNum = Number(editedFees[row.id]);
           const invoiceNum = Number(editedInvoiceAmts[row.id]);
-          const feesChanged =
-            Number.isFinite(feesNum) && feesNum !== Number(row.feesAmountRaw ?? 0);
-          const invoiceChanged =
-            Number.isFinite(invoiceNum) &&
-            invoiceNum !== Number(row.invoiceAmountRaw ?? 0);
+          const feesChanged = Number.isFinite(feesNum) && feesNum !== Number(row.feesAmountRaw ?? 0);
+          const invoiceChanged = Number.isFinite(invoiceNum) && invoiceNum !== Number(row.invoiceAmountRaw ?? 0);
 
           if (!feesChanged && !invoiceChanged) return null;
 
           return {
-            installmentId: Number(row.id),
+            installmentId: Number(row.studentPaymentInstallmentId),
+            commissionDetailId: Number(row.commissionDetailId),
             feesAmount: feesChanged ? feesNum : null,
             invoiceAmount: invoiceChanged ? invoiceNum : null,
           };
         })
         .filter(Boolean);
 
-      if (amountUpdates.length > 0) {
-        await updateInstallmentFeesAndInvoiceAmounts(amountUpdates);
+      // if (amountUpdates.length > 0) {
+      //   await updateInstallmentFeesAndInvoiceAmounts(amountUpdates);
+      // }
+      const bonusUpdates = selectedPaid
+        .map((row) => {
+          const bonusNum = Number(
+            editedBonuses[row.id]
+          );
+
+          const originalBonus = Number(
+            row.bonusAmountRaw ?? 0
+          );
+
+          const bonusChanged =
+            Number.isFinite(bonusNum) &&
+            bonusNum >= 0 &&
+            bonusNum !== originalBonus;
+
+          if (!bonusChanged) {
+            return null;
+          }
+
+          return {
+            commissionDetailId: Number(
+              row.commissionDetailId
+            ),
+
+            studentPaymentInstallmentId: Number(
+              row.studentPaymentInstallmentId
+            ),
+
+            bonusAmount: bonusNum,
+          };
+        })
+        .filter(Boolean);
+
+      if (bonusUpdates.length > 0) {
+        await insertBonusInstallments(
+          bonusUpdates
+        );
       }
+      const commissionDetailId = selectedPaid
+        .map((x) => Number(x.commissionDetailId))
+        .filter((x) => Number.isFinite(x) && x > 0);
+
+      const bonusAmount = selectedPaid.map(
+        (x) => Number(editedBonuses[x.id] || x.bonusAmount || 0));
+
+      const invoiceAmounts = selectedPaid.map(
+        (x) => Number(editedInvoiceAmts[x.id] ?? x.invoiceAmountRaw ?? 0));
 
       const result = await generateMonthlyInvoice({
         year: now.getFullYear(),
@@ -323,6 +345,9 @@ const handleBonusChange = (rowId, value) => {
         instituteId: Number(resolvedInstituteId),
         campus,
         installmentIds: selectedPaid.map((s) => s.id),
+        commissionDetailId,
+        bonusAmount,
+        invoiceAmounts,
       });
       onGenerated?.(result);
       resetForm();
@@ -356,7 +381,7 @@ const handleBonusChange = (rowId, value) => {
         <Tooltip
           title={
             isPaidRow(row)
-              ? 'Checked rows can edit Fees / Invoice Amt and will be included in the invoice'
+              ? 'Checked rows can edit Invoice/ bonus Amt and will be included in the invoice'
               : 'Only settled (paid/confirmed) installments can be selected. Partial and Pending stay disabled.'
           }
         >
@@ -372,46 +397,46 @@ const handleBonusChange = (rowId, value) => {
       ),
     },
     { id: 'fullName', label: 'Student', field: 'fullName' },
- {
-  id: 'courseName',
-  label: 'Course',
-  field: 'courseName',
-  render: (row) => (
-    <Typography
-      variant="body2"
-      sx={{
-        display: 'block',
-        width: 150,
-        maxWidth: 150,
-        whiteSpace: 'normal',
-        overflowWrap: 'break-word',
-        wordBreak: 'normal',
-        lineHeight: 1.4,
-      }}
-    >
-      {row.courseName || '-'}
-    </Typography>
-  ),
-},
     {
-  id: 'installmentNo',
-  label: 'Installment',
-  field: 'installmentNo',
-  render: (row) => (
-    <Typography
-      variant="body2"
-      sx={{
-        display: 'block',
-        minWidth: 70,
-        textAlign: 'center',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {row.installmentNo}
-    </Typography>
-  ),
-},
-    { id: 'feesAmount', label: 'Fees',  field: 'feesAmount', render: (row) => row.feesAmount,},
+      id: 'courseName',
+      label: 'Course',
+      field: 'courseName',
+      render: (row) => (
+        <Typography
+          variant="body2"
+          sx={{
+            display: 'block',
+            width: 150,
+            maxWidth: 150,
+            whiteSpace: 'normal',
+            overflowWrap: 'break-word',
+            wordBreak: 'normal',
+            lineHeight: 1.4,
+          }}
+        >
+          {row.courseName || '-'}
+        </Typography>
+      ),
+    },
+    {
+      id: 'installmentNo',
+      label: 'Installment',
+      field: 'installmentNo',
+      render: (row) => (
+        <Typography
+          variant="body2"
+          sx={{
+            display: 'block',
+            minWidth: 70,
+            textAlign: 'center',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {getDisplayInstallmentNo(row, students)}
+        </Typography>
+      ),
+    },
+    { id: 'feesAmount', label: 'Fees', field: 'feesAmount', render: (row) => row.feesAmount, },
     {
       id: 'invoiceAmount',
       label: 'Invoice Amt',
@@ -420,63 +445,63 @@ const handleBonusChange = (rowId, value) => {
         const checked = selectedIds.includes(row.id);
         if (checked && isPaidRow(row)) {
           return (
-           <TextField
-  size="small"
-  value={editedInvoiceAmts[row.id] ?? ''}
-  onChange={(e) =>
-    handleInvoiceAmtChange(row.id, e.target.value)
-  }
-  disabled={generating}
-  inputProps={{
-    inputMode: 'decimal',
-    style: { textAlign: 'center' },
-  }}
-  sx={{
-    width: 120,
-    '& .MuiOutlinedInput-root': {
-      borderRadius: '4px',
-    },
-  }}
-/>
+            <TextField
+              size="small"
+              value={editedInvoiceAmts[row.id] ?? ''}
+              onChange={(e) =>
+                handleInvoiceAmtChange(row.id, e.target.value)
+              }
+              disabled={generating}
+              inputProps={{
+                inputMode: 'decimal',
+                style: { textAlign: 'center' },
+              }}
+              sx={{
+                width: 120,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '4px',
+                },
+              }}
+            />
           );
         }
         return row.invoiceAmount;
       },
     },
     {
-  id: 'bonus',
-  label: 'Bonus',
-  field: 'bonus',
-  render: (row) => {
-    const checked = selectedIds.includes(row.id);
+      id: 'bonus',
+      label: 'Bonus',
+      field: 'bonus',
+      render: (row) => {
+        const checked = selectedIds.includes(row.id);
 
-    if (checked) {
-      return (
-        <TextField
-  size="small"
-  value={editedBonuses[row.id] ?? ''}
-  onChange={(e) =>
-    handleBonusChange(row.id, e.target.value)
-  }
-  disabled={generating}
-  inputProps={{
-    inputMode: 'decimal',
-    style: { textAlign: 'center' },
-  }}
-  sx={{
-    width: 110,
-    ml: 1,
-    '& .MuiOutlinedInput-root': {
-      borderRadius: '4px',
+        if (checked) {
+          return (
+            <TextField
+              size="small"
+              value={editedBonuses[row.id] ?? ''}
+              onChange={(e) =>
+                handleBonusChange(row.id, e.target.value)
+              }
+              disabled={generating}
+              inputProps={{
+                inputMode: 'decimal',
+                style: { textAlign: 'center' },
+              }}
+              sx={{
+                width: 110,
+                ml: 1,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '4px',
+                },
+              }}
+            />
+          );
+        }
+
+        return row.bonusAmount ?? '-';
+      },
     },
-  }}
-/>
-      );
-    }
-
-    return row.bonusAmount ?? '-';
-  },
-},
     { id: 'paymentStatus', label: 'Status', field: 'paymentStatus' },
   ];
 

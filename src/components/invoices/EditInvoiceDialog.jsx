@@ -258,6 +258,19 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
         return row.amount;
       },
     },
+    {
+  id: 'bonus',
+  label: 'Bonus',
+  field: 'bonusAmount',
+  align: 'right',
+  headerSx: { width: 110, whiteSpace: 'nowrap',},
+  cellSx: {  width: 110, whiteSpace: 'nowrap',},
+  render: (row) => (
+    <Typography variant="body2" >
+      ${Number(row.bonusAmount ?? 0).toFixed(2)}
+    </Typography>
+  ),
+},
   ];
 
   return (

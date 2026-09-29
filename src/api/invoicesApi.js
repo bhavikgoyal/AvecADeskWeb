@@ -45,7 +45,7 @@ export function mapPaidStudentRow(item) {
   const invoiceRaw = Number(item.invoiceAmount ?? item.InvoiceAmount ?? 0);
   const bonusRaw = Number(item.bonusAmount ?? item.BonusAmount ?? 0);
   return {
-    id: String(item.studentPaymentInstallmentId ?? item.StudentPaymentInstallmentId ?? item.studentId),
+    id: String(item.commissionDetailId ?? item.CommissionDetailId ?? item.studentPaymentInstallmentId ?? item.StudentPaymentInstallmentId ?? item.studentId),
     studentId: item.studentId ?? item.StudentId,
     fullName: item.fullName ?? item.FullName ?? '',
     studentCode: item.studentCode ?? item.StudentCode ?? '',
@@ -60,8 +60,11 @@ export function mapPaidStudentRow(item) {
     invoiceAmount: formatCurrency(invoiceRaw),
     invoiceAmountRaw: Number.isFinite(invoiceRaw) ? invoiceRaw : 0,
     bonusAmount: formatCurrency(bonusRaw),
-    bonusAmountRaw: Number.isFinite(bonusRaw) ? bonusRaw: 0,
+    bonusAmountRaw: Number.isFinite(bonusRaw) ? bonusRaw : 0,
     paymentStatus: item.paymentStatus ?? item.PaymentStatus ?? '',
+    commissionDetailId: item.commissionDetailId ?? item.CommissionDetailId,
+    studentPaymentInstallmentId: item.studentPaymentInstallmentId ?? item.StudentPaymentInstallmentId,
+    isBonus: Boolean(item.isBonus ?? item.IsBonus ?? false),
   };
 }
 
@@ -152,7 +155,7 @@ export async function fetchPaidStudentsForInvoice({ year, month, instituteId, ca
 // }
 // PATCH for invoicesApi.js — replace the existing generateMonthlyInvoice export with this.
 
-export async function generateMonthlyInvoice({ year, month, instituteId, campus, installmentIds } = {}) {
+export async function generateMonthlyInvoice({ year, month, instituteId, campus, installmentIds, commissionDetailId, bonusAmount, invoiceAmounts, } = {}) {
   const body = {};
   if (year != null) body.year = year;
   if (month != null) body.month = month;
@@ -160,6 +163,19 @@ export async function generateMonthlyInvoice({ year, month, instituteId, campus,
   if (campus) body.campus = campus;
   if (Array.isArray(installmentIds) && installmentIds.length > 0) {
     body.installmentIds = installmentIds.map((id) => Number(id));
+  }
+  if (Array.isArray(commissionDetailId) && commissionDetailId.length > 0) {
+    body.commissionDetailId = commissionDetailId
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+  }
+
+  // IMPORTANT: List<decimal>
+  if (Array.isArray(bonusAmount) && bonusAmount.length > 0) {
+    body.bonusAmount = bonusAmount.map((amount) => Number(amount));
+  }
+  if (Array.isArray(invoiceAmounts) && invoiceAmounts.length > 0) {
+    body.invoiceAmounts = invoiceAmounts.map((amount) => Number(amount));
   }
   const { data } = await axiosClient.post('/api/invoices/generate-monthly', body);
   return data;
@@ -205,6 +221,7 @@ export async function fetchInvoiceLineItems(invoiceId) {
       cricosCode: item.cricosCode ?? item.CricosCode ?? '',
       amount: formatCurrencyAUD(amountValue),
       amountRaw: Number.isFinite(amountValue) ? amountValue : 0,
+      bonusAmount: Number(item.bonusAmount ?? item.BonusAmount ?? 0),
     };
   });
 }
@@ -274,9 +291,23 @@ export async function updateInvoiceLineItemAmounts(invoiceId, items) {
 export async function updateInstallmentFeesAndInvoiceAmounts(items = []) {
   const payload = items.map((item) => ({
     InstallmentId: Number(item.installmentId),
+    CommissionDetailId: item.commissionDetailId == null ? null : Number(item.commissionDetailId),
     FeesAmount: item.feesAmount == null ? null : Number(item.feesAmount),
     InvoiceAmount: item.invoiceAmount == null ? null : Number(item.invoiceAmount),
   }));
   const { data } = await axiosClient.post('/api/invoices/installment-amounts', payload);
+  return data;
+}
+
+export async function insertBonusInstallments(items = []) {
+  const payload = items.map((item) => ({
+    CommissionDetailId: Number(item.commissionDetailId),
+    StudentPaymentInstallmentId: Number(item.studentPaymentInstallmentId),
+    BonusAmount: item.bonusAmount == null ? 0 : Number(item.bonusAmount),
+    NewInstallmentNo: Number(item.newInstallmentNo),
+  }));
+
+  const { data } = await axiosClient.post('/api/invoices/bonus-installments', payload);
+
   return data;
 }
