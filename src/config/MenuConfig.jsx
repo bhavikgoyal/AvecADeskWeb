@@ -112,7 +112,7 @@ export const GET_MENU = (role) => {
         items: [
          //{ title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institute Contracts', path: '/institute-contracts', Icon: AccountBalanceIcon, },
-         { title: 'Courses', path: '/courses', Icon: SchoolIcon, hidden: true },
+         { title: 'Courses', path: '/courses', Icon: SchoolIcon},
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },    ],
       },

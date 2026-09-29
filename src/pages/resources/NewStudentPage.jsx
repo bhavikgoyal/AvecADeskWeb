@@ -1531,15 +1531,15 @@ const toggleRowPastData = (installmentNo) => {
   const prevStatus = paymentList[index - 1]?.status;
   return isPaidLike(prevStatus) || prevStatus === "Partial";
 };
-  const canEditCommissionStatus = (installmentNo) => {
-    if (installmentNo === 1) return true;
+const canEditCommissionStatus = (installmentNo) => {
+  const sortedRows = [...historyRows].sort((a, b) => a.installmentNo - b.installmentNo);
+  const currentIndex = sortedRows.findIndex((x) => x.installmentNo === installmentNo);
 
-    const previous = historyRows.find(
-      x => x.installmentNo === installmentNo - 1
-    );
+  if (currentIndex <= 0) return true; 
 
-    return previous?.commissionStatus === "Paid";
-  };
+  const previous = sortedRows[currentIndex - 1];
+  return previous?.commissionStatus === "Paid";
+};
 
   return (
     <FormPageLayout title={isEdit ? `Edit ${resource.singular}` : `Add new ${resource.singular.toLowerCase()}`}>
