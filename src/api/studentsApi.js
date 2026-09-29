@@ -419,8 +419,16 @@ export async function fetchStudentPaymentDetail(studentId) {
 
     studentPaymentList,
 
-    commissionHistory: (data.commissionHistory ?? data.CommissionHistory ?? []).map(item => 
-      ({ ...item, commissionHistoryOriginalStatus: item.commissionStatus ?? item.CommissionStatus ?? null })),
+  commissionHistory: (
+  data.commissionHistory ?? data.CommissionHistory ?? []
+).map((item) => ({
+  ...item,
+
+  isBonus: item.isBonus ?? item.IsBonus ?? false,
+
+  commissionHistoryOriginalStatus:
+    item.commissionStatus ?? item.CommissionStatus ?? null,
+})),
   
   };
 }

@@ -367,15 +367,16 @@ function drawItemRow(doc, y, geo, srNo, itemLines) {
   return y + rowHeight;
 }
 
-function drawTotals(doc, invoice, geo, startY) {
+function drawTotals(doc, invoice, geo, startY,lineItems = []) {
   const { xPart, xAmount, colAmount, tableWidth } = geo;
   const rowHeight = 7;
   let y = startY;
 
   const total = Number(invoice.totalAmountRaw ?? invoice.totalAmount ?? 0);
+  const bonus = lineItems.reduce((sum, item) => { return sum + Number(  item.bonusAmountRaw ??  item.bonusAmount ?? item.BonusAmount ?? 0 ); }, 0);
   const gstPercent = invoice.gstPercent != null ? Number(invoice.gstPercent) : 0;
   const gstAmount = (total * gstPercent) / 100;
-
+  const grandTotal = total + bonus + gstAmount;
   const drawRow = (label, value) => {
     doc.setDrawColor(0);
     doc.rect(MARGIN_X, y, tableWidth, rowHeight);
@@ -389,15 +390,16 @@ function drawTotals(doc, invoice, geo, startY) {
   };
 
   drawRow('TOTAL', total);
+  drawRow('BONUS', bonus);
   drawRow(`GST ${gstPercent ? `${gstPercent}%` : '%'}`, gstAmount);
-  drawRow('GRAND TOTAL', total + gstAmount);
+  drawRow('GRAND TOTAL', grandTotal);
 
   doc.rect(MARGIN_X, y, tableWidth, rowHeight);
   doc.setFont(undefined, 'bold');
   doc.setFontSize(9.5);
   doc.text('In Words:', MARGIN_X + 3, y + 5);
   doc.setFont(undefined, 'normal');
-  doc.text(numberToWordsAUD(total + gstAmount), MARGIN_X + 25, y + 5);
+  doc.text(numberToWordsAUD(grandTotal), MARGIN_X + 25, y + 5);
   y += rowHeight;
 
   return y + 4;
@@ -490,7 +492,7 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
     y = drawInfoBox(doc, invoice, y);
   }
 
-  y = drawTotals(doc, invoice, geo, y);
+ y = drawTotals(doc, invoice, geo, y, lineItems);
   drawBankDetails(doc, y);
   drawAddressFooter(doc);
   drawPageNumber(doc, pageNumber, totalPagesHint);
