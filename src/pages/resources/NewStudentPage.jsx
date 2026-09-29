@@ -737,30 +737,30 @@ export default function NewStudentPage({ basePath }) {
 
     const list = [];
 
-
-    if (initialPayment > 0) {
-      if (paidInitialRow) {
-        list.push(paidInitialRow);
-      } else {
-        list.push({
-          installmentNo: 0,
-          feeType: null,
-          dueDate: formatDate(startDate),
-          amount: initialPayment.toFixed(2),
-          paidAmount: "0.00",
-          balance: initialPayment.toFixed(2),
-          status: "Pending",
-          isInitialPayment: true,
-        });
-      }
+ 
+  if (initialPayment > 0) {
+    if (paidInitialRow) {
+      list.push(paidInitialRow);
+    } else {
+      list.push({
+        installmentNo: 0,
+        feeType: null,
+        dueDate: formatDate(startDate),
+        amount: initialPayment.toFixed(2),
+        paidAmount: "0.00",
+        balance: initialPayment.toFixed(2),
+        status: "Pending",
+        isInitialPayment: true,
+      });
     }
+  }
 
-
-    const regularStartDate = new Date(startDate);
-    if (initialPayment > 0) {
-      if (data.frequency === "Monthly") regularStartDate.setMonth(regularStartDate.getMonth() + 1);
-      else if (data.frequency === "Quarterly") regularStartDate.setMonth(regularStartDate.getMonth() + 3);
-    }
+  
+  const regularStartDate = new Date(startDate);
+  if (initialPayment > 0) {
+    if (data.frequency === "Monthly") regularStartDate.setMonth(regularStartDate.getMonth() + 1);
+    else if (data.frequency === "Quarterly") regularStartDate.setMonth(regularStartDate.getMonth() + 3);
+  }
 
     for (let i = 0; i < count; i++) {
       const paidRow = paidRegularInstallments.find((x) => x.installmentNo === i + 1);
@@ -769,20 +769,20 @@ export default function NewStudentPage({ basePath }) {
         continue;
       }
 
-      const dueDate = new Date(regularStartDate);
-      if (data.frequency === "Monthly") dueDate.setMonth(regularStartDate.getMonth() + i);
-      else if (data.frequency === "Quarterly") dueDate.setMonth(regularStartDate.getMonth() + i * 3);
+    const dueDate = new Date(regularStartDate);
+    if (data.frequency === "Monthly") dueDate.setMonth(regularStartDate.getMonth() + i);
+    else if (data.frequency === "Quarterly") dueDate.setMonth(regularStartDate.getMonth() + i * 3);
 
-      list.push({
-        installmentNo: i + 1,
-        feeType: null,
-        dueDate: formatDate(dueDate),
-        amount: installmentAmount.toFixed(2),
-        paidAmount: "0.00",
-        balance: installmentAmount.toFixed(2),
-        status: "Pending",
-      });
-    }
+    list.push({
+      installmentNo: i + 1,
+      feeType: null,
+      dueDate: formatDate(dueDate),
+      amount: installmentAmount.toFixed(2),
+      paidAmount: "0.00",
+      balance: installmentAmount.toFixed(2),
+      status: "Pending",
+    });
+  }
 
     setPaymentList(list);
   };
@@ -1484,26 +1484,30 @@ export default function NewStudentPage({ basePath }) {
 
   const isRowPastDataEditable = (installmentNo) => editPastDataAll || editPastDataRows.has(installmentNo);
 
-  const canEditPaidFields = (item) => {
-    // Bilkul naya row (abhi DB mein save nahi hua) — freely editable.
-    if (!item.studentPaymentInstallmentId) return true;
+const canEditPaidFields = (item) => {
+  // Bilkul naya row (abhi DB mein save nahi hua) — freely editable.
+  if (!item.studentPaymentInstallmentId) return true;
 
-    // Confirmed by College — hamesha locked, sirf checkbox se edit.
-    if (isConfirmedByCollege(item)) return isRowPastDataEditable(item.installmentNo);
+  // Confirmed by College — hamesha locked, sirf checkbox se edit.
+  if (isConfirmedByCollege(item)) return isRowPastDataEditable(item.installmentNo);
 
-    // Pehle se saved Partial — locked, sirf checkbox se edit.
-    if (isPersistedPartial(item)) return isRowPastDataEditable(item.installmentNo);
+  // Pehle se saved Partial — locked, sirf checkbox se edit.
+  if (isPersistedPartial(item)) return isRowPastDataEditable(item.installmentNo);
 
-    // Newly-set Partial (abhi session mein badla) — ek baar entry allow karo.
-    if (isNewlySetPartial(item)) return true;
+  // Newly-set Partial (abhi session mein badla) — ek baar entry allow karo.
+  if (isNewlySetPartial(item)) return true;
 
-    // Pending row — sirf checkbox se editable (past-data correction).
-    return isRowPastDataEditable(item.installmentNo);
-  };
-  const isNewlySetPartial = (item) => item.status === "Partial" && item.originalStatus !== "Partial";
-  const isPersistedPartial = (item) => item.status === "Partial" && item.originalStatus === "Partial";
-  const isConfirmedByCollege = (item) => item.status === "ConfirmedByCollege" ||
-    item.originalStatus === "ConfirmedByCollege" || item.originalStatus === "PaidByCollege";
+  // Pending row — sirf checkbox se editable (past-data correction).
+  return isRowPastDataEditable(item.installmentNo);
+};
+const isNewlySetPartial = (item) =>
+  item.status === "Partial" && item.originalStatus !== "Partial";
+const isPersistedPartial = (item) =>
+  item.status === "Partial" && item.originalStatus === "Partial";
+const isConfirmedByCollege = (item) =>
+  item.status === "ConfirmedByCollege" ||
+  item.originalStatus === "ConfirmedByCollege" ||
+  item.originalStatus === "PaidByCollege";
 
   const isRowLocked = (item) => {
     const groupNo = getGroupNo(item);
@@ -1531,18 +1535,17 @@ export default function NewStudentPage({ basePath }) {
 
     if (index === 0) return true;
 
-    const prevStatus = paymentList[index - 1]?.status;
-    return isPaidLike(prevStatus) || prevStatus === "Partial";
-  };
+  const prevStatus = paymentList[index - 1]?.status;
+  return isPaidLike(prevStatus) || prevStatus === "Partial";
+};
   const canEditCommissionStatus = (installmentNo) => {
     if (installmentNo === 1) return true;
 
-    const previous = historyRows.find(
-      x => x.installmentNo === installmentNo - 1
-    );
+  if (currentIndex <= 0) return true; 
 
-    return previous?.commissionStatus === "Paid";
-  };
+  const previous = sortedRows[currentIndex - 1];
+  return previous?.commissionStatus === "Paid";
+};
 
   return (
     <FormPageLayout title={isEdit ? `Edit ${resource.singular}` : `Add new ${resource.singular.toLowerCase()}`}>
@@ -1861,27 +1864,27 @@ export default function NewStudentPage({ basePath }) {
                               />
                             </TableCell>
 
-                            {/* 5. Paid Date - Status Pending hone par hi edit hoga, warna lock / plain text rahega */}
-                            <TableCell>
-                              {canEditPaidFields(item) ? (
-                                <TextField
-                                  size="small"
-                                  type="date"
-                                  value={item.paidDate || ""}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setPaymentList((prev) =>
-                                      prev.map((x) =>
-                                        x.installmentNo === item.installmentNo ? { ...x, paidDate: val } : x
-                                      )
-                                    );
-                                  }}
-                                  sx={{ width: 140 }}
-                                />
-                              ) : (
-                                formatDateCell(item.paidDate) || "-"
-                              )}
-                            </TableCell>
+        {/* 5. Paid Date - Status Pending hone par hi edit hoga, warna lock / plain text rahega */}
+        <TableCell>
+          {canEditPaidFields(item) ? (
+            <TextField
+              size="small"
+              type="date"
+              value={item.paidDate || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPaymentList((prev) =>
+                  prev.map((x) =>
+                    x.installmentNo === item.installmentNo ? { ...x, paidDate: val } : x
+                  )
+                );
+              }}
+              sx={{ width: 140 }}
+            />
+          ) : (
+            formatDateCell(item.paidDate) || "-"
+          )}
+        </TableCell>
 
                             {/* 6. Payment Status */}
                             <TableCell>
@@ -2067,17 +2070,17 @@ export default function NewStudentPage({ basePath }) {
                               )}
                             </TableCell>
 
-                            {/* 7. Paid Amount - Status Pending hone par hi edit hoga, warna lock / plain text rahega */}
-                            <TableCell>
-                              {canEditPaidFields(item) ? (
-                                <TextField
-                                  size="small"
-                                  type="number"
-                                  value={item.paidAmount ?? "0"}
-                                  onChange={(e) => {
-                                    const rawVal = e.target.value;
-                                    const lockedAmount = getLockedDescendantAmount(paymentList, item.installmentNo);
-                                    const maxAmount = Number(item.amount || 0) - lockedAmount;
+        {/* 7. Paid Amount - Status Pending hone par hi edit hoga, warna lock / plain text rahega */}
+       <TableCell>
+{canEditPaidFields(item) ? (
+    <TextField
+      size="small"
+      type="number"
+      value={item.paidAmount ?? "0"}
+      onChange={(e) => {
+        const rawVal = e.target.value;
+        const lockedAmount = getLockedDescendantAmount(paymentList, item.installmentNo);
+        const maxAmount = Number(item.amount || 0) - lockedAmount;
 
                                     let numVal = Number(rawVal || 0);
                                     if (Number.isNaN(numVal)) numVal = 0;
