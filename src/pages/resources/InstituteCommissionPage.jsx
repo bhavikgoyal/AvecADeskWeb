@@ -1,3 +1,5 @@
+
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent,
@@ -15,6 +17,11 @@ import Checkbox from '@mui/material/Checkbox';
 import XLSX from 'xlsx-js-style';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
+
+// Sentinel value used in the Course dropdown for the "All Courses" option.
+// It never gets sent to the backend as a real courseId — see handleSave below,
+// where it is translated into { courseId: null, appliesToAllCourses: true }.
+const ALL_COURSES_VALUE = 'ALL';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -79,6 +86,14 @@ export default function InstituteCommissionPage() {
         ]),
       ),
     [allCourses],
+  );
+
+  const getCourseDisplay = useCallback(
+    (row) => {
+      if (row?.appliesToAllCourses) return 'All Courses';
+      return courseMap[String(row.courseId)] || '—';
+    },
+    [courseMap],
   );
 
   const loadRates = useCallback(async () => {
@@ -196,7 +211,13 @@ export default function InstituteCommissionPage() {
     setError('');
 
     try {
-      await createInstituteCommissionRate(form);
+      const isAllCourses = form.courseId === ALL_COURSES_VALUE;
+      const payload = {
+        ...form,
+        courseId: isAllCourses ? null : (form.courseId || null),
+        appliesToAllCourses: isAllCourses,
+      };
+      await createInstituteCommissionRate(payload);
       setDialogOpen(false);
       await loadRates();
     } catch (err) {
@@ -245,7 +266,7 @@ export default function InstituteCommissionPage() {
       .filter((r) => selectedIds.includes(r.commissionId))
       .map((r) => ({
         instituteName: instituteMap[String(r.instituteId)] || '—',
-        courseName: courseMap[String(r.courseId)] || '—',
+        courseName: getCourseDisplay(r),
         rateType: r.rateType,
         rate: r.rate,
         effectiveFrom: r.effectiveFrom,
@@ -298,7 +319,7 @@ export default function InstituteCommissionPage() {
     {
       id: 'course',
       label: 'Course',
-      render: (row) => courseMap[String(row.courseId)] || '—',
+      render: (row) => getCourseDisplay(row),
     },
 
     {
@@ -412,10 +433,9 @@ export default function InstituteCommissionPage() {
     instituteMap[String(history?.instituteId)] ||
     '—';
 
-  const courseName =
-    history?.courseName ||
-    courseMap[String(history?.courseId)] ||
-    '—';
+  const courseName = history?.appliesToAllCourses
+    ? 'All Courses'
+    : (history?.courseName || courseMap[String(history?.courseId)] || '—');
 
   return (
     <Box>
@@ -522,13 +542,14 @@ export default function InstituteCommissionPage() {
 
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
-            <TextField select label="Institute" value={form.instituteId} fullWidth required onChange={(e) => setForm({ ...form, instituteId: e.target.value })}>
+            <TextField select label="Institute" value={form.instituteId} fullWidth required onChange={(e) => setForm({ ...form, instituteId: e.target.value, courseId: '' })}>
               <MenuItem value="">Select Institute</MenuItem>
               {institutes.map((i) => <MenuItem key={i.instituteId} value={i.instituteId}>{i.instituteName}</MenuItem>)}
             </TextField>
 
-            <TextField select label="Course" value={form.courseId}fullWidth  disabled={!form.instituteId}onChange={(e) => setForm((prev) => ({  ...prev, courseId: e.target.value,}))} >
+            <TextField select label="Course" value={form.courseId} fullWidth disabled={!form.instituteId} onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value, }))} >
               <MenuItem value="">Select Course</MenuItem>
+              {dialogCourses.length > 0 && <MenuItem value={ALL_COURSES_VALUE}>All Courses</MenuItem>}
               {dialogCourses.map((c) => ( <MenuItem key={c.courseId} value={c.courseId}> {c.courseName} </MenuItem>))}
               {dialogCourses.length === 0 && ( <MenuItem value="" disabled> No courses available </MenuItem>)}
             </TextField>

@@ -10,6 +10,7 @@ function normalizeCommissionRate(raw) {
     rate: raw.rate ?? raw.Rate ?? 0,
     effectiveFrom: raw.effectiveFrom ?? raw.EffectiveFrom ?? '',
     effectiveTo: raw.effectiveTo ?? raw.EffectiveTo ?? null,
+    appliesToAllCourses: Boolean(raw.appliesToAllCourses ?? raw.AppliesToAllCourses ?? false),
   };
 }
 
@@ -21,6 +22,7 @@ function toApiPayload(form) {
     rate: Number(form.rate),
     effectiveFrom: form.effectiveFrom,
     effectiveTo: form.effectiveTo || null,
+     appliesToAllCourses: Boolean(form.appliesToAllCourses),
   };
 }
 
@@ -119,6 +121,35 @@ export async function fetchInstituteCommissionHistory(instituteId, courseId) {
   const { data } = await axiosClient.get(
     `/api/commissions/institute/${instituteId}/history`,
     { params }
+  );
+  return (Array.isArray(data) ? data : []).map(normalizeCommissionRate);
+}
+
+
+export async function fetchScrappingCommissionRates(scrappingId) {
+  const { data } = await axiosClient.get(`/api/commissions/scrapping/${scrappingId}`);
+  return (data ?? []).map(normalizeCommissionRate);
+}
+ 
+export async function createScrappingCommissionRate(scrappingId, form) {
+  try {
+    const { data } = await axiosClient.post(
+      `/api/commissions/scrapping/${scrappingId}`,
+      toApiPayload(form),
+    );
+    return normalizeCommissionRate(data);
+  } catch (err) {
+    throw new Error(toErrorMessage(err, 'Failed to create commission rate'), { cause: err });
+  }
+}
+ 
+export async function fetchScrappingCommissionHistory(scrappingId, courseId, appliesToAllCourses = false) {
+  const params = { appliesToAllCourses: Boolean(appliesToAllCourses) };
+  if (courseId) params.courseId = courseId;
+ 
+  const { data } = await axiosClient.get(
+    `/api/commissions/scrapping/${scrappingId}/history`,
+    { params },
   );
   return (Array.isArray(data) ? data : []).map(normalizeCommissionRate);
 }

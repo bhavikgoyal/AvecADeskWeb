@@ -1,25 +1,35 @@
+
+
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent,
   DialogTitle, MenuItem, Stack, TextField, Typography,
+  Checkbox, ListItemText,
 } from '@mui/material';
 import ResponsiveTable from '../ResponsiveTable';
 import TableContentSkeleton from '../TableContentSkeleton';
 import {
-  createInstituteCommissionRate,
-  fetchCommissionRates,
-  //fetchCommissionHistory,
-  fetchInstituteCommissionHistory,
+  createScrappingCommissionRate,
+  fetchScrappingCommissionRates,
+  fetchScrappingCommissionHistory,
   getEmptyCommissionRateForm,
 } from '../../api/commissionsApi';
 import { fetchCoursesByInstitute } from '../../api/lookupApi';
 import { listContainedButtonSx } from '../forms';
+
+const ALL_COURSES_VALUE = 'ALL';
 
 function formatDate(value) {
   if (!value) return '—';
   const date = new Date(value);
   if (isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getCourseDisplay(row, courseMap) {
+  if (row?.appliesToAllCourses) return 'All Courses';
+  if (row?.courseId) return courseMap[String(row.courseId)] || '—';
+  return '—';
 }
 
 //export default function InstituteCommissionRatesPanel({ instituteId = null, courseLookupId = null }) {
@@ -33,6 +43,25 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
   const [saving, setSaving] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyData, setHistoryData] = useState([]);
+  const [selectedCourseIds, setSelectedCourseIds] = useState([]);
+  const [coursesLoaded, setCoursesLoaded] = useState(false);
+
+  const allCourseIds = courses.map((c) => String(c.courseId ?? c.CourseId));
+  const allCourseNames = courses
+    .map((c) => c.courseName ?? c.CourseName ?? c.name ?? c.Name)
+    .filter(Boolean);
+  const allSelected = allCourseIds.length > 0 && selectedCourseIds.length === allCourseIds.length;
+  const someSelected = selectedCourseIds.length > 0 && !allSelected;
+
+  const handleCoursesChange = (e) => {
+    const value = e.target.value;
+    if (value.includes(ALL_COURSES_VALUE)) {
+      // "Select all" was clicked: toggle everything
+      setSelectedCourseIds(allSelected ? [] : allCourseIds);
+    } else {
+      setSelectedCourseIds(value);
+    }
+  };
 
   const courseMap = useMemo(
     () =>
@@ -63,13 +92,10 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
       }
 
       try {
-        const rows = await fetchCommissionRates();
+    
+        const rows = await fetchScrappingCommissionRates(instituteId);
         if (!active) return;
-
-        const filtered = (rows ?? []).filter(
-          (r) => String(r.instituteId) === String(instituteId),
-        );
-        setRates(filtered);
+        setRates(rows ?? []);
       } catch (err) {
         if (active) setError(err.message || 'Failed to load commission rates.');
       } finally {
@@ -89,15 +115,22 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
 
     const loadCourses = async () => {
       if (!courseLookupId) {
-        if (active) setCourses([]);
+        if (active) {
+          setCourses([]);
+          setCoursesLoaded(true);
+        }
         return;
       }
+
+      if (active) setCoursesLoaded(false);
 
       try {
         const data = await fetchCoursesByInstitute(courseLookupId);
         if (active) setCourses(Array.isArray(data) ? data : (data?.courses ?? []));
       } catch {
         if (active) setCourses([]);
+      } finally {
+        if (active) setCoursesLoaded(true);
       }
     };
 
@@ -120,6 +153,7 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
 
   const openCreateDialog = () => {
     setForm({ ...getEmptyCommissionRateForm(), instituteId });
+    setSelectedCourseIds([]);
     setDialogOpen(true);
   };
 
@@ -129,6 +163,10 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
   };
 
   const handleSave = async () => {
+    if (selectedCourseIds.length === 0) {
+      setError('Please select at least one course (or Select all).');
+      return;
+    }
     if (!form.rateType || !form.rate || !form.effectiveFrom) {
       setError('Rate type, rate, and effective from are required.');
       return;
@@ -136,13 +174,23 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
     setSaving(true);
     setError('');
     try {
-      await createInstituteCommissionRate({ ...form, instituteId });
+      const base = { ...form, instituteId, appliesToAllCourses: false };
+      let payloads;
+      if (allSelected) {
+    
+        payloads = [{ ...base, courseId: null, appliesToAllCourses: true }];
+      } else if (selectedCourseIds.length === 0) {
+        payloads = [{ ...base, courseId: null }];
+      } else {
+      
+        payloads = selectedCourseIds.map((id) => ({ ...base, courseId: id }));
+      }
+      for (const payload of payloads) {
+        await createScrappingCommissionRate(instituteId, payload);
+      }
       setDialogOpen(false);
-      const rows = await fetchCommissionRates();
-      const filtered = (rows ?? []).filter(
-        (r) => String(r.instituteId) === String(instituteId),
-      );
-      setRates(filtered);
+      const rows = await fetchScrappingCommissionRates(instituteId);
+      setRates(rows ?? []);
     } catch (err) {
       setError(err.message || 'Failed to save commission rate.');
     } finally {
@@ -153,8 +201,7 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
   const openHistoryDialog = async (row) => {
     try {
       setLoading(true);
-      //const data = await fetchCommissionHistory(row.vendorId, row.instituteId, row.courseId);
-      const data = await fetchInstituteCommissionHistory(instituteId, row.courseId);
+      const data = await fetchScrappingCommissionHistory(instituteId, row.courseId, !!row.appliesToAllCourses);
       setHistoryData(data ?? []);
       setHistoryOpen(true);
       setError('');
@@ -166,7 +213,7 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
   };
 
   const columns = [
-    { id: 'course', label: 'Course', render: (row) => (row.courseId ? (courseMap[String(row.courseId)] || '—') : '—') },
+    { id: 'course', label: 'Course', render: (row) => getCourseDisplay(row, courseMap) },
     { id: 'rateType', label: 'Rate type', field: 'rateType' },
     { id: 'rate', label: 'Rate', field: 'rate' },
     { id: 'effectiveFrom', label: 'From', render: (r) => formatDate(r.effectiveFrom) },
@@ -192,6 +239,7 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
           variant="contained"
           size="small"
           onClick={openCreateDialog}
+          disabled={!coursesLoaded || courses.length === 0}
           sx={listContainedButtonSx}
         >
           Add commission rate
@@ -201,6 +249,12 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
       {!courseLookupId && (
         <Alert severity="info" sx={{ mb: 1.5 }}>
           No scraped institute is linked yet — link one in the Institute details tab to enable course selection.
+        </Alert>
+      )}
+
+      {courseLookupId && coursesLoaded && courses.length === 0 && (
+        <Alert severity="warning" sx={{ mb: 1.5 }}>
+          This institute has no courses yet. Add courses first — a commission rate can only be added for courses.
         </Alert>
       )}
 
@@ -239,13 +293,46 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
         <DialogTitle>Add commission rate</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
-            <TextField select label="Course" value={form.courseId} fullWidth disabled={!courseLookupId}
-              onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
+            {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+            <TextField
+              select
+              label="Course"
+              fullWidth
+              disabled={!courseLookupId}
+              value={selectedCourseIds}
+              onChange={handleCoursesChange}
+              slotProps={{
+                inputLabel: { shrink: true },
+                select: {
+                  multiple: true,
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    if (selected.length === 0) return 'None';
+                    if (allSelected) return 'All Courses';
+                    return selected.map((id) => courseMap[id] || id).join(', ');
+                  },
+                  MenuProps: { PaperProps: { sx: { maxHeight: 280 } } },
+                },
+              }}
+            >
+              {courses.length === 0 && (
+                <MenuItem value="__none__" disabled>No courses available</MenuItem>
+              )}
+              {courses.length > 0 && (
+                <MenuItem value={ALL_COURSES_VALUE}>
+                  <Checkbox size="small" checked={allSelected} indeterminate={someSelected} />
+                  <ListItemText primary="Select all" />
+                </MenuItem>
+              )}
               {courses.map((c) => {
-                const id = c.courseId ?? c.CourseId;
+                const id = String(c.courseId ?? c.CourseId);
                 const name = c.courseName ?? c.CourseName ?? c.name ?? c.Name;
-                return <MenuItem key={id} value={String(id)}>{name}</MenuItem>;
+                return (
+                  <MenuItem key={id} value={id}>
+                    <Checkbox size="small" checked={selectedCourseIds.includes(id)} />
+                    <ListItemText primary={name} />
+                  </MenuItem>
+                );
               })}
             </TextField>
 
@@ -284,12 +371,12 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
             <Box component="span" sx={{ fontWeight: 600 }}>Institute: </Box>
              {instituteName || '—'}
            </Typography>
-           {historyData[0]?.courseId && (
-            <Typography sx={{ fontSize: '0.9rem', mt: 0.5 }}>
-               <Box component="span" sx={{ fontWeight: 600 }}>Course: </Box>
-               {courseMap[String(historyData[0].courseId)] || '—'}
-             </Typography>
-          )}
+           <Typography sx={{ fontSize: '0.9rem', mt: 0.5 }}>
+             <Box component="span" sx={{ fontWeight: 600 }}>Course: </Box>
+             {historyData[0]?.appliesToAllCourses
+               ? (allCourseNames.length ? `All Courses (${allCourseNames.join(', ')})` : 'All Courses')
+               : (historyData[0]?.courseId ? (courseMap[String(historyData[0].courseId)] || '—') : '—')}
+           </Typography>
          </Box>
           <ResponsiveTable
             columns={[
@@ -310,3 +397,5 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
     </Box>
   );
 }
+
+
