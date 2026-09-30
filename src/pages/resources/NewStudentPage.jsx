@@ -2312,65 +2312,63 @@ const canEditCommissionStatus = (row) => {
                             <TableCell>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
                             <TableCell>
                               {isEdit ? (
-                                <Select
-                                  size="small"
-                                  value={row.commissionStatus ?? "Pending"}
-                                  disabled={
-                                    String(row.commissionHistoryOriginalStatus ?? "")
-                                      .trim()
-                                      .toLowerCase() === "paid"
-                                  }
-                                  onChange={(e) => {
-                                    const value = e.target.value;
+                               <Select
+  size="small"
+  value={row.commissionStatus ?? "Pending"}
+  disabled={
+    String(row.commissionHistoryOriginalStatus ?? "")
+      .trim()
+      .toLowerCase() === "paid"
+  }
+  onChange={(e) => {
+    const value = e.target.value;
 
-                                    setCommissionHistory((prev) =>
-                                      prev.map((x) => {
-                                        if (x.installmentNo === row.installmentNo) {
-                                          return {
-                                            ...x,
-                                            commissionStatus: value,
-                                          };
-                                        }
+    const currentCommissionDetailId = Number(
+      row.commissionDetailId ?? row.CommissionDetailId
+    );
 
-                                        if (
-                                          value === "Pending" &&
-                                          x.installmentNo > row.installmentNo
-                                        ) {
-                                          return {
-                                            ...x,
-                                            paymentStatus: "Pending",
-                                            commissionStatus: "Pending",
-                                          };
-                                        }
+    setCommissionHistory((prev) =>
+      prev.map((x) => {
+        const commissionDetailId = Number(
+          x.commissionDetailId ?? x.CommissionDetailId
+        );
 
-                                        return x;
-                                      })
-                                    );
-                                  }}
-                                  MenuProps={{
-                                    container:
-                                      typeof document !== "undefined"
-                                        ? document.body
-                                        : undefined,
-                                  }}
-                                  sx={{
-                                    width: 110,
-                                    height: 40,
-                                    "& .MuiSelect-select": {
-                                      minWidth: "70px",
-                                      padding: "8px 32px 8px 12px",
-                                    },
-                                  }}
-                                >
-                                  <MenuItem value="Pending">Pending</MenuItem>
+        // ONLY CommissionDetailId આધારિત status update
+        if (commissionDetailId === currentCommissionDetailId) {
+          return {
+            ...x,
+            commissionStatus: value,
+          };
+        }
 
-                                  <MenuItem
-                                    value="Paid"
-                                   disabled={!canEditCommissionStatus(row)}
-                                  >
-                                    Paid
-                                  </MenuItem>
-                                </Select>
+        return x;
+      })
+    );
+  }}
+  MenuProps={{
+    container:
+      typeof document !== "undefined"
+        ? document.body
+        : undefined,
+  }}
+  sx={{
+    width: 110,
+    height: 40,
+    "& .MuiSelect-select": {
+      minWidth: "70px",
+      padding: "8px 32px 8px 12px",
+    },
+  }}
+>
+  <MenuItem value="Pending">Pending</MenuItem>
+
+  <MenuItem
+    value="Paid"
+    disabled={!canEditCommissionStatus(row)}
+  >
+    Paid
+  </MenuItem>
+</Select>
                               ) : (
                                 row.commissionStatus ?? "Pending"
                               )}
