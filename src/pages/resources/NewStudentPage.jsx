@@ -1538,15 +1538,28 @@ const isConfirmedByCollege = (item) =>
   const prevStatus = paymentList[index - 1]?.status;
   return isPaidLike(prevStatus) || prevStatus === "Partial";
 };
-  const canEditCommissionStatus = (installmentNo) => {
-    if (installmentNo === 1) return true;
+//   const canEditCommissionStatus = (installmentNo) => {
+//     if (installmentNo === 1) return true;
 
-  if (currentIndex <= 0) return true; 
+//   if (currentIndex <= 0) return true; 
 
+//   const previous = sortedRows[currentIndex - 1];
+//   return previous?.commissionStatus === "Paid";
+// };
+const canEditCommissionStatus = (row) => {
+  const sortedRows = [...historyRows].sort((a, b) => a.installmentNo - b.installmentNo);
+
+  const currentIndex = sortedRows.findIndex(
+    (x) => x.commissionDetailId === row.commissionDetailId
+  );
+
+  // Pehli row ya row na mile to allow
+  if (currentIndex <= 0) return true;
+
+  // Pichli row "Paid" ho tabhi is row ko Paid kar sakte ho
   const previous = sortedRows[currentIndex - 1];
-  return previous?.commissionStatus === "Paid";
+  return String(previous?.commissionStatus ?? "").toLowerCase() === "paid";
 };
-
   return (
     <FormPageLayout title={isEdit ? `Edit ${resource.singular}` : `Add new ${resource.singular.toLowerCase()}`}>
       <Paper elevation={0} sx={{ ...formPaperSx, width: "100%" }}>
@@ -2353,7 +2366,7 @@ const isConfirmedByCollege = (item) =>
 
                                   <MenuItem
                                     value="Paid"
-                                    disabled={!canEditCommissionStatus(row.installmentNo)}
+                                   disabled={!canEditCommissionStatus(row)}
                                   >
                                     Paid
                                   </MenuItem>
