@@ -30,6 +30,16 @@ export async function createBoard(boardName) {
   return response.data;
 }
 
+export async function createList(payload) {
+  const response = await axiosClient.post('/api/List', payload);
+  return response.data;
+}
+
+export async function getListsByBoardId(boardId) {
+  const response = await axiosClient.get(`/api/List/${boardId}`);
+  return response.data;
+}
+
 export async function getBoards() {
   const response = await axiosClient.get('/api/Board');
   return response.data;

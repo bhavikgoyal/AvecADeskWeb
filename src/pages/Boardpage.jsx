@@ -22,6 +22,8 @@ import {
   createCard,
   createBoard,
   getBoards,
+  getListsByBoardId,
+  createList,
   deleteCard,
   getUsers,
 } from "../api/cardApi";
@@ -243,7 +245,10 @@ function BoardSearch({ onBoardSelect }) {
               <Box
                 key={board.boardID}
                 onClick={() => {
-                  onBoardSelect(board.boardName);
+                  onBoardSelect({
+                    boardID: board.boardID,
+                    boardName: board.boardName,
+                  });
                   setSearch("");
                   setOpen(false);
                 }}
@@ -436,6 +441,7 @@ export default function BoardPage() {
 
   const [boardSearchText, setBoardSearchText] = useState("");
   const [selectedBoardName, setSelectedBoardName] = useState("");
+  const [selectedBoardId, setSelectedBoardId] = useState(null);
 
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [fromDate, setFromDate] = useState("");
@@ -455,28 +461,32 @@ export default function BoardPage() {
   }, [isAccounting]);
 
   const loadBoard = useCallback(async () => {
+    if (!selectedBoardId) {
+      setColumns([]);
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    try {
-      const filters = {
-        searchText,
-        fromDate: fromDate || undefined,
-        toDate: toDate || undefined,
-      };
-      const data = isAccounting
-        ? await getMyBoardCards(filters)
-        : await getBoardCards({
-            ...filters,
-            assignedUserId: selectedUserId,
-          });
 
-      setColumns([]);
+    try {
+      const lists = await getListsByBoardId(selectedBoardId);
+
+      const boardColumns = (lists || []).map((list) => ({
+        cardStatusID: list.listID,
+        statusName: list.listName,
+        count: 0,
+        cards: [],
+      }));
+
+      setColumns(boardColumns);
     } catch (err) {
-      setError(err.message || "Failed to load board");
+      setError(err.message || "Failed to load lists");
+      setColumns([]);
     } finally {
       setLoading(false);
     }
-  }, [isAccounting, searchText, selectedUserId, fromDate, toDate]);
+  }, [selectedBoardId]);
 
   useEffect(() => {
     loadBoard();
@@ -539,25 +549,26 @@ export default function BoardPage() {
     }
   };
 
-  const handleAddList = async (statusName) => {
+  const handleAddList = async (listName) => {
+    if (!selectedBoardId) return;
+
     try {
-      const status = await createCardStatus(statusName);
-      setColumns((prev) => {
-        if (prev.some((col) => col.cardStatusID === status.cardStatusID))
-          return prev;
-        return [
-          ...prev,
-          {
-            cardStatusID: status.cardStatusID,
-            statusName: status.statusName,
-            count: 0,
-            cards: [],
-          },
-        ];
+      const list = await createList({
+        boardID: selectedBoardId,
+        listName,
       });
+
+      setColumns((prev) => [
+        ...prev,
+        {
+          cardStatusID: list.listID,
+          statusName: list.listName,
+          count: 0,
+          cards: [],
+        },
+      ]);
     } catch (err) {
       setError(err.message || "Could not create list.");
-      throw err;
     }
   };
 
@@ -607,7 +618,12 @@ export default function BoardPage() {
           }}
         >
           {/* Board Search */}
-          <BoardSearch onBoardSelect={setSelectedBoardName} />
+          <BoardSearch
+            onBoardSelect={({ boardID, boardName }) => {
+              setSelectedBoardId(boardID);
+              setSelectedBoardName(boardName);
+            }}
+          />
           <CreateBoardButton />
 
           {/* Task Search */}
