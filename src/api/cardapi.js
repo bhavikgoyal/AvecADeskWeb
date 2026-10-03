@@ -22,6 +22,19 @@ export async function createCard(payload) {
   return response.data;
 }
 
+export async function createBoard(boardName) {
+  const response = await axiosClient.post('/api/Board', {
+    boardName,
+  });
+
+  return response.data;
+}
+
+export async function getBoards() {
+  const response = await axiosClient.get('/api/Board');
+  return response.data;
+}
+
 export async function updateCard(payload) {
   const response = await axiosClient.post('/api/Card/update', payload);
   return response.data;

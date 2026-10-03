@@ -1,20 +1,39 @@
-import { useEffect, useState, useCallback } from 'react';
-import { DragDropContext } from '@hello-pangea/dnd';
-import { Box, Button, MenuItem, Paper, Skeleton, Stack, TextField } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import BoardColumn from '../components/board/BoardColumn';
-import AddCardModal from '../components/board/AddCardModal';
-import CardDetailModal from '../components/board/CardDetailModal';
-import { getBoardCards, getMyBoardCards, getCardStatuses, createCardStatus, moveCard, createCard, deleteCard, getUsers } from '../api/cardApi';
-import { useAuth } from '../hooks/useAuth';
+import { useEffect, useState, useCallback, useRef } from "react";
+import { DragDropContext } from "@hello-pangea/dnd";
+import {
+  Box,
+  Button,
+  MenuItem,
+  Paper,
+  Skeleton,
+  Stack,
+  TextField,
+} from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import BoardColumn from "../components/board/BoardColumn";
+import AddCardModal from "../components/board/AddCardModal";
+import CardDetailModal from "../components/board/CardDetailModal";
+import {
+  getBoardCards,
+  getMyBoardCards,
+  getCardStatuses,
+  createCardStatus,
+  moveCard,
+  createCard,
+  createBoard,
+  getBoards,
+  deleteCard,
+  getUsers,
+} from "../api/cardApi";
+import { useAuth } from "../hooks/useAuth";
 import {
   listContainedButtonSx,
   listSearchFieldSx,
   listSelectFieldSx,
   listSelectProps,
   LIST_FILTER_ALL,
-} from '../components/forms';
-import AddListComposer from '../components/board/AddListComposer';
+} from "../components/forms";
+import AddListComposer from "../components/board/AddListComposer";
 
 function BoardCardSkeleton() {
   return (
@@ -22,19 +41,41 @@ function BoardCardSkeleton() {
       elevation={0}
       sx={{
         p: 1.25,
-        borderRadius: '10px',
-        border: '1px solid #e5e7eb',
-        bgcolor: '#fff',
-        position: 'relative',
+        borderRadius: "10px",
+        border: "1px solid #e5e7eb",
+        bgcolor: "#fff",
+        position: "relative",
       }}
     >
-      <Skeleton variant="circular" width={14} height={14} sx={{ position: 'absolute', top: 10, right: 10 }} />
+      <Skeleton
+        variant="circular"
+        width={14}
+        height={14}
+        sx={{ position: "absolute", top: 10, right: 10 }}
+      />
       <Stack spacing={0.9}>
         <Skeleton variant="text" width="82%" height={18} />
-        <Skeleton variant="rounded" width={120} height={22} sx={{ borderRadius: 999 }} />
+        <Skeleton
+          variant="rounded"
+          width={120}
+          height={22}
+          sx={{ borderRadius: 999 }}
+        />
         <Skeleton variant="text" width="45%" height={14} />
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 0.25 }}>
-          <Skeleton variant="rounded" width={48} height={20} sx={{ borderRadius: 1 }} />
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            pt: 0.25,
+          }}
+        >
+          <Skeleton
+            variant="rounded"
+            width={48}
+            height={20}
+            sx={{ borderRadius: 1 }}
+          />
           <Skeleton variant="circular" width={26} height={26} />
         </Box>
       </Stack>
@@ -49,24 +90,46 @@ function BoardColumnSkeleton({ cardCount = 4 }) {
         minWidth: 260,
         maxWidth: 260,
         width: 260,
-        flex: '0 0 260px',
-        bgcolor: '#f3f4f6',
-        border: '1px solid #e5e7eb',
-        borderRadius: '10px',
-        p: '10px',
-        display: 'flex',
-        flexDirection: 'column',
+        flex: "0 0 260px",
+        bgcolor: "#f3f4f6",
+        border: "1px solid #e5e7eb",
+        borderRadius: "10px",
+        p: "10px",
+        display: "flex",
+        flexDirection: "column",
         gap: 1,
-        height: '78vh',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
+        height: "78vh",
+        boxSizing: "border-box",
+        overflow: "hidden",
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', px: '4px', gap: 1 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          px: "4px",
+          gap: 1,
+        }}
+      >
         <Skeleton variant="text" width="68%" height={22} />
-        <Skeleton variant="rounded" width={32} height={22} sx={{ borderRadius: 999, flexShrink: 0 }} />
+        <Skeleton
+          variant="rounded"
+          width={32}
+          height={22}
+          sx={{ borderRadius: 999, flexShrink: 0 }}
+        />
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+          flex: 1,
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
         {Array.from({ length: cardCount }).map((_, i) => (
           <BoardCardSkeleton key={i} />
         ))}
@@ -81,13 +144,13 @@ function TasksBoardSkeleton() {
   return (
     <Box
       sx={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '12px',
-        width: '100%',
-        overflowX: 'auto',
-        p: '12px',
-        boxSizing: 'border-box',
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "12px",
+        width: "100%",
+        overflowX: "auto",
+        p: "12px",
+        boxSizing: "border-box",
       }}
     >
       {cardsPerColumn.map((count, i) => (
@@ -97,19 +160,286 @@ function TasksBoardSkeleton() {
   );
 }
 
+function BoardSearch({ onBoardSelect }) {
+  const [search, setSearch] = useState("");
+  const [boards, setBoards] = useState([]);
+  const [open, setOpen] = useState(false);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
+
+  const loadBoards = async () => {
+    try {
+      const data = await getBoards();
+      setBoards(data || []);
+      setOpen(true);
+    } catch (err) {
+      console.error("Failed to load boards:", err);
+    }
+  };
+
+  const filteredBoards = boards.filter((board) =>
+    String(board.boardName || "")
+      .toLowerCase()
+      .includes(search.trim().toLowerCase()),
+  );
+
+  return (
+    <Box
+      ref={searchRef}
+      sx={{
+        position: "relative",
+        width: { xs: "100%", sm: 210, md: 220 },
+      }}
+    >
+      <TextField
+        size="small"
+        fullWidth
+        placeholder="Search board"
+        value={search}
+        onFocus={loadBoards}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setOpen(true);
+        }}
+        sx={{
+          ...listSearchFieldSx,
+          "& .MuiInputBase-root": {
+            height: 40,
+          },
+        }}
+      />
+
+      {open && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            width: "100%",
+            backgroundColor: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
+            zIndex: 1500,
+            maxHeight: 260,
+            overflowY: "auto",
+          }}
+        >
+          {filteredBoards.length > 0 ? (
+            filteredBoards.map((board) => (
+              <Box
+                key={board.boardID}
+                onClick={() => {
+                  onBoardSelect(board.boardName);
+                  setSearch("");
+                  setOpen(false);
+                }}
+                sx={{
+                  px: 1.5,
+                  py: 1,
+                  cursor: "pointer",
+                  fontSize: 14,
+                  color: "#374151",
+                  "&:hover": {
+                    backgroundColor: "#f3f4f6",
+                  },
+                }}
+              >
+                {board.boardName}
+              </Box>
+            ))
+          ) : (
+            <Box
+              sx={{
+                px: 1.5,
+                py: 1.2,
+                fontSize: 13,
+                color: "#6b7280",
+              }}
+            >
+              No boards found
+            </Box>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function CreateBoardButton() {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const createRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (createRef.current && !createRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
+
+  const handleCreateBoard = async () => {
+    const boardName = title.trim();
+
+    if (!boardName) return;
+
+    try {
+      await createBoard(boardName);
+      setTitle("");
+      setOpen(false);
+    } catch (err) {
+      console.error("Failed to create board:", err);
+    }
+  };
+
+  return (
+    <Box
+      ref={createRef}
+      sx={{
+        position: "relative",
+        display: "inline-flex",
+      }}
+    >
+      <Button
+        variant="contained"
+        size="small"
+        onClick={() => {
+          setTitle("");
+          setOpen((prev) => !prev);
+        }}
+        sx={{
+          height: 40,
+          minWidth: 90,
+          borderRadius: "8px",
+          textTransform: "none",
+          fontWeight: 600,
+          boxShadow: "none",
+        }}
+      >
+        Create
+      </Button>
+
+      {open && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            right: 0,
+            width: 300,
+            backgroundColor: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
+            p: 1.5,
+            zIndex: 1500,
+          }}
+        >
+          <Box
+            sx={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#374151",
+              mb: 0.8,
+            }}
+          >
+            Board title <span style={{ color: "#ef4444" }}>*</span>
+          </Box>
+
+          <TextField
+            fullWidth
+            size="small"
+            autoFocus
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Board title"
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                height: 38,
+                borderRadius: "7px",
+              },
+            }}
+          />
+
+          {!title.trim() && (
+            <Box
+              sx={{
+                mt: 0.7,
+                fontSize: 12,
+                color: "#4b5563",
+              }}
+            >
+              👋 Board title is required
+            </Box>
+          )}
+
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={handleCreateBoard}
+            disabled={!title.trim()}
+            sx={{
+              mt: 1.2,
+              height: 34,
+              borderRadius: "7px",
+              textTransform: "none",
+              fontWeight: 600,
+              boxShadow: "none",
+              backgroundColor: "#1976d2",
+              "&:hover": {
+                backgroundColor: "#1565c0",
+                boxShadow: "none",
+              },
+              "&.Mui-disabled": {
+                backgroundColor: "#d1d5db",
+                color: "#9ca3af",
+              },
+            }}
+          >
+            Create Board
+          </Button>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 export default function BoardPage() {
   const { user } = useAuth();
-  const isAccounting = user?.role === 'Accounting';
+  const isAccounting = user?.role === "Accounting";
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addModalStatusId, setAddModalStatusId] = useState(null);
   const [selectedCardId, setSelectedCardId] = useState(null);
 
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState("");
+
+  const [boardSearchText, setBoardSearchText] = useState("");
+  const [selectedBoardName, setSelectedBoardName] = useState("");
+
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
@@ -119,7 +449,7 @@ export default function BoardPage() {
         const data = await getUsers();
         setUsers(data);
       } catch (err) {
-        console.error('Failed to load users:', err);
+        console.error("Failed to load users:", err);
       }
     })();
   }, [isAccounting]);
@@ -133,27 +463,16 @@ export default function BoardPage() {
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
       };
-      const [data, allStatuses] = await Promise.all([
-        isAccounting
-          ? getMyBoardCards(filters)
-          : getBoardCards({ ...filters, assignedUserId: selectedUserId }),
-        getCardStatuses(),
-      ]);
+      const data = isAccounting
+        ? await getMyBoardCards(filters)
+        : await getBoardCards({
+            ...filters,
+            assignedUserId: selectedUserId,
+          });
 
-      const cardsByStatus = new Map((data || []).map((col) => [col.cardStatusID, col]));
-      const mergedColumns = (allStatuses || []).map((status) => {
-        const existing = cardsByStatus.get(status.cardStatusID);
-        return existing || {
-          cardStatusID: status.cardStatusID,
-          statusName: status.statusName,
-          count: 0,
-          cards: [],
-        };
-      });
-
-      setColumns(mergedColumns.length ? mergedColumns : (data || []));
+      setColumns([]);
     } catch (err) {
-      setError(err.message || 'Failed to load board');
+      setError(err.message || "Failed to load board");
     } finally {
       setLoading(false);
     }
@@ -164,7 +483,9 @@ export default function BoardPage() {
   }, [loadBoard]);
 
   const selectedCard = selectedCardId
-    ? columns.flatMap((col) => col.cards).find((c) => c.cardID === selectedCardId) || null
+    ? columns
+        .flatMap((col) => col.cards)
+        .find((c) => c.cardID === selectedCardId) || null
     : null;
 
   const handleDragEnd = async (result) => {
@@ -173,7 +494,8 @@ export default function BoardPage() {
     if (
       source.droppableId === destination.droppableId &&
       source.index === destination.index
-    ) return;
+    )
+      return;
 
     const cardId = parseInt(draggableId, 10);
     const newStatusId = parseInt(destination.droppableId, 10);
@@ -182,8 +504,12 @@ export default function BoardPage() {
     const prevColumns = columns;
     setColumns((prev) => {
       const next = prev.map((col) => ({ ...col, cards: [...col.cards] }));
-      const sourceCol = next.find((c) => String(c.cardStatusID) === source.droppableId);
-      const destCol = next.find((c) => String(c.cardStatusID) === destination.droppableId);
+      const sourceCol = next.find(
+        (c) => String(c.cardStatusID) === source.droppableId,
+      );
+      const destCol = next.find(
+        (c) => String(c.cardStatusID) === destination.droppableId,
+      );
       const [movedCard] = sourceCol.cards.splice(source.index, 1);
       destCol.cards.splice(destination.index, 0, movedCard);
       sourceCol.count = sourceCol.cards.length;
@@ -195,7 +521,7 @@ export default function BoardPage() {
       await moveCard({ cardId, newCardStatusID: newStatusId, newPosition });
     } catch (err) {
       setColumns(prevColumns);
-      setError(err.message || 'Could not move card. Please try again.');
+      setError(err.message || "Could not move card. Please try again.");
     }
   };
 
@@ -209,7 +535,7 @@ export default function BoardPage() {
       setAddModalStatusId(null);
       loadBoard();
     } catch (err) {
-      setError(err.message || 'Could not create card.');
+      setError(err.message || "Could not create card.");
     }
   };
 
@@ -217,7 +543,8 @@ export default function BoardPage() {
     try {
       const status = await createCardStatus(statusName);
       setColumns((prev) => {
-        if (prev.some((col) => col.cardStatusID === status.cardStatusID)) return prev;
+        if (prev.some((col) => col.cardStatusID === status.cardStatusID))
+          return prev;
         return [
           ...prev,
           {
@@ -229,7 +556,7 @@ export default function BoardPage() {
         ];
       });
     } catch (err) {
-      setError(err.message || 'Could not create list.');
+      setError(err.message || "Could not create list.");
       throw err;
     }
   };
@@ -239,70 +566,51 @@ export default function BoardPage() {
       await deleteCard(cardId);
       loadBoard();
     } catch (err) {
-      setError(err.message || 'Could not delete card.');
+      setError(err.message || "Could not delete card.");
     }
   };
+
+  const filteredColumns = columns.filter((col) =>
+    String(col.statusName || "")
+      .toLowerCase()
+      .includes(boardSearchText.trim().toLowerCase()),
+  );
 
   return (
     <div>
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: { xs: 'flex-start', md: 'space-between' },
-          alignItems: { xs: 'stretch', md: 'center' },
-          flexDirection: { xs: 'column', md: 'row' },
+          display: "flex",
+          justifyContent: { xs: "flex-start", md: "space-between" },
+          alignItems: { xs: "stretch", md: "center" },
+          flexDirection: { xs: "column", md: "row" },
           mb: 2,
-          flexWrap: 'wrap',
+          flexWrap: "wrap",
           gap: 1.25,
         }}
       >
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Tasks</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
+          {selectedBoardName || "Select Board"}
+        </h1>
 
         <Box
           sx={{
-            display: 'flex',
+            display: "flex",
             gap: 1,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            width: { xs: '100%', md: 'auto' },
-            '& > .MuiTextField-root, & > .MuiButton-root': {
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+            width: { xs: "100%", md: "auto" },
+            "& > .MuiTextField-root, & > .MuiButton-root": {
               height: 40,
-              flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '0 0 auto' },
             },
           }}
         >
-          {!isAccounting && (
-            <TextField
-              select
-              size="small"
-              value={selectedUserId ?? LIST_FILTER_ALL}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSelectedUserId(next === LIST_FILTER_ALL || next === '' ? null : parseInt(next, 10));
-              }}
-              SelectProps={{
-                ...listSelectProps('All Users'),
-                renderValue: (selected) => {
-                  if (selected === LIST_FILTER_ALL || selected === '' || selected == null) return 'All Users';
-                  const userMatch = users.find((u) => String(u.userId) === String(selected));
-                  return userMatch ? `${userMatch.firstName} ${userMatch.lastName}` : 'All Users';
-                },
-              }}
-              sx={{
-                ...listSelectFieldSx(Boolean(selectedUserId)),
-                minWidth: { xs: 0, md: 160 },
-                maxWidth: { xs: '100%', md: 200 },
-              }}
-            >
-              <MenuItem value={LIST_FILTER_ALL}>All Users</MenuItem>
-              {users.map((u) => (
-                <MenuItem key={u.userId} value={u.userId}>
-                  {u.firstName} {u.lastName}
-                </MenuItem>
-              ))}
-            </TextField>
-          )}
+          {/* Board Search */}
+          <BoardSearch onBoardSelect={setSelectedBoardName} />
+          <CreateBoardButton />
 
+          {/* Task Search */}
           <TextField
             size="small"
             placeholder="Search task"
@@ -310,11 +618,14 @@ export default function BoardPage() {
             onChange={(e) => setSearchText(e.target.value)}
             sx={{
               ...listSearchFieldSx,
-              minWidth: { xs: 0, md: 160 },
-              maxWidth: { xs: '100%', md: 200 },
+              width: { xs: "100%", sm: 180, md: 190 },
+              "& .MuiInputBase-root": {
+                height: 40,
+              },
             }}
           />
 
+          {/* From Date */}
           <TextField
             type="date"
             size="small"
@@ -323,10 +634,14 @@ export default function BoardPage() {
             sx={{
               ...listSearchFieldSx,
               minWidth: { xs: 0, md: 150 },
-              maxWidth: { xs: '100%', md: 170 },
+              maxWidth: { xs: "100%", md: 170 },
+              "& .MuiInputBase-root": {
+                height: 40,
+              },
             }}
           />
 
+          {/* To Date */}
           <TextField
             type="date"
             size="small"
@@ -335,17 +650,25 @@ export default function BoardPage() {
             sx={{
               ...listSearchFieldSx,
               minWidth: { xs: 0, md: 150 },
-              maxWidth: { xs: '100%', md: 170 },
+              maxWidth: { xs: "100%", md: 170 },
+              "& .MuiInputBase-root": {
+                height: 40,
+              },
             }}
           />
 
+          {/* Refresh */}
           <Button
             variant="contained"
             size="small"
             startIcon={<RefreshIcon />}
             onClick={loadBoard}
             disabled={loading}
-            sx={{ ...listContainedButtonSx, width: { xs: '100%', md: 'auto' } }}
+            sx={{
+              ...listContainedButtonSx,
+              height: 40,
+              minWidth: 100,
+            }}
           >
             Refresh
           </Button>
@@ -353,39 +676,63 @@ export default function BoardPage() {
       </Box>
 
       {error && (
-        <div style={{ background: '#fef2f2', color: '#b91c1c', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
+        <div
+          style={{
+            background: "#fef2f2",
+            color: "#b91c1c",
+            padding: "8px 12px",
+            borderRadius: 6,
+            marginBottom: 12,
+            fontSize: 13,
+          }}
+        >
           {error}
         </div>
       )}
 
-      {loading ? (
+      {!selectedBoardName ? (
+        <Box
+          sx={{
+            minHeight: "calc(100vh - 180px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 20,
+            fontWeight: 600,
+            color: "#6b7280",
+          }}
+        >
+          Choose a Board
+        </Box>
+      ) : loading ? (
         <TasksBoardSkeleton />
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
           <div
             className="board-scroll"
             style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px',
-              width: '100%',
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              padding: '12px',
-              boxSizing: 'border-box',
-              whiteSpace: 'nowrap',
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "12px",
+              width: "100%",
+              overflowX: "auto",
+              overflowY: "hidden",
+              padding: "12px",
+              boxSizing: "border-box",
+              whiteSpace: "nowrap",
             }}
           >
-            {columns.map((col, columnIndex) => (
-  <BoardColumn
-    key={col.cardStatusID}
-    column={col}
-    columnIndex={columnIndex}  
-    onAddCard={() => setAddModalStatusId(col.cardStatusID)}
-    onDeleteCard={handleDeleteCard}
-    onCardClick={(card) => setSelectedCardId(card.cardID)}
-  />
-))}
+            {filteredColumns.map((col, columnIndex) => (
+              <BoardColumn
+                key={col.cardStatusID}
+                column={col}
+                columnIndex={columnIndex}
+                onAddCard={() => setAddModalStatusId(col.cardStatusID)}
+                onDeleteCard={handleDeleteCard}
+                onCardClick={(card) => setSelectedCardId(card.cardID)}
+              />
+            ))}
+
             <AddListComposer onAdd={handleAddList} />
           </div>
         </DragDropContext>
