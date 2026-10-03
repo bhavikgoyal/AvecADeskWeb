@@ -40,6 +40,21 @@ export async function getListsByBoardId(boardId) {
   return response.data;
 }
 
+export async function getCardsByBoardId(boardId, filters = {}) {
+  const { searchText, assignedUserId, fromDate, toDate } = filters;
+
+  const response = await axiosClient.get(`/api/Card/board/${boardId}`, {
+    params: {
+      searchText,
+      assignedUserId,
+      fromDate,
+      toDate,
+    },
+  });
+
+  return response.data;
+}
+
 export async function getBoards() {
   const response = await axiosClient.get('/api/Board');
   return response.data;

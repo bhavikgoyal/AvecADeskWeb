@@ -23,6 +23,7 @@ import {
   createBoard,
   getBoards,
   getListsByBoardId,
+  getCardsByBoardId,
   createList,
   deleteCard,
   getUsers,
@@ -461,32 +462,54 @@ export default function BoardPage() {
   }, [isAccounting]);
 
   const loadBoard = useCallback(async () => {
-    if (!selectedBoardId) {
-      setColumns([]);
-      return;
-    }
+  if (!selectedBoardId) {
+    setColumns([]);
+    return;
+  }
 
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    try {
-      const lists = await getListsByBoardId(selectedBoardId);
+  try {
+    const filters = {
+      searchText,
+      assignedUserId: selectedUserId,
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+    };
 
-      const boardColumns = (lists || []).map((list) => ({
+    const [lists, cards] = await Promise.all([
+      getListsByBoardId(selectedBoardId),
+      getCardsByBoardId(selectedBoardId, filters),
+    ]);
+
+    const boardColumns = (lists || []).map((list) => {
+      const listCards = (cards || []).filter(
+        (card) => Number(card.listID) === Number(list.listID)
+      );
+
+      return {
         cardStatusID: list.listID,
         statusName: list.listName,
-        count: 0,
-        cards: [],
-      }));
+        count: listCards.length,
+        cards: listCards,
+      };
+    });
 
-      setColumns(boardColumns);
-    } catch (err) {
-      setError(err.message || "Failed to load lists");
-      setColumns([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedBoardId]);
+    setColumns(boardColumns);
+  } catch (err) {
+    setError(err.message || "Failed to load board");
+    setColumns([]);
+  } finally {
+    setLoading(false);
+  }
+}, [
+  selectedBoardId,
+  searchText,
+  selectedUserId,
+  fromDate,
+  toDate,
+]);
 
   useEffect(() => {
     loadBoard();
@@ -535,13 +558,17 @@ export default function BoardPage() {
     }
   };
 
-  const handleAddCard = async (statusId, title) => {
+  const handleAddCard = async (listId, title) => {
+    if (!selectedBoardId) return;
+
     try {
       await createCard({
+        boardID: selectedBoardId,
+        listID: listId,
         cardTitle: title,
-        cardStatusID: statusId,
         assignedUserID: isAccounting ? Number(user?.id) : undefined,
       });
+
       setAddModalStatusId(null);
       loadBoard();
     } catch (err) {
