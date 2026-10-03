@@ -22,6 +22,52 @@ export async function createCard(payload) {
   return response.data;
 }
 
+export async function createBoard(boardName) {
+  const response = await axiosClient.post('/api/Board', {
+    boardName,
+  });
+
+  return response.data;
+}
+
+export async function createList(payload) {
+  const response = await axiosClient.post('/api/List', payload);
+  return response.data;
+}
+
+export async function getListsByBoardId(boardId) {
+  const response = await axiosClient.get(`/api/List/${boardId}`);
+  return response.data;
+}
+
+export async function getCardsByBoardId(boardId, filters = {}) {
+  const { searchText, assignedUserId, fromDate, toDate } = filters;
+
+  const response = await axiosClient.get(`/api/Card/board/${boardId}`, {
+    params: {
+      searchText,
+      assignedUserId,
+      fromDate,
+      toDate,
+    },
+  });
+
+  return response.data;
+}
+
+export async function getBoards() {
+  const response = await axiosClient.get('/api/Board');
+  return response.data;
+}
+
+export async function updateBoard(boardId, boardName) {
+  const response = await axiosClient.put(`/api/Board/${boardId}`, {
+    boardName,
+  });
+
+  return response.data;
+}
+
 export async function updateCard(payload) {
   const response = await axiosClient.post('/api/Card/update', payload);
   return response.data;
@@ -29,6 +75,12 @@ export async function updateCard(payload) {
 
 export async function moveCard(payload) {
   const response = await axiosClient.patch('/api/Card/move', payload);
+  return response.data;
+}
+
+// position = 0-based index in the destination list
+export async function moveCardToList({ cardID, listID, position }) {
+  const response = await axiosClient.post('/api/Card/move-to-list', { cardID, listID, position });
   return response.data;
 }
 
