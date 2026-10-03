@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { toast } from "react-toastify";
 import { DragDropContext } from "@hello-pangea/dnd";
 import {
   Box,
@@ -22,6 +23,7 @@ import {
   createCard,
   createBoard,
   getBoards,
+  updateBoard,
   getListsByBoardId,
   getCardsByBoardId,
   createList,
@@ -204,7 +206,8 @@ function BoardSearch({ onBoardSelect }) {
       ref={searchRef}
       sx={{
         position: "relative",
-        width: { xs: "100%", sm: 210, md: 220 },
+        width: { xs: "100%", sm: 300, md: 350 },
+        flex: "0 0 350px",
       }}
     >
       <TextField
@@ -219,6 +222,8 @@ function BoardSearch({ onBoardSelect }) {
         }}
         sx={{
           ...listSearchFieldSx,
+          width: "100%",
+          maxWidth: "none",
           "& .MuiInputBase-root": {
             height: 40,
           },
@@ -311,6 +316,11 @@ function CreateBoardButton() {
 
     try {
       await createBoard(boardName);
+
+      toast.success("Board created successfully", {
+        hideProgressBar: true,
+      });
+
       setTitle("");
       setOpen(false);
     } catch (err) {
@@ -334,6 +344,7 @@ function CreateBoardButton() {
           setOpen((prev) => !prev);
         }}
         sx={{
+          ...listContainedButtonSx,
           height: 40,
           minWidth: 90,
           borderRadius: "8px",
@@ -448,6 +459,32 @@ export default function BoardPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [users, setUsers] = useState([]);
+  const [boardInitializing, setBoardInitializing] = useState(true);
+
+  const [isEditingBoardName, setIsEditingBoardName] = useState(false);
+  const [boardNameDraft, setBoardNameDraft] = useState("");
+  const boardTitleRef = useRef(null);
+
+  useEffect(() => {
+    const loadDefaultBoard = async () => {
+      try {
+        const data = await getBoards();
+
+        if (data && data.length > 0) {
+          const defaultBoard = data[0];
+
+          setSelectedBoardId(defaultBoard.boardID);
+          setSelectedBoardName(defaultBoard.boardName);
+        }
+      } catch (err) {
+        console.error("Failed to load default board:", err);
+      } finally {
+        setBoardInitializing(false);
+      }
+    };
+
+    loadDefaultBoard();
+  }, []);
 
   useEffect(() => {
     if (isAccounting) return;
@@ -461,55 +498,106 @@ export default function BoardPage() {
     })();
   }, [isAccounting]);
 
-  const loadBoard = useCallback(async () => {
-  if (!selectedBoardId) {
-    setColumns([]);
-    return;
-  }
+  const handleBoardNameSave = useCallback(async () => {
+    const newBoardName = boardNameDraft.trim();
 
-  setLoading(true);
-  setError(null);
+    if (!selectedBoardId) return;
 
-  try {
-    const filters = {
-      searchText,
-      assignedUserId: selectedUserId,
-      fromDate: fromDate || undefined,
-      toDate: toDate || undefined,
+    if (!newBoardName) {
+      setBoardNameDraft(selectedBoardName);
+      setIsEditingBoardName(false);
+      return;
+    }
+
+    if (newBoardName === selectedBoardName.trim()) {
+      setIsEditingBoardName(false);
+      return;
+    }
+
+    try {
+      await updateBoard(selectedBoardId, newBoardName);
+
+      setSelectedBoardName(newBoardName);
+      setBoardNameDraft(newBoardName);
+      setIsEditingBoardName(false);
+
+      toast.success("Board name updated successfully", {
+        hideProgressBar: true,
+      });
+    } catch (err) {
+      console.error("Failed to update board name:", err);
+
+      setBoardNameDraft(selectedBoardName);
+      setIsEditingBoardName(false);
+
+      toast.error("Failed to update board name", {
+        hideProgressBar: true,
+      });
+    }
+  }, [boardNameDraft, selectedBoardId, selectedBoardName]);
+
+  useEffect(() => {
+    if (!isEditingBoardName) return;
+
+    const handleOutsideClick = (event) => {
+      if (
+        boardTitleRef.current &&
+        !boardTitleRef.current.contains(event.target)
+      ) {
+        handleBoardNameSave();
+      }
     };
 
-    const [lists, cards] = await Promise.all([
-      getListsByBoardId(selectedBoardId),
-      getCardsByBoardId(selectedBoardId, filters),
-    ]);
+    document.addEventListener("mousedown", handleOutsideClick);
 
-    const boardColumns = (lists || []).map((list) => {
-      const listCards = (cards || []).filter(
-        (card) => Number(card.listID) === Number(list.listID)
-      );
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isEditingBoardName, handleBoardNameSave]);
 
-      return {
-        cardStatusID: list.listID,
-        statusName: list.listName,
-        count: listCards.length,
-        cards: listCards,
+  const loadBoard = useCallback(async () => {
+    if (!selectedBoardId) {
+      setColumns([]);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const filters = {
+        searchText,
+        assignedUserId: selectedUserId,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
       };
-    });
 
-    setColumns(boardColumns);
-  } catch (err) {
-    setError(err.message || "Failed to load board");
-    setColumns([]);
-  } finally {
-    setLoading(false);
-  }
-}, [
-  selectedBoardId,
-  searchText,
-  selectedUserId,
-  fromDate,
-  toDate,
-]);
+      const [lists, cards] = await Promise.all([
+        getListsByBoardId(selectedBoardId),
+        getCardsByBoardId(selectedBoardId, filters),
+      ]);
+
+      const boardColumns = (lists || []).map((list) => {
+        const listCards = (cards || []).filter(
+          (card) => Number(card.listID) === Number(list.listID),
+        );
+
+        return {
+          cardStatusID: list.listID,
+          statusName: list.listName,
+          count: listCards.length,
+          cards: listCards,
+        };
+      });
+
+      setColumns(boardColumns);
+    } catch (err) {
+      setError(err.message || "Failed to load board");
+      setColumns([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedBoardId, searchText, selectedUserId, fromDate, toDate]);
 
   useEffect(() => {
     loadBoard();
@@ -619,7 +707,16 @@ export default function BoardPage() {
   );
 
   return (
-    <div>
+    <div
+      style={{
+        backgroundColor: "#e3f0f8",
+        border: "1px solid #d7e7f1",
+        borderRadius: "14px",
+        padding: "10px",
+        boxSizing: "border-box",
+        overflow: "hidden",
+      }}
+    >
       <Box
         sx={{
           display: "flex",
@@ -629,11 +726,64 @@ export default function BoardPage() {
           mb: 2,
           flexWrap: "wrap",
           gap: 1.25,
+          backgroundColor: "#bfd8e9",
+          margin: "-10px -10px 10px",
+          padding: "10px 12px",
+          borderRadius: "13px 13px 0 0",
+          boxSizing: "border-box",
         }}
       >
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
-          {selectedBoardName || "Select Board"}
-        </h1>
+        <Box
+          ref={boardTitleRef}
+          sx={{
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+        >
+          {isEditingBoardName ? (
+            <TextField
+              autoFocus
+              size="small"
+              value={boardNameDraft}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setBoardNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleBoardNameSave();
+                }
+              }}
+              sx={{
+                width: 260,
+                "& .MuiInputBase-root": {
+                  height: 40,
+                },
+              }}
+            />
+          ) : (
+            <Box
+              component="h2"
+              onClick={() => {
+                setBoardNameDraft(selectedBoardName);
+                setIsEditingBoardName(true);
+              }}
+              sx={{
+                fontSize: 20,
+                fontWeight: 700,
+                lineHeight: 1.2,
+                margin: 0,
+                padding: "6px 10px",
+                borderRadius: "6px",
+                cursor: "pointer",
+                "&:hover": {
+                  backgroundColor: "#dcebf5",
+                },
+              }}
+            >
+              {boardInitializing ? "" : selectedBoardName || "Select Board"}
+            </Box>
+          )}
+        </Box>
 
         <Box
           sx={{
@@ -651,6 +801,7 @@ export default function BoardPage() {
           {/* Board Search */}
           <BoardSearch
             onBoardSelect={({ boardID, boardName }) => {
+              setIsEditingBoardName(false);
               setSelectedBoardId(boardID);
               setSelectedBoardName(boardName);
             }}
@@ -737,7 +888,7 @@ export default function BoardPage() {
         </div>
       )}
 
-      {!selectedBoardName ? (
+      {boardInitializing ? null : !selectedBoardName ? (
         <Box
           sx={{
             minHeight: "calc(100vh - 180px)",
@@ -764,7 +915,8 @@ export default function BoardPage() {
               width: "100%",
               overflowX: "auto",
               overflowY: "hidden",
-              padding: "12px",
+              padding: "12px 0 12px 0",
+              minHeight: "81vh",
               boxSizing: "border-box",
               whiteSpace: "nowrap",
             }}

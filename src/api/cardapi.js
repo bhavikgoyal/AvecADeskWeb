@@ -60,6 +60,14 @@ export async function getBoards() {
   return response.data;
 }
 
+export async function updateBoard(boardId, boardName) {
+  const response = await axiosClient.put(`/api/Board/${boardId}`, {
+    boardName,
+  });
+
+  return response.data;
+}
+
 export async function updateCard(payload) {
   const response = await axiosClient.post('/api/Card/update', payload);
   return response.data;
