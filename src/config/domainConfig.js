@@ -429,7 +429,7 @@ export const DOMAIN_RESOURCES = {
       amountDue: '', amountPaid: '', paymentStatus: 'Pending', startDate: '',
       assignment: '',
       commissionPercentage: '', gstPercentage: '', bonus: '',
-      commissionAmount: '', gstAmount: '', invoiceAmount: '', remark: '',
+      commissionAmount: '', gstAmount: '', invoiceAmount: '', dueDate: '', remark: '',
     }),
   },
   invoices: {
