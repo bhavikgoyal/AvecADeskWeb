@@ -372,6 +372,7 @@ export async function fetchStudentPaymentDetail(studentId) {
       installmentImage: item.installmentImage ?? item.InstallmentImage ?? null,
       status: item.paymentStatus ?? item.PaymentStatus ?? "Pending",
       originalStatus: item.paymentStatus ?? item.PaymentStatus ?? null,
+      feeType: item.feeType ?? item.FeeType ?? null,
     }))
     .sort((a, b) => Number(a.installmentNo) - Number(b.installmentNo));
 
