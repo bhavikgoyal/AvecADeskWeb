@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { Box, Button, CircularProgress, Divider, Grid, List, ListItem, ListItemAvatar, ListItemText, Avatar, Paper, Stack, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useNavigate } from 'react-router-dom';
@@ -7,10 +7,10 @@ import { loadRecords } from '../../utils/resourceStorage';
 import StatCard from '../../components/StatCard';
 import WelcomeCard from '../../components/WelcomeCard';
 import MiniStatRow from '../../components/MiniStatRow';
-import QuickInsightsPanel from '../../components/dashboard/QuickInsightsPanel';
 import DashboardUpcomingPanel from '../../components/dashboard/DashboardUpcomingPanel';
 import ResponsiveTable from '../../components/ResponsiveTable';
 import { useAuth } from '../../hooks/useAuth';
+import { canAccessPath } from '../../utils/rbac';
 import { revenueTrend, trafficData } from '../../constants/chartData';
 
 const DashboardTrendSnapshot = lazy(() => import('../../components/dashboard/DashboardTrendSnapshot'));
@@ -43,19 +43,24 @@ export default function DashboardTemplate({
   rows,
   activity = [],
   tableBasePath = '/tasks',
+  // section visibility flags (default: show)
+  showSnapshot = true,
+  showQuickInsights = true,
+  showUpcoming = true,
+  showCharts = true,
+  showMiniStats = true,
+  showTable = true,
+  // slot for extra content in right column (e.g., custom panels)
+  rightExtra = null,
+  // custom children to render in the main left area (optional)
+  children = null,
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const primaryKpis = kpiStats.slice(0, 2);
   const secondaryKpis = kpiStats.slice(2, 4);
   const tableResource = getResourceConfig(tableBasePath);
-  const [storedRows, setStoredRows] = useState([]);
-
-  useEffect(() => {
-    if (tableBasePath) {
-      setStoredRows(loadRecords(tableBasePath));
-    }
-  }, [tableBasePath]);
+  const storedRows = useMemo(() => (tableBasePath ? loadRecords(tableBasePath) : []), [tableBasePath]);
 
   const tableColumns = useMemo(
     () => columns || tableResource?.columns || [],
@@ -66,7 +71,10 @@ export default function DashboardTemplate({
     return source.slice(0, 6);
   }, [rows, storedRows]);
 
+  const canOpenDetail = user?.role ? canAccessPath(user.role, tableBasePath) : true;
+
   const openRecord = (row) => {
+    if (!canOpenDetail) return;
     navigate(`${tableBasePath}/${row.id}`, { state: { edit: true } });
   };
 
@@ -74,34 +82,15 @@ export default function DashboardTemplate({
     <Box sx={{ width: '100%', maxWidth: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.25, mb: 1.5, flexWrap: 'wrap' }}>
         <Box>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase' }}>
+          {/* <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase' }}>
             Overview
-          </Typography>
+          </Typography> */}
           <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text)', mt: 0.5 }}>
             {title}
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--muted)', mt: 0.5, maxWidth: 560 }}>
             {subtitle}
           </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => navigate('/reports/receivables')}
-            sx={{ textTransform: 'none', borderRadius: 2, borderColor: 'var(--card-border)', color: 'var(--text)' }}
-          >
-            New view
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/reports/receivables/new')}
-            sx={{ textTransform: 'none', borderRadius: 2, bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' } }}
-          >
-            Create report
-          </Button>
         </Box>
       </Box>
 
@@ -125,15 +114,19 @@ export default function DashboardTemplate({
               </Grid>
             )}
 
-            <Box sx={{ flex: 1, display: 'flex', minHeight: { xs: 280, lg: 0 }, alignSelf: 'stretch' }}>
-              <Suspense fallback={chartFallback}>
-                <DashboardTrendSnapshot
-                  title={snapshotTitle}
-                  subtitle={snapshotSubtitle}
-                  data={areaChartData.slice(-7)}
-                />
-              </Suspense>
-            </Box>
+            {showSnapshot && (
+              <Box sx={{ flex: 1, display: 'flex', minHeight: { xs: 280, lg: 0 }, alignSelf: 'stretch' }}>
+                <Suspense fallback={chartFallback}>
+                  <DashboardTrendSnapshot
+                    title={snapshotTitle}
+                    subtitle={snapshotSubtitle}
+                    data={areaChartData.slice(-7)}
+                  />
+                </Suspense>
+              </Box>
+            )}
+
+            {children}
           </Stack>
         </Grid>
 
@@ -142,35 +135,43 @@ export default function DashboardTemplate({
             {primaryKpis.map((stat) => (
               <StatCard key={stat.label} {...stat} />
             ))}
-            <QuickInsightsPanel />
-            <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              <DashboardUpcomingPanel title={upcomingTitle} items={upcomingItems} fill />
-            </Box>
+            {rightExtra}
+            {/* Quick insights panel removed for simplified dashboard */}
+            {showUpcoming && (
+              <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
+                <DashboardUpcomingPanel title={upcomingTitle} items={upcomingItems} fill />
+              </Box>
+            )}
           </Stack>
         </Grid>
       </Grid>
 
-      <MiniStatRow items={miniStats} />
+      {showMiniStats && <MiniStatRow items={miniStats} />}
 
-      <Suspense fallback={chartFallback}>
-        <DashboardMainCharts
-          areaChartData={areaChartData}
-          barChartData={barChartData}
-          barChartKeys={barChartKeys}
-          areaChartTitle={areaChartTitle}
-          barChartTitle={barChartTitle}
-          height={220}
-        />
-      </Suspense>
+      {showCharts && (
+        <Suspense fallback={chartFallback}>
+          <DashboardMainCharts
+            areaChartData={areaChartData}
+            barChartData={barChartData}
+            barChartKeys={barChartKeys}
+            areaChartTitle={areaChartTitle}
+            barChartTitle={barChartTitle}
+            height={220}
+          />
+        </Suspense>
+      )}
 
       <Grid container spacing={{ xs: 1, md: 1.25 }} sx={{ width: '100%' }}>
         <Grid size={{ xs: 12, lg: activity.length > 0 ? 8 : 12 }}>
-          <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          {showTable && (
+            <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, overflow: 'hidden' }}>
             <Box sx={{ px: { xs: 1.25, md: 1.5 }, py: 1.25, borderBottom: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
               <Typography sx={{ fontWeight: 700, color: 'var(--text)' }}>{tableTitle}</Typography>
-              <Button size="small" onClick={() => navigate(`${tableBasePath}/new`)} sx={{ textTransform: 'none' }}>
-                Add item
-              </Button>
+              {canOpenDetail && (
+                <Button size="small" onClick={() => navigate(`${tableBasePath}/new`)} sx={{ textTransform: 'none' }}>
+                  Add item
+                </Button>
+              )}
             </Box>
             {tableRows.length > 0 && tableColumns.length > 0 ? (
               <ResponsiveTable
@@ -178,7 +179,7 @@ export default function DashboardTemplate({
                 rows={tableRows}
                 getRowKey={(row) => row.id}
                 alwaysTable
-                onRowClick={openRecord}
+                onRowClick={canOpenDetail ? openRecord : undefined}
               />
             ) : (
               <Box sx={{ px: 1.5, py: 2 }}>
@@ -187,7 +188,8 @@ export default function DashboardTemplate({
                 </Typography>
               </Box>
             )}
-          </Paper>
+            </Paper>
+          )}
         </Grid>
 
         {activity.length > 0 && (

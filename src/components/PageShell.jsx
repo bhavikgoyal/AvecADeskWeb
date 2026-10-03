@@ -1,10 +1,12 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
-import { Box, Button, CircularProgress, Grid, IconButton, InputAdornment, Paper, Stack, TextField, Typography } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
+import { lazy, Suspense, useMemo, useState ,useEffect} from 'react';
+import { Box, Button, CircularProgress, Grid, IconButton, Paper, TextField, TablePagination, Typography } from '@mui/material';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import StatCard from './StatCard';
 import ResponsiveTable from './ResponsiveTable';
+import TableContentSkeleton from './TableContentSkeleton';
 import { buildSparkline } from '../constants/chartData';
+import { listContainedButtonSx, listSearchFieldSx, listToolbarActionsSx, listToolbarRowSx, listToolbarSearchGroupSx } from './forms';
+
 
 const PageChartsPanel = lazy(() => import('./charts/PageChartsPanel'));
 
@@ -17,19 +19,50 @@ export default function PageShell({
   actionLabel = 'Add New',
   searchPlaceholder = 'Search...',
   showCharts = true,
+  showSearch = true, 
+  headerExtra = null,
+   headerActionsAfterAdd = null,
+  loading = false,
   onAdd,
   onRowClick,
   onDelete,
+  renderRowActions,
 }) {
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const searchableFields = useMemo(() => {
+    const fields = columns
+      .map((column) => column.field || column.id)
+      .filter((field) => typeof field === 'string' && !field.startsWith('__'));
+
+    return fields.length > 0 ? fields : null;
+  }, [columns]);
 
   const filteredRows = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return rows;
-    return rows.filter((row) =>
-      Object.values(row).some((value) => String(value ?? '').toLowerCase().includes(term)),
-    );
-  }, [rows, query]);
+    return rows.filter((row) => {
+      const values = searchableFields
+        ? searchableFields.map((field) => row?.[field])
+        : Object.values(row);
+
+      return values.some((value) => String(value ?? '').toLowerCase().includes(term));
+    });
+  }, [rows, query, searchableFields]);
+
+  
+const paginatedRows = useMemo(() => {
+  return filteredRows.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+}, [filteredRows, page, rowsPerPage]);
+
+useEffect(() => {
+  setPage(0);
+}, [query]);
 
   const enhancedStats = stats.map((stat, index) => ({
     ...stat,
@@ -44,33 +77,33 @@ export default function PageShell({
       ...columns,
       {
         id: '__delete__',
-        label: '',
-        align: 'right',
-        headerSx: { width: 48, px: 0.5 },
-        cellSx: { px: 0.5 },
+        label: 'Action',
+        align: 'left',
+        headerSx: { width: renderRowActions ? 110 : 70, px: 1 },
+        cellSx: { px: 1},
         render: (row) => (
-          <IconButton
-            size="small"
-            onClick={(e) => { e.stopPropagation(); onDelete(row); }}
-            sx={{
-              color: 'var(--danger)',
-              opacity: 0.55,
-              '&:hover': { opacity: 1, bgcolor: 'rgba(214, 57, 57, 0.08)' },
-            }}
-          >
-            <DeleteOutlinedIcon fontSize="small" />
-          </IconButton>
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap' }}>
+            {renderRowActions?.(row)}
+            <IconButton
+              size="small"
+              onClick={(e) => { e.stopPropagation(); onDelete(row); }}
+              sx={{
+                color: 'var(--danger)',
+                opacity: 0.55,
+                '&:hover': { opacity: 1, bgcolor: 'rgba(214, 57, 57, 0.08)' },
+              }}
+            >
+              <DeleteOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Box>
         ),
       },
     ];
-  }, [columns, onDelete]);
+  }, [columns, onDelete, renderRowActions]);
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100%' }}>
       <Box sx={{ mb: 1.5 }}>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase' }}>
-          Overview
-        </Typography>
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text)', mt: 0.5 }}>
           {title}
         </Typography>
@@ -103,56 +136,64 @@ export default function PageShell({
         </Suspense>
       )}
 
-      <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, overflow: 'hidden', width: '100%' }}>
-        <Box sx={{ px: { xs: 1.25, md: 1.5 }, py: 1.25, borderBottom: '1px solid var(--card-border)' }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} alignItems={{ xs: 'stretch', md: 'center' }} sx={{ width: '100%' }}>
-            <TextField
-              size="small"
-              placeholder={searchPlaceholder}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: 'var(--muted)' }} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                flex: 1,
-                minWidth: { xs: '100%', md: '200px' },
-                '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'var(--muted-bg)' },
-              }}
-            />
-            <Button
-              variant="contained"
-              size="small"
-              onClick={onAdd}
-              sx={{
-                textTransform: 'none',
-                bgcolor: 'var(--primary)',
-                '&:hover': { bgcolor: 'var(--primary-dark)' },
-                width: { xs: '100%', md: 'auto' },
-                height: 40,
-                px: 3,
-                borderRadius: 2,
-                fontWeight: 600,
-              }}
-            >
-              {actionLabel}
-            </Button>
-          </Stack>
-          {rows.length > 0 && (
-            <Typography sx={{ fontSize: '0.72rem', color: 'var(--muted)', mt: 1, fontWeight: 600 }}>
-              Showing {filteredRows.length} of {rows.length} records
-              {query.trim() ? ` matching "${query.trim()}"` : ''}
-            </Typography>
-          )}
+      <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 2, overflow: 'hidden', width: '100%' }}>
+        <Box sx={{ px: 2, py: 2, borderBottom: '1px solid var(--card-border)' }}>
+        <Box sx={listToolbarRowSx}>
+     <Box sx={listToolbarSearchGroupSx}>
+  {showSearch && (
+    <TextField
+      size="small"
+      placeholder={searchPlaceholder}
+      value={query}
+      onChange={(event) => setQuery(event.target.value)}
+      sx={listSearchFieldSx}
+    />
+  )}
+  {headerExtra}
+</Box>
+
+   <Box sx={listToolbarActionsSx}>
+   <Button
+            variant="contained" size="small" onClick={onAdd}
+            sx={listContainedButtonSx}>
+            {actionLabel}
+          </Button>
+          {headerActionsAfterAdd}
+        </Box>
+        </Box>
         </Box>
 
-        {tableColumns.length > 0 && rows.length > 0 ? (
+        {loading ? (
+          <TableContentSkeleton
+            rows={8}
+            columns={[
+              ...tableColumns.map((col, index) => ({
+                id: col.id || index,
+                label: typeof col.label === 'string' ? col.label : '',
+                flex:
+                  index === 0
+                    ? 1.6
+                    : String(col.label || '').toLowerCase().includes('email') ||
+                        String(col.label || '').toLowerCase().includes('institute') ||
+                        String(col.label || '').toLowerCase().includes('course') ||
+                        String(col.label || '').toLowerCase().includes('campus') ||
+                        String(col.label || '').toLowerCase().includes('ranking')
+                      ? 1.4
+                      : String(col.label || '').toLowerCase().includes('status') ||
+                          String(col.label || '').toLowerCase().includes('link') ||
+                          String(col.label || '').toLowerCase().includes('fees')
+                        ? 0.7
+                        : 1,
+                skeletonWidth:
+                  col.id === '__delete__' || col.id === 'actions' ? 28 : undefined,
+                skeletonHeight: col.id === '__delete__' || col.id === 'actions' ? 28 : 14,
+                round: col.id === '__delete__' || col.id === 'actions',
+              })),
+            ]}
+          />
+        ) : tableColumns.length > 0 && rows.length > 0 ? (
           filteredRows.length > 0 ? (
-            <ResponsiveTable columns={tableColumns} rows={filteredRows} getRowKey={(row) => row.id} variant="resource" alwaysTable onRowClick={onRowClick} />
+            <ResponsiveTable columns={tableColumns} rows={paginatedRows} getRowKey={(row) => row.id} variant="resource" alwaysTable onRowClick={onRowClick} />
           ) : (
             <Box sx={{ px: { xs: 1.25, md: 1.5 }, py: 2.5 }}>
               <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
@@ -166,6 +207,20 @@ export default function PageShell({
               No records yet. Use the action above to get started.
             </Typography>
           </Box>
+        )}
+        {!loading && (
+          <TablePagination
+            component="div"
+            count={filteredRows.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50]}
+          />
         )}
       </Paper>
     </Box>

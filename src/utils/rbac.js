@@ -17,3 +17,13 @@ export function getDefaultRoute(role) {
 export function canAccessPath(role, path) {
   return getAllowedPaths(role).has(path);
 }
+
+const CREDENTIALS_ROLES = ['Accounting', 'Admin', 'Super Admin', 'SuperAdmin'];
+
+export function canViewCredentials(user) {
+  if (!user?.role) return false;
+  const normalized = String(user.role).trim().toLowerCase().replace(/\s+/g, '');
+  return CREDENTIALS_ROLES.some(
+    (role) => role.toLowerCase().replace(/\s+/g, '') === normalized,
+  );
+}

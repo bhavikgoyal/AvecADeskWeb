@@ -13,6 +13,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  LabelList,
 } from 'recharts';
 import { Box } from '@mui/material';
 import { CHART_ANIMATION, CHART_COLORS } from '../../theme/chartTheme';
@@ -23,17 +24,30 @@ const tooltipStyle = {
   fontSize: 12,
 };
 
-export function SparklineChart({ data, color = CHART_COLORS.primary, height = 48 }) {
+export function SparklineChart({ data, color = CHART_COLORS.primary, height = 48, formatter }) {
+  const tooltipFormatter = formatter
+    ? (value) => [formatter(value), 'v']
+    : (value) => [Number(value), 'v'];
+
   return (
     <Box sx={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
+          <Tooltip
+            contentStyle={tooltipStyle}
+            formatter={tooltipFormatter}
+            labelFormatter={(label, payload) => {
+              if (payload && payload.length && payload[0] && payload[0].payload && payload[0].payload.name) return payload[0].payload.name;
+              return '';
+            }}
+          />
           <Line
             type="monotone"
             dataKey="v"
             stroke={color}
             strokeWidth={2.5}
             dot={false}
+            activeDot={{ r: 4 }}
             {...CHART_ANIMATION}
           />
         </LineChart>
@@ -95,26 +109,70 @@ export function AnimatedAreaChart({ data, dataKey = 'value', height = 260, secon
   );
 }
 
-export function AnimatedBarChart({ data, keys = ['visits', 'signups'], height = 260 }) {
-  const colors = [CHART_COLORS.primary, CHART_COLORS.teal];
+export function AnimatedBarChart({
+  data,
+  keys = ['visits', 'signups'],
+  colors = [CHART_COLORS.primary, CHART_COLORS.teal],
+  height = 260,
+  maxBarSize = 28,
+}) {
+  if (!Array.isArray(data) || data.length === 0) {
+    return (
+      <Box sx={{ width: '100%', height, display: 'flex', alignItems: 'center', px: 2 }}>
+        <Box sx={{ width: '100%', height: 2, bgcolor: CHART_COLORS.grid, borderRadius: 1 }} />
+      </Box>
+    );
+  }
+  const formatAxisTick = (value) => {
+    const n = Number(value) || 0;
+    if (Math.abs(n) >= 1000) {
+      const k = n / 1000;
+      return `$${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}k`;
+    }
+    return `$${n.toLocaleString()}`;
+  };
 
   return (
-    <Box sx={{ width: '100%', height }}>
+    <Box sx={{ width: '100%', height, overflow: 'hidden' }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barGap={4}>
+        <BarChart
+          data={data}
+          margin={{ top: 28, right: 12, left: 8, bottom: 4 }}
+          barGap={4}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
           <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} width={36} />
-          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: CHART_COLORS.primarySoft }} />
+          <YAxis
+            tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
+            axisLine={false}
+            tickLine={false}
+            width={52}
+            tickFormatter={formatAxisTick}
+            domain={[0, (dataMax) => {
+              const max = Number(dataMax) || 0;
+              if (max <= 0) return 10;
+              return Math.ceil(max * 1.2);
+            }]}
+            allowDataOverflow={false}
+          />
+          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: CHART_COLORS.primarySoft }} formatter={(value) => `$${Number(value).toLocaleString()}`} />
           {keys.map((key, index) => (
             <Bar
               key={key}
               dataKey={key}
               fill={colors[index % colors.length]}
               radius={[6, 6, 0, 0]}
-              maxBarSize={28}
+              maxBarSize={maxBarSize}
               {...CHART_ANIMATION}
-            />
+            >
+              <LabelList
+                dataKey={key}
+                position="top"
+                formatter={(val) => `$${Number(val).toLocaleString()}`}
+                style={{ fill: '#102030', fontSize: 11, fontWeight: 700 }}
+                offset={6}
+              />
+            </Bar>
           ))}
         </BarChart>
       </ResponsiveContainer>

@@ -155,11 +155,17 @@ export default function LoginForm() {
         </Button>
       </Box>
 
+    
       <Box sx={{ textAlign: 'center', mt: 3 }}>
-        <Link href="#" underline="none" sx={{ fontSize: '0.8125rem', color: '#3b82f6', fontWeight: 500 }}>
-          Forgot Password?
-        </Link>
-      </Box>
+  <Link
+    component={RouterLink}
+    to="/forgot-password"
+    underline="none"
+    sx={{ fontSize: '0.8125rem', color: '#3b82f6', fontWeight: 500 }}
+  >
+    Forgot Password?
+  </Link>
+</Box>
 
       <Box sx={{ textAlign: 'center', mt: 1.5 }}>
         <Link
@@ -169,6 +175,17 @@ export default function LoginForm() {
           sx={{ fontSize: '0.8125rem', color: '#2f80c9', fontWeight: 600 }}
         >
           Phone Verified
+        </Link>
+      </Box>
+
+      <Box sx={{ textAlign: 'center', mt: 1.5 }}>
+        <Link
+          component={RouterLink}
+          to="/register"
+          underline="none"
+          sx={{ fontSize: '0.8125rem', color: '#2f80c9', fontWeight: 600 }}
+        >
+          I am student - Register
         </Link>
       </Box>
 

@@ -19,15 +19,23 @@ export function clearAuthSession() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+// const axiosClient = axios.create({
+//   baseURL: API_BASE_URL,
+//   headers: { 'Content-Type': 'application/json' },
+// });
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
 });
 
 axiosClient.interceptors.request.use((config) => {
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+   if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  } else {
+    config.headers['Content-Type'] = 'application/json';
   }
   return config;
 });
@@ -37,20 +45,34 @@ axiosClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       clearAuthSession();
-      const onLoginPage = window.location.pathname === '/login';
+
+      const isStudentArea = window.location.pathname.startsWith('/student');
+      const loginPath = isStudentArea ? '/student-login' : '/login';
+      const onLoginPage = window.location.pathname === loginPath;
+
       if (!onLoginPage) {
-        window.location.assign('/login?session=expired');
+        window.location.assign(`${loginPath}?session=expired`);
       }
     }
 
     const message =
-      error.response?.data?.message ||
-      error.response?.data?.title ||
-      (typeof error.response?.data === 'string' ? error.response.data : null) ||
+      extractApiErrorMessage(error.response?.data) ||
       error.message ||
       'Request failed';
     return Promise.reject(new Error(message));
   },
 );
+
+function extractApiErrorMessage(data) {
+  if (!data) return null;
+  if (typeof data === 'string') return data;
+  if (data.message) return data.message;
+  if (data.title && data.errors) {
+    const details = Object.values(data.errors).flat().join(' ');
+    return details ? `${data.title} ${details}` : data.title;
+  }
+  if (data.title) return data.title;
+  return null;
+}
 
 export default axiosClient;

@@ -1,5 +1,6 @@
 import axiosClient from './axiosClient';
 import { fetchInstitutes } from './lookupApi';
+import { formatDateDisplay } from '../utils/dateFormat';
 
 function normalizeStudent(student) {
   return {
@@ -11,16 +12,14 @@ function normalizeStudent(student) {
     phone: student.phone ?? student.Phone ?? '',
     enrollmentNumber: student.enrollmentNumber ?? student.EnrollmentNumber ?? '',
     enrolmentStatus: student.enrolmentStatus ?? student.EnrolmentStatus ?? '',
+    assignment: student.assignment ?? student.Assignment ?? null,
     isActive: student.isActive ?? student.IsActive ?? true,
     createdAt: student.createdAt ?? student.CreatedAt,
   };
 }
 
 function formatDisplayDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateDisplay(value);
 }
 
 function mapStudentRow(student, schedule) {
@@ -29,6 +28,7 @@ function mapStudentRow(student, schedule) {
     studentId: student.studentId,
     fullName: student.fullName,
     enrolmentStatus: student.enrolmentStatus,
+    assignment: student.assignment ?? '',
     paymentStatus: schedule?.status || 'Pending',
     instituteNameRef: '',
     courseName: '',
@@ -64,7 +64,7 @@ function normalizeSchedule(schedule) {
   return {
     scheduleId: schedule.scheduleId ?? schedule.ScheduleId,
     studentId: schedule.studentId ?? schedule.StudentId,
-    dueDate: schedule.dueDate ?? schedule.DueDate,
+   dueDate: schedule.dueDate ?? schedule.DueDate ?? schedule.firstDueDate ?? schedule.FirstDueDate,
     amountDue: schedule.amountDue ?? schedule.AmountDue,
     status: schedule.status ?? schedule.Status ?? 'Pending',
     amountPaid: schedule.amountPaid ?? schedule.AmountPaid,
@@ -94,6 +94,7 @@ function buildStudentForm(student, schedule) {
     phone: student.phone,
     instituteId: student.instituteId ? String(student.instituteId) : '',
     courseId: student.courseId ? String(student.courseId) : '',
+    assignment: student.assignment ?? student.Assignment ?? '',
     amountDue: amountDue !== '' ? String(amountDue) : '',
     amountPaid: amountPaid !== '' && amountPaid != null ? String(amountPaid) : '',
     paymentStatus: normalizedSchedule?.status
@@ -106,7 +107,7 @@ function buildStudentForm(student, schedule) {
 async function applyPaymentStatus(scheduleId, amountDue, amountPaidInput) {
   const { status, amountPaid } = resolvePaymentFields(amountDue, amountPaidInput);
 
-  await axiosClient.put(`/api/schedules/${scheduleId}/status`, {
+  await axiosClient.post(`/api/schedules/${scheduleId}/status`, {
     status,
     amountPaid: status === 'Pending' ? null : (amountPaid ?? 0),
   });
@@ -163,15 +164,6 @@ export async function createStudentWithPaymentSchedule(form) {
     throw new Error('Phone is required');
   }
 
-  const amountDue = Number(form.amountDue);
-  if (Number.isNaN(amountDue) || amountDue < 0) {
-    throw new Error('Amount due must be zero or greater');
-  }
-
-  if (!form.dueDate) {
-    throw new Error('Due date is required');
-  }
-
   const { data: student } = await axiosClient.post('/api/students', {
     instituteId,
     courseId,
@@ -180,28 +172,24 @@ export async function createStudentWithPaymentSchedule(form) {
     phone: form.phone.trim(),
     enrollmentNumber: form.enrollmentNumber?.trim() || null,
     enrolmentStatus: form.enrolmentStatus || 'Interested',
+    folderNo: form.FolderNo || null,
+    courseStartDate: form.courseStartDate || null,
+    courseEndDate: form.courseEndDate || null,
+      enrollmentFee: form.enrollmentFee !== '' && form.enrollmentFee != null ? Number(form.enrollmentFee) : null,   
+  materialFee: form.materialFee !== '' && form.materialFee != null ? Number(form.materialFee) : null,         
+  tuitionFee: form.tuitionFee !== '' && form.tuitionFee != null ? Number(form.tuitionFee) : null,             
+  oshcFee: form.oshcFee !== '' && form.oshcFee != null ? Number(form.oshcFee) : null,    
+    assignment: form.assignment ?? form.Assignment ?? null,
+    leadNo: form.leadNo?.trim() || null,
+  coeVoe: form.coeVoe || null,
+  serviceType: form.serviceTypeStudent || null,
+  agent: form.agent || null,
   });
-
-  const { data: schedule } = await axiosClient.post('/api/schedules', {
-    studentId: student.studentId,
-    dueDate: form.dueDate,
-    amountDue,
-    notes: form.notes?.trim() || null,
-  });
-
-  if (schedule.scheduleId) {
-    const paymentStatus = await applyPaymentStatus(schedule.scheduleId, amountDue, form.amountPaid);
-    return mapStudentRow(student, {
-      ...schedule,
-      status: paymentStatus,
-    });
-  }
-
-  return mapStudentRow(student, schedule);
+  return normalizeStudent(student);
 }
 
 export async function deleteStudent(studentId) {
-  await axiosClient.delete(`/api/students/${studentId}`);
+  await axiosClient.post(`/api/students/${studentId}`);
 }
 
 export async function fetchStudentById(studentId) {
@@ -257,17 +245,17 @@ export async function updateStudentWithPaymentSchedule(studentId, form) {
     throw new Error('Due date is required');
   }
 
-  if (!form.scheduleId) {
-    throw new Error('No payment schedule found for this student.');
-  }
+  // if (!form.scheduleId) {
+  //   throw new Error('No payment schedule found for this student.');
+  // }
 
   const existing = await fetchStudentById(studentId);
 
-  await axiosClient.put(`/api/students/${studentId}/enrolment-status`, {
+  await axiosClient.post(`/api/students/${studentId}/enrolment-status`, {
     enrolmentStatus: form.enrolmentStatus || existing.enrolmentStatus,
   });
 
-  const { data: student } = await axiosClient.put(`/api/students/${studentId}`, {
+  const { data: student } = await axiosClient.post(`/api/students/${studentId}`, {
     instituteId,
     courseId,
     fullName: form.fullName.trim(),
@@ -275,9 +263,18 @@ export async function updateStudentWithPaymentSchedule(studentId, form) {
     phone: form.phone.trim(),
     enrollmentNumber: form.enrollmentNumber?.trim() || null,
     isActive: existing.isActive,
+    assignment: form.assignment ?? form.Assignment ?? existing.assignment ?? existing.Assignment ?? null,
+    leadNo: form.leadNo?.trim() || null,
+  coeVoe: form.coeVoe || null,
+  serviceType: form.serviceTypeStudent || null,
+  agent: form.agent || null,
+   enrollmentFee: form.enrollmentFee !== '' && form.enrollmentFee != null ? Number(form.enrollmentFee) : null,   
+  materialFee: form.materialFee !== '' && form.materialFee != null ? Number(form.materialFee) : null,          
+  tuitionFee: form.tuitionFee !== '' && form.tuitionFee != null ? Number(form.tuitionFee) : null,               
+  oshcFee: form.oshcFee !== '' && form.oshcFee != null ? Number(form.oshcFee) : null,  
   });
 
-  const { data: schedule } = await axiosClient.put(`/api/schedules/${form.scheduleId}`, {
+  const { data: schedule } = await axiosClient.post(`/api/schedules/${form.scheduleId}`, {
     studentId: Number(studentId),
     dueDate: form.dueDate,
     amountDue,
@@ -320,6 +317,11 @@ export async function fetchEnrolmentRows() {
   });
 }
 
+export async function fetchAllStudents() {
+  const { data } = await axiosClient.get('/api/students/all');
+  return data;
+}
+
 export async function updateStudentEnrolment(studentId, form) {
   if (!studentId) {
     throw new Error('Please select a student');
@@ -335,11 +337,11 @@ export async function updateStudentEnrolment(studentId, form) {
 
   const existing = await fetchStudentById(studentId);
 
-  await axiosClient.put(`/api/students/${studentId}/enrolment-status`, {
+  await axiosClient.post(`/api/students/${studentId}/enrolment-status`, {
     enrolmentStatus: form.enrolmentStatus || existing.enrolmentStatus,
   });
 
-  const { data: updated } = await axiosClient.put(`/api/students/${studentId}`, {
+  const { data: updated } = await axiosClient.post(`/api/students/${studentId}`, {
     instituteId: existing.instituteId,
     courseId: existing.courseId,
     fullName: form.fullName.trim(),
@@ -350,4 +352,84 @@ export async function updateStudentEnrolment(studentId, form) {
   });
 
   return normalizeStudent(updated);
+}
+export async function fetchStudentPaymentDetail(studentId) {
+  const { data } = await axiosClient.get(
+    `/api/students/GetStudentPaymentDetail/${studentId}`
+  );
+
+  const studentPaymentList = (data.studentPaymentList ?? data.StudentPaymentList ?? [])
+    .map((item) => ({
+      ...item,
+      studentPaymentInstallmentId:
+        item.studentPaymentInstallmentId ?? item.StudentPaymentInstallmentId,
+      installmentNo: Number(item.installmentNo ?? item.InstallmentNo ?? 0),
+      parentInstallmentId: item.parentInstallmentId ?? item.ParentInstallmentId ?? null,
+      dueDate: item.dueDate ?? item.DueDate ?? null,
+      feesAmount: item.feesAmount ?? item.FeesAmount ?? 0,
+      paidAmount: item.paidAmount ?? item.PaidAmount ?? 0,
+      balanceAmount: item.balanceAmount ?? item.BalanceAmount ?? 0,
+      installmentImage: item.installmentImage ?? item.InstallmentImage ?? null,
+      status: item.paymentStatus ?? item.PaymentStatus ?? "Pending",
+      originalStatus: item.paymentStatus ?? item.PaymentStatus ?? null,
+      feeType: item.feeType ?? item.FeeType ?? null,
+    }))
+    .sort((a, b) => Number(a.installmentNo) - Number(b.installmentNo));
+
+  return {
+    studentId: data.studentId ?? data.StudentId,
+
+    instituteId: data.instituteId ?? data.InstituteId,
+    instituteName: data.instituteName ?? data.InstituteName,
+
+    courseId: data.courseId ?? data.CourseId,
+    courseName: data.courseName ?? data.CourseName,
+    campus: data.campus ?? data.Campus,
+    leadNo: data.leadNo ?? data.LeadNo ?? '',
+    coeVoe: data.coeVoe ?? data.CoeVoe ?? data.CoEVoE ?? '',
+    serviceType: data.serviceType ?? data.ServiceType ?? '',
+    agent: data.agent ?? data.Agent ?? '',
+    fullName: data.fullName ?? data.FullName,
+    email: data.email ?? data.Email,
+    phone: data.phone ?? data.Phone,
+    folderNo: data.folderNo ?? data.FolderNo,
+    assignment: data.assignment ?? data.Assignment ?? null,
+
+    courseStartDate: data.courseStartDate ?? data.CourseStartDate,
+    courseEndDate: data.courseEndDate ?? data.CourseEndDate,
+    commissionAmount: data.commissionAmount ?? data.CommissionAmount,
+    gstAmount: data.gstAmount ?? data.GSTAmount,
+    bonusAmount: data.bonusAmount ?? data.BonusAmount,
+    dueDate: data.dueDate ?? data.DueDate,
+    remark: data.remark ?? data.Remark,
+
+    scheduleId: data.scheduleId ?? data.ScheduleId,
+    firstDueDate: data.firstDueDate ?? data.FirstDueDate,
+    totalCourseFee: data.totalCourseFee ?? data.TotalCourseFee,
+    noOfInstallments: data.noOfInstallments ?? data.NoOfInstallments,
+    frequency: data.frequency ?? data.Frequency,
+   enrollmentFee: data.enrollmentFee ?? data.EnrollmentFee ?? null,
+    materialFee: data.materialFee ?? data.MaterialFee ?? null,        
+  tuitionFee: data.tuitionFee ?? data.TuitionFee ?? null,           
+  oshcFee: data.oshcFee ?? data.OSHCFee ?? null,        
+    commissionId: data.commissionId ?? data.CommissionId,
+    commissionPercentage: data.commissionPercentage ?? data.CommissionPercentage,
+    gstPercentage: data.gstPercentage ?? data.GSTPercentage,
+    bonusType: data.bonusType ?? data.BonusType,
+    bonusOption: data.bonusOption ?? data.BonusOption,
+
+    studentPaymentList,
+
+  commissionHistory: (
+  data.commissionHistory ?? data.CommissionHistory ?? []
+).map((item) => ({
+  ...item,
+
+  isBonus: item.isBonus ?? item.IsBonus ?? false,
+
+  commissionHistoryOriginalStatus:
+    item.commissionStatus ?? item.CommissionStatus ?? null,
+})),
+  
+  };
 }

@@ -1,44 +1,59 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Box, Button, Paper, Tab, Tabs, Typography } from '@mui/material';
+import { Alert, Box, Button, MenuItem, Paper, Tab, Tabs, TextField, Typography } from '@mui/material';
 import { fetchInstituteForm, updateInstitute } from '../../api/institutesApi';
 import { fetchVendors } from '../../api/lookupApi';
-import VendorCommissionRatesPanel from '../../components/vendors/VendorCommissionRatesPanel';
+import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
+import InstituteContactDetailsPanel from '../../components/institutes/InstituteContactDetailsPanel';
+import InstituteContractPanel from '../../components/institutes/InstituteContractPanel';
+import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
+import { canViewCredentials } from '../../utils/rbac';
 import {
   FormActions,
   FormPageLayout,
   FormSectionsLayout,
+  formFieldSx,
   formPaperSx,
 } from '../../components/forms';
+import { useAuth } from '../../hooks/useAuth';
 import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
+
+const TAB_DETAILS = 0;
+const TAB_CONTACT = 1;
+const TAB_CONTRACT = 2;
+const TAB_CREDENTIALS = 3;
 
 export default function InstituteDetailPage({ basePath }) {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
+   const showCredentials = canViewCredentials(user);
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(null);
   const [vendors, setVendors] = useState([]);
+  const [scrapOptions, setScrapOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(TAB_DETAILS);
   const submittingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
-
     fetchVendors()
-      .then((data) => {
-        if (active) setVendors(data);
-      })
-      .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load vendors.');
-      });
+      .then((data) => { if (active) setVendors(data); })
+      .catch((err) => { if (active) setLoadError(err.message || 'Failed to load vendors.'); });
+    return () => { active = false; };
+  }, []);
 
-    return () => {
-      active = false;
-    };
+  useEffect(() => {
+    let active = true;
+    fetchUniqueInstituteNames()
+      .then((data) => { if (active) setScrapOptions(data || []); })
+      .catch(() => { if (active) setScrapOptions([]); });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -57,9 +72,7 @@ export default function InstituteDetailPage({ basePath }) {
         if (active) setLoading(false);
       });
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [id]);
 
   const selectOptions = useMemo(
@@ -100,9 +113,9 @@ export default function InstituteDetailPage({ basePath }) {
 
   if (loading) {
     return (
-      <Box sx={{ py: 4 }}>
-        <Typography sx={{ color: 'var(--muted)' }}>Loading institute...</Typography>
-      </Box>
+      <FormPageLayout title={`Edit ${resource.singular.toLowerCase()}`}>
+        <FormContentSkeleton rows={9} />
+      </FormPageLayout>
     );
   }
 
@@ -116,6 +129,8 @@ export default function InstituteDetailPage({ basePath }) {
       </Box>
     );
   }
+
+  const courseLookupId = form.linkedScrappingId ? Number(form.linkedScrappingId) : null;
 
   return (
     <FormPageLayout
@@ -131,7 +146,11 @@ export default function InstituteDetailPage({ basePath }) {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
           <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-          <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+           <Tab label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
+  {canViewCredentials && (
+    <Tab label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
+  )}
         </Tabs>
       </Box>
 
@@ -141,7 +160,8 @@ export default function InstituteDetailPage({ basePath }) {
             {error || loadError}
           </Alert>
         )}
-        {activeTab === 0 && (
+
+        {activeTab === TAB_DETAILS && (
           <>
             <FormSectionsLayout
               sections={resource.sections}
@@ -149,6 +169,28 @@ export default function InstituteDetailPage({ basePath }) {
               onChange={updateField}
               selectOptions={selectOptions}
             />
+
+            <Box sx={{ px: { xs: 2, md: 3 }, mt: 1, mb: 2 }}>
+              <TextField
+                select
+                label="Linked scraped institute (for commission course lookup)"
+                value={form.linkedScrappingId || ''}
+                onChange={(e) => updateField('linkedScrappingId', e.target.value)}
+                fullWidth
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                sx={formFieldSx}
+                helperText="Optional. Link this institute to its scraped record so commission rates can pull the correct course list."
+              >
+                <MenuItem value="">None</MenuItem>
+                {scrapOptions.map((opt) => (
+                  <MenuItem key={opt.id} value={String(opt.id)}>
+                    {opt.name}{opt.campusname ? ` — ${opt.campusname}` : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
+
             <FormActions
               onCancel={() => navigate(basePath)}
               onSubmit={handleUpdate}
@@ -158,9 +200,21 @@ export default function InstituteDetailPage({ basePath }) {
           </>
         )}
 
-        {activeTab === 1 && (
-          <VendorCommissionRatesPanel defaultVendorId={form.vendorId ? Number(form.vendorId) : null} />
+        {activeTab === TAB_CONTACT && (
+          <InstituteContactDetailsPanel instituteId={id} />
         )}
+
+        {activeTab === TAB_CONTRACT && (
+          <InstituteContractPanel
+            instituteId={id}
+            courseLookupId={courseLookupId}
+            instituteName={form.instituteName}
+          />
+        )}
+
+        {activeTab === TAB_CREDENTIALS && canViewCredentials && (
+  <InstituteCredentialsPanel instituteId={id} />
+)}
       </Paper>
     </FormPageLayout>
   );

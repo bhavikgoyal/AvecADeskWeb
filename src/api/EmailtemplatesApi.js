@@ -1,0 +1,90 @@
+import axiosClient from './axiosClient';
+import { formatDateDisplay } from '../utils/dateFormat';
+
+function formatDate(value) {
+    return formatDateDisplay(value);
+}
+
+function normalizeTemplate(raw) {
+    if (!raw) return null;
+    const id = raw.id ?? raw.templateId ?? raw.TemplateId ?? raw._id ?? raw.Id;
+    const templateName = raw.templateName ?? raw.name ?? raw.title ?? raw.TemplateName ?? raw.Name ?? '';
+    const category = raw.category ?? raw.type ?? raw.Category ?? 'General';
+    const subject = raw.subject ?? raw.Subject ?? '';
+    const bodyHtml = raw.bodyHtml ?? raw.body ?? raw.content ?? raw.html ?? '';
+    const updated = formatDate(raw.updatedAt ?? raw.updated ?? raw.createdAt ?? raw.createdAt);
+
+    return {
+        id: String(id ?? templateName ?? Math.random().toString(36).slice(2, 9)),
+        templateName,
+        category,
+        subject,
+        bodyHtml,
+        updated,
+        name: templateName,
+    };
+}
+
+/**
+ * GET
+ * api/email-templates
+ */
+export const getEmailTemplates = async () => {
+    const { data } = await axiosClient.get('/api/email-templates');
+    if (!Array.isArray(data)) return [];
+    return data.map(normalizeTemplate);
+};
+
+/**
+ * POST
+ * api/email-templates
+ */
+export const createEmailTemplate = async (templateData) => {
+    const payload = {
+        Name: templateData.templateName ?? templateData.name ?? '',
+        Category: templateData.category ?? 'General',
+        Subject: templateData.subject ?? '',
+        Body: templateData.bodyHtml ?? templateData.body ?? templateData.content ?? '',
+        BodyHtml: templateData.bodyHtml ?? templateData.body ?? templateData.content ?? '',
+    };
+    console.debug('createEmailTemplate payload:', payload);
+    const { data } = await axiosClient.post('/api/email-templates', payload);
+    console.debug('createEmailTemplate response:', data);
+    return normalizeTemplate(data);
+};
+
+/**
+ * PUT
+ * api/email-templates/{templateId}
+ */
+export const updateEmailTemplate = async (templateId, templateData) => {
+    const payload = {
+        Name: templateData.templateName ?? templateData.name ?? '',
+        Category: templateData.category ?? 'General',
+        Subject: templateData.subject ?? '',
+        Body: templateData.bodyHtml ?? templateData.body ?? templateData.content ?? '',
+        BodyHtml: templateData.bodyHtml ?? templateData.body ?? templateData.content ?? '',
+    };
+    console.debug('updateEmailTemplate payload:', { templateId, payload });
+    const { data } = await axiosClient.post(`/api/email-templates/${templateId}/update`, payload);
+    console.debug('updateEmailTemplate response:', data);
+    return normalizeTemplate(data);
+};
+
+/**
+ * GET
+ * api/email-templates/{templateId}
+ */
+export const getEmailTemplateById = async (templateId) => {
+    const { data } = await axiosClient.get(`/api/email-templates/${templateId}`);
+    return normalizeTemplate(data);
+};
+
+/**
+ * DELETE
+ * api/email-templates/{templateId}
+ */
+export const deleteEmailTemplate = async (templateId) => {
+    await axiosClient.post(`/api/email-templates/${templateId}/delete`);
+    return true;
+};

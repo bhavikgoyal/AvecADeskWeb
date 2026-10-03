@@ -1,0 +1,722 @@
+import { useCallback, useEffect, useState, Fragment } from 'react';
+import {
+  Alert, Box, Button, Chip, CircularProgress, Collapse, IconButton,
+  FormControl, MenuItem, Select, Skeleton,
+  Tab, Tabs, TextField, Typography,
+} from '@mui/material';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import DownloadIcon from '@mui/icons-material/Download';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import {
+  fetchAnticipated,
+  fetchOverdue,
+  fetchReceivablesSummary,
+  fetchReceivedInvoices,
+  fetchInvoiceLineItems,
+} from '../../api/receivablesApi';
+import { fetchInstitutesForReceivables, fetchStudentsLookup } from '../../api/lookupApi';
+import CardListSkeleton from '../../components/CardListSkeleton';
+import TableContentSkeleton from '../../components/TableContentSkeleton';
+import { listContainedButtonSx, listOutlinedButtonSx, listSearchFieldSx, listSelectFieldSx, listToolbarActionsSx, listToolbarRowSx, LIST_FILTER_ALL } from '../../components/forms';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+function fmt(amount) {
+  if (amount == null) return '—';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
+}
+
+function fmtDate(val) {
+  if (!val) return '—';
+
+  return new Date(val).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+}
+
+function exportCsv(rows, headers, filename) {
+  const lines = [
+    headers.map((h) => `"${h.label}"`).join(','),
+    ...rows.map((row) => headers.map((h) => `"${row[h.key] ?? ''}"`).join(',')),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportExcel(rows, headers, filename) {
+   const wsData = [
+    headers.map((h) => h.label),
+    ...rows.map((row) =>
+      headers.map((h) => {
+        const value = row[h.key];
+
+        if (h.key === 'dueDate' || h.key === 'createdAt') {
+          return value
+            ? new Date(value).toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })
+            : '';
+        }
+
+        return value ?? '';
+      })
+    ),
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  XLSX.writeFile(wb, filename);
+}
+
+function exportPdf(rows, headers, filename, title) {
+  const doc = new jsPDF({ orientation: 'landscape' });
+  doc.setFontSize(14);
+  doc.text(title, 14, 15);
+  autoTable(doc, {
+    startY: 22,
+    head: [headers.map((h) => h.label)],
+    body: rows.map((row) => headers.map((h) => row[h.key] ?? '')),
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [25, 118, 210] },
+  });
+  doc.save(filename);
+}
+
+function StatCard({ label, amount, count, color }) {
+  return (
+    <Box sx={{ flex: 1, minWidth: 180, p: 2.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', borderTop: `3px solid ${color}`, bgcolor: 'background.paper' }}>
+      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</Typography>
+      <Typography variant="h5" fontWeight={700} mt={0.5}>{fmt(amount)}</Typography>
+      <Typography variant="body2" color="text.secondary" mt={0.25}>{count ?? 0} record{count !== 1 ? 's' : ''}</Typography>
+    </Box>
+  );
+}
+
+
+function InstallmentCardList({ rows, loading, variant }) {
+  const [expandedInstitute, setExpandedInstitute] = useState(null);
+
+  if (loading) return <CardListSkeleton rows={6} />;
+  if (!rows.length) return <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>No records found.</Typography>;
+
+  const isOverdue = variant === 'overdue';
+  const avatarColor = isOverdue ? 'error.main' : 'primary.main';
+
+
+  const grouped = rows.reduce((acc, row) => {
+    const key = row.instituteName || 'Unknown Institute';
+    if (!acc[key]) {
+      acc[key] = { instituteName: key, students: [], totalBalance: 0 };
+    }
+    acc[key].students.push(row);
+    acc[key].totalBalance += Number(row.balanceDue) || 0;
+    return acc;
+  }, {});
+  const groups = Object.values(grouped);
+
+  const toggleInstitute = (name) => {
+    setExpandedInstitute((prev) => (prev === name ? null : name));
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {groups.map((group) => {
+        const isExpanded = expandedInstitute === group.instituteName;
+
+        return (
+          <Box
+            key={group.instituteName}
+            sx={{
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Institute header row — clickable */}
+            <Box
+              onClick={() => toggleInstitute(group.instituteName)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                p: 1.75,
+                cursor: 'pointer',
+              }}
+            >
+              <IconButton size="small" sx={{ p: 0 }}>
+                {isExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+              </IconButton>
+
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" fontWeight={700}>
+                    {group.instituteName}
+                  </Typography>
+                  <Chip
+                    label={`${group.students.length} student${group.students.length > 1 ? 's' : ''}`}
+                    size="small"
+                    variant="outlined"
+                    color={isOverdue ? 'error' : 'primary'}
+                    sx={{ height: 20, fontSize: 10.5, fontWeight: 600 }}
+                  />
+                </Box>
+              </Box>
+
+              <Typography variant="body1" fontWeight={700} color={isOverdue ? 'error.main' : 'text.primary'}>
+                {fmt(group.totalBalance)}
+              </Typography>
+            </Box>
+
+            {/* Expanded: student-level cards */}
+            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+              <Box sx={{ px: 2, pb: 2, pt: 0.5, bgcolor: '#f8f9fb', borderTop: '1px solid', borderColor: 'divider' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1.5 }}>
+                  {group.students.map((row, i) => (
+                    <Box
+                      key={row.scheduleId ?? i}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      {/* Avatar */}
+                      <Box
+                        sx={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: '50%',
+                          bgcolor: avatarColor,
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          fontWeight: 700,
+                          fontSize: 13,
+                        }}
+                      >
+                        {(row.studentName || '?').charAt(0).toUpperCase()}
+                      </Box>
+
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                          <Typography variant="body2" fontWeight={700}>
+                            {row.studentName}
+                          </Typography>
+                          <Chip
+                            label={row.status}
+                            size="small"
+                            color={isOverdue ? 'error' : 'default'}
+                            sx={{ height: 18, fontSize: 10, fontWeight: 600 }}
+                          />
+                          {isOverdue && row.agingBucket && (
+                            <Chip
+                              icon={<ReceiptLongIcon sx={{ fontSize: 12 }} />}
+                              label={row.agingBucket}
+                              size="small"
+                              color={row.agingBucket?.includes('90') ? 'error' : row.agingBucket?.includes('60') ? 'warning' : 'default'}
+                              variant="outlined"
+                              sx={{ height: 18, fontSize: 10, fontWeight: 600 }}
+                            />
+                          )}
+                        </Box>
+
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                          <Typography component="span" variant="caption" sx={{ color: 'text.secondary', bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 1 }}>
+                            Due: {fmtDate(row.dueDate)}
+                          </Typography>
+                          {isOverdue && (
+                            <Typography component="span" variant="caption" sx={{ color: 'error.main', bgcolor: 'error.lighter', px: 1, py: 0.25, borderRadius: 1, fontWeight: 600 }}>
+                              {row.daysOverdue} days overdue
+                            </Typography>
+                          )}
+                          <Typography component="span" variant="caption" sx={{ color: 'text.secondary', bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 1 }}>
+                            Paid: {fmt(row.amountPaid)}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                        <Typography variant="body2" fontWeight={700} color={isOverdue ? 'error.main' : 'text.primary'}>
+                          {fmt(row.balanceDue)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          of {fmt(row.amountDue)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            </Collapse>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+function ReceivedInvoicesTable({ rows, loading }) {
+  const [expandedId, setExpandedId] = useState(null);
+  const [lineItems, setLineItems] = useState({});
+  const [lineItemsLoading, setLineItemsLoading] = useState(false);
+
+  const groupByStudent = (items) => {
+    const grouped = items.reduce((acc, item) => {
+      const key = item.studentId ?? item.studentName ?? 'unknown';
+      if (!acc[key]) {
+        acc[key] = {
+          lineItemId: key,
+          studentId: item.studentId,
+          studentName: item.studentName,
+          descParts: (item.description || '')
+            .split('|')
+            .map((p) => p.trim())
+            .filter((p) => p && !/^installment/i.test(p)),
+          amount: 0,
+          count: 0,
+        };
+      }
+      acc[key].amount += Number(item.amount) || 0;
+      acc[key].count += 1;
+      return acc;
+    }, {});
+    return Object.values(grouped);
+  };
+
+  const toggleExpand = async (invoiceId) => {
+    if (expandedId === invoiceId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(invoiceId);
+    if (!lineItems[invoiceId]) {
+      setLineItemsLoading(true);
+      try {
+        const items = await fetchInvoiceLineItems(invoiceId);
+        setLineItems((prev) => ({ ...prev, [invoiceId]: groupByStudent(items) }));
+      } catch {
+        setLineItems((prev) => ({ ...prev, [invoiceId]: [] }));
+      } finally {
+        setLineItemsLoading(false);
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <TableContentSkeleton
+        rows={6}
+        columns={[
+          { id: 'expand', label: '', width: '48px', skeletonWidth: 22, skeletonHeight: 22 },
+          { id: 'invoiceNumber', label: 'Invoice Number', flex: 1.1 },
+          { id: 'institute', label: 'Institute', flex: 1.6 },
+          { id: 'amount', label: 'Amount', flex: 0.8, skeletonWidth: '55%' },
+          { id: 'dueDate', label: 'Due Date', flex: 0.9 },
+          { id: 'status', label: 'Status', flex: 0.7, skeletonWidth: 64, skeletonHeight: 22, round: true },
+        ]}
+      />
+    );
+  }
+  if (!rows.length) return <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>No invoices found for last month.</Typography>;
+
+  return (
+    <Box sx={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', fontFamily: 'inherit' }}>
+        <thead>
+          <tr>
+            <th style={{ width: 40 }} />
+            <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '2px solid #e0e0e0', fontWeight: 700 }}>Invoice Number</th>
+            <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '2px solid #e0e0e0', fontWeight: 700 }}>Institute</th>
+            <th style={{ textAlign: 'right', padding: '10px 12px', borderBottom: '2px solid #e0e0e0', fontWeight: 700 }}>Amount</th>
+            <th style={{ textAlign: 'right', padding: '10px 12px', borderBottom: '2px solid #e0e0e0', fontWeight: 700 }}>Due Date</th>
+            <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '2px solid #e0e0e0', fontWeight: 700 }}>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <Fragment key={row.invoiceId}>
+              <tr style={{ borderBottom: '1px solid #f0f0f0', cursor: 'pointer' }} onClick={() => toggleExpand(row.invoiceId)}>
+                <td style={{ padding: '10px 12px' }}>
+                  <IconButton size="small">
+                    {expandedId === row.invoiceId ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                  </IconButton>
+                </td>
+                <td style={{ padding: '10px 12px' }}>{row.invoiceNumber}</td>
+                <td style={{ padding: '10px 12px' }}>{row.instituteName}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmt(row.totalAmount)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtDate(row.createdAt)}</td>
+                <td style={{ padding: '10px 12px' }}>
+                  <Chip label={row.status} size="small" color="success" sx={{ fontSize: 11 }} />
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={6} style={{ padding: 0, border: 0 }}>
+                  <Collapse in={expandedId === row.invoiceId} timeout="auto" unmountOnExit>
+                    <Box sx={{ p: 2, bgcolor: '#f8f9fb' }}>
+                      {lineItemsLoading && expandedId === row.invoiceId ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                          <CircularProgress size={20} />
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          {(lineItems[row.invoiceId] || []).map((item) => (
+                            <Box
+                              key={item.lineItemId}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 2,
+                                p: 1.75,
+                                borderRadius: 2,
+                                bgcolor: 'background.paper',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  width: 38,
+                                  height: 38,
+                                  borderRadius: '50%',
+                                  bgcolor: 'primary.main',
+                                  color: 'primary.contrastText',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  fontWeight: 700,
+                                  fontSize: 15,
+                                }}
+                              >
+                                {(item.studentName || '?').charAt(0).toUpperCase()}
+                              </Box>
+
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                  <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary' }}>
+                                    {item.studentName || `#${item.studentId}`}
+                                  </Typography>
+                                  {item.count > 1 && (
+                                    <Chip
+                                      icon={<ReceiptLongIcon sx={{ fontSize: 14 }} />}
+                                      label={`${item.count} installments`}
+                                      size="small"
+                                      variant="outlined"
+                                      color="primary"
+                                      sx={{ height: 20, fontSize: 10.5, fontWeight: 600 }}
+                                    />
+                                  )}
+                                </Box>
+
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                                  {item.descParts.map((part, idx) => (
+                                    <Typography
+                                      key={idx}
+                                      component="span"
+                                      variant="caption"
+                                      sx={{
+                                        color: 'text.secondary',
+                                        bgcolor: 'action.hover',
+                                        px: 1,
+                                        py: 0.25,
+                                        borderRadius: 1,
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {part}
+                                    </Typography>
+                                  ))}
+                                </Box>
+                              </Box>
+
+                              <Typography variant="body1" fontWeight={700} color="success.main" sx={{ flexShrink: 0 }}>
+                                {fmt(item.amount)}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  </Collapse>
+                </td>
+              </tr>
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </Box>
+  );
+}
+
+// ─── CSV export column defs (unchanged, used only for export, not for display anymore) ──
+const RECEIVED_INVOICE_CSV_HEADERS = [
+  { key: 'invoiceNumber', label: 'Invoice Number' },
+  { key: 'instituteName', label: 'Institute' },
+  { key: 'totalAmount', label: 'Amount' },
+  { key: 'createdAt', label: 'Due Date' },
+  { key: 'status', label: 'Status' },
+];
+
+const CSV_HEADERS = {
+  0: [
+    { key: 'studentName', label: 'Student' },
+    { key: 'instituteName', label: 'Institute' },
+    { key: 'dueDate', label: 'Due Date' },
+    { key: 'amountDue', label: 'Amount Due' },
+    { key: 'amountPaid', label: 'Paid' },
+    { key: 'balanceDue', label: 'Balance' },
+    { key: 'status', label: 'Status' },
+    { key: 'notes', label: 'Notes' },
+  ],
+  1: [
+    { key: 'studentName', label: 'Student' },
+    { key: 'instituteName', label: 'Institute' },
+    { key: 'dueDate', label: 'Due Date' },
+    { key: 'daysOverdue', label: 'Days Overdue' },
+    { key: 'agingBucket', label: 'Aging Bucket' },
+    { key: 'amountDue', label: 'Amount Due' },
+    { key: 'amountPaid', label: 'Paid' },
+    { key: 'balanceDue', label: 'Balance' },
+    { key: 'status', label: 'Status' },
+    { key: 'notes', label: 'Notes' },
+  ],
+  2: RECEIVED_INVOICE_CSV_HEADERS,
+};
+
+const TAB_NAMES = ['anticipated', 'overdue', 'received'];
+
+export default function ReceivablesPage() {
+  const [tab, setTab] = useState(0);
+  const [institutes, setInstitutes] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [filters, setFilters] = useState({ fromDate: '', toDate: '', instituteId: '', studentId: '' });
+  const [summary, setSummary] = useState(null);
+  const [rows, setRows] = useState({ 0: [], 1: [] }); // anticipated, overdue
+  const [receivedInvoices, setReceivedInvoices] = useState([]);
+  const [loadingRows, setLoadingRows] = useState(true);
+  const [loadingReceived, setLoadingReceived] = useState(true);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchInstitutesForReceivables().then((data) => setInstitutes(data || [])).catch(() => setInstitutes([]));
+    fetchStudentsLookup().then((data) => setStudents(data || [])).catch(() => setStudents([]));
+  }, []);
+
+  const buildFilters = useCallback(() => {
+    const f = {};
+    if (filters.fromDate) f.fromDate = filters.fromDate;
+    if (filters.toDate) f.toDate = filters.toDate;
+    if (filters.instituteId) f.instituteId = filters.instituteId;
+    if (filters.studentId) f.studentId = filters.studentId;
+    return f;
+  }, [filters]);
+
+  const loadAll = useCallback(async () => {
+    const f = buildFilters();
+    setError('');
+    setLoadingSummary(true);
+    setLoadingRows(true);
+    setLoadingReceived(true);
+
+    try {
+      const sumData = await fetchReceivablesSummary(f);
+      setSummary(sumData);
+    } catch {
+      setSummary(null);
+    } finally {
+      setLoadingSummary(false);
+    }
+
+    try {
+      const [ant, ov] = await Promise.all([fetchAnticipated(f), fetchOverdue(f)]);
+      setRows({ 0: ant ?? [], 1: ov ?? [] });
+    } catch (err) {
+      setError(err.message || 'Failed to load receivables data.');
+      setRows({ 0: [], 1: [] });
+    } finally {
+      setLoadingRows(false);
+    }
+
+    try {
+      const invoices = await fetchReceivedInvoices();
+      setReceivedInvoices(invoices ?? []);
+    } catch (err) {
+      setError(err.message || 'Failed to load received invoices.');
+      setReceivedInvoices([]);
+    } finally {
+      setLoadingReceived(false);
+    }
+  }, [buildFilters]);
+
+  useEffect(() => {
+    loadAll();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load, standard fetch-on-mount pattern
+  }, [loadAll]);
+
+  const handleFilterChange = (field) => (e) => setFilters((prev) => ({ ...prev, [field]: e.target.value }));
+  const handleApply = () => loadAll();
+  const handleReset = () => setFilters({ fromDate: '', toDate: '', instituteId: '', studentId: '' });
+
+  const isReceivedTab = tab === 2;
+  const currentRows = isReceivedTab ? receivedInvoices : (rows[tab] ?? []);
+  const headers = CSV_HEADERS[tab];
+  const tabName = TAB_NAMES[tab];
+
+  return (
+    <Box sx={{ p: { xs: 2, md: 3 } }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1, flexDirection: { xs: 'column', md: 'row' } }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>Receivables</Typography>
+          <Typography variant="body2" color="text.secondary">Track anticipated, overdue, and received payments</Typography>
+        </Box>
+
+        {/* Export buttons */}
+        <Box sx={listToolbarActionsSx}>
+          <Button variant="outlined" size="small" startIcon={<DownloadIcon />}
+            onClick={() => exportCsv(currentRows, headers, `receivables-${tabName}.csv`)}
+            disabled={!currentRows.length}
+            sx={listOutlinedButtonSx}>
+            CSV
+          </Button>
+          <Button variant="outlined" size="small" startIcon={<TableChartIcon />} color="success"
+            onClick={() => exportExcel(currentRows, headers, `receivables-${tabName}.xlsx`)}
+            disabled={!currentRows.length}
+            sx={listOutlinedButtonSx}>
+            Excel
+          </Button>
+          <Button variant="outlined" size="small" startIcon={<PictureAsPdfIcon />} color="error"
+            onClick={() => exportPdf(currentRows, headers, `receivables-${tabName}.pdf`, `Receivables – ${tabName}`)}
+            disabled={!currentRows.length}
+            sx={listOutlinedButtonSx}>
+            PDF
+          </Button>
+        </Box>
+      </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+
+      {/* Summary Cards */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        {loadingSummary ? (
+          <>
+            <Skeleton variant="rounded" height={108} sx={{ flex: 1, minWidth: 180, borderRadius: 2 }} />
+            <Skeleton variant="rounded" height={108} sx={{ flex: 1, minWidth: 180, borderRadius: 2 }} />
+            <Skeleton variant="rounded" height={108} sx={{ flex: 1, minWidth: 180, borderRadius: 2 }} />
+          </>
+        ) : (
+          <>
+            <StatCard label="Anticipated" amount={summary?.totalAnticipated} count={summary?.anticipatedCount} color="var(--primary, #1976d2)" />
+            <StatCard label="Overdue" amount={summary?.totalOverdue} count={summary?.overdueCount} color="var(--error, #d32f2f)" />
+            <StatCard
+              label="Received"
+              amount={receivedInvoices.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0)}
+              count={receivedInvoices.length}
+              color="var(--teal, #00897b)"
+            />
+          </>
+        )}
+      </Box>
+
+      {/* Filters */}
+      <Box sx={{ ...listToolbarRowSx, mb: 3, p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+        <TextField type="date" size="small"
+          value={filters.fromDate} onChange={handleFilterChange('fromDate')} sx={listSearchFieldSx} />
+        <TextField type="date" size="small"
+          value={filters.toDate} onChange={handleFilterChange('toDate')} sx={listSearchFieldSx} />
+
+        <FormControl size="small" sx={listSelectFieldSx(Boolean(filters.instituteId))}>
+          <Select
+            displayEmpty
+            value={filters.instituteId || LIST_FILTER_ALL}
+            onChange={(e) => {
+              const next = e.target.value === LIST_FILTER_ALL ? '' : e.target.value;
+              handleFilterChange('instituteId')({ target: { value: next } });
+            }}
+            renderValue={(selected) => {
+              if (!selected || selected === LIST_FILTER_ALL) return 'All Institutes';
+              return institutes.find((i) => String(i.instituteId) === String(selected))?.instituteName || 'All Institutes';
+            }}
+          >
+  <MenuItem value={LIST_FILTER_ALL}>All Institutes</MenuItem>
+  {institutes.map((inst) => (
+    <MenuItem key={inst.instituteId} value={inst.instituteId}>{inst.instituteName}</MenuItem>
+  ))}
+</Select>
+        </FormControl>
+
+        <FormControl size="small" sx={listSelectFieldSx(Boolean(filters.studentId))}>
+          <Select
+            displayEmpty
+            value={filters.studentId || LIST_FILTER_ALL}
+            onChange={(e) => {
+              const next = e.target.value === LIST_FILTER_ALL ? '' : e.target.value;
+              handleFilterChange('studentId')({ target: { value: next } });
+            }}
+            renderValue={(selected) => {
+              if (!selected || selected === LIST_FILTER_ALL) return 'All Students';
+              return students.find((s) => String(s.studentId) === String(selected))?.fullName || 'All Students';
+            }}
+          >
+            <MenuItem value={LIST_FILTER_ALL}>All Students</MenuItem>
+            {students.map((s) => (
+              <MenuItem key={s.studentId} value={s.studentId}>{s.fullName}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <Box sx={listToolbarActionsSx}>
+        <Button variant="contained" size="small" onClick={handleApply} sx={listContainedButtonSx}>Apply</Button>
+        <Button variant="outlined" size="small" onClick={handleReset} sx={listOutlinedButtonSx}>Reset</Button>
+        </Box>
+      </Box>
+
+      {/* Tabs + Content */}
+      <Box sx={{ bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: '1px solid', borderColor: 'divider', px: 2 }}>
+          <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>Anticipated<Chip label={rows[0].length} size="small" sx={{ height: 18, fontSize: 11 }} /></Box>} />
+          <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>Overdue<Chip label={rows[1].length} size="small" color={rows[1].length ? 'error' : 'default'} sx={{ height: 18, fontSize: 11 }} /></Box>} />
+          <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>Received<Chip label={receivedInvoices.length} size="small" color="success" sx={{ height: 18, fontSize: 11 }} /></Box>} />
+        </Tabs>
+        <Box sx={{ p: 2 }}>
+          {isReceivedTab ? (
+            <ReceivedInvoicesTable rows={receivedInvoices} loading={loadingReceived} />
+          ) : (
+            <InstallmentCardList
+              rows={currentRows}
+              loading={loadingRows}
+              variant={tab === 1 ? 'overdue' : 'anticipated'}
+            />
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+}

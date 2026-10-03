@@ -1,4 +1,8 @@
 /** Field definitions aligned with Project_Architecture_v2 (18 SQL tables). */
+import React from 'react';
+import Badge from "@mui/material/Badge";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import { VENDOR_EDIT_SECTIONS } from './vendorOnboardingEditConfig';
 
 /** xs: 1 col | md: 2 cols | lg: 3 cols */
 const grid = {
@@ -22,36 +26,121 @@ export const DOMAIN_FIELD_DEFS = {
 
   instituteName: { label: 'Institute name', type: 'text', required: true, grid: grid.half },
   vendorId: { label: 'Vendor name', type: 'api-select', required: true, grid: grid.half },
+  linkedScrappingId: { label: 'Linked scrapping ID', type: 'number', grid: grid.half },
   primaryColour: { label: 'Primary colour', type: 'text', grid: grid.quarter },
   secondaryColour: { label: 'Secondary colour', type: 'text', grid: grid.quarter },
   primaryColor: { label: 'Primary color', type: 'text', grid: grid.half },
   secondaryColor: { label: 'Secondary color', type: 'text', grid: grid.half },
   logoUrl: { label: 'Logo URL', type: 'text', grid: grid.half },
-  dueDate: { label: 'Due date', type: 'date', grid: grid.quarter },
+  dueDate: { label: 'Due date', type: 'date', grid: grid.half },
   websiteUrl: { label: 'Website URL', type: 'text', grid: grid.half },
   city: { label: 'City', type: 'text', grid: grid.third },
   state: { label: 'State', type: 'text', grid: grid.third },
   address: { label: 'Address', type: 'textarea', grid: grid.wide },
   serviceTypes: { label: 'Service types', type: 'text', grid: grid.half },
   serviceType: { label: 'Service type', type: 'text', grid: grid.half },
+  instituteCommissionRate: { label: 'Institute Commission Rate', type: 'number', grid: grid.half },
   isPublic: { label: 'Is public', type: 'checkbox', grid: grid.half },
   contactEmail: { label: 'Contact email', type: 'email', grid: grid.half },
   contactPhone: { label: 'Contact phone', type: 'text', grid: grid.half },
   isPublished: { label: 'Published to portal', type: 'select', options: ['Yes', 'No'], grid: grid.third },
+  courseName: { label: 'Course name', type: 'text', required: true, grid: grid.half },
+  CourseCategory: { label: 'CourseCategory', type: 'text', grid: grid.half },
+  description: { label: 'Description', type: 'textarea', grid: grid.full },
+  //fees: { label: 'Fees', type: 'number', grid: grid.half },
+  fees: { label: 'Fees', type: 'number', grid: grid.half, readOnly: true },
+  duration: { label: 'Duration', type: 'text', grid: grid.half },
+  eligibility: { label: 'Eligibility', type: 'text', grid: grid.half },
+  campus: { label: 'Campus', type: 'api-select', grid: grid.half },
+  level: { label: 'Level', type: 'text', grid: grid.half },
+  programLink: { label: 'Program link', type: 'text', grid: grid.half },
+  cricosCode: { label: 'CRICOS code', type: 'text', grid: grid.half },
+  intake: { label: 'Intake', type: 'text', grid: grid.half },
+  englishReq: { label: 'English requirement', type: 'text', grid: grid.half },
+  scholarshipsDetails: { label: 'Scholarships details', type: 'textarea', grid: grid.full },
+  programDescription: { label: 'Program description', type: 'textarea', grid: grid.full },
+  addmissionRequirements: { label: 'Admission requirements', type: 'textarea', grid: grid.full },
+  programLogo: { label: 'Program logo', type: 'file', accept: 'image/*', grid: grid.full, },
+  isApproved: { label: 'Approved', type: 'select', options: ['Yes', 'No'], grid: grid.half },
+  isActive: { label: 'Active', type: 'select', options: ['Yes', 'No'], grid: grid.half },
+// enrollmentFee: { label: 'Enrollment Fee', type: 'number', grid: grid.half },
+// materialFee: { label: 'Material Fee', type: 'number', grid: grid.half },
+// tuitionFee: { label: 'Tuition Fee', type: 'number', grid: grid.half },
+// oshcFee: { label: 'OSHC Fee', type: 'number', grid: grid.half },
 
+enrollmentInstallments: { label: 'Enrollment Installments', type: 'number', grid: grid.quarter },
+materialInstallments: { label: 'Material Installments', type: 'number', grid: grid.quarter },
+tuitionInstallments: { label: 'Tuition Installments', type: 'number', grid: grid.quarter },
+oshcInstallments: { label: 'OSHC Installments', type: 'number', grid: grid.quarter },
+coeVoe: {
+  label: 'CoE/VoE',
+  type: 'select',
+  options: ['Please select one', 'CoE', 'VoE'],
+  grid: grid.half,
+},
+serviceTypeStudent: {
+  label: 'Service Type',
+  type: 'select',
+  options: ['New', 'Concurrent', 'BD'],
+  grid: grid.half,
+},
+studentIdDisplay: { label: 'Student ID', type: 'text', grid: grid.half},
+leadNo: { label: 'Lead No', type: 'text', grid: grid.half },
+courseDurationWeeks: { label: 'Course Duration (Weeks)', type: 'number', grid: grid.half },
+agent: {
+  label: 'Agent',
+  type: 'select',
+  options: ['Avec', 'EPA', 'SD', 'PFEC'],
+  grid: grid.half,
+},
   studentId: { label: 'Select student', type: 'api-select', required: true, grid: grid.full },
   fullName: { label: 'Full name', type: 'text', required: true, grid: grid.half },
+  FolderNo: { label: 'Folder number', type: 'text', grid: grid.half },
   enrollmentNumber: { label: 'Enrolment number', type: 'text', grid: grid.half },
   instituteId: { label: 'Institute', type: 'api-select', required: true, grid: grid.half },
+  campusname: { label: 'Campus', type: 'text', required: true, grid: grid.half, readOnly: true, },
   courseId: { label: 'Course', type: 'api-select', required: true, grid: grid.half },
+  courseFee: { label: 'Course Fee', type: 'number', grid: grid.full, readOnly: false },
+  initialPayment: { label: 'Initial Payment', type: 'number', grid: grid.half }, 
+  PaymentStatus: {
+    label: 'Payment Status', type: 'radio', options: [
+      { value: 'Paid', label: 'Paid' },
+      { value: 'Partial', label: 'Partial' },
+      { value: 'Pending', label: 'Pending' }], grid: grid.full
+  },
+  feesdate: { label: 'Fees Date', type: 'date', grid: grid.quarter, grid: grid.half },
+  noOfInstallment: { label: 'Number of Installments', type: 'number', grid: grid.full },
+  assignment: { label: 'Assignment', type: 'text', grid: grid.half },
+  frequency: {
+    label: 'Frequency', type: 'radio', grid: grid.half,
+    options: [
+      { value: 'Monthly', label: 'Monthly' },
+      { value: 'Quarterly', label: 'Quarterly' }],
+  },
+  startDate: { label: 'Installment Start Date', type: 'date', grid: grid.half, },
+//courseStartDate: { label: 'Course Start Date', type: 'date', grid: grid.half, readOnly: true, },
+courseStartDate: { label: 'Course Start Date', type: 'date', grid: grid.half },
+  courseEndDate: { label: 'Course End Date', type: 'date', grid: grid.half, readOnly: true, },
   enrolmentStatus: {
     label: 'Enrolment status',
     type: 'select',
     options: ['Interested', 'Applied', 'Enrolled', 'Dropped'],
     grid: grid.third,
   },
-
+  bonusOption: {
+    label: 'Bonus Option', type: 'radio', grid: grid.full,
+    options:
+      [{ value: 'Everytime', label: 'Everytime' }, { value: 'Quarterly', label: 'Quarterly' },
+      { value: 'HalfYearly', label: 'Half Yearly' }, { value: 'Yearly', label: 'Yearly' }]
+  },
   invoiceNumber: { label: 'Invoice number', type: 'text', required: true, grid: grid.half },
+  bonusAmount: { label: 'Bonus Amount', type: 'number', grid: grid.half, },
+  bonusType: {
+    label: 'Bonus Type', type: 'radio', grid: grid.full,
+    options: [
+      { value: 'Fixed', label: 'Fixed' },
+      { value: 'Percentage', label: 'Percentage' }],
+  },
   totalAmount: { label: 'Total amount', type: 'number', grid: grid.quarter },
   rejectionReason: { label: 'Rejection reason', type: 'textarea', grid: grid.wide },
 
@@ -67,11 +156,11 @@ export const DOMAIN_FIELD_DEFS = {
 
   templateName: { label: 'Template name', type: 'text', required: true, grid: grid.half },
   subject: { label: 'Email subject', type: 'text', grid: grid.half },
-  bodyHtml: { label: 'Body (HTML)', type: 'textarea', grid: grid.full },
+  bodyHtml: { label: 'Body (HTML)', type: 'editor', grid: grid.full },
   category: {
     label: 'Category',
     type: 'select',
-    options: ['Reminder', 'Invoice', 'OTP', 'General'],
+    options: ['Reminder', 'Invoice', 'OTP', 'General', 'Forgate password', 'Registration user', 'Admission', 'Vendor Onboarding', 'EmailVerification', 'PasswordReset '],
     grid: grid.third,
   },
 
@@ -88,11 +177,10 @@ export const DOMAIN_FIELD_DEFS = {
   workDate: { label: 'Work date', type: 'date', grid: grid.quarter },
   checkIn: { label: 'Check-in', type: 'text', grid: grid.quarter },
   checkOut: { label: 'Check-out', type: 'text', grid: grid.quarter },
-  hoursWorked: { label: 'Hours worked', type: 'number', grid: grid.quarter },
 
   taskTitle: { label: 'Task title', type: 'text', required: true, grid: grid.half },
   taskDescription: { label: 'Description', type: 'textarea', grid: grid.full },
-  dueDate: { label: 'Due date', type: 'date', grid: grid.quarter },
+  //dueDate: { label: 'Due date', type: 'date', grid: grid.quarter },
   priority: {
     label: 'Priority',
     type: 'select',
@@ -116,7 +204,7 @@ export const DOMAIN_FIELD_DEFS = {
   vendorStatus: {
     label: 'Status',
     type: 'select',
-    options: ['Pending', 'Active', 'Disabled', 'Suspended'],
+    options: ['Pending', 'Active',],
     grid: grid.third,
   },
   instituteStatus: {
@@ -163,8 +251,40 @@ export const DOMAIN_FIELD_DEFS = {
 
   email: { label: 'Email', type: 'email', grid: grid.half },
   phone: { label: 'Phone', type: 'text', required: true, grid: grid.half },
-  notes: { label: 'Notes', type: 'textarea', grid: grid.wide },
-  description: { label: 'Description', type: 'textarea', grid: grid.wide },
+  notes: { label: 'Notes', type: 'textarea', grid: grid.full },
+  description: { label: 'Description', type: 'textarea', grid: grid.full },
+  programName: { label: 'Program name', type: 'text', required: true, grid: grid.half },
+  level: { label: 'Level', type: 'text', grid: grid.half },
+  programLink: { label: 'Program link', type: 'text', grid: grid.half },
+  cricosCode: { label: 'CRICOS code', type: 'text', grid: grid.half },
+  duration: { label: 'Duration', type: 'text', grid: grid.half },
+  intake: { label: 'Intake', type: 'text', grid: grid.half },
+  feesYearly: { label: 'Fees yearly', type: 'text', grid: grid.half },
+  campus: { label: 'Campus', type: 'api-select', grid: grid.half },
+  logo: { label: 'Logo URL', type: 'text', grid: grid.half },
+  name: { label: 'Name', type: 'text', grid: grid.half },
+  country: { label: 'Country', type: 'text', grid: grid.half },
+  countryRanking: { label: 'Country ranking', type: 'textarea', grid: grid.full },
+  scholarshipsDetails: { label: 'Scholarships details', type: 'textarea', grid: grid.full },
+  programDescription: { label: 'Program description', type: 'textarea', grid: grid.full },
+  englishReq: { label: 'English requirement', type: 'text', grid: grid.half },
+  addmissionRequirements: { label: 'Admission requirements', type: 'textarea', grid: grid.full },
+  campusname: { label: 'Campus', type: 'api-select', grid: grid.half, required: true },
+  commissionPercentage: { label: 'Commission %', type: 'number', grid: grid.half, },
+  gstPercentage: { label: 'GST %', type: 'number', grid: grid.half, readOnly: true },
+  bonus: { label: 'Bonus', type: 'number', grid: grid.quarter },
+
+  commissionAmount: { label: 'Commission Amount', type: 'number', grid: grid.half, readOnly: true },
+  gstAmount: { label: 'GST Amount', type: 'number', grid: grid.half, readOnly: true },
+  remark: { label: 'Remark', type: 'text', grid: grid.half, },
+  receivedDate: { label: 'Received Date', type: 'date', grid: grid.quarter },
+
+  commissionStatus: {
+    label: 'Commission Status',
+    type: 'select',
+    options: ['Pending', 'Received'],
+    grid: grid.quarter,
+  },
 };
 
 export const DOMAIN_RESOURCES = {
@@ -173,45 +293,49 @@ export const DOMAIN_RESOURCES = {
     plural: 'Vendors',
     actionLabel: 'Add Vendor',
     primaryField: 'businessName',
-    requiredFields: ['vendorRef', 'phone'],
+    requiredFields: ['businessName', 'phone', 'email'],
     sections: [
       {
-        title: 'Vendor & institute',
-        description: 'Link vendor account to institute profile.',
-        fields: ['vendorRef', 'instituteName', 'vendorStatus'],
-      },
-      {
-        title: 'Branding',
-        description: 'Portal appearance and public URLs.',
-        fields: ['websiteUrl', 'logoUrl', 'primaryColor', 'secondaryColor'],
-      },
-      {
-        title: 'Location & services',
-        description: 'Address and service offerings.',
-        fields: ['address', 'city', 'state', 'serviceType'],
-      },
-      {
-        title: 'Contact',
-        description: 'Primary contact and visibility.',
-        fields: ['contact', 'email', 'phone', 'isPublic'],
+        title: 'Invite vendor',
+        description: 'Basic vendor information. An onboarding email with a link will be sent after registration.',
+        fields: ['businessName', 'contactPerson', 'phone', 'email'],
       },
     ],
     columns: [
-      { id: 'vendorCode', label: 'Vendor code', field: 'vendorCode' },
-      { id: 'username', label: 'Username', field: 'username' },
       { id: 'businessName', label: 'Business name', field: 'businessName' },
       { id: 'contactPerson', label: 'Contact person', field: 'contactPerson' },
       { id: 'email', label: 'Email', field: 'email' },
       { id: 'phone', label: 'Phone', field: 'phone' },
-      { id: 'referral', label: 'Referral', field: 'referral' },
-      { id: 'vendorStatus', label: 'Status', field: 'vendorStatus' },
+      {
+        id: "status",
+        label: "Status",
+        field: "status",
+        render: (row) =>
+          React.createElement(
+            "span",
+            {
+              style: {
+                color:
+                  (row.vendorStatus ?? row.status) === "Active"
+                    ? "green"
+                    : (row.vendorStatus ?? row.status) === "Pending"
+                      ? "red"
+                      : "inherit",
+                fontWeight: 600,
+              },
+            },
+            row.vendorStatus ?? row.status
+          ),
+      }
     ],
     emptyForm: () => ({
-      vendorCode: '', username: '', businessName: '', contactPerson: '', referral: '',
-      vendorRef: '', instituteName: '', websiteUrl: '', logoUrl: '', primaryColor: '#3385c6',
-      secondaryColor: '#1a2b3d', address: '', city: '', state: '', serviceType: '',
-      contact: '', email: '', phone: '', isPublic: 'No', vendorStatus: 'Pending',
+      businessName: '',
+      contactPerson: '',
+      phone: '',
+      email: '',
     }),
+    editSections: VENDOR_EDIT_SECTIONS,
+    editRequiredFields: ['businessName', 'phone'],
   },
   institutes: {
     singular: 'Institute',
@@ -223,7 +347,8 @@ export const DOMAIN_RESOURCES = {
       {
         title: 'Institute details',
         description: 'Vendor link, identity, and publishing.',
-        fields: ['vendorId', 'instituteName', 'websiteUrl', 'instituteStatus', 'isPublished'],
+        //fields: ['vendorId', 'instituteName', 'websiteUrl', 'instituteStatus', 'isPublished'],
+        fields: ['vendorId', 'instituteName', 'websiteUrl', 'linkedScrappingId', 'instituteCommissionRate', 'instituteStatus', 'isPublished']
       },
       {
         title: 'Location & services',
@@ -237,11 +362,17 @@ export const DOMAIN_RESOURCES = {
       { id: 'instituteName', label: 'Institute name', field: 'instituteName' },
       { id: 'address', label: 'Address', field: 'address' },
       { id: 'serviceType', label: 'Service type', field: 'serviceType' },
+      { id: 'rateType', label: 'Rate type', field: 'rateType' },
+      { id: 'rate', label: 'Rate', field: 'rate' },
+      { id: 'effectiveFrom', label: 'From', field: 'effectiveFrom' },
+      { id: 'effectiveTo', label: 'To', field: 'effectiveTo' },
     ],
     emptyForm: () => ({
       vendorId: '',
       instituteName: '',
       websiteUrl: '',
+      linkedScrappingId: '',
+      instituteCommissionRate: '',
       instituteStatus: 'Active',
       isPublished: 'No',
       address: '',
@@ -258,13 +389,25 @@ export const DOMAIN_RESOURCES = {
     plural: 'Students',
     actionLabel: 'Add Student',
     primaryField: 'fullName',
-    requiredFields: ['fullName', 'phone', 'instituteId', 'courseId', 'amountDue', 'dueDate'],
+    requiredFields: ['fullName', 'phone', 'email', 'instituteId', 'courseId'],
     sections: [
-      { title: 'Student profile', description: 'Registered student after AIH interest.', fields: ['fullName', 'enrollmentNumber', 'enrolmentStatus', 'email'] },
-      { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
-      { title: 'Payment schedule', description: 'Outstanding balance tracking.', fields: ['amountDue', 'amountPaid', 'paymentStatus', 'dueDate'] },
-      { title: 'Notes', description: 'Internal follow-up notes.', fields: ['notes'] },
+      { title: 'Student Details', description: 'Registered student details', fields: ['fullName', 'email', 'phone', 'FolderNo', 'studentIdDisplay', 'leadNo'] },
+      // { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
+      { title: 'Student Payment schedule', description: 'Institute and course details.',  fields: [
+      'instituteId', 'campusname', 'courseId', 'assignment',
+      'coeVoe', 'serviceTypeStudent',   
+      'enrollmentFee', 'materialFee', 'tuitionFee', 'oshcFee',   
+      'courseFee',   
+       'noOfInstallment', 
+       'courseDurationWeeks',                                          
+      // 'enrollmentInstallments', 'materialInstallments',         
+      // 'tuitionInstallments', 'oshcInstallments',                
+      'frequency', 'startDate', 'courseStartDate', 'courseEndDate',
+    ], },
+      { title: 'Commission', description: 'Commission & GST information.', fields: ['agent','commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'dueDate', 'remark',] },
+      { title: 'Bonus', description: 'Bonus details.', fields: ['bonusOption', 'bonusType', 'bonus',] },
     ],
+
     columns: [
       { id: 'fullName', label: 'Student', field: 'fullName' },
       { id: 'email', label: 'Email', field: 'email' },
@@ -274,19 +417,29 @@ export const DOMAIN_RESOURCES = {
       { id: 'paymentStatus', label: 'Payment', field: 'paymentStatus' },
     ],
     emptyForm: () => ({
-      fullName: '', enrollmentNumber: '', enrolmentStatus: 'Interested', email: '',
-      instituteId: '', courseId: '', phone: '',
-      amountDue: '', amountPaid: '', paymentStatus: 'Pending', dueDate: '', notes: '',
+      fullName: '', email: '', phone: '',
+      instituteId: '', courseId: '', courseFee: '', FolderNo: '', courseStartDate: '', courseEndDate: '',
+      enrollmentFee: '', materialFee: '', tuitionFee: '', oshcFee: '', 
+      initialPayment: '', 
+      noOfInstallment: '', 
+      coeVoe: '', serviceTypeStudent: '', agent: '', 
+      studentIdDisplay: '', leadNo: '',
+      courseDurationWeeks: '',
+      //enrollmentInstallments: '', materialInstallments: '', tuitionInstallments: '', oshcInstallments: '',
+      amountDue: '', amountPaid: '', paymentStatus: 'Pending', startDate: '',
+      assignment: '',
+      commissionPercentage: '', gstPercentage: '', bonus: '',
+      commissionAmount: '', gstAmount: '', invoiceAmount: '', remark: '',
     }),
   },
   invoices: {
     singular: 'Invoice',
     plural: 'Invoices',
-    actionLabel: 'Create Invoice',
+    actionLabel: 'Add Invoice',
     primaryField: 'invoiceNumber',
     requiredFields: ['invoiceNumber'],
     sections: [
-      { title: 'Invoice header', description: 'Generated from institute Excel upload.', fields: ['invoiceNumber', 'instituteNameRef', 'invoiceStatus', 'totalAmount'] },
+      { title: 'Invoice header', description: 'Generated from paid student installments.', fields: ['invoiceNumber', 'instituteNameRef', 'invoiceStatus', 'totalAmount'] },
       { title: 'Approval', description: 'Workflow and rejection details.', fields: ['assignedTo', 'rejectionReason', 'notes'] },
     ],
     columns: [
@@ -294,6 +447,7 @@ export const DOMAIN_RESOURCES = {
       { id: 'instituteNameRef', label: 'Institute', field: 'instituteNameRef' },
       { id: 'invoiceStatus', label: 'Status', field: 'invoiceStatus' },
       { id: 'totalAmount', label: 'Amount', field: 'totalAmount' },
+      { id: 'createdAt', label: 'Created', field: 'createdAt' },
     ],
     emptyForm: () => ({
       invoiceNumber: '', instituteNameRef: '', invoiceStatus: 'Draft', totalAmount: '',
@@ -315,6 +469,7 @@ export const DOMAIN_RESOURCES = {
       { id: 'triggerAfterDays', label: 'After (days)', field: 'triggerAfterDays' },
       { id: 'isActive', label: 'Active', field: 'isActive' },
       { id: 'updated', label: 'Updated', field: 'updated' },
+     
     ],
     emptyForm: () => ({
       ruleType: 'StudentOverdue', triggerAfterDays: '7', intervalDays: '3', isActive: 'Yes',
@@ -328,19 +483,126 @@ export const DOMAIN_RESOURCES = {
     primaryField: 'templateName',
     requiredFields: ['templateName'],
     sections: [
-      { title: 'Template', description: 'Supports {{placeholders}} in subject and body.', fields: ['templateName', 'category', 'subject'] },
-      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml', 'notes'] },
+      { title: 'Template', description: 'Supports {{placeholders}} in subject and body.', fields: ['templateName', 'category', 'subject'], layout: 'full' },
+      { title: 'Body', description: 'HTML email content.', fields: ['bodyHtml'], layout: 'full' },
     ],
     columns: [
       { id: 'templateName', label: 'Name', field: 'templateName' },
       { id: 'category', label: 'Category', field: 'category' },
       { id: 'subject', label: 'Subject', field: 'subject' },
       { id: 'updated', label: 'Updated', field: 'updated' },
+      
     ],
     emptyForm: () => ({
-      templateName: '', category: 'General', subject: '', bodyHtml: '', notes: '',
+      templateName: '', category: 'General', subject: '', bodyHtml: '', 
     }),
   },
+courses: {
+  singular: 'Course',
+  plural: 'Courses',
+  actionLabel: 'Add Course',
+  primaryField: 'courseName',
+
+  requiredFields: ['instituteId', 'courseName'],
+
+  sections: [
+    {
+      title: 'Course details',
+      description: 'Institute link and basic course information.',
+      fields: [
+        'instituteId',
+        'courseName',
+        'CourseCategory',
+        'duration',
+        'campus',
+        'level',
+        'cricosCode',
+        'intake',
+        'description',
+        'scholarshipsDetails',
+      ],
+    },
+    {
+      title: 'Course information',
+      description: 'Eligibility and additional course information.',
+      fields: [
+        'programLink',
+        'englishReq',
+        'eligibility',
+        'programDescription',
+        'addmissionRequirements',
+        'isApproved',
+        'isActive',
+        'programLogo',
+      ],
+    },
+  ],
+
+ courseCost: {
+  title: 'Course Cost',
+  rows: [
+    {
+      label: 'Enrollment Fee (Non-Refundable)',
+      field: 'enrollmentFee',
+    },
+    {
+      label: 'Material Fee',
+      field: 'materialFee',
+    },
+    {
+      label: 'Tuition Fee',
+      field: 'tuitionFee',
+    },
+    {
+      label: 'OSHC Fee (Single/Dual/Family)',
+      field: 'oshcFee',
+    },
+    {
+      label: 'Total course fees due',
+      field: 'fees',
+      readOnly: true,
+    },
+  ],
+},
+
+  columns: [
+    { id: 'instituteName', label: 'Institute name', field: 'instituteName' },
+    { id: 'level', label: 'Level', field: 'level' },
+    { id: 'courseName', label: 'Course name', field: 'courseName', primary: true },
+    { id: 'campus', label: 'Campus', field: 'campus' },
+    { id: 'cricosCode', label: 'CRICOS Code', field: 'cricosCode' },
+    { id: 'fees', label: 'Fees', field: 'fees' },
+    { id: 'duration', label: 'Duration', field: 'duration' },
+ { id: 'status', label: 'Status', field: 'isActive', render: (row) => row.isActive ? 'Active' : 'Inactive' },
+  ],
+
+  emptyForm: () => ({
+    instituteId: '',
+    courseName: '',
+    CourseCategory: '',
+    description: '',
+    enrollmentFee: '',
+    materialFee: '',
+    tuitionFee: '',
+    oshcFee: '',
+    fees: '',
+    duration: '',
+    eligibility: '',
+    campus: '',
+    level: '',
+    programLink: '',
+    cricosCode: '',
+    intake: '',
+    englishReq: '',
+    scholarshipsDetails: '',
+    programDescription: '',
+    addmissionRequirements: '',
+    programLogo: '',
+    isApproved: 'No',
+    isActive: 'Yes',
+    isAIFetched: 'No',
+  }),
+},
   users: {
     singular: 'User',
     plural: 'Users',
@@ -367,20 +629,23 @@ export const DOMAIN_RESOURCES = {
     plural: 'Work history',
     actionLabel: 'Log Hours',
     primaryField: 'fullName',
+    hideDelete: true,
     requiredFields: ['fullName', 'workDate'],
     sections: [
       { title: 'Employee', description: 'Staff member and work date.', fields: ['fullName', 'designation', 'department', 'workDate'] },
       { title: 'Time log', description: 'Check-in, check-out, and calculated hours.', fields: ['checkIn', 'checkOut', 'hoursWorked', 'notes'] },
     ],
     columns: [
-      { id: 'fullName', label: 'Employee', field: 'fullName' },
       { id: 'workDate', label: 'Date', field: 'workDate' },
-      { id: 'hoursWorked', label: 'Hours', field: 'hoursWorked' },
-      { id: 'updated', label: 'Updated', field: 'updated' },
+      { id: 'fullName', label: 'Member', field: 'fullName' },
+      { id: 'workspaces', label: 'Workspaces', field: 'workspaces' },
+      { id: 'hoursWorked', label: 'Total time', field: 'hoursWorked' },
+      { id: 'productive', label: 'Productive', field: 'productive' },
+      { id: 'neutral', label: 'Neutral', field: 'neutral' },
     ],
     emptyForm: () => ({
       fullName: '', designation: '', department: '', workDate: '',
-      checkIn: '09:00', checkOut: '17:30', hoursWorked: '8', notes: '',
+      checkIn: '', checkOut: '', hoursWorked: '', notes: '',
     }),
   },
   tasks: {
@@ -551,27 +816,6 @@ export const DOMAIN_RESOURCES = {
       dueDate: '', assignedTo: '', notes: '',
     }),
   },
-  'reports_work-hours': {
-    singular: 'Hours entry',
-    plural: 'Work hours',
-    actionLabel: 'Log Hours',
-    primaryField: 'fullName',
-    requiredFields: ['fullName', 'workDate'],
-    sections: [
-      { title: 'Employee hours', description: 'Working hours report entry.', fields: ['fullName', 'department', 'workDate', 'hoursWorked'] },
-      { title: 'Time log', description: 'Check-in and check-out times.', fields: ['checkIn', 'checkOut', 'notes'] },
-    ],
-    columns: [
-      { id: 'fullName', label: 'Employee', field: 'fullName' },
-      { id: 'workDate', label: 'Date', field: 'workDate' },
-      { id: 'hoursWorked', label: 'Hours', field: 'hoursWorked' },
-      { id: 'department', label: 'Dept', field: 'department' },
-    ],
-    emptyForm: () => ({
-      fullName: '', department: '', workDate: '', hoursWorked: '',
-      checkIn: '', checkOut: '', notes: '',
-    }),
-  },
   'ai-tool': {
     singular: 'Scrape config',
     plural: 'AI scraping tool',
@@ -613,4 +857,69 @@ export const DOMAIN_RESOURCES = {
       commissionPreference: '', bankDetails: '', phone: '', notes: '',
     }),
   },
+  'institutes-scrapping': {
+    singular: 'Institute scrapping record',
+    plural: 'Institutes scrapping',
+    actionLabel: 'Start Scraping',
+    primaryField: 'instituteName',
+    requiredFields: ['instituteName', 'websiteUrl'],
+    sections: [
+      {
+        title: 'Institute details',
+        fields: ['instituteName', 'websiteUrl'],
+      },
+    ],
+    columns: [
+      { id: 'instituteName', label: 'Institute name', field: 'instituteName' },
+      { id: 'websiteUrl', label: 'Website URL', field: 'websiteUrl' },
+    ],
+    emptyForm: () => ({
+      instituteName: '',
+      websiteUrl: '',
+    }),
+  },
+  'reports_student-Inquiry': {
+    singular: 'Student Inquiry',
+    plural: 'Student Inquiry',
+    actionLabel: '',
+    primaryField: 'firstName',
+
+    columns: [
+      { id: 'firstName', label: 'First Name', field: 'firstName' },
+      { id: 'lastName', label: 'Last Name', field: 'lastName' },
+      { id: 'email', label: 'Email', field: 'email' },
+      { id: 'phone', label: 'Phone', field: 'phone' },
+      { id: 'nationality', label: 'Nationality', field: 'countryToApply' },
+      { id: 'englishTest', label: 'English Test', field: 'englishTest' },
+      { id: 'testScore', label: 'Test Score', field: 'testScore' },
+      { id: 'highestQualification', label: 'Highest Qualification', field: 'highestQualification' },
+      { id: 'vendorName', label: 'Vendor Name', field: 'vendorName' },
+      { id: 'action', label: 'Action', field: 'action' },
+    ],
+
+    emptyForm: () => ({}),
+  },
+  'payment-schedules': {
+  singular: "Payment Schedule",
+  plural: "Payment Schedules",
+  actionLabel: "Add Payment Schedule",
+  primaryField: "studentName",
+  requiredFields: [],
+
+  columns: [
+    { id: "studentName", label: "Student", field: "studentName" },
+    { id: "instituteName", label: "Institute", field: "instituteName" },
+    { id: "courseName", label: "Course", field: "courseName" },
+    { id: "totalCourseFee", label: "Total Fees", field: "totalCourseFee" },
+    { id: "installments", label: "Installments", field: "installments" },
+    { id: "nextDueDate", label: "Next Due", field: "nextDueDate" },
+    { id: "collectedAmount", label: "Fees Paid", field: "collectedAmount" },
+    { id: "installmentAmount", label: "Installment Amount", field: "installmentAmount" },
+    { id: "balanceAmount", label: "Remaining Fees", field: "balanceAmount" },
+    { id: "paymentStatus", label: "Status", field: "paymentStatus" },
+    { id: "studentCreatedAt", label: "Added On", field: "studentCreatedAt" },
+  ],
+
+  emptyForm: () => ({}),
+},
 };

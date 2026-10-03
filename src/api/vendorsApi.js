@@ -1,5 +1,8 @@
 import axiosClient from './axiosClient';
 import { STORAGE_KEY } from '../constants/auth';
+import { emptyVendorOnboardingForm } from '../config/vendorOnboardingEditConfig';
+import { fetchVendorOnboarding, saveVendorOnboarding } from './vendorOnboardingApi';
+import { formatDateDisplay } from '../utils/dateFormat';
 
 function getStoredUserId() {
   try {
@@ -14,10 +17,7 @@ function getStoredUserId() {
 }
 
 function formatDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateDisplay(value);
 }
 
 function normalizeVendor(vendor) {
@@ -29,10 +29,11 @@ function normalizeVendor(vendor) {
     contactPerson: vendor.contactPerson ?? vendor.ContactPerson ?? '',
     phone: vendor.phone ?? vendor.Phone ?? '',
     email: vendor.email ?? vendor.Email ?? '',
-    bankDetails: vendor.bankDetails ?? vendor.BankDetails ?? '',
-    commissionPreference: vendor.commissionPreference ?? vendor.CommissionPreference ?? '',
     status: vendor.status ?? vendor.Status ?? '',
     createdAt: vendor.createdAt ?? vendor.CreatedAt,
+    lastLogin: vendor.lastLogin ?? vendor.LastLogin,
+    studentCount: vendor.studentCount ?? vendor.StudentCount ?? 0,
+    todayRegisterStudent:vendor.todayRegisterStudent ?? vendor.TodayRegisterStudent ?? 0,
   };
 }
 
@@ -43,9 +44,6 @@ function deriveUsername(email) {
 }
 
 function deriveReferral(vendor) {
-  if (vendor.commissionPreference?.startsWith('REF-')) {
-    return vendor.commissionPreference;
-  }
   if (vendor.vendorCode) {
     const suffix = vendor.vendorCode.replace(/^VEN-/i, 'AU-');
     return `REF-${suffix}`;
@@ -58,19 +56,25 @@ function resolveBusinessName(form) {
 }
 
 function mapVendorRow(vendor) {
+  const status = vendor.status || 'Pending';
   return {
     id: String(vendor.vendorId),
     vendorId: vendor.vendorId,
     businessName: vendor.businessName,
     vendorCode: vendor.vendorCode || '—',
     username: deriveUsername(vendor.email),
-    vendorStatus: vendor.status,
+    vendorStatus: status,
+    status,
     email: vendor.email || '—',
+    createdAt: vendor.createdAt,
+    lastLogin:vendor.lastLogin,
     phone: vendor.phone || '—',
     contactPerson: vendor.contactPerson || '—',
     referral: deriveReferral(vendor),
     updated: formatDate(vendor.createdAt),
     name: vendor.businessName,
+    studentCount: vendor.studentCount,
+    todayRegisterStudent: vendor.todayRegisterStudent,
   };
 }
 
@@ -112,6 +116,7 @@ function normalizeInstituteFromRaw(institute) {
 
 export async function fetchVendorRows() {
   const { data } = await axiosClient.get('/api/vendors');
+ 
   return data.map((raw) => mapVendorRow(normalizeVendor(raw)));
 }
 
@@ -125,6 +130,10 @@ export async function createVendor(form) {
     throw new Error('Phone is required');
   }
 
+  if (!form.email?.trim()) {
+    throw new Error('Email is required to send the onboarding link');
+  }
+
   const userId = getStoredUserId();
   if (!userId) {
     throw new Error('Please log in again to register a vendor.');
@@ -135,15 +144,13 @@ export async function createVendor(form) {
     businessName,
     contactPerson: (form.contactPerson || form.contact)?.trim() || '',
     phone: form.phone.trim(),
-    email: form.email?.trim() || '',
-    bankDetails: form.bankDetails?.trim() || null,
-    commissionPreference: form.referral?.trim() || form.commissionPreference?.trim() || null,
+    email: form.email.trim(),
   });
 
   const vendor = normalizeVendor(data);
 
   if (form.vendorStatus && form.vendorStatus !== 'Pending') {
-    await axiosClient.put(`/api/vendors/${vendor.vendorId}/status`, {
+    await axiosClient.post(`/api/vendors/${vendor.vendorId}/status`, {
       status: form.vendorStatus,
     });
   }
@@ -151,8 +158,14 @@ export async function createVendor(form) {
   return vendor;
 }
 
-function buildVendorForm(vendor, instituteFields = {}) {
+function buildVendorForm(vendor, instituteFields = {}, onboardingFields = {}) {
   return {
+    ...emptyVendorOnboardingForm(),
+    ...onboardingFields,
+    primaryContactName: onboardingFields.primaryContactName || vendor.contactPerson || '',
+    primaryContactEmail: onboardingFields.primaryContactEmail || vendor.email || '',
+    primaryContactMobile: onboardingFields.primaryContactMobile || vendor.phone || '',
+    legalBusinessName: onboardingFields.legalBusinessName || vendor.businessName || '',
     vendorCode: vendor.vendorCode || '',
     username: deriveUsername(vendor.email),
     businessName: vendor.businessName,
@@ -163,8 +176,6 @@ function buildVendorForm(vendor, instituteFields = {}) {
     vendorStatus: vendor.status || 'Pending',
     email: vendor.email || '',
     phone: vendor.phone || '',
-    commissionPreference: vendor.commissionPreference || '',
-    bankDetails: vendor.bankDetails || '',
     instituteName: instituteFields.instituteName || '',
     websiteUrl: instituteFields.websiteUrl || '',
     logoUrl: instituteFields.logoUrl || '',
@@ -180,21 +191,25 @@ function buildVendorForm(vendor, instituteFields = {}) {
 }
 
 export async function fetchVendorById(vendorId) {
-  const { data } = await axiosClient.get(`/api/vendors/${vendorId}`);
+  const id = Number(vendorId);
+  const { data } = await axiosClient.get(`/api/vendors/${id}`);
   return normalizeVendor(data);
 }
 
 export async function fetchVendorForm(vendorId) {
-  const vendor = await fetchVendorById(vendorId);
-  const instituteFields = await fetchLinkedInstituteFields(vendorId);
+  const [vendor, instituteFields, onboardingFields] = await Promise.all([
+    fetchVendorById(vendorId),
+    fetchLinkedInstituteFields(vendorId),
+    fetchVendorOnboarding(vendorId),
+  ]);
   return {
     vendor,
-    form: buildVendorForm(vendor, instituteFields),
+    form: buildVendorForm(vendor, instituteFields, onboardingFields),
   };
 }
 
 export async function deleteVendor(vendorId) {
-  await axiosClient.delete(`/api/vendors/${vendorId}`);
+  await axiosClient.post(`/api/vendors/${vendorId}/delete`);
 }
 
 export async function updateVendor(vendorId, form) {
@@ -209,23 +224,23 @@ export async function updateVendor(vendorId, form) {
 
   const existing = await fetchVendorById(vendorId);
 
-  const { data } = await axiosClient.put(`/api/vendors/${vendorId}`, {
+  const { data } = await axiosClient.post(`/api/vendors/${vendorId}/update`, {
     businessName,
     contactPerson: (form.contactPerson || form.contact)?.trim() || '',
     phone: form.phone.trim(),
     email: form.email?.trim() || '',
-    bankDetails: form.bankDetails?.trim() || null,
-    commissionPreference: form.referral?.trim() || form.commissionPreference?.trim() || null,
   });
 
   let vendor = normalizeVendor(data);
 
   if (form.vendorStatus && form.vendorStatus !== existing.status) {
-    await axiosClient.put(`/api/vendors/${vendorId}/status`, {
+    await axiosClient.post(`/api/vendors/${vendorId}/status`, {
       status: form.vendorStatus,
     });
     vendor = await fetchVendorById(vendorId);
   }
+
+  await saveVendorOnboarding(vendorId, form);
 
   return vendor;
 }

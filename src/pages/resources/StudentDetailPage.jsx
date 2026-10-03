@@ -14,9 +14,9 @@ import {
   formPaperSx,
 } from '../../components/forms';
 import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 export default function StudentDetailPage({ basePath }) {
-  const navigate = useNavigate();
   const { id } = useParams();
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(null);
@@ -46,20 +46,26 @@ export default function StudentDetailPage({ basePath }) {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError('');
-    setLoadError('');
 
-    fetchStudentWithSchedule(id)
-      .then(({ form: loadedForm }) => {
-        if (active) setForm(loadedForm);
-      })
-      .catch((err) => {
-        if (active) setError(err.message || 'Student not found.');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    const loadStudent = async () => {
+      try {
+        const { form: loadedForm } = await fetchStudentWithSchedule(id);
+
+        if (active) {
+          setForm(loadedForm);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.message || 'Student not found.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadStudent();
 
     return () => {
       active = false;
@@ -69,18 +75,25 @@ export default function StudentDetailPage({ basePath }) {
   useEffect(() => {
     let active = true;
 
-    if (!form?.instituteId) {
-      setCourses([]);
-      return undefined;
-    }
+    const loadCourses = async () => {
+      if (!form?.instituteId) {
+        return;
+      }
 
-    fetchCoursesByInstitute(form.instituteId)
-      .then((data) => {
-        if (active) setCourses(data);
-      })
-      .catch((err) => {
-        if (active) setLoadError(err.message || 'Failed to load courses.');
-      });
+      try {
+        const data = await fetchCoursesByInstitute(form.instituteId);
+
+        if (active) {
+          setCourses(data);
+        }
+      } catch (err) {
+        if (active) {
+          setLoadError(err.message || 'Failed to load courses.');
+        }
+      }
+    };
+
+    void loadCourses();
 
     return () => {
       active = false;
@@ -141,9 +154,9 @@ export default function StudentDetailPage({ basePath }) {
 
   if (loading) {
     return (
-      <Box sx={{ py: 4 }}>
-        <Typography sx={{ color: 'var(--muted)' }}>Loading student...</Typography>
-      </Box>
+      <FormPageLayout title={`Edit ${resource.singular.toLowerCase()}`}>
+        <FormContentSkeleton rows={9} />
+      </FormPageLayout>
     );
   }
 

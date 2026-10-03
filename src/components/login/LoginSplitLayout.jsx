@@ -11,7 +11,7 @@ export default function LoginSplitLayout({ children }) {
         minHeight: '100vh',
         width: '100%',
         bgcolor: '#fff',
-        fontFamily: "'Inter', sans-serif",
+        fontFamily: 'inherit',
         overflow: { xs: 'auto', md: 'hidden' },
       }}
     >

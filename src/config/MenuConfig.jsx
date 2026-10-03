@@ -14,110 +14,137 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import SearchIcon from '@mui/icons-material/Search';
 import ContactPageIcon from '@mui/icons-material/ContactPage';
 import PaymentsIcon from '@mui/icons-material/Payments';
-
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import DescriptionIcon from '@mui/icons-material/Description';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SchoolIcon from '@mui/icons-material/School';
+  
 export const GET_MENU = (role) => {
   const menus = {
-    Admin: [
+    'Super Admin': [
       {
         category: 'CORE',
         items: [
-          { title: 'Admin Overview', path: '/dashboard/admin', Icon: DashboardIcon },
-          { title: 'Vendor Dashboard', path: '/dashboard/vendor', Icon: DashboardIcon },
-          { title: 'Accounting Dashboard', path: '/dashboard/accounting', Icon: DashboardIcon },
-          { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
+          { title: 'DashBoard', path: '/dashboard/admin', Icon: DashboardIcon },
+          // { title: 'Vendor Dashboard', path: '/dashboard/vendor', Icon: DashboardIcon },
+          // { title: 'Accounting Dashboard', path: '/dashboard/accounting', Icon: DashboardIcon },
+          // { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
         ],
       },
       {
-        category: 'MANAGEMENT',
+        category: 'INSTITUTE MANAGEMENT',
         items: [
-          { title: 'Vendor Commission', path: '/vendors', Icon: StoreIcon },
-          { title: 'Institute Commission', path: '/institutes', Icon: AccountBalanceIcon },
-          { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
-          { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
-          { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
-          { title: 'Email Templates', path: '/templates', Icon: EmailIcon },
-          { title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
-          { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
-          { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
+          
+          // { title: 'Institute Commission old', path: '/institutes', Icon: AccountBalanceIcon },
+          //{ title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
+          { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
+           { title: 'Courses', path: '/courses', Icon: SchoolIcon },
+           { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
+            { title: 'Student Inquiry', path: '/reports/student-Inquiry', Icon: PeopleIcon },
+          //{ title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
+          // { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
+        ],
+      },
+       {
+        category: 'Tasks',
+        items: [
+            { title: 'Tasks', path: '/tasks', Icon: AssignmentIcon },
+             { title: 'Teams Report', path: '/work-history', Icon: HistoryIcon },
+        ],
+      },
+         {
+        category: 'Accounting',
+        items: [
+           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
+         { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
+        ],
+      },
+       {
+        category: 'Settings',
+        items: [
+         { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
+         { title: 'Email Templates', path: '/templates', Icon: EmailIcon },
+          { title: 'Agreement Template', path: '/agreement-template', Icon: DescriptionIcon },
+           { title: 'Members', path: '/Members', Icon: PeopleIcon },
         ],
       },
       {
-        category: 'STATUSES',
+        //category: 'STATUSES',
         items: [
-          { title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
-          { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
-          { title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
+          //{ title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
+         // { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
+          //{ title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
         ],
       },
       {
         category: 'REPORTS',
         items: [
-          { title: 'AI Scraping Jobs', path: '/reports/ai-scraping', Icon: SmartToyIcon },
-          { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
-          { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
-          { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
-          { title: 'Work Hours', path: '/reports/work-hours', Icon: HistoryIcon },
+          // { title: 'AI Scraping Jobs', path: '/reports/ai-scraping', Icon: SmartToyIcon },
+          //{ title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
+           { title: 'Employee Work Hours', path: '/EmployeeWorkHours', Icon: AssignmentIcon },
+          // { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
+          // { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
+          // { title: 'Work Hours', path: '/reports/work-hours', Icon: HistoryIcon },
+         
         ],
       },
-      {
-        category: 'ADMIN TOOLS',
-        items: [{ title: 'AI Scraping Tool', path: '/ai-tool', Icon: SmartToyIcon }],
-      },
+      // {
+      //   category: 'ADMIN TOOLS',
+      //   items: [{ title: 'AI Scraping Tool', path: '/ai-tool', Icon: SmartToyIcon }],
+      // },
     ],
 
-    Accounting: [
+    'Accounting': [
       {
         category: 'CORE',
         items: [
-          { title: 'Admin Overview', path: '/dashboard/admin', Icon: DashboardIcon },
           { title: 'Accounting Dashboard', path: '/dashboard/accounting', Icon: DashboardIcon },
+        ],
+      },
+      {
+        category: 'TASKS',
+        items: [
+          { title: 'Tasks', path: '/tasks', Icon: AssignmentIcon },
         ],
       },
       {
         category: 'FINANCE',
         items: [
-          { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
+         //{ title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
+          { title: 'Institute Contracts', path: '/institute-contracts', Icon: AccountBalanceIcon, },
+         { title: 'Courses', path: '/courses', Icon: SchoolIcon},
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
-          { title: 'Reminder Rules', path: '/reminders', Icon: NotificationsActiveIcon },
-          { title: 'Work History (View)', path: '/work-history', Icon: HistoryIcon },
-          { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
-        ],
+          { title: 'Student Payments', path: '/students', Icon: PeopleIcon },    ],
       },
-      {
-        category: 'REPORTS',
-        items: [
-          { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
-          { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
-          { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
-        ],
-      },
+      // {
+      //   category: 'REPORTS',
+      //   items: [
+      //     { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
+      //   ],
+      // },
     ],
 
-    Consultant: [
+    'Admission': [
       {
         category: 'CORE',
         items: [
-          { title: 'Admin Overview', path: '/dashboard/admin', Icon: DashboardIcon },
-          { title: 'Vendor Dashboard', path: '/dashboard/vendor', Icon: DashboardIcon },
-          { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
+          { title: 'Admission Dashboard', path: '/dashboard/admission', Icon: DashboardIcon },
         ],
       },
       {
         category: 'MANAGEMENT',
         items: [
-          { title: 'Vendors (P)', path: '/vendors', Icon: StoreIcon },
-          { title: 'Institutes (P)', path: '/institutes', Icon: AccountBalanceIcon },
-          { title: 'Student Payments', path: '/students', Icon: PeopleIcon },
-          { title: 'Work History (P)', path: '/work-history', Icon: HistoryIcon },
-          { title: 'Tasks Management', path: '/tasks', Icon: AssignmentIcon },
+          { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
+          // { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
+          { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
+          { title: 'Courses', path: '/courses', Icon: SchoolIcon },
+         
         ],
       },
       {
-        category: 'STATUSES',
+        category: 'REPORTS',
         items: [
-          { title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
-          { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
-          { title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
+              { title: 'Student Inquiry', path: '/reports/student-Inquiry', Icon: PeopleIcon },
         ],
       },
     ],

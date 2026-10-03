@@ -10,6 +10,10 @@ import {
   formPaperSx,
 } from '../../components/forms';
 import { getResourceConfig, isFormValid } from '../../config/resourceConfig';
+import { VENDOR_EDIT_SECTIONS } from '../../config/vendorOnboardingEditConfig';
+import DownloadIcon from "@mui/icons-material/Download";
+import { exportVendorDeclarationPdf } from '../../utils/vendorDeclarationPdf';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
 
 export default function VendorDetailPage({ basePath }) {
   const navigate = useNavigate();
@@ -25,19 +29,26 @@ export default function VendorDetailPage({ basePath }) {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError('');
 
-    fetchVendorForm(id)
-      .then(({ form: loadedForm }) => {
-        if (active) setForm(loadedForm);
-      })
-      .catch((err) => {
-        if (active) setError(err.message || 'Vendor not found.');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    (async () => {
+      try {
+        const { form: loadedForm } = await fetchVendorForm(id);
+
+        if (active) {
+          setForm(loadedForm);
+        }
+      } catch (err) {
+        if (active) {
+          const msg = err?.response?.data?.message || err?.message || 'Vendor not found.';
+          setError(msg);
+          console.error('fetchVendorForm error', err);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
 
     return () => {
       active = false;
@@ -47,7 +58,9 @@ export default function VendorDetailPage({ basePath }) {
   if (!resource) return null;
 
   const updateField = (field, value) => {
-    setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
+    setForm((prev) => ({ ...(prev || {}), [field]: value }));
+    // eslint-disable-next-line no-console
+    console.log('updateField', field, value);
     if (error) setError('');
   };
 
@@ -57,7 +70,7 @@ export default function VendorDetailPage({ basePath }) {
     submittingRef.current = true;
     setSubmitting(true);
     setError('');
-
+    debugger;
     try {
       await updateVendor(id, form);
       navigate(basePath);
@@ -71,9 +84,9 @@ export default function VendorDetailPage({ basePath }) {
 
   if (loading) {
     return (
-      <Box sx={{ py: 4 }}>
-        <Typography sx={{ color: 'var(--muted)' }}>Loading vendor...</Typography>
-      </Box>
+      <FormPageLayout title={`Edit ${resource.singular.toLowerCase()}`}>
+        <FormContentSkeleton rows={9} />
+      </FormPageLayout>
     );
   }
 
@@ -88,20 +101,17 @@ export default function VendorDetailPage({ basePath }) {
     );
   }
 
+  const editSections = resource.editSections || VENDOR_EDIT_SECTIONS;
+  const requiredFields = resource.editRequiredFields || resource.requiredFields;
+  const formIsValid = requiredFields?.length
+    ? requiredFields.every((field) => String(form[field] ?? '').trim())
+    : isFormValid(resource, form);
+
   return (
-    <FormPageLayout
-      title={`Edit ${resource.singular.toLowerCase()}`}
-      subtitle={`${form.businessName} • ${form.vendorStatus} • ${form.contact || form.contactPerson || 'Unassigned'}`}
-      metaItems={[
-        { label: 'ID', value: `vendors-${id}` },
-        { label: 'Module', value: resource.plural },
-        { label: 'Status', value: form.vendorStatus || 'Active' },
-        { label: 'Mode', value: 'Editing' },
-      ]}
-    >
+    <FormPageLayout title={`Edit ${resource.singular.toLowerCase()}`}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
-          <Tab label="Vendor details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Vendor" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab label="Commission rates" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
       </Box>
@@ -116,15 +126,32 @@ export default function VendorDetailPage({ basePath }) {
         {activeTab === 0 && (
           <>
             <FormSectionsLayout
-              sections={resource.sections}
+              sections={editSections}
               form={form}
               onChange={updateField}
+              requiredFields={requiredFields}
+              fixSelectLabels
             />
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "flex-end",
+                mt: 2,
+                mb: 2,
+              }}
+            >
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={() => exportVendorDeclarationPdf(form)}
+              > Declaration Form
+              </Button>
+            </Box>
             <FormActions
               onCancel={() => navigate(basePath)}
               onSubmit={handleUpdate}
               submitLabel={submitting ? 'Saving...' : 'Save'}
-              submitDisabled={!isFormValid(resource, form) || submitting}
+              submitDisabled={!formIsValid || submitting}
             />
           </>
         )}

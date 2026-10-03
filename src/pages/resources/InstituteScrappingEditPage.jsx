@@ -1,0 +1,273 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams, useLocation  } from 'react-router-dom';
+import {
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Paper,
+  Stack,
+  Tab,
+  Tabs,
+} from '@mui/material';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import {
+  FormPageLayout,
+  FormSectionsLayout,
+  formPaperSx,
+  listContainedButtonSx,
+  listOutlinedButtonSx,
+} from '../../components/forms';
+import { useAuth } from '../../hooks/useAuth';
+import InstituteContactDetailsPanel from '../../components/institutes/InstituteContactDetailsPanel';
+import InstituteContractPanel from '../../components/institutes/InstituteContractPanel';
+import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
+import FormContentSkeleton from '../../components/FormContentSkeleton';
+import { canViewCredentials } from '../../utils/rbac';
+import {
+  deleteInstituteScrapping,
+  fetchInstituteScrappingById,
+  updateInstituteScrapping,
+} from '../../api/institutesScrappingApi';
+import {
+  INSTITUTE_SCRAPPING_BASE_PATH,
+  isManualFormValid,
+  MANUAL_FORM_SECTIONS,
+  MANUAL_REQUIRED_FIELDS,
+  recordToManualForm,
+} from './instituteScrappingFormConfig';
+
+const TAB_DETAILS = 0;
+const TAB_CONTACT = 1;
+const TAB_CONTRACT = 2;
+const TAB_CREDENTIALS = 3;
+
+const TAB_BY_KEY = {
+  details: TAB_DETAILS,
+  contact: TAB_CONTACT,
+  contract: TAB_CONTRACT,
+  credentials: TAB_CREDENTIALS,
+};
+export default function InstituteScrappingEditPage({ basePath = INSTITUTE_SCRAPPING_BASE_PATH } = {}) {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const location = useLocation();
+  const { user } = useAuth();
+  const showCredentials = canViewCredentials(user);
+  const [form, setForm] = useState(() => recordToManualForm());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(
+    () => TAB_BY_KEY[location.state?.openTab] ?? TAB_DETAILS,
+  );
+useEffect(() => {
+  if (activeTab === TAB_CREDENTIALS && !canViewCredentials) {
+    setActiveTab(TAB_DETAILS);
+  }
+}, [activeTab, canViewCredentials]);
+  useEffect(() => {
+    let active = true;
+
+    const loadRecord = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const record = await fetchInstituteScrappingById(id);
+        if (!active) return;
+        setForm(recordToManualForm(record));
+      } catch (err) {
+        if (!active) return;
+        setError(err.message || 'Failed to load institute scrapping record.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    void loadRecord();
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  const updateField = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setError('');
+  };
+
+  const handleTabChange = (_event, value) => {
+    setActiveTab(value);
+  };
+
+  const handleSave = async () => {
+    if (!isManualFormValid(form)) {
+      setError('Institute name is required.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      await updateInstituteScrapping(id, form);
+      navigate(basePath); 
+    } catch (err) {
+      setError(err.message || 'Failed to update record.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setError('');
+
+    try {
+      await deleteInstituteScrapping(id);
+      setDeleteDialogOpen(false);
+      navigate(basePath); 
+    } catch (err) {
+      setError(err.message || 'Failed to delete record.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <FormPageLayout title="Edit Institute Scrapping">
+        <FormContentSkeleton rows={11} />
+      </FormPageLayout>
+    );
+  }
+
+  return (
+    <FormPageLayout
+      title="Edit Institute Scrapping"
+      subtitle={form.instituteName || `Record #${id}`}
+    >
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
+        <Tabs value={activeTab} onChange={handleTabChange}>
+          <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          {canViewCredentials && (
+            <Tab label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          )}
+        </Tabs>
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      <Paper elevation={0} sx={{ ...formPaperSx, width: '100%' }}>
+        {activeTab === TAB_DETAILS && (
+          <>
+            <FormSectionsLayout
+              sections={MANUAL_FORM_SECTIONS}
+              form={form}
+              onChange={updateField}
+              disabled={saving || deleting}
+              requiredFields={MANUAL_REQUIRED_FIELDS}
+              fieldDefsOverride={{ campus: { type: 'text' } }}
+            />
+
+            <Stack
+              direction={{ xs: 'column-reverse', sm: 'row' }}
+              spacing={1.5}
+              justifyContent="space-between"
+              sx={{ px: { xs: 2, md: 3 }, pb: 3, pt: 1 }}
+            >
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteOutlinedIcon />}
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={saving || deleting}
+                sx={{ ...listOutlinedButtonSx, width: { xs: '100%', sm: 'auto' } }}
+              >
+                Delete
+              </Button>
+
+              <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5}>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate(basePath)}  
+                  disabled={saving || deleting}
+                  sx={{ ...listOutlinedButtonSx, width: { xs: '100%', sm: 'auto' } }}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleSave}
+                  disabled={!isManualFormValid(form) || saving || deleting}
+                  sx={{ ...listContainedButtonSx, width: { xs: '100%', sm: 'auto' } }}
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+              </Stack>
+            </Stack>
+          </>
+        )}
+
+        {activeTab === TAB_CONTACT && (
+          <InstituteContactDetailsPanel instituteId={id} />
+        )}
+
+        {activeTab === TAB_CONTRACT && (
+          <InstituteContractPanel
+            instituteId={id}
+            courseLookupId={id}
+            instituteName={form.instituteName}
+          />
+        )}
+
+        {activeTab === TAB_CREDENTIALS && canViewCredentials && (
+  <InstituteCredentialsPanel instituteId={id} />
+)}
+      </Paper>
+
+      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete record?</DialogTitle>
+        <DialogContent>
+          {error && deleteDialogOpen && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          <DialogContentText>
+            This will hide the institute scrapping record
+            {form.instituteName ? ` for "${form.instituteName}"` : ''} from the list (soft delete).
+            If courses are linked to this institute, delete will be blocked.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDelete}
+            disabled={deleting}
+            sx={{ textTransform: 'none' }}
+          >
+            {deleting ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </FormPageLayout>
+  );
+}

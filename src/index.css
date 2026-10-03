@@ -18,6 +18,7 @@
   --muted-bg: #f0f3f9;
   --sidebar-active: rgba(51, 133, 198, 0.1);
   --sidebar-active-text: #2a6ba8;
+  --font-family: 'Plus Jakarta Sans', Inter, Roboto, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 
 * {
@@ -34,7 +35,7 @@ body {
   margin: 0;
   padding: 0;
   background: var(--bg);
-  font-family: Inter, Roboto, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-family);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -65,13 +66,13 @@ body {
   flex-direction: column;
 }
 
-.dashboard-card--fill .chart-body > * {
+.dashboard-card--fill .chart-body>* {
   flex: 1 1 auto;
   min-height: 280px;
 }
 
 @media (min-width: 1200px) {
-  .dashboard-card--fill .chart-body > * {
+  .dashboard-card--fill .chart-body>* {
     min-height: 320px;
   }
 }
@@ -124,6 +125,26 @@ body {
   min-width: 0;
 }
 
+/* Compact Select menus: ~5 rows, width matches the input field */
+.select-menu-paper.MuiPaper-root {
+  max-height: 196px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.select-menu-paper .MuiMenuItem-root {
+  min-height: 36px !important;
+  max-height: 36px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 36px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  font-size: 0.875rem;
+}
+
 .app-card {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
@@ -132,12 +153,32 @@ body {
 }
 
 main .MuiTableContainer-root {
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 
 main .MuiTableCell-root {
   white-space: normal;
   word-break: break-word;
+  font-family: var(--font-family);
+  font-size: 0.8125rem !important;
+  line-height: 1.45;
+}
+
+main .MuiTableCell-root .MuiTypography-root,
+main .MuiTableCell-root .MuiLink-root,
+main .MuiTableCell-root a,
+main .MuiTableCell-root span {
+  font-size: inherit !important;
+  line-height: inherit;
+  font-family: inherit;
+}
+
+main .MuiTableCell-head {
+  font-weight: 700 !important;
+}
+
+main .MuiTableCell-body {
+  font-weight: 400 !important;
 }
 
 .stat-card {
@@ -151,6 +192,7 @@ main .MuiTableCell-root.MuiTableCell-sizeMedium {
 }
 
 @media (max-width: 1024px) {
+
   .app-card,
   .dashboard-card {
     border-radius: 10px;
@@ -158,6 +200,7 @@ main .MuiTableCell-root.MuiTableCell-sizeMedium {
 }
 
 @media (max-width: 720px) {
+
   main .MuiButton-root:not(.MuiIconButton-root):not(.form-page .MuiButton-root),
   main .MuiTextField-root:not(.form-page .MuiTextField-root) {
     width: 100%;

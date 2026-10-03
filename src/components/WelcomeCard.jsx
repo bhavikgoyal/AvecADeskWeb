@@ -1,8 +1,13 @@
 import { Avatar, Box, Divider, Grid, Paper, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import TrendBadge from './TrendBadge';
 
-export default function WelcomeCard({ userName, subtitle, avatar, footerStats = [] }) {
-  const firstName = userName?.split(' ')[0] || 'User';
+export default function WelcomeCard({ userName = 'User', subtitle, avatar, footerStats = [] }) {
+  const navigate = useNavigate();
+  const handleClick = (stat) => {
+    if (stat?.path) navigate(stat.path);
+    else if (typeof stat?.onClick === 'function') stat.onClick();
+  };
 
   return (
     <Paper elevation={0} className="dashboard-card welcome-card" sx={{ borderRadius: 3, overflow: 'hidden' }}>
@@ -20,14 +25,14 @@ export default function WelcomeCard({ userName, subtitle, avatar, footerStats = 
             fontSize: '1rem',
           }}
         >
-          {firstName[0]}
+          {userName?.[0]}
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase', mb: 0.5 }}>
-            Overview
+            {/* Overview */}
           </Typography>
           <Typography sx={{ fontWeight: 800, fontSize: { xs: '1.15rem', md: '1.35rem' }, color: 'var(--text)', lineHeight: 1.2 }}>
-            Welcome back, {firstName}
+            Welcome back, {userName.split(' ')[0]}
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--muted)', mt: 0.5, lineHeight: 1.5, fontSize: '0.82rem' }}>
             {subtitle}
@@ -78,18 +83,28 @@ export default function WelcomeCard({ userName, subtitle, avatar, footerStats = 
               <Grid
                 key={stat.label}
                 size={{ xs: 6 }}
+                onClick={() => handleClick(stat)}
                 sx={{
                   p: 1.25,
                   borderRight: index % 2 === 0 ? '1px solid var(--card-border)' : 'none',
+                  cursor: stat?.path || stat?.onClick ? 'pointer' : 'default',
                 }}
               >
                 <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   {stat.label}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                  <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text)' }}>
-                    {stat.value}
-                  </Typography>
+                  <Box sx={{
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1,
+                    display: 'inline-block',
+                    bgcolor: stat.label === 'Received' ? 'rgba(32,201,151,0.12)' : stat.label === 'Due' ? 'rgba(214,57,57,0.08)' : 'transparent'
+                  }}>
+                    <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', color: stat.label === 'Received' ? 'var(--success)' : stat.label === 'Due' ? 'var(--danger)' : 'var(--text)' }}>
+                      {stat.value}
+                    </Typography>
+                  </Box>
                   {stat.trend !== undefined && <TrendBadge value={stat.trend} />}
                 </Box>
               </Grid>

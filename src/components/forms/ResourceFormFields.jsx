@@ -1,17 +1,54 @@
+import { useState, useEffect } from 'react';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography ,Radio,RadioGroup,InputAdornment } from '@mui/material';
 import { Fragment } from 'react';
-import { Box, Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { FIELD_DEFS } from '../../config/resourceConfig';
+import DateTextField from './DateTextField';
 import { FormGridItem } from './FormSection';
-import { compactFieldGrid, defaultFieldGrid, formFieldSx } from './formStyles';
+import { compactFieldGrid, defaultFieldGrid, formFieldSx, selectMenuProps } from './formStyles';
+
+const defaultEditorConfig = {
+  toolbar: {
+    items: [
+      'undo', 'redo', '|', 'heading', '|', 'bold', 'italic', 'underline',
+      '|', 'link', '|', 'bulletedList', 'numberedList', 'outdent', 'indent',
+      '|', 'insertTable', 'blockQuote', 'codeBlock', '|', 'imageUpload', 'mediaEmbed', '|', 'removeFormat'
+    ],
+    shouldNotGroupWhenFull: true
+  },
+  image: {
+    toolbar: ['imageTextAlternative', 'imageStyle:full', 'imageStyle:side']
+  },
+  extraPlugins: [function MyCustomUploadAdapterPlugin(editor) {
+    editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+      return {
+        upload() {
+          return loader.file.then(file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({ default: reader.result });
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(file);
+          }));
+        },
+        abort() {
+          // no-op for base64
+        }
+      };
+    };
+  }]
+};
 
 const fieldProps = { size: 'small', fullWidth: true, sx: formFieldSx };
 
 function resolveFieldGrid(def, compact) {
-  if (def.type === 'textarea' || def.type === 'checkbox') {
+  if (def.type === 'textarea') {
+    return { xs: 12 };
+  }
+  if (def.type === 'checkbox') {
     return compact ? { xs: 12 } : (def.grid || { xs: 12 });
   }
   if (compact) {
-    if (def.type === 'textarea') return { xs: 12 };
     if (def.grid?.xs === 12 && !def.grid?.md) return { xs: 12 };
     return compactFieldGrid;
   }
@@ -31,45 +68,186 @@ export default function ResourceFormFields({
   form,
   onChange,
   disabled = false,
+  disabledFields = [],
   compact = false,
   stretch = false,
   selectOptions = {},
+  requiredFields = [],
+  fieldDefsOverride = {},
+  /** When true: empty selects keep label inside; focus/value floats it to the top (Edit Vendor). */
+  fixSelectLabels = false,
 }) {
   const handleChange = (field) => (event) => {
     onChange(field, event.target.value);
   };
 
+  const isTenDigitField = (fieldName, def) =>
+    def.type === 'text' && /(phone|mobile)/i.test(fieldName);
+
   const textareaRows = stretch ? 5 : 3;
 
   const renderField = (fieldName) => {
-    const def = FIELD_DEFS[fieldName];
-    if (!def) return null;
-    const isDate = def.type === 'date';
+  
+    const def = FIELD_DEFS[fieldName]
+      ? { ...FIELD_DEFS[fieldName], ...(fieldDefsOverride[fieldName] || {}) }
+      : fieldDefsOverride[fieldName];
 
-    if (def.type === 'select' || def.type === 'api-select') {
-      const options = def.type === 'api-select' ? selectOptions[fieldName] || [] : def.options.map((option) => ({ value: option, label: option }));
-      const labelId = `${fieldName}-label`;
-      const currentValue = form[fieldName] || '';
-      const selectedLabel = options.find((option) => String(option.value) === String(currentValue))?.label;
+    if (!def) return null;
+    const isRequired = Boolean(def.required) || requiredFields.includes(fieldName);
+    const isDate = def.type === 'date';
+   const isFieldDisabled = def.readOnly || (disabled && !disabledFields.includes(fieldName));
+      if (def.type === "file") {
+      const preview =
+        form[fieldName] && typeof form[fieldName] === "string"
+          ? `${import.meta.env.VITE_API_BASE_URL}${form[fieldName].replace(/^wwwroot/, "")}`
+          : form[fieldName] instanceof File
+          ? URL.createObjectURL(form[fieldName])
+          : null;
 
       return (
         <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
-          <FormControl {...fieldProps} disabled={disabled || (def.type === 'api-select' && options.length === 0)}>
-            <InputLabel id={labelId} shrink required={def.required}>
+          <Box sx={{ width: "100%" }}>
+            <Typography
+              component="label"
+              sx={{ display: "block", mb: 0.5, color: "var(--text)", fontSize: "0.75rem", fontWeight: 500 }}
+            >
               {def.label}
-            </InputLabel>
+            </Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box sx={{ flexShrink: 0 }}>
+                <input
+                  type="file"
+                  accept={def.accept || "image/*"}
+                  disabled={isFieldDisabled}
+                  style={{ width: "auto", maxWidth: "220px" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onChange(fieldName, file);
+                  }}
+                />
+              </Box>
+
+              {preview && (
+                <Box
+                  component="img"
+                  src={preview}
+                  alt="Preview"
+                  sx={{ width: 80, height: 80, objectFit: "contain", border: "1px solid #ddd", borderRadius: 1, flexShrink: 0 }}
+                />
+              )}
+            </Box>
+          </Box>
+        </FormGridItem>
+      );
+    }
+    if (def.type === 'editor') {
+      const [isSource, setIsSource] = useState(false);
+      const [localData, setLocalData] = useState(form[fieldName] || '');
+
+      useEffect(() => {
+        setLocalData(form[fieldName] || '');
+      }, [form[fieldName]]);
+
+      const toggleSource = () => setIsSource((s) => !s);
+
+      return (
+        <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+            <Typography component="label" sx={{ color: 'var(--text)', fontSize: '0.75rem', fontWeight: 500 }}>{def.label}</Typography>
+            <Button size="small" onClick={toggleSource} disabled={isFieldDisabled}>
+              {isSource ? 'Editor' : 'HTML Source'}
+            </Button>
+          </Box>
+          {isSource ? (
+            <TextField
+              {...fieldProps}
+              multiline
+              minRows={6}
+              value={localData}
+              onChange={(e) => {
+                setLocalData(e.target.value);
+                onChange(fieldName, e.target.value);
+              }}
+              disabled={isFieldDisabled}
+            />
+          ) : (
+            <CKEditor
+              editor={ClassicEditor}
+              data={localData}
+              config={defaultEditorConfig}
+              disabled={isFieldDisabled}
+              onReady={() => {}}
+              onChange={(_, editor) => {
+                const data = editor.getData();
+                setLocalData(data);
+                onChange(fieldName, data);
+              }}
+            />
+          )}
+        </FormGridItem>
+      );
+    }
+
+    if (def.type === 'select' || def.type === 'api-select') {
+     // const options = def.type === 'api-select' ? selectOptions[fieldName] || [] : def.options.map((option) => ({ value: option, label: option }));
+      const options =
+  def.type === 'api-select'
+    ? (selectOptions[fieldName] || [])
+    : (def.options || []).map((option) =>
+        typeof option === 'object'
+          ? option
+          : { value: option, label: option }
+      );
+      const labelId = `${fieldName}-label`;
+      const rawValue = form[fieldName];
+      const currentValue =
+        rawValue === '' || rawValue == null ? '' : String(rawValue);
+      const selectedLabel = options.find((option) => String(option.value) === currentValue)?.label;
+      const hasSelectValue = currentValue !== '';
+      const keepLabelFloated = def.type === 'api-select' || !fixSelectLabels;
+
+      const selectSx = {
+        ...formFieldSx,
+        '& .MuiInputLabel-root': {
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: 'calc(100% - 32px)',
+        },
+      };
+
+      return (
+        <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+          <FormControl
+            size="small"
+            fullWidth
+            sx={selectSx}
+            disabled={isFieldDisabled || (def.type === 'api-select' && options.length === 0)}
+          >
+          <InputLabel
+            id={labelId}
+            shrink={hasSelectValue || def.type === 'api-select'}
+            required={isRequired}
+          >
+            {def.label}
+          </InputLabel>
             <Select
               labelId={labelId}
               label={def.label}
               value={currentValue}
               onChange={handleChange(fieldName)}
               displayEmpty={def.type === 'api-select'}
+              notched={keepLabelFloated || hasSelectValue}
+              MenuProps={selectMenuProps}
               renderValue={
                 def.type === 'api-select'
                   ? (selected) => {
                       if (!selected) {
                         const placeholder = options.length === 0
-                          ? `Loading ${def.label.toLowerCase()}...`
+                          ? `No ${def.label.toLowerCase()} available `
                           : `Select ${def.label.toLowerCase()}`;
                         return (
                           <Box component="span" sx={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
@@ -83,7 +261,7 @@ export default function ResourceFormFields({
               }
             >
               {options.map((option) => (
-                <MenuItem key={option.value} value={String(option.value)}>
+                <MenuItem key={option.value} value={String(option.value)} title={option.label}>
                   {option.label}
                 </MenuItem>
               ))}
@@ -102,7 +280,7 @@ export default function ResourceFormFields({
               <Checkbox
                 checked={checked}
                 onChange={(event) => onChange(fieldName, event.target.checked ? 'Yes' : 'No')}
-                disabled={disabled}
+                disabled={isFieldDisabled}
                 sx={{ color: 'var(--primary)', '&.Mui-checked': { color: 'var(--primary)' } }}
               />
             }
@@ -112,21 +290,136 @@ export default function ResourceFormFields({
         </FormGridItem>
       );
     }
+    if (def.type === 'radio') {
+  return (
+    <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+    <Box
+      sx={{ display: 'flex', alignItems: 'center', mt: 0.25, mb: -1, }}>
+        <Typography
+          sx={{
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            mr: 2,
+            minWidth: 100,
+          }}
+        >
+          {def.label} :
+        </Typography>
+
+        <RadioGroup
+          row
+          value={form[fieldName] ?? ''}
+          onChange={handleChange(fieldName)}
+        >
+          {def.options.map((option) => (
+            <FormControlLabel
+              key={option.value}
+              value={option.value}
+              control={<Radio size="small" />}
+              label={option.label}
+              disabled={isFieldDisabled}
+              sx={{ mr: 3 }}
+            />
+          ))}
+        </RadioGroup>
+      </Box>
+    </FormGridItem>
+  );
+   }
+    const shouldRestrictToTenDigits = isTenDigitField(fieldName, def);
+
+    if (isDate) {
+      return (
+        <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          <DateTextField
+            {...fieldProps}
+            {...dateFieldProps}
+            label={def.label}
+            required={isRequired}
+            value={form[fieldName] ?? ''}
+            onChangeValue={(value) => onChange(fieldName, value)}
+            disabled={isFieldDisabled}
+            InputProps={{
+              readOnly: isFieldDisabled,
+            }}
+            sx={{ ...formFieldSx, flex: 1 }}
+          />
+
+  {def.showViewButton && form[`${fieldName}Url`] && (
+   <Button
+  variant="outlined"
+  size="small"
+  onClick={() => {
+    const fileUrl = form[`${fieldName}Url`];
+
+    const relativePath = fileUrl
+      .replace(/\\/g, "/")
+      .replace(/^.*\/uploads\//i, "uploads/");
+
+    const url = `${import.meta.env.VITE_API_BASE_URL}/${relativePath}`;
+
+    console.log("Opening URL:", url);
+
+    window.open(url, "_blank");
+  }}
+>
+  View
+</Button>
+  )}
+</Box>
+        </FormGridItem>
+      );
+    }
 
     return (
       <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
-        <TextField
-          {...fieldProps}
-          {...(isDate ? dateFieldProps : {})}
-          label={def.label}
-          required={def.required}
-          type={def.type === 'textarea' ? undefined : def.type}
-          multiline={def.type === 'textarea'}
-          minRows={def.type === 'textarea' ? textareaRows : undefined}
-          value={form[fieldName] ?? ''}
-          onChange={handleChange(fieldName)}
-          disabled={disabled}
-        />
+<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+    <TextField
+  {...fieldProps}
+  label={def.label}
+  required={isRequired}
+  type={def.type === "textarea" ? undefined : shouldRestrictToTenDigits ? 'tel' : def.type}
+  multiline={def.type === "textarea"}
+  minRows={def.type === "textarea" ? textareaRows : undefined}
+  value={form[fieldName] ?? ""}
+  onChange={(event) => {
+    const nextValue = shouldRestrictToTenDigits
+      ? event.target.value.replace(/\D/g, '').slice(0, 10)
+      : event.target.value;
+
+    onChange(fieldName, nextValue);
+  }}
+  disabled={isFieldDisabled}
+  inputProps={shouldRestrictToTenDigits ? { maxLength: 10, inputMode: 'numeric', pattern: '[0-9]*' } : undefined}
+  InputProps={{
+    readOnly: isFieldDisabled,
+  }}
+  sx={{ ...formFieldSx, flex: 1 }}
+/>
+
+  {def.showViewButton && form[`${fieldName}Url`] && (
+   <Button
+  variant="outlined"
+  size="small"
+  onClick={() => {
+    const fileUrl = form[`${fieldName}Url`];
+
+    const relativePath = fileUrl
+      .replace(/\\/g, "/")
+      .replace(/^.*\/uploads\//i, "uploads/");
+
+    const url = `${import.meta.env.VITE_API_BASE_URL}/${relativePath}`;
+
+    console.log("Opening URL:", url);
+
+    window.open(url, "_blank");
+  }}
+>
+  View
+</Button>
+  )}
+</Box>
       </FormGridItem>
     );
   };
