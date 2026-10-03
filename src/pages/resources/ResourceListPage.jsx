@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  Link,
   Tooltip,FormControl, Select, MenuItem,TextField
 } from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
@@ -851,6 +852,23 @@ if (isInvoices) {
     ];
   }, [isInstitutes, isInvoices, isVendors, resource, selectedIds, allSelected, someSelected, toggleAll, toggleRow, openHistory, navigate, setRows]);
 
+  const renderCourseRowActions = useCallback((row) => {
+    const href = String(row.programLink || '').trim();
+    if (!/^https?:\/\//i.test(href)) return null;
+
+    return (
+      <Link
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        sx={{ fontSize: '0.8125rem' }}
+      >
+        Link
+      </Link>
+    );
+  }, []);
+
   const handleExportPdf = useCallback(() => {
     const selectedRows = rows.filter((r) => selectedIds.includes(r.id));
     if (!selectedRows.length) return;
@@ -1050,6 +1068,7 @@ const handleExportInvoicesPdf = useCallback(async () => {
     : (row) => navigate(`${basePath}/${row.id}`, { state: { edit: true } })
 }
         onDelete={isInvoices ? undefined : handleDelete}
+        renderRowActions={isCourses ? renderCourseRowActions : undefined}
       />
 
       {isInvoices && !invoiceView && (
