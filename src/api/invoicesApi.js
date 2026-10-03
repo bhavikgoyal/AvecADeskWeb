@@ -53,7 +53,7 @@ export function mapPaidStudentRow(item) {
     campus: item.campus ?? item.Campus ?? '',
     instituteId: item.instituteId ?? item.InstituteId,
     instituteName: item.instituteName ?? item.InstituteName ?? '',
-    installmentNo: item.installmentNo ?? item.InstallmentNo,
+    installmentNo: String(item.installmentNo ?? item.InstallmentNo ?? ''),
     dueDate: formatDate(item.dueDate ?? item.DueDate),
     feesAmount: formatCurrency(feesRaw),
     feesAmountRaw: Number.isFinite(feesRaw) ? feesRaw : 0,
@@ -298,6 +298,7 @@ export async function updateInstallmentFeesAndInvoiceAmounts(items = []) {
   const { data } = await axiosClient.post('/api/invoices/installment-amounts', payload);
   return data;
 }
+
 
 export async function insertBonusInstallments(items = []) {
   const payload = items.map((item) => ({

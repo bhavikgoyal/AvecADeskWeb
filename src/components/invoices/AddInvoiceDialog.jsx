@@ -396,7 +396,16 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         </Tooltip>
       ),
     },
-    { id: 'fullName', label: 'Student', field: 'fullName' },
+    {
+  id: 'fullName',
+  label: 'Student',
+  field: 'fullName',
+  cellSx: {
+    whiteSpace: 'normal',
+    wordBreak: 'break-word',
+    overflowWrap: 'anywhere'
+  }
+},
     {
       id: 'courseName',
       label: 'Course',
