@@ -608,6 +608,10 @@ export default function BoardPage() {
         .flatMap((col) => col.cards)
         .find((c) => c.cardID === selectedCardId) || null
     : null;
+  const selectedCardListName = selectedCard
+    ? columns.find((col) => col.cards.some((c) => c.cardID === selectedCard.cardID))
+        ?.statusName || ""
+    : "";
 
   const handleDragEnd = async (result) => {
     const { source, destination, draggableId } = result;
@@ -943,6 +947,8 @@ export default function BoardPage() {
       {selectedCard && (
         <CardDetailModal
           card={selectedCard}
+          listName={selectedCardListName}
+          boardId={selectedBoardId}
           onClose={() => setSelectedCardId(null)}
           onUpdated={loadBoard}
         />

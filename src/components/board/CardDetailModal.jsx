@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import {
   getChecklists,
   createChecklist,
@@ -8,32 +10,71 @@ import {
   deleteChecklistItem,
   updateChecklistItemName,
 } from "../../api/checklistApi";
-
 import {
   updateCard,
   getUsers,
   getCardMembers,
   addCardMember,
   removeCardMember,
+  moveCardToList,
 } from "../../api/cardApi";
+import {
+  getBoardLabelsForCard,
+  createBoardLabel,
+  updateBoardLabel,
+  deleteBoardLabel,
+  setCardBoardLabel,
+} from "../../api/labelApi";
+import {
+  saveCardCover,
+  removeCardCover,
+  uploadCardCoverImage,
+} from "../../api/cardCoverApi";
+import { logCardActivity } from "../../api/cardCommentApi";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
-import ChecklistOutlinedIcon from "@mui/icons-material/ChecklistOutlined";
-import PersonAddAlt1OutlinedIcon from "@mui/icons-material/PersonAddAlt1Outlined";
-import { getLabelsByCard, createLabel, deleteLabel } from "../../api/labelApi";
-
-const LABEL_COLORS = [
-  "#4bce97",
-  "#f5cd47",
-  "#fea362",
-  "#f87168",
-  "#9f8fef",
-  "#579dff",
-  "#60c6d2",
-  "#94c748",
-  "#e774bb",
-  "#8590a2",
-];
+import CheckBoxOutlinedIcon from "@mui/icons-material/CheckBoxOutlined";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutlined";
+import WebAssetOutlinedIcon from "@mui/icons-material/WebAssetOutlined";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import CloseIcon from "@mui/icons-material/Close";
+import AddIcon from "@mui/icons-material/Add";
+import SubjectIcon from "@mui/icons-material/Subject";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
+import CheckIcon from "@mui/icons-material/Check";
+import CardCoverPopover from "./CardCoverPopover";
+import LabelsPopover, { LabelChip } from "./LabelsPopover";
+import CardCommentsPanel from "./CardCommentsPanel";
+import MoveCardPopover from "./MoveCardPopover";
+import { AttachPopover, CardAttachmentsSection } from "./CardAttachments";
+import { useCardAttachments } from "./useCardAttachments";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import {
+  BORDER,
+  BRAND,
+  MUTED_TEXT,
+  NEUTRAL_BG,
+  SUBTLE_TEXT,
+  TEXT,
+  actionButtonStyle,
+  dangerButtonStyle,
+  greyButtonStyle,
+  inputStyle,
+  popoverSectionTitle,
+  primaryButtonStyle,
+} from "./cardModalStyles";
+import { Avatar, CardPopover, LinkifiedText, PopoverHeader } from "./cardModalUi";
+import {
+  getCoverBackground,
+  getCoverHex,
+  hasCover,
+  resolveCoverImageUrl,
+  useColorblindMode,
+} from "../../utils/cardCover";
 
 const MONTH_NAMES = [
   "January",
@@ -64,6 +105,34 @@ const REMINDER_OPTIONS = [
 ];
 
 const RECURRING_OPTIONS = ["Never", "Daily", "Weekly", "Monthly", "Yearly"];
+
+const metaHeadingStyle = {
+  margin: "0 0 6px",
+  fontSize: 12,
+  fontWeight: 600,
+  color: SUBTLE_TEXT,
+};
+
+const squareAddButtonStyle = {
+  width: 32,
+  height: 32,
+  border: "none",
+  borderRadius: 4,
+  background: NEUTRAL_BG,
+  color: SUBTLE_TEXT,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  padding: 0,
+  flexShrink: 0,
+};
+
+const selectStyle = {
+  ...inputStyle,
+  appearance: "auto",
+  cursor: "pointer",
+};
 
 // Naya card ka dueDate string ("2026-07-16") ya ISO datetime ho sakta hai - dono ko "YYYY-MM-DD" me normalize karta hai
 function normalizeDueDateValue(value) {
@@ -125,66 +194,162 @@ function toDateKey(date) {
   return `${y}-${m}-${d}`;
 }
 
-export default function CardDetailModal({ card, onClose, onUpdated }) {
+function memberDisplayName(member) {
+  const full = `${member?.firstName || ""} ${member?.lastName || ""}`.trim();
+  return full || member?.userName || "Unknown user";
+}
+
+function SectionHeader({ icon, title, action }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        minHeight: 32,
+        marginBottom: 8,
+      }}
+    >
+      <span
+        style={{
+          width: 20,
+          display: "flex",
+          justifyContent: "center",
+          color: SUBTLE_TEXT,
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </span>
+      <h3
+        style={{
+          margin: 0,
+          flex: 1,
+          minWidth: 0,
+          fontSize: 16,
+          fontWeight: 600,
+          color: TEXT,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {title}
+      </h3>
+      {action}
+    </div>
+  );
+}
+
+function ChecklistCheckbox({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={onChange}
+      style={{
+        width: 16,
+        height: 16,
+        marginTop: 2,
+        padding: 0,
+        borderRadius: 3,
+        border: checked ? "none" : "2px solid #8590A2",
+        background: checked ? BRAND : "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        flexShrink: 0,
+        boxSizing: "border-box",
+      }}
+    >
+      {checked && <CheckIcon sx={{ fontSize: 13, color: "#fff" }} />}
+    </button>
+  );
+}
+
+export default function CardDetailModal({ card, listName, boardId, onClose, onUpdated }) {
+  const isNarrow = useMediaQuery("(max-width: 900px)");
+  const [colorblind] = useColorblindMode();
+
+  const [popover, setPopover] = useState({ type: null, anchorEl: null, anchorPosition: null, data: null });
+  const openPopover = (type, data = null) => (event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPopover({
+      type,
+      anchorEl: event.currentTarget,
+      anchorPosition: { top: rect.bottom, left: rect.left },
+      data,
+    });
+  };
+  const closePopover = () => setPopover({ type: null, anchorEl: null, anchorPosition: null, data: null });
+
   const [checklists, setChecklists] = useState([]);
-  const [newChecklistTitle, setNewChecklistTitle] = useState("");
+  const [newChecklistTitle, setNewChecklistTitle] = useState("Checklist");
   const [newItems, setNewItems] = useState({});
-  const [users, setUsers] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleText, setTitleText] = useState(card.cardTitle || "");
-  const [openMenuItemId, setOpenMenuItemId] = useState(null);
+  const [addingItemFor, setAddingItemFor] = useState(null);
+  const [hideCheckedFor, setHideCheckedFor] = useState({});
+  const [hoveredItemId, setHoveredItemId] = useState(null);
+  const [showChecklistSection, setShowChecklistSection] = useState(false);
   const [editingItemId, setEditingItemId] = useState(null);
   const [editingText, setEditingText] = useState("");
 
-  // Labels
-  const [labels, setLabels] = useState([]);
-  const [showLabelPopover, setShowLabelPopover] = useState(false);
-  const [newLabelName, setNewLabelName] = useState("");
-  const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
+  const [users, setUsers] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [memberSearch, setMemberSearch] = useState("");
 
-  // Description
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleText, setTitleText] = useState(card.cardTitle || "");
+  const titleCancelledRef = useRef(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  const [boardLabels, setBoardLabels] = useState([]);
+  const [labelsLoading, setLabelsLoading] = useState(true);
+  const [labelSaving, setLabelSaving] = useState(false);
+
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [descriptionText, setDescriptionText] = useState(
-    card.description || "",
-  );
+  const [descriptionText, setDescriptionText] = useState(card.description || "");
 
-  // Due date + time + calendar
-  const [showDueDateEditor, setShowDueDateEditor] = useState(false);
-  const [dueDateText, setDueDateText] = useState(
-    normalizeDueDateValue(card.dueDate),
-  );
-  const [dueTimeText, setDueTimeText] = useState(
-    normalizeDueTimeValue(card.dueDate),
-  );
+  const [dueDateText, setDueDateText] = useState(normalizeDueDateValue(card.dueDate));
+  const [dueTimeText, setDueTimeText] = useState(normalizeDueTimeValue(card.dueDate));
   const [calendarViewDate, setCalendarViewDate] = useState(() => {
     const initial = normalizeDueDateValue(card.dueDate);
     return initial ? new Date(`${initial}T00:00:00`) : new Date();
   });
-
-  // Start date
   const [includeStartDate, setIncludeStartDate] = useState(false);
   const [startDateText, setStartDateText] = useState("");
-
-  // Recurring + Reminder
   const [recurringRule, setRecurringRule] = useState("Never");
-  const [reminderOffset, setReminderOffset] = useState(""); // '' = None, else minutes as string
-  const [showChecklistSection, setShowChecklistSection] = useState(false);
-  const [showChecklistPopover, setShowChecklistPopover] = useState(false);
-  const [collapsedChecklists, setCollapsedChecklists] = useState({});
+  const [reminderOffset, setReminderOffset] = useState("");
 
-  const menuRef = useRef(null);
-  const memberDropdownRef = useRef(null);
-  const actionMemberDropdownRef = useRef(null);
-  const labelPopoverRef = useRef(null);
-  const labelsSectionPopoverRef = useRef(null);
+  const [cover, setCover] = useState(card.cover || null);
+  const [coverSource, setCoverSource] = useState(card.cover);
+  const [coverSaving, setCoverSaving] = useState(false);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  const {
+    attachments,
+    uploading: attachmentsUploading,
+    uploadFiles: uploadAttachmentFiles,
+    addLink: addAttachmentLink,
+    updateAttachment,
+    removeAttachment,
+  } = useCardAttachments(card.cardID);
 
   const normalizeUserId = (value) => {
     if (value == null || value === "") return null;
     const parsed = Number(value);
     return Number.isNaN(parsed) ? value : parsed;
   };
+
+  const [activityVersion, setActivityVersion] = useState(0);
+
+  // Activity is best-effort: a logging failure must never undo or block the real action
+  const logActivity = (activityType, { description = null, oldValue = null, newValue = null } = {}) =>
+    logCardActivity({ cardID: card.cardID, activityType, description, oldValue, newValue })
+      .then(() => setActivityVersion((v) => v + 1))
+      .catch((err) => console.error("Failed to log card activity", err));
+
+  /* ----------------------------- data loading ---------------------------- */
 
   const loadChecklists = useCallback(async () => {
     try {
@@ -206,42 +371,36 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
     }
   }, [card.cardID]);
 
-  const loadLabels = useCallback(async () => {
+  const loadBoardLabels = useCallback(async () => {
     try {
-      const labelData = await getLabelsByCard(card.cardID);
-      setLabels(labelData || []);
+      const data = await getBoardLabelsForCard(card.cardID);
+      setBoardLabels(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to load labels", err);
-      setLabels([]);
+    } finally {
+      setLabelsLoading(false);
     }
   }, [card.cardID]);
 
   useEffect(() => {
     let isMounted = true;
     const fetchData = async () => {
-      try {
-        const [checklistData, memberData, userData, labelData] =
-          await Promise.all([
-            getChecklists(card.cardID),
-            getCardMembers(card.cardID),
-            getUsers(),
-            getLabelsByCard(card.cardID),
-          ]);
-        if (isMounted) {
-          setChecklists(checklistData || []);
-          setMembers(memberData || []);
-          setUsers(userData || []);
-          setLabels(labelData || []);
-        }
-      } catch (err) {
-        console.error("Failed to load card detail data", err);
-        if (isMounted) {
-          setChecklists([]);
-          setMembers([]);
-          setUsers([]);
-          setLabels([]);
-        }
-      }
+      const [checklistData, memberData, userData, labelData] = await Promise.allSettled([
+        getChecklists(card.cardID),
+        getCardMembers(card.cardID),
+        getUsers(),
+        getBoardLabelsForCard(card.cardID),
+      ]);
+      if (!isMounted) return;
+      const valueOf = (result) => (result.status === "fulfilled" && Array.isArray(result.value) ? result.value : []);
+      [checklistData, memberData, userData, labelData]
+        .filter((r) => r.status === "rejected")
+        .forEach((r) => console.error("Failed to load card detail data", r.reason));
+      setChecklists(valueOf(checklistData));
+      setMembers(valueOf(memberData));
+      setUsers(valueOf(userData));
+      setBoardLabels(valueOf(labelData));
+      setLabelsLoading(false);
     };
     fetchData();
     return () => {
@@ -249,15 +408,14 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
     };
   }, [card.cardID]);
 
-  const assignedUserId = normalizeUserId(
-    card.assignedUserID ?? card.assignedUserId,
-  );
+  /* ------------------------------- members ------------------------------- */
+
+  const assignedUserId = normalizeUserId(card.assignedUserID ?? card.assignedUserId);
   const assignedUserFromList = users.find(
     (user) => normalizeUserId(user.userId ?? user.userID) === assignedUserId,
   );
   const hasAssignedUserInMembers = members.some(
-    (member) =>
-      normalizeUserId(member.userID ?? member.userId) === assignedUserId,
+    (member) => normalizeUserId(member.userID ?? member.userId) === assignedUserId,
   );
   const visibleMembers =
     assignedUserId && assignedUserFromList && !hasAssignedUserInMembers
@@ -276,88 +434,119 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
       .filter((id) => id != null),
   );
 
-  // Bahar click karne par 3-dot menu, member dropdown, aur label popover band ho jaayein
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setOpenMenuItemId(null);
-      }
-      if (
-        !memberDropdownRef.current?.contains(e.target) &&
-        !actionMemberDropdownRef.current?.contains(e.target)
-      ) {
-        setShowMemberDropdown(false);
-      }
-      const clickedInsideLabelPopover =
-        labelPopoverRef.current?.contains(e.target) ||
-        labelsSectionPopoverRef.current?.contains(e.target);
-
-      if (!clickedInsideLabelPopover) {
-        setShowLabelPopover(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const findPersonName = (userId) => {
+    const id = normalizeUserId(userId);
+    const person = [...visibleMembers, ...users].find(
+      (p) => normalizeUserId(p.userID ?? p.userId) === id,
+    );
+    return person ? memberDisplayName(person) : null;
+  };
 
   const handleAddMember = async (userId) => {
-    await addCardMember(card.cardID, userId);
-    loadMembers();
+    try {
+      await addCardMember(card.cardID, userId);
+      logActivity("cardMemberAdded", { description: findPersonName(userId), newValue: String(userId) });
+      await loadMembers();
+    } catch (err) {
+      window.alert(err?.message || "Unable to add member.");
+    }
   };
 
   const handleRemoveMember = async (userId) => {
-    await removeCardMember(card.cardID, userId);
-    loadMembers();
-  };
-
-  const handleCreateLabel = async () => {
-    const trimmedLabelName = newLabelName.trim();
-    if (!trimmedLabelName) return;
-    if (!card?.cardID) {
-      window.alert("Card is missing. Please reopen the card and try again.");
-      return;
-    }
-
     try {
-      await createLabel({
-        cardID: card.cardID,
-        labelName: trimmedLabelName,
-        color: newLabelColor,
-      });
-      setNewLabelName("");
-      setNewLabelColor(LABEL_COLORS[0]);
-      setShowLabelPopover(false);
-      loadLabels();
+      await removeCardMember(card.cardID, userId);
+      logActivity("cardMemberRemoved", { description: findPersonName(userId), oldValue: String(userId) });
+      await loadMembers();
     } catch (err) {
-      console.error("Failed to create label", err);
-      window.alert(err?.message || "Unable to create label. Please try again.");
+      window.alert(err?.message || "Unable to remove member.");
     }
   };
 
-  const handleDeleteLabel = async (labelId) => {
+  /* -------------------------------- labels ------------------------------- */
+
+  const assignedLabels = boardLabels.filter((l) => l.isAssigned);
+
+  const runLabelAction = async (action, errorMessage) => {
+    setLabelSaving(true);
     try {
-      await deleteLabel(labelId);
-      loadLabels();
+      await action();
+      onUpdated?.();
+      return true;
     } catch (err) {
-      console.error("Failed to delete label", err);
+      console.error(errorMessage, err);
+      window.alert(err?.message || errorMessage);
+      return false;
+    } finally {
+      setLabelSaving(false);
     }
   };
+
+  const handleToggleLabel = (label, isAssigned) =>
+    runLabelAction(async () => {
+      setBoardLabels((prev) =>
+        prev.map((l) => (l.boardLabelID === label.boardLabelID ? { ...l, isAssigned } : l)),
+      );
+      try {
+        const saved = await setCardBoardLabel({
+          cardID: card.cardID,
+          boardLabelID: label.boardLabelID,
+          isAssigned,
+        });
+        if (saved) {
+          setBoardLabels((prev) =>
+            prev.map((l) => (l.boardLabelID === saved.boardLabelID ? saved : l)),
+          );
+        }
+      } catch (err) {
+        await loadBoardLabels();
+        throw err;
+      }
+    }, "Unable to update label.");
+
+  const handleCreateLabel = ({ labelName, color }) =>
+    runLabelAction(async () => {
+      const created = await createBoardLabel({ cardID: card.cardID, labelName, color });
+      if (created) setBoardLabels((prev) => [...prev, created]);
+    }, "Unable to create label.");
+
+  const handleUpdateLabel = (boardLabelId, values) =>
+    runLabelAction(async () => {
+      const updated = await updateBoardLabel(boardLabelId, values);
+      if (updated) {
+        setBoardLabels((prev) =>
+          prev.map((l) =>
+            l.boardLabelID === boardLabelId
+              ? { ...l, labelName: updated.labelName, color: updated.color }
+              : l,
+          ),
+        );
+      }
+    }, "Unable to update label.");
+
+  const handleDeleteLabel = (boardLabelId) =>
+    runLabelAction(async () => {
+      await deleteBoardLabel(boardLabelId);
+      setBoardLabels((prev) => prev.filter((l) => l.boardLabelID !== boardLabelId));
+    }, "Unable to delete label.");
+
+  /* ------------------------------ checklists ----------------------------- */
 
   const handleAddChecklist = async () => {
     const title = newChecklistTitle.trim();
-
     if (!title) return;
-
-    await createChecklist({
-      cardID: card.cardID,
-      checklistTitle: title,
-    });
-
-    setNewChecklistTitle("");
-    setShowChecklistPopover(false);
-    setShowChecklistSection(true);
-    loadChecklists();
+    try {
+      await createChecklist({ cardID: card.cardID, checklistTitle: title });
+      logActivity("cardChecklistAdded", { description: title });
+      setNewChecklistTitle("Checklist");
+      closePopover();
+      setShowChecklistSection(true);
+      await loadChecklists();
+      onUpdated?.();
+    } catch (err) {
+      window.alert(err?.message || "Unable to add checklist.");
+    }
   };
+
   const handleAddItem = async (checklistId) => {
     const text = newItems[checklistId];
     if (!text?.trim()) return;
@@ -368,50 +557,72 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
       window.alert("Assign a user to this card before adding checklist items.");
       return;
     }
-    await createChecklistItem({
-      checklistID: checklistId,
-      itemName: text.trim(),
-      assignedUserID: checklistAssignedUserId,
-    });
-    setNewItems((prev) => ({ ...prev, [checklistId]: "" }));
-    loadChecklists();
+    try {
+      await createChecklistItem({
+        checklistID: checklistId,
+        itemName: text.trim(),
+        assignedUserID: checklistAssignedUserId,
+      });
+      setNewItems((prev) => ({ ...prev, [checklistId]: "" }));
+      await loadChecklists();
+      onUpdated?.();
+    } catch (err) {
+      window.alert(err?.message || "Unable to add item.");
+    }
   };
 
   const handleToggleItem = async (itemId, isCompleted) => {
-    await toggleChecklistItem(itemId, !isCompleted);
+    const itemName = checklists
+      .flatMap((cl) => cl.items || [])
+      .find((i) => i.checklistItemID === itemId)?.itemName;
+    setChecklists((prev) =>
+      prev.map((cl) => ({
+        ...cl,
+        items: cl.items.map((i) =>
+          i.checklistItemID === itemId ? { ...i, isCompleted: !isCompleted } : i,
+        ),
+      })),
+    );
+    try {
+      await toggleChecklistItem(itemId, !isCompleted);
+      logActivity("updateCheckItemStateOnCard", {
+        description: itemName || "an item",
+        oldValue: isCompleted ? "complete" : "incomplete",
+        newValue: isCompleted ? "incomplete" : "complete",
+      });
+      onUpdated?.();
+    } catch (err) {
+      window.alert(err?.message || "Unable to update item.");
+    }
     loadChecklists();
   };
 
-  const handleDeleteChecklist = async (
-    checklistId,
-    checklistTitle,
-    itemCount,
-  ) => {
-    const confirmed = window.confirm(
-      `Delete "${checklistTitle}" checklist and all ${itemCount} task(s) inside it? This cannot be undone.`,
-    );
-
-    if (!confirmed) return;
-
-    await deleteChecklist(checklistId);
-
-    const remainingChecklists = (await getChecklists(card.cardID)) || [];
-
-    setChecklists(remainingChecklists);
-
-    if (remainingChecklists.length === 0) {
-      setShowChecklistSection(false);
+  const handleDeleteChecklist = async (checklistId) => {
+    const checklistTitle = checklists.find((cl) => cl.checklistID === checklistId)?.checklistTitle;
+    try {
+      await deleteChecklist(checklistId);
+      logActivity("cardChecklistRemoved", { description: checklistTitle || "a checklist" });
+      const remainingChecklists = (await getChecklists(card.cardID)) || [];
+      setChecklists(remainingChecklists);
+      if (remainingChecklists.length === 0) setShowChecklistSection(false);
+      closePopover();
+      onUpdated?.();
+    } catch (err) {
+      window.alert(err?.message || "Unable to delete checklist.");
     }
   };
 
   const handleRemoveItem = async (itemId) => {
-    setOpenMenuItemId(null);
-    await deleteChecklistItem(itemId);
-    loadChecklists();
+    try {
+      await deleteChecklistItem(itemId);
+      await loadChecklists();
+      onUpdated?.();
+    } catch (err) {
+      window.alert(err?.message || "Unable to delete item.");
+    }
   };
 
   const handleStartEdit = (item) => {
-    setOpenMenuItemId(null);
     setEditingItemId(item.checklistItemID);
     setEditingText(item.itemName);
   };
@@ -422,15 +633,21 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
       setEditingItemId(null);
       return;
     }
-    await updateChecklistItemName(itemId, trimmed);
-    setEditingItemId(null);
-    loadChecklists();
+    try {
+      await updateChecklistItemName(itemId, trimmed);
+      setEditingItemId(null);
+      loadChecklists();
+    } catch (err) {
+      window.alert(err?.message || "Unable to update item.");
+    }
   };
 
   const handleCancelEdit = () => {
     setEditingItemId(null);
     setEditingText("");
   };
+
+  /* ------------------------- card fields (update) ------------------------ */
 
   const handleClose = () => {
     onUpdated?.();
@@ -443,39 +660,33 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
     const [year, month, day] = dateText.split("-").map(Number);
     const [hours, minutes] = (timeText || "09:00").split(":").map(Number);
     if (!year || !month || !day) return null;
-    return new Date(
-      Date.UTC(year, month - 1, day, hours, minutes),
-    ).toISOString();
+    return new Date(Date.UTC(year, month - 1, day, hours, minutes)).toISOString();
   };
 
-  // Card change hone par saara due-date/start-date/recurring/reminder state reset karo
-  useEffect(() => {
+  const resetDateState = () => {
     const normalized = normalizeDueDateValue(card.dueDate);
     setDueDateText(normalized);
     setDueTimeText(normalizeDueTimeValue(card.dueDate));
-    setCalendarViewDate(
-      normalized ? new Date(`${normalized}T00:00:00`) : new Date(),
-    );
-
+    setCalendarViewDate(normalized ? new Date(`${normalized}T00:00:00`) : new Date());
     const normalizedStart = normalizeDueDateValue(card.startDate);
     setStartDateText(normalizedStart);
     setIncludeStartDate(!!normalizedStart);
-
     setRecurringRule(card.recurringRule || "Never");
-    setReminderOffset(
-      card.reminderOffsetMinutes != null
-        ? String(card.reminderOffsetMinutes)
-        : "",
-    );
+    setReminderOffset(card.reminderOffsetMinutes != null ? String(card.reminderOffsetMinutes) : "");
+  };
 
-    setShowDueDateEditor(false);
-  }, [
-    card.cardID,
-    card.dueDate,
-    card.startDate,
-    card.recurringRule,
-    card.reminderOffsetMinutes,
-  ]);
+  // Card (ya uski dates) badalne par date state reset - render ke dauraan, effect ke bina
+  const dateSourceKey = `${card.cardID}|${card.dueDate}|${card.startDate}|${card.recurringRule}|${card.reminderOffsetMinutes}`;
+  const [dateSource, setDateSource] = useState(null);
+  if (dateSource !== dateSourceKey) {
+    setDateSource(dateSourceKey);
+    resetDateState();
+  }
+
+  if (card.cover !== coverSource) {
+    setCoverSource(card.cover);
+    setCover(card.cover || null);
+  }
 
   // Shared payload builder - koi bhi partial save baaki fields ko null nahi karega
   const buildUpdatePayload = (overrides = {}) => ({
@@ -484,12 +695,9 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
     description: descriptionText,
     color: card.color,
     dueDate: formatDueDateForApi(dueDateText, dueTimeText),
-    startDate: includeStartDate
-      ? formatDueDateForApi(startDateText, "00:00")
-      : null,
+    startDate: includeStartDate ? formatDueDateForApi(startDateText, "00:00") : null,
     recurringRule: recurringRule === "Never" ? null : recurringRule,
-    reminderOffsetMinutes:
-      reminderOffset === "" ? null : Number(reminderOffset),
+    reminderOffsetMinutes: reminderOffset === "" ? null : Number(reminderOffset),
     assignedUserID: card.assignedUserID ?? card.assignedUserId ?? null,
     cardStatusID: card.cardStatusID,
     cpID: card.cpID ?? null,
@@ -503,10 +711,15 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
       setTitleText(card.cardTitle || "");
       return;
     }
-    await updateCard(buildUpdatePayload({ cardTitle: trimmed }));
-    setTitleText(trimmed);
-    setIsEditingTitle(false);
-    onUpdated?.();
+    try {
+      await updateCard(buildUpdatePayload({ cardTitle: trimmed }));
+      logActivity("cardRenamed", { oldValue: card.cardTitle || "", newValue: trimmed });
+      setTitleText(trimmed);
+      setIsEditingTitle(false);
+      onUpdated?.();
+    } catch (err) {
+      window.alert(err?.message || "Unable to save title.");
+    }
   };
 
   const handleCancelTitle = () => {
@@ -515,11 +728,13 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
   };
 
   const handleSaveDescription = async () => {
-    await updateCard(
-      buildUpdatePayload({ description: descriptionText.trim() || null }),
-    );
-    setIsEditingDescription(false);
-    onUpdated?.();
+    try {
+      await updateCard(buildUpdatePayload({ description: descriptionText.trim() || null }));
+      setIsEditingDescription(false);
+      onUpdated?.();
+    } catch (err) {
+      window.alert(err?.message || "Unable to save description.");
+    }
   };
 
   const handleCancelDescription = () => {
@@ -528,1824 +743,1301 @@ export default function CardDetailModal({ card, onClose, onUpdated }) {
   };
 
   const handleSaveDueDate = async () => {
-    await updateCard(buildUpdatePayload());
-    setShowDueDateEditor(false);
-    onUpdated?.();
+    const previousKey = card.dueDate
+      ? `${normalizeDueDateValue(card.dueDate)}T${normalizeDueTimeValue(card.dueDate)}`
+      : "";
+    const nextKey = dueDateText ? `${dueDateText}T${dueTimeText || "09:00"}` : "";
+    try {
+      await updateCard(buildUpdatePayload());
+      // Local (zone-less) value so the activity shows the same wall-clock time the user picked
+      if (nextKey && nextKey !== previousKey) {
+        logActivity("cardDueDateChanged", {
+          oldValue: previousKey ? `${previousKey}:00` : null,
+          newValue: `${nextKey}:00`,
+        });
+      }
+      closePopover();
+      onUpdated?.();
+    } catch (err) {
+      window.alert(err?.message || "Unable to save dates.");
+    }
+  };
+
+  const handleMoveCard = async (listId, position, targetListName) => {
+    try {
+      await moveCardToList({ cardID: card.cardID, listID: listId, position });
+      if (String(listId) !== String(card.listID)) {
+        logActivity("cardMoved", {
+          oldValue: listName || null,
+          newValue: targetListName || null,
+        });
+      }
+      closePopover();
+      onUpdated?.();
+      return true;
+    } catch (err) {
+      window.alert(err?.message || "Unable to move card.");
+      return false;
+    }
   };
 
   const handleClearDueDate = async () => {
-    setDueDateText("");
-    await updateCard(buildUpdatePayload({ dueDate: null }));
-    setShowDueDateEditor(false);
-    onUpdated?.();
+    try {
+      setDueDateText("");
+      await updateCard(buildUpdatePayload({ dueDate: null }));
+      logActivity("cardDueDateRemoved");
+      closePopover();
+      onUpdated?.();
+    } catch (err) {
+      window.alert(err?.message || "Unable to remove due date.");
+    }
   };
 
   const handleCancelDueDate = () => {
-    const normalized = normalizeDueDateValue(card.dueDate);
-    setDueDateText(normalized);
-    setDueTimeText(normalizeDueTimeValue(card.dueDate));
-    setCalendarViewDate(
-      normalized ? new Date(`${normalized}T00:00:00`) : new Date(),
-    );
-
-    const normalizedStart = normalizeDueDateValue(card.startDate);
-    setStartDateText(normalizedStart);
-    setIncludeStartDate(!!normalizedStart);
-    setRecurringRule(card.recurringRule || "Never");
-    setReminderOffset(
-      card.reminderOffsetMinutes != null
-        ? String(card.reminderOffsetMinutes)
-        : "",
-    );
-
-    setShowDueDateEditor(false);
+    resetDateState();
+    closePopover();
   };
 
-  const getDueDateMeta = () => {
-    if (!dueDateText) return null;
-    const date = new Date(`${dueDateText}T00:00:00`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const isOverdue = date < today;
-    return {
-      label: date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-      isOverdue,
+  /* -------------------------------- cover -------------------------------- */
+
+  const runCoverAction = async (action) => {
+    setCoverSaving(true);
+    try {
+      await action();
+      onUpdated?.();
+    } catch (err) {
+      console.error("Failed to update cover", err);
+      window.alert(err?.message || "Unable to update cover. Please try again.");
+    } finally {
+      setCoverSaving(false);
+    }
+  };
+
+  const handleSaveCover = (nextCover) =>
+    runCoverAction(async () => {
+      const previous = cover;
+      setCover({ ...(cover || {}), ...nextCover, hexCode: null });
+      try {
+        const saved = await saveCardCover({ cardID: card.cardID, ...nextCover });
+        setCover(saved || null);
+      } catch (err) {
+        setCover(previous);
+        throw err;
+      }
+    });
+
+  const handleRemoveCover = () =>
+    runCoverAction(async () => {
+      await removeCardCover(card.cardID);
+      setCover(null);
+    });
+
+  const handleUploadCover = (file) => {
+    if (!file?.type?.startsWith("image/")) {
+      window.alert("Please select an image file (JPG, PNG, GIF or WEBP).");
+      return;
+    }
+    return runCoverAction(async () => {
+      // A new image always starts as a normal cover so the card details stay visible
+      const saved = await uploadCardCoverImage(card.cardID, file, "normal");
+      setCover(saved || null);
+    });
+  };
+
+  const handleModalDragOver = (e) => {
+    if (!Array.from(e.dataTransfer?.types || []).includes("Files")) return;
+    e.preventDefault();
+    setIsDraggingFile(true);
+  };
+
+  const handleModalDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingFile(false);
+  };
+
+  const handleModalDrop = (e) => {
+    if (!Array.from(e.dataTransfer?.types || []).includes("Files")) return;
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length) handleUploadAttachments(files);
+  };
+
+  /* ----------------------------- attachments ----------------------------- */
+
+  // Trello: first uploaded image becomes the cover when the card has none
+  const handleUploadAttachments = async (files) => {
+    const uploaded = await uploadAttachmentFiles(files);
+    if (uploaded.length === 0) return;
+    uploaded.forEach((a) =>
+      logActivity("cardAttachmentAdded", { description: a.displayName || a.fileName, newValue: a.fileUrl }),
+    );
+    const firstImage = !hasCover(cover) && uploaded.find((a) => a.isImage);
+    if (firstImage) {
+      await handleSaveCover({ color: null, imageUrl: firstImage.fileUrl, size: "normal", brightness: "dark" });
+    } else {
+      onUpdated?.();
+    }
+  };
+
+  const handleAddAttachmentLink = async (url, displayName) => {
+    const ok = await addAttachmentLink(url, displayName);
+    if (ok) {
+      logActivity("cardAttachmentAdded", { description: displayName?.trim() || url, newValue: url });
+      onUpdated?.();
+    }
+    return ok;
+  };
+
+  const handleDeleteAttachment = async (attachment) => {
+    const ok = await removeAttachment(attachment.attachmentID);
+    if (ok) {
+      logActivity("cardAttachmentDeleted", {
+        description: attachment.displayName || attachment.fileName,
+        oldValue: attachment.fileUrl,
+      });
+      if (cover?.imageUrl && cover.imageUrl === attachment.fileUrl) setCover(null);
+      onUpdated?.();
+    }
+    return ok;
+  };
+
+  const handleMakeAttachmentCover = (attachment) =>
+    handleSaveCover({
+      color: null,
+      imageUrl: attachment.fileUrl,
+      size: "normal",
+      brightness: "dark",
+    });
+
+  /* ------------------------------ keyboard ------------------------------- */
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key !== "Escape" || popover.type) return;
+      const tag = e.target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      onUpdated?.();
+      onClose();
     };
-  };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [popover.type, onClose, onUpdated]);
 
-  const dueDateMeta = getDueDateMeta();
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  /* ------------------------------- derived ------------------------------- */
+
+  const totalItems = checklists.reduce((sum, cl) => sum + (cl.items?.length || 0), 0);
+  const completedItems = checklists.reduce(
+    (sum, cl) => sum + (cl.items?.filter((i) => i.isCompleted).length || 0),
+    0,
+  );
+
+  const dueMeta = (() => {
+    if (!dueDateText) return null;
+    const due = new Date(`${dueDateText}T${dueTimeText || "09:00"}`);
+    if (Number.isNaN(due.getTime())) return null;
+    const label = `${due.toLocaleDateString("en-US", { month: "short", day: "numeric", year: due.getFullYear() !== new Date(now).getFullYear() ? "numeric" : undefined })}, ${due.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+    if (totalItems > 0 && completedItems === totalItems) {
+      return { label, badge: "Complete", bg: "#BAF3DB", color: "#216E4E" };
+    }
+    const diff = due.getTime() - now;
+    if (diff < 0) return { label, badge: "Overdue", bg: "#FFD5D2", color: "#AE2E24" };
+    if (diff < 24 * 60 * 60 * 1000) return { label, badge: "Due soon", bg: "#F8E6A0", color: "#7F5F01" };
+    return { label, badge: null };
+  })();
+
   const showChecklistUI = showChecklistSection || checklists.length > 0;
 
-  return (
+  const coverActive = hasCover(cover);
+  const coverImageUrl = resolveCoverImageUrl(cover?.imageUrl);
+  const coverBandBackground = coverImageUrl
+    ? `center / contain no-repeat url("${coverImageUrl}"), #DCDFE4`
+    : coverActive
+      ? getCoverBackground(cover.color, getCoverHex(cover), colorblind)
+      : "#fff";
+  const headerIconButtonStyle = {
+    width: 32,
+    height: 32,
+    border: "none",
+    borderRadius: 4,
+    background: coverActive ? "rgba(255,255,255,0.75)" : "transparent",
+    color: SUBTLE_TEXT,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+  };
+
+  const memberTerm = memberSearch.trim().toLowerCase();
+  const matchesMemberSearch = (person) =>
+    !memberTerm ||
+    memberDisplayName(person).toLowerCase().includes(memberTerm) ||
+    (person.userName || "").toLowerCase().includes(memberTerm);
+  const availableUsers = users.filter(
+    (u) => !visibleMemberIds.has(normalizeUserId(u.userId ?? u.userID)) && matchesMemberSearch(u),
+  );
+
+  /* -------------------------------- render ------------------------------- */
+
+  // Portal so the overlay isn't trapped by the board's scroll/transform containers.
+  // zIndex sits above the app bar/sidebar (1100/1200) but below MUI popovers (1300).
+  return createPortal(
     <div
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.5)",
+        background: "rgba(9,30,66,0.6)",
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
-        paddingTop: 100,
-        zIndex: 100,
+        padding: isNarrow ? "16px 8px" : "48px 16px",
+        boxSizing: "border-box",
+        overflowY: "auto",
+        zIndex: 1250,
       }}
       onClick={handleClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={titleText || card.cardTitle}
         onClick={(e) => e.stopPropagation()}
+        onDragOver={handleModalDragOver}
+        onDragLeave={handleModalDragLeave}
+        onDrop={handleModalDrop}
         style={{
+          width: "min(1080px, 100%)",
+          height: isNarrow ? "auto" : "calc(100vh - 96px)",
+          maxHeight: isNarrow ? "none" : 860,
           background: "#fff",
           borderRadius: 12,
-          padding: 24,
-          width: 560,
-          maxHeight: "80vh",
+          boxShadow: "0 8px 24px rgba(9,30,66,0.25)",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
+          color: TEXT,
+          outline: isDraggingFile ? `2px dashed ${BRAND}` : "none",
+          outlineOffset: -6,
         }}
       >
-        {/* Header */}
+        {/* Header / cover band */}
         <div
           style={{
+            height: coverActive ? (coverImageUrl ? 160 : 116) : 56,
+            background: coverBandBackground,
+            borderBottom: coverActive ? "none" : `1px solid ${BORDER}`,
+            padding: "12px 16px",
+            boxSizing: "border-box",
             display: "flex",
+            alignItems: "flex-start",
             justifyContent: "space-between",
-            marginBottom: 16,
-            flexShrink: 0,
-            gap: 12,
-          }}
-        >
-          {isEditingTitle ? (
-            <div
-              style={{ flex: 1, display: "flex", gap: 8, alignItems: "center" }}
-            >
-              <input
-                autoFocus
-                type="text"
-                value={titleText}
-                onChange={(e) => setTitleText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveTitle();
-                  if (e.key === "Escape") handleCancelTitle();
-                }}
-                style={{
-                  flex: 1,
-                  fontSize: 18,
-                  fontWeight: 600,
-                  padding: "4px 8px",
-                  border: "1px solid #2563eb",
-                  borderRadius: 6,
-                }}
-              />
-              <button
-                onClick={handleSaveTitle}
-                style={{
-                  padding: "4px 10px",
-                  background: "#2563eb",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 6,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                }}
-              >
-                Save
-              </button>
-              <button
-                onClick={handleCancelTitle}
-                style={{
-                  padding: "4px 10px",
-                  background: "#fff",
-                  color: "#374151",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <h2
-              onClick={() => setIsEditingTitle(true)}
-              title="Click to edit"
-              style={{ margin: 0, fontSize: 18, cursor: "pointer", flex: 1 }}
-            >
-              {titleText || card.cardTitle}
-            </h2>
-          )}
-          <button
-            onClick={handleClose}
-            style={{
-              border: "none",
-              background: "transparent",
-              fontSize: 18,
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-          >
-            ×
-          </button>
-        </div>
-
-        {/* TRELLO ACTION BUTTONS */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
             gap: 8,
-            flexWrap: "wrap",
-            marginBottom: 16,
+            flexShrink: 0,
           }}
         >
-          {/* Labels */}
-          {labels.length === 0 && (
-            <div ref={labelPopoverRef} style={{ position: "relative" }}>
-              <button
-                type="button"
-                onClick={() => setShowLabelPopover((v) => !v)}
-                style={{
-                  height: 34,
-                  padding: "0 10px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 5,
-                  boxSizing: "border-box",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  background: "#f3f4f6",
-                  color: "#1f2937",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  lineHeight: 1,
-                  fontFamily: "inherit",
-                  whiteSpace: "nowrap",
-                  cursor: "pointer",
-                }}
-              >
-                <LocalOfferOutlinedIcon sx={{ fontSize: 18 }} />
-                <span>Labels</span>
-              </button>
-
-              {showLabelPopover && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: "110%",
-                    background: "#fff",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    zIndex: 30,
-                    minWidth: 220,
-                    padding: 12,
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: "0 0 8px",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#374151",
-                    }}
-                  >
-                    Create label
-                  </p>
-
-                  <div
-                    style={{
-                      height: 32,
-                      borderRadius: 4,
-                      background: newLabelColor,
-                      marginBottom: 10,
-                    }}
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="Label name"
-                    value={newLabelName}
-                    onChange={(e) => setNewLabelName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleCreateLabel()}
-                    style={{
-                      width: "100%",
-                      padding: "6px 8px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: 6,
-                      fontSize: 13,
-                      marginBottom: 10,
-                      boxSizing: "border-box",
-                    }}
-                  />
-
-                  <p
-                    style={{
-                      margin: "0 0 6px",
-                      fontSize: 11,
-                      color: "#6b7280",
-                    }}
-                  >
-                    Select a color
-                  </p>
-
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(5, 1fr)",
-                      gap: 6,
-                      marginBottom: 10,
-                    }}
-                  >
-                    {LABEL_COLORS.map((c) => (
-                      <div
-                        key={c}
-                        onClick={() => setNewLabelColor(c)}
-                        style={{
-                          height: 24,
-                          borderRadius: 4,
-                          background: c,
-                          cursor: "pointer",
-                          border:
-                            newLabelColor === c
-                              ? "2px solid #111827"
-                              : "2px solid transparent",
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleCreateLabel}
-                    disabled={!newLabelName.trim()}
-                    style={{
-                      width: "100%",
-                      padding: "6px 0",
-                      background: "#2563eb",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: 6,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      cursor: newLabelName.trim() ? "pointer" : "not-allowed",
-                      opacity: newLabelName.trim() ? 1 : 0.6,
-                    }}
-                  >
-                    Create
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Dates */}
-          {(!dueDateText || showDueDateEditor) && (
-            <div
-              style={{
-                position: "relative",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setShowDueDateEditor((v) => !v)}
-                style={{
-                  height: 34,
-                  padding: "0 10px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 5,
-                  boxSizing: "border-box",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  background: "#f3f4f6",
-                  color: "#1f2937",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  lineHeight: 1,
-                  fontFamily: "inherit",
-                  whiteSpace: "nowrap",
-                  cursor: "pointer",
-                }}
-              >
-                <AccessTimeOutlinedIcon sx={{ fontSize: 18 }} />
-                <span>Dates</span>
-              </button>
-
-              {showDueDateEditor && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: "calc(100% + 8px)",
-                    width: 280,
-                    background: "#fff",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 10,
-                    boxShadow: "0 10px 24px rgba(0,0,0,0.15)",
-                    padding: 16,
-                    zIndex: 1000,
-                    maxHeight: "70vh",
-                    overflowY: "auto",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 12,
-                    }}
-                  >
-                    <strong style={{ fontSize: 14 }}>Dates</strong>
-                    <button
-                      onClick={() => setShowDueDateEditor(false)}
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        cursor: "pointer",
-                        fontSize: 16,
-                        color: "#6b7280",
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-
-                  {/* Month navigation */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 10,
-                    }}
-                  >
-                    <button
-                      onClick={() =>
-                        setCalendarViewDate(
-                          new Date(
-                            calendarViewDate.getFullYear(),
-                            calendarViewDate.getMonth() - 1,
-                            1,
-                          ),
-                        )
-                      }
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        cursor: "pointer",
-                        fontSize: 14,
-                        color: "#374151",
-                        padding: 4,
-                      }}
-                    >
-                      ‹
-                    </button>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>
-                      {MONTH_NAMES[calendarViewDate.getMonth()]}{" "}
-                      {calendarViewDate.getFullYear()}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setCalendarViewDate(
-                          new Date(
-                            calendarViewDate.getFullYear(),
-                            calendarViewDate.getMonth() + 1,
-                            1,
-                          ),
-                        )
-                      }
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        cursor: "pointer",
-                        fontSize: 14,
-                        color: "#374151",
-                        padding: 4,
-                      }}
-                    >
-                      ›
-                    </button>
-                  </div>
-
-                  {/* Weekday headers */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(7, 1fr)",
-                      marginBottom: 4,
-                    }}
-                  >
-                    {WEEKDAY_LABELS.map((w) => (
-                      <div
-                        key={w}
-                        style={{
-                          textAlign: "center",
-                          fontSize: 10,
-                          color: "#9ca3af",
-                          fontWeight: 600,
-                          padding: "2px 0",
-                        }}
-                      >
-                        {w}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Day grid */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(7, 1fr)",
-                      gap: 2,
-                      marginBottom: 12,
-                    }}
-                  >
-                    {getMonthGrid(calendarViewDate).map((cell, i) => {
-                      const key = toDateKey(cell.date);
-                      const isSelected = dueDateText === key;
-                      const isToday = key === toDateKey(new Date());
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => setDueDateText(key)}
-                          style={{
-                            aspectRatio: "1",
-                            border: "none",
-                            borderRadius: 6,
-                            background: isSelected ? "#2563eb" : "transparent",
-                            color: isSelected
-                              ? "#fff"
-                              : cell.currentMonth
-                                ? "#111827"
-                                : "#d1d5db",
-                            fontWeight: isToday && !isSelected ? 700 : 400,
-                            fontSize: 12,
-                            cursor: "pointer",
-                          }}
-                        >
-                          {cell.day}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Start date */}
-                  <div style={{ marginBottom: 12 }}>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "#374151",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={includeStartDate}
-                        onChange={(e) => {
-                          setIncludeStartDate(e.target.checked);
-                          if (e.target.checked && !startDateText)
-                            setStartDateText(
-                              dueDateText || toDateKey(new Date()),
-                            );
-                        }}
-                      />
-                      Start date
-                    </label>
-                    {includeStartDate && (
-                      <input
-                        type="date"
-                        value={startDateText}
-                        onChange={(e) => setStartDateText(e.target.value)}
-                        style={{
-                          width: "100%",
-                          marginTop: 6,
-                          padding: "6px 8px",
-                          border: "1px solid #d1d5db",
-                          borderRadius: 6,
-                          fontSize: 13,
-                          boxSizing: "border-box",
-                        }}
-                      />
-                    )}
-                  </div>
-
-                  {/* Due date text field + time */}
-                  <p
-                    style={{
-                      margin: "0 0 6px",
-                      fontSize: 11,
-                      color: "#6b7280",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Due date
-                  </p>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                    <input
-                      type="date"
-                      value={dueDateText}
-                      onChange={(e) => {
-                        setDueDateText(e.target.value);
-                        if (e.target.value)
-                          setCalendarViewDate(
-                            new Date(`${e.target.value}T00:00:00`),
-                          );
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: "6px 8px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        boxSizing: "border-box",
-                      }}
-                    />
-                    <input
-                      type="time"
-                      value={dueTimeText}
-                      onChange={(e) =>
-                        setDueTimeText(e.target.value || "09:00")
-                      }
-                      style={{
-                        width: 100,
-                        padding: "6px 8px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        boxSizing: "border-box",
-                      }}
-                    />
-                  </div>
-
-                  {/* Recurring */}
-                  <p
-                    style={{
-                      margin: "0 0 6px",
-                      fontSize: 11,
-                      color: "#6b7280",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Recurring
-                  </p>
-                  <select
-                    value={recurringRule}
-                    onChange={(e) => setRecurringRule(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "6px 8px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: 6,
-                      fontSize: 13,
-                      marginBottom: 12,
-                      boxSizing: "border-box",
-                      background: "#fff",
-                    }}
-                  >
-                    {RECURRING_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Reminder */}
-                  <p
-                    style={{
-                      margin: "0 0 6px",
-                      fontSize: 11,
-                      color: "#6b7280",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Set due date reminder
-                  </p>
-                  <select
-                    value={reminderOffset}
-                    onChange={(e) => setReminderOffset(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "6px 8px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: 6,
-                      fontSize: 13,
-                      marginBottom: 8,
-                      boxSizing: "border-box",
-                      background: "#fff",
-                    }}
-                  >
-                    {REMINDER_OPTIONS.map((opt) => (
-                      <option key={opt.label} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p
-                    style={{
-                      margin: "0 0 12px",
-                      fontSize: 11,
-                      color: "#9ca3af",
-                    }}
-                  >
-                    Reminders will be sent to all members and watchers of this
-                    card.
-                  </p>
-
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={handleSaveDueDate}
-                      style={{
-                        flex: 1,
-                        padding: "7px 10px",
-                        background: "#2563eb",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={handleCancelDueDate}
-                      style={{
-                        padding: "7px 10px",
-                        background: "#fff",
-                        color: "#374151",
-                        border: "1px solid #d1d5db",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  {card.dueDate && (
-                    <button
-                      onClick={handleClearDueDate}
-                      style={{
-                        width: "100%",
-                        marginTop: 8,
-                        padding: "7px 10px",
-                        background: "#fff",
-                        color: "#ef4444",
-                        border: "1px solid #fecaca",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Remove due date
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Checklist */}
-          <div
+          <button
+            type="button"
+            title="Move card"
+            onClick={openPopover("move")}
             style={{
-              position: "relative",
+              maxWidth: "60%",
+              height: 28,
+              padding: "0 6px 0 10px",
               display: "inline-flex",
+              alignItems: "center",
+              gap: 2,
+              border: "none",
+              borderRadius: 4,
+              background: coverActive ? "rgba(255,255,255,0.85)" : NEUTRAL_BG,
+              color: TEXT,
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: "inherit",
+              textTransform: "uppercase",
+              letterSpacing: "0.02em",
+              cursor: "pointer",
             }}
           >
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {listName || "Move card"}
+            </span>
+            <KeyboardArrowDownIcon sx={{ fontSize: 18, flexShrink: 0 }} />
+          </button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button
               type="button"
-              onClick={() => setShowChecklistPopover((v) => !v)}
-              style={{
-                height: 34,
-                padding: "0 10px",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 5,
-                boxSizing: "border-box",
-                border: "1px solid #d1d5db",
-                borderRadius: 6,
-                background: "#f3f4f6",
-                color: "#1f2937",
-                fontSize: 13,
-                fontWeight: 500,
-                lineHeight: 1,
-                fontFamily: "inherit",
-                whiteSpace: "nowrap",
-                cursor: "pointer",
-              }}
+              title="Cover"
+              aria-label="Cover"
+              onClick={openPopover("cover")}
+              style={headerIconButtonStyle}
             >
-              <ChecklistOutlinedIcon sx={{ fontSize: 18 }} />
-              <span>Checklist</span>
+              <WebAssetOutlinedIcon sx={{ fontSize: 20 }} />
             </button>
-
-            {showChecklistPopover && (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: "calc(100% + 8px)",
-                  width: 300,
-                  background: "#fff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 8,
-                  boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
-                  padding: 12,
-                  zIndex: 1000,
-                }}
-              >
-                <p
-                  style={{
-                    margin: "0 0 8px",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "#374151",
-                  }}
-                >
-                  Title
-                </p>
-
-                <input
-                  autoFocus
-                  type="text"
-                  value={newChecklistTitle}
-                  onChange={(e) => setNewChecklistTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleAddChecklist();
-                    }
-                  }}
-                  placeholder="Checklist"
-                  style={{
-                    width: "100%",
-                    padding: "8px 10px",
-                    border: "1px solid #2563eb",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    boxSizing: "border-box",
-                    marginBottom: 10,
-                  }}
-                />
-
-                <button
-                  type="button"
-                  onClick={handleAddChecklist}
-                  disabled={!newChecklistTitle.trim()}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    background: "#2563eb",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: newChecklistTitle.trim()
-                      ? "pointer"
-                      : "not-allowed",
-                    opacity: newChecklistTitle.trim() ? 1 : 0.6,
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-            )}
+            <button type="button" aria-label="Close" onClick={handleClose} style={headerIconButtonStyle}>
+              <CloseIcon sx={{ fontSize: 20 }} />
+            </button>
           </div>
-
-          {/* Members */}
-          {visibleMembers.length === 0 && (
-            <div ref={actionMemberDropdownRef} style={{ position: "relative" }}>
-              <button
-                type="button"
-                onClick={() => setShowMemberDropdown((v) => !v)}
-                style={{
-                  height: 34,
-                  padding: "0 10px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 5,
-                  boxSizing: "border-box",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  background: "#f3f4f6",
-                  color: "#1f2937",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  lineHeight: 1,
-                  fontFamily: "inherit",
-                  whiteSpace: "nowrap",
-                  cursor: "pointer",
-                }}
-              >
-                <PersonAddAlt1OutlinedIcon sx={{ fontSize: 18 }} />
-                <span>Members</span>
-              </button>
-
-              {showMemberDropdown && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: "110%",
-                    background: "#fff",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    zIndex: 30,
-                    minWidth: 180,
-                    maxHeight: 220,
-                    overflowY: "auto",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: "8px 12px 4px",
-                      fontSize: 11,
-                      color: "#9ca3af",
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Add member
-                  </p>
-
-                  {users.map((u) => (
-                    <button
-                      key={u.userId}
-                      type="button"
-                      onClick={() => {
-                        handleAddMember(u.userId);
-                        setShowMemberDropdown(false);
-                      }}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        width: "100%",
-                        padding: "7px 12px",
-                        border: "none",
-                        background: "transparent",
-                        fontSize: 13,
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: "50%",
-                          background: "#4338ca",
-                          color: "#fff",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {`${u.firstName?.[0] || ""}${u.lastName?.[0] || ""}`.toUpperCase()}
-                      </div>
-                      {u.firstName} {u.lastName}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
-        {card.priorityName && (
-          <div
-            style={{
-              fontSize: 13,
-              color: "#6b7280",
-              marginBottom: 12,
-              display: "flex",
-              gap: 16,
-              flexShrink: 0,
-            }}
-          >
-            <span>🔴 {card.priorityName}</span>
-          </div>
-        )}
-
-        {/* MEMBERS */}
+        {/* Body */}
         <div
           style={{
-            marginBottom: 16,
-            flexShrink: 0,
-            display:
-              visibleMembers.length > 0 || dueDateText || labels.length > 0
-                ? "block"
-                : "none",
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: isNarrow ? "column" : "row",
           }}
         >
-          <p
-            style={{
-              margin: "0 0 8px",
-              fontSize: 11,
-              fontWeight: 600,
-              color: "#6b7280",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Members
-          </p>
+          {/* Main column */}
           <div
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              columnGap: 6,
-              rowGap: 40,
-              flexWrap: "wrap",
+              flex: 1,
+              minWidth: 0,
+              overflowY: isNarrow ? "visible" : "auto",
+              padding: isNarrow ? "16px" : "20px 24px 32px",
             }}
           >
-            {visibleMembers.map((m) => {
-              const initials =
-                `${m.firstName?.[0] || ""}${m.lastName?.[0] || ""}`.toUpperCase() ||
-                m.userName?.slice(0, 2).toUpperCase() ||
-                "?";
-              return (
-                <div
-                  key={`${m.userID ?? m.userId}-${m.isFallbackAssignedUser ? "assigned" : "member"}`}
-                  title={
-                    m.isFallbackAssignedUser
-                      ? `${m.firstName} ${m.lastName} — assigned user`
-                      : `${m.firstName} ${m.lastName} — click to remove`
-                  }
-                  onClick={() => {
-                    if (!m.isFallbackAssignedUser) {
-                      handleRemoveMember(m.userID ?? m.userId);
-                    }
-                  }}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    background: "#4338ca",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: m.isFallbackAssignedUser ? "default" : "pointer",
-                    position: "relative",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!m.isFallbackAssignedUser)
-                      e.currentTarget.style.opacity = "0.7";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = "1";
-                  }}
-                >
-                  {initials}
-                </div>
-              );
-            })}
-
-            <div style={{ position: "relative" }} ref={memberDropdownRef}>
-              <button
-                onClick={() => setShowMemberDropdown((v) => !v)}
-                title="Add member"
+            {/* Title */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+              <span
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  background: "#e5e7eb",
-                  border: "none",
+                  width: 20,
+                  height: isEditingTitle ? 40 : 36,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 18,
-                  cursor: "pointer",
-                  color: "#374151",
-                  fontWeight: 400,
+                  color: SUBTLE_TEXT,
+                  flexShrink: 0,
                 }}
               >
-                +
-              </button>
-
-              {showMemberDropdown && (
-                <div
+                <RadioButtonUncheckedIcon sx={{ fontSize: 20, display: "block" }} />
+              </span>
+              {isEditingTitle ? (
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <textarea
+                    autoFocus
+                    rows={2}
+                    value={titleText}
+                    onChange={(e) => setTitleText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                      if (e.key === "Escape") {
+                        titleCancelledRef.current = true;
+                        handleCancelTitle();
+                      }
+                    }}
+                    onBlur={() => {
+                      if (titleCancelledRef.current) {
+                        titleCancelledRef.current = false;
+                        return;
+                      }
+                      handleSaveTitle();
+                    }}
+                    style={{
+                      width: "100%",
+                      fontSize: 20,
+                      fontWeight: 600,
+                      lineHeight: "28px",
+                      padding: "4px 8px",
+                      border: `2px solid ${BRAND}`,
+                      borderRadius: 4,
+                      color: TEXT,
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                      resize: "none",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+              ) : (
+                <h2
+                  onClick={() => setIsEditingTitle(true)}
+                  title="Click to edit"
                   style={{
-                    position: "absolute",
-                    left: 0,
-                    top: "110%",
-                    background: "#fff",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    zIndex: 20,
-                    minWidth: 180,
-                    maxHeight: 220,
-                    overflowY: "auto",
+                    flex: 1,
+                    minWidth: 0,
+                    margin: 0,
+                    padding: "4px 0",
+                    fontSize: 20,
+                    fontWeight: 600,
+                    lineHeight: "28px",
+                    color: TEXT,
+                    cursor: "pointer",
+                    overflowWrap: "anywhere",
                   }}
                 >
-                  <p
-                    style={{
-                      margin: "8px 12px 4px",
-                      fontSize: 11,
-                      color: "#9ca3af",
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Add member
-                  </p>
-                  {users
-                    .filter(
-                      (u) =>
-                        !visibleMemberIds.has(
-                          normalizeUserId(u.userId ?? u.userID),
-                        ),
-                    )
-                    .map((u) => (
-                      <button
-                        key={u.userId}
-                        onClick={() => {
-                          handleAddMember(u.userId);
-                          setShowMemberDropdown(false);
-                        }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          width: "100%",
-                          padding: "7px 12px",
-                          border: "none",
-                          background: "transparent",
-                          fontSize: 13,
-                          cursor: "pointer",
-                          textAlign: "left",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = "#f3f4f6")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.background = "transparent")
-                        }
-                      >
-                        <div
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "50%",
-                            background: "#4338ca",
-                            color: "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 10,
-                            fontWeight: 700,
-                            flexShrink: 0,
-                          }}
+                  {titleText || card.cardTitle}
+                </h2>
+              )}
+            </div>
+
+            <div style={{ paddingLeft: 32 }}>
+              {/* Action buttons */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+                {assignedLabels.length === 0 && (
+                  <button type="button" onClick={openPopover("labels")} style={actionButtonStyle}>
+                    <LocalOfferOutlinedIcon sx={{ fontSize: 16 }} /> Labels
+                  </button>
+                )}
+                {!dueDateText && (
+                  <button type="button" onClick={openPopover("dates")} style={actionButtonStyle}>
+                    <AccessTimeOutlinedIcon sx={{ fontSize: 16 }} /> Dates
+                  </button>
+                )}
+                <button type="button" onClick={openPopover("checklist")} style={actionButtonStyle}>
+                  <CheckBoxOutlinedIcon sx={{ fontSize: 16 }} /> Checklist
+                </button>
+                <button type="button" onClick={openPopover("attach")} style={actionButtonStyle}>
+                  <AttachFileIcon sx={{ fontSize: 16 }} /> Attachment
+                </button>
+                {visibleMembers.length === 0 && (
+                  <button type="button" onClick={openPopover("members")} style={actionButtonStyle}>
+                    <PersonOutlineIcon sx={{ fontSize: 16 }} /> Members
+                  </button>
+                )}
+                {!coverActive && (
+                  <button type="button" onClick={openPopover("cover")} style={actionButtonStyle}>
+                    <WebAssetOutlinedIcon sx={{ fontSize: 16 }} /> Cover
+                  </button>
+                )}
+              </div>
+
+              {/* Members / Labels / Due date / Priority */}
+              {(visibleMembers.length > 0 || assignedLabels.length > 0 || dueMeta || card.priorityName) && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "16px 24px", marginBottom: 24 }}>
+                  {visibleMembers.length > 0 && (
+                    <div>
+                      <p style={metaHeadingStyle}>Members</p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {visibleMembers.map((m) => (
+                          <Avatar
+                            key={`${m.userID ?? m.userId}-${m.isFallbackAssignedUser ? "assigned" : "member"}`}
+                            name={memberDisplayName(m)}
+                            title={m.isFallbackAssignedUser ? `${memberDisplayName(m)} (assigned user)` : memberDisplayName(m)}
+                            onClick={openPopover("member", m)}
+                          />
+                        ))}
+                        <button
+                          type="button"
+                          title="Add member"
+                          aria-label="Add member"
+                          onClick={openPopover("members")}
+                          style={{ ...squareAddButtonStyle, borderRadius: "50%" }}
                         >
-                          {`${u.firstName?.[0] || ""}${u.lastName?.[0] || ""}`.toUpperCase()}
-                        </div>
-                        {u.firstName} {u.lastName}
+                          <AddIcon sx={{ fontSize: 18 }} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {assignedLabels.length > 0 && (
+                    <div style={{ minWidth: 0, maxWidth: "100%" }}>
+                      <p style={metaHeadingStyle}>Labels</p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {assignedLabels.map((l) => (
+                          <LabelChip
+                            key={l.boardLabelID}
+                            label={l}
+                            colorblind={colorblind}
+                            onClick={openPopover("labels")}
+                            style={{ maxWidth: 220 }}
+                          />
+                        ))}
+                        <button
+                          type="button"
+                          title="Add label"
+                          aria-label="Add label"
+                          onClick={openPopover("labels")}
+                          style={squareAddButtonStyle}
+                        >
+                          <AddIcon sx={{ fontSize: 18 }} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {dueMeta && (
+                    <div>
+                      <p style={metaHeadingStyle}>Due date</p>
+                      <button
+                        type="button"
+                        onClick={openPopover("dates")}
+                        style={{ ...greyButtonStyle, display: "inline-flex", alignItems: "center", gap: 8 }}
+                      >
+                        <span>{dueMeta.label}</span>
+                        {dueMeta.badge && (
+                          <span
+                            style={{
+                              padding: "0 4px",
+                              borderRadius: 3,
+                              background: dueMeta.bg,
+                              color: dueMeta.color,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              lineHeight: "16px",
+                            }}
+                          >
+                            {dueMeta.badge}
+                          </span>
+                        )}
+                        <KeyboardArrowDownIcon sx={{ fontSize: 18 }} />
                       </button>
-                    ))}
-                  {users.filter(
-                    (u) =>
-                      !visibleMemberIds.has(
-                        normalizeUserId(u.userId ?? u.userID),
-                      ),
-                  ).length === 0 && (
-                    <p
-                      style={{
-                        margin: "8px 12px",
-                        fontSize: 12,
-                        color: "#9ca3af",
-                      }}
-                    >
-                      All users already added
-                    </p>
+                    </div>
+                  )}
+
+                  {card.priorityName && (
+                    <div>
+                      <p style={metaHeadingStyle}>Priority</p>
+                      <span
+                        style={{
+                          ...greyButtonStyle,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          cursor: "default",
+                        }}
+                      >
+                        <FlagOutlinedIcon sx={{ fontSize: 16 }} /> {card.priorityName}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
-            {dueDateText && (
-              <div
-                style={{
-                  position: "relative",
-                  height: 32,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  marginLeft: 20,
-                }}
-              >
-                <p
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    bottom: "calc(100% + 8px)",
-                    margin: 0,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Due date
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => setShowDueDateEditor(true)}
-                  style={{
-                    height: 32,
-                    padding: "0 10px",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    background: "#f3f4f6",
-                    color: "#1f2937",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <span>📅</span>
-                  <span>{dueDateMeta?.label || dueDateText}</span>
-                </button>
-              </div>
-            )}
-            {labels.length > 0 && (
-              <div
-                style={{
-                  position: "relative",
-                  height: 32,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  marginLeft: 20,
-                }}
-              >
-                <p
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    bottom: "calc(100% + 8px)",
-                    margin: 0,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Labels
-                </p>
-
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  {labels.map((l) => (
-                    <div
-                      key={l.labelID ?? l.labelId}
-                      title="Click to remove"
-                      onClick={() => handleDeleteLabel(l.labelID ?? l.labelId)}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 4,
-                        background: l.color || "#94c748",
-                        color: "#1f2937",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {l.labelName}
-                    </div>
-                  ))}
-
-                  <div
-                    style={{
-                      position: "relative",
-                    }}
-                    ref={labelsSectionPopoverRef}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setShowLabelPopover((v) => !v)}
-                      title="Add label"
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 6,
-                        background: "#e5e7eb",
-                        border: "none",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 16,
-                        cursor: "pointer",
-                        color: "#374151",
-                      }}
-                    >
-                      +
+            {/* Description */}
+            <section style={{ marginBottom: 28 }}>
+              <SectionHeader
+                icon={<SubjectIcon sx={{ fontSize: 20 }} />}
+                title="Description"
+                action={
+                  descriptionText && !isEditingDescription ? (
+                    <button type="button" onClick={() => setIsEditingDescription(true)} style={greyButtonStyle}>
+                      Edit
                     </button>
-
-                    {showLabelPopover && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          top: "110%",
-                          background: "#fff",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 8,
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                          zIndex: 1000,
-                          minWidth: 220,
-                          padding: 12,
-                        }}
+                  ) : null
+                }
+              />
+              <div style={{ paddingLeft: 32 }}>
+                {isEditingDescription ? (
+                  <div>
+                    <textarea
+                      autoFocus
+                      value={descriptionText}
+                      onChange={(e) => setDescriptionText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") handleCancelDescription();
+                      }}
+                      rows={7}
+                      placeholder="Add a more detailed description..."
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: `2px solid ${BRAND}`,
+                        borderRadius: 4,
+                        fontSize: 14,
+                        lineHeight: "20px",
+                        color: TEXT,
+                        boxSizing: "border-box",
+                        resize: "vertical",
+                        fontFamily: "inherit",
+                        outline: "none",
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <button type="button" onClick={handleSaveDescription} style={primaryButtonStyle}>
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelDescription}
+                        style={{ ...greyButtonStyle, background: "transparent" }}
                       >
-                        <p
-                          style={{
-                            margin: "0 0 8px",
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: "#374151",
-                          }}
-                        >
-                          Create label
-                        </p>
-
-                        <div
-                          style={{
-                            height: 32,
-                            borderRadius: 4,
-                            background: newLabelColor,
-                            marginBottom: 10,
-                          }}
-                        />
-
-                        <input
-                          type="text"
-                          placeholder="Label name"
-                          value={newLabelName}
-                          onChange={(e) => setNewLabelName(e.target.value)}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" && handleCreateLabel()
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "6px 8px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: 6,
-                            fontSize: 13,
-                            marginBottom: 10,
-                            boxSizing: "border-box",
-                          }}
-                        />
-
-                        <p
-                          style={{
-                            margin: "0 0 6px",
-                            fontSize: 11,
-                            color: "#6b7280",
-                          }}
-                        >
-                          Select a color
-                        </p>
-
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(5, 1fr)",
-                            gap: 6,
-                            marginBottom: 10,
-                          }}
-                        >
-                          {LABEL_COLORS.map((c) => (
-                            <div
-                              key={c}
-                              onClick={() => setNewLabelColor(c)}
-                              style={{
-                                height: 24,
-                                borderRadius: 4,
-                                background: c,
-                                cursor: "pointer",
-                                border:
-                                  newLabelColor === c
-                                    ? "2px solid #111827"
-                                    : "2px solid transparent",
-                              }}
-                            />
-                          ))}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={handleCreateLabel}
-                          disabled={!newLabelName.trim()}
-                          style={{
-                            width: "100%",
-                            padding: "6px 0",
-                            background: "#2563eb",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: 6,
-                            fontSize: 13,
-                            fontWeight: 500,
-                            cursor: newLabelName.trim()
-                              ? "pointer"
-                              : "not-allowed",
-                            opacity: newLabelName.trim() ? 1 : 0.6,
-                          }}
-                        >
-                          Create
-                        </button>
-                      </div>
-                    )}
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <hr style={{ marginBottom: 20, flexShrink: 0 }} />
-
-        <div style={{ overflowY: "auto", flex: 1, paddingRight: 4 }}>
-          {/* DESCRIPTION */}
-          <div style={{ marginBottom: 20 }}>
-            <h4 style={{ margin: "0 0 8px" }}>📝 Description</h4>
-            {isEditingDescription ? (
-              <div>
-                <textarea
-                  autoFocus
-                  value={descriptionText}
-                  onChange={(e) => setDescriptionText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") handleCancelDescription();
-                  }}
-                  rows={4}
-                  style={{
-                    width: "100%",
-                    padding: "8px 10px",
-                    border: "1px solid #2563eb",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    boxSizing: "border-box",
-                    resize: "vertical",
-                    fontFamily: "inherit",
-                  }}
-                />
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <button
-                    onClick={handleSaveDescription}
+                ) : descriptionText ? (
+                  <div
+                    onClick={(e) => {
+                      if (e.target.tagName !== "A") setIsEditingDescription(true);
+                    }}
                     style={{
-                      padding: "5px 14px",
-                      background: "#2563eb",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 500,
+                      fontSize: 14,
+                      lineHeight: "22px",
+                      color: TEXT,
+                      whiteSpace: "pre-wrap",
+                      overflowWrap: "anywhere",
                       cursor: "pointer",
                     }}
                   >
-                    Save
-                  </button>
-                  <button
-                    onClick={handleCancelDescription}
-                    style={{
-                      padding: "5px 14px",
-                      background: "#fff",
-                      color: "#374151",
-                      border: "1px solid #d1d5db",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 500,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div
-                onClick={() => setIsEditingDescription(true)}
-                title="Click to edit"
-                style={{
-                  padding: "8px 10px",
-                  background: "#f9fafb",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  minHeight: 20,
-                  color: descriptionText ? "#111827" : "#9ca3af",
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {descriptionText || "Add a more detailed description..."}
-              </div>
-            )}
-          </div>
-
-          <h4
-            id="card-checklists-section"
-            style={{
-              margin: "0 0 12px",
-              display: showChecklistUI ? "block" : "none",
-            }}
-          >
-            {" "}
-            ✅ Checklists{" "}
-          </h4>
-
-          {checklists.map((cl) => {
-            const completed = cl.items.filter((i) => i.isCompleted).length;
-            const total = cl.items.length;
-            const percent =
-              total > 0 ? Math.round((completed / total) * 100) : 0;
-
-            return (
-              <div
-                key={cl.checklistID}
-                style={{
-                  marginBottom: 20,
-                  background: "#f9fafb",
-                  borderRadius: 8,
-                  padding: 12,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: collapsedChecklists[cl.checklistID] ? 0 : 6,
-                  }}
-                >
+                    <LinkifiedText text={descriptionText} />
+                  </div>
+                ) : (
                   <button
                     type="button"
-                    onClick={() =>
-                      setCollapsedChecklists((prev) => ({
-                        ...prev,
-                        [cl.checklistID]: !prev[cl.checklistID],
-                      }))
-                    }
+                    onClick={() => setIsEditingDescription(true)}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: 0,
+                      width: "100%",
+                      minHeight: 56,
+                      padding: "8px 12px",
                       border: "none",
-                      background: "transparent",
-                      color: "#374151",
-                      cursor: "pointer",
+                      borderRadius: 4,
+                      background: NEUTRAL_BG,
+                      color: SUBTLE_TEXT,
                       fontSize: 14,
-                      fontWeight: 600,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 18,
-                        lineHeight: 1,
-                        width: 16,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {collapsedChecklists[cl.checklistID] ? "›" : "⌄"}
-                    </span>
-
-                    <strong style={{ fontSize: 14 }}>
-                      {cl.checklistTitle}
-                    </strong>
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      handleDeleteChecklist(
-                        cl.checklistID,
-                        cl.checklistTitle,
-                        total,
-                      )
-                    }
-                    style={{
-                      padding: "6px 10px",
-                      background: "transparent",
-                      color: "#9ca3af",
-                      border: "1px solid #4b5563",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 500,
+                      fontFamily: "inherit",
+                      textAlign: "left",
                       cursor: "pointer",
                     }}
                   >
-                    Delete
+                    Add a more detailed description...
                   </button>
-                </div>
+                )}
+              </div>
+            </section>
 
-                <div
-                  style={{
-                    display: collapsedChecklists[cl.checklistID]
-                      ? "none"
-                      : "block",
-                  }}
-                >
-                  {total > 0 && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "#6b7280",
-                          marginBottom: 2,
-                        }}
-                      >
-                        {percent}% ({completed}/{total})
-                      </div>
-                      <div
-                        style={{
-                          background: "#e5e7eb",
-                          borderRadius: 4,
-                          height: 6,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${percent}%`,
-                            background: "#22c55e",
-                            height: 6,
-                            borderRadius: 4,
-                            transition: "width 0.3s",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
+            {attachments.length > 0 && (
+              <CardAttachmentsSection
+                attachments={attachments}
+                coverImageUrl={cover?.imageUrl || null}
+                onAddClick={openPopover("attach")}
+                onUpdate={updateAttachment}
+                onDelete={handleDeleteAttachment}
+                onMakeCover={handleMakeAttachmentCover}
+                onRemoveCover={handleRemoveCover}
+              />
+            )}
 
-                  <div
-                    style={{
-                      maxHeight: 260,
-                      overflowY: "auto",
-                      paddingRight: 4,
-                    }}
-                  >
-                    {cl.items.map((item) => {
-                      const isEditing = editingItemId === item.checklistItemID;
-                      const isMenuOpen =
-                        openMenuItemId === item.checklistItemID;
+            {/* Checklists */}
+            {showChecklistUI &&
+              checklists.map((cl) => {
+                const items = cl.items || [];
+                const completed = items.filter((i) => i.isCompleted).length;
+                const total = items.length;
+                const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+                const hideChecked = !!hideCheckedFor[cl.checklistID];
+                const shownItems = hideChecked ? items.filter((i) => !i.isCompleted) : items;
 
-                      return (
-                        <div
-                          key={item.checklistItemID}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "4px 0",
-                            position: "relative",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={item.isCompleted}
-                            onChange={() =>
-                              handleToggleItem(
-                                item.checklistItemID,
-                                item.isCompleted,
-                              )
-                            }
-                          />
-
-                          {isEditing ? (
-                            <div
-                              style={{
-                                flex: 1,
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 6,
-                              }}
-                            >
-                              <input
-                                autoFocus
-                                type="text"
-                                value={editingText}
-                                onChange={(e) => setEditingText(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter")
-                                    handleSaveEdit(item.checklistItemID);
-                                  if (e.key === "Escape") handleCancelEdit();
-                                }}
-                                style={{
-                                  width: "100%",
-                                  fontSize: 13,
-                                  padding: "6px 8px",
-                                  border: "1px solid #2563eb",
-                                  borderRadius: 6,
-                                  boxSizing: "border-box",
-                                }}
-                              />
-                              <div style={{ display: "flex", gap: 8 }}>
-                                <button
-                                  onClick={() =>
-                                    handleSaveEdit(item.checklistItemID)
-                                  }
-                                  style={{
-                                    padding: "4px 12px",
-                                    background: "#2563eb",
-                                    color: "#fff",
-                                    border: "none",
-                                    borderRadius: 6,
-                                    fontSize: 12,
-                                    fontWeight: 500,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={handleCancelEdit}
-                                  style={{
-                                    padding: "4px 12px",
-                                    background: "#fff",
-                                    color: "#374151",
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: 6,
-                                    fontSize: 12,
-                                    fontWeight: 500,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <span
-                              onClick={() => handleStartEdit(item)}
-                              title="Click to edit"
-                              style={{
-                                flex: 1,
-                                fontSize: 13,
-                                cursor: "pointer",
-                                textDecoration: item.isCompleted
-                                  ? "line-through"
-                                  : "none",
-                                color: item.isCompleted ? "#9ca3af" : "#111827",
-                              }}
-                            >
-                              {item.itemName}
-                            </span>
-                          )}
-
-                          {!isEditing && (
+                return (
+                  <section key={cl.checklistID} style={{ marginBottom: 28 }}>
+                    <SectionHeader
+                      icon={<CheckBoxOutlinedIcon sx={{ fontSize: 20 }} />}
+                      title={cl.checklistTitle}
+                      action={
+                        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                          {completed > 0 && (
                             <button
                               type="button"
                               onClick={() =>
-                                handleRemoveItem(item.checklistItemID)
+                                setHideCheckedFor((prev) => ({ ...prev, [cl.checklistID]: !prev[cl.checklistID] }))
                               }
-                              style={{
-                                padding: "6px 10px",
-                                background: "transparent",
-                                color: "#9ca3af",
-                                border: "1px solid #4b5563",
-                                borderRadius: 6,
-                                fontSize: 12,
-                                fontWeight: 500,
-                                cursor: "pointer",
-                                flexShrink: 0,
-                              }}
+                              style={greyButtonStyle}
                             >
-                              Delete
+                              {hideChecked ? `Show checked items (${completed})` : "Hide checked items"}
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={openPopover("deleteChecklist", cl)}
+                            style={greyButtonStyle}
+                          >
+                            Delete
+                          </button>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      display: showChecklistUI ? "flex" : "none",
-                      gap: 6,
-                      marginTop: 8,
-                    }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="Add item..."
-                      value={newItems[cl.checklistID] || ""}
-                      onChange={(e) =>
-                        setNewItems((prev) => ({
-                          ...prev,
-                          [cl.checklistID]: e.target.value,
-                        }))
                       }
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && handleAddItem(cl.checklistID)
-                      }
-                      style={{
-                        flex: 1,
-                        padding: "4px 8px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: 6,
-                        fontSize: 13,
-                      }}
                     />
-                    <button
-                      onClick={() => handleAddItem(cl.checklistID)}
-                      style={{
-                        padding: "4px 10px",
-                        background: "#2563eb",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                      <span style={{ width: 20, fontSize: 11, color: SUBTLE_TEXT, textAlign: "center", flexShrink: 0 }}>
+                        {percent}%
+                      </span>
+                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: NEUTRAL_BG, overflow: "hidden" }}>
+                        <div
+                          style={{
+                            width: `${percent}%`,
+                            height: "100%",
+                            borderRadius: 4,
+                            background: percent === 100 ? "#1F845A" : BRAND,
+                            transition: "width 0.3s, background 0.3s",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {hideChecked && shownItems.length === 0 && total > 0 && (
+                      <p style={{ margin: "4px 0 8px 32px", fontSize: 14, color: SUBTLE_TEXT }}>
+                        Everything in this checklist is complete!
+                      </p>
+                    )}
+
+                    <div>
+                      {shownItems.map((item) => {
+                        const isEditing = editingItemId === item.checklistItemID;
+                        const isHovered = hoveredItemId === item.checklistItemID;
+                        return (
+                          <div
+                            key={item.checklistItemID}
+                            onMouseEnter={() => setHoveredItemId(item.checklistItemID)}
+                            onMouseLeave={() => setHoveredItemId(null)}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 12,
+                              padding: "6px 4px",
+                              margin: "0 -4px",
+                              borderRadius: 4,
+                              background: isHovered && !isEditing ? NEUTRAL_BG : "transparent",
+                            }}
+                          >
+                            <span style={{ width: 20, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+                              <ChecklistCheckbox
+                                checked={!!item.isCompleted}
+                                onChange={() => handleToggleItem(item.checklistItemID, item.isCompleted)}
+                              />
+                            </span>
+
+                            {isEditing ? (
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <textarea
+                                  autoFocus
+                                  rows={2}
+                                  value={editingText}
+                                  onChange={(e) => setEditingText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleSaveEdit(item.checklistItemID);
+                                    }
+                                    if (e.key === "Escape") handleCancelEdit();
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    padding: "6px 8px",
+                                    border: `2px solid ${BRAND}`,
+                                    borderRadius: 4,
+                                    fontSize: 14,
+                                    color: TEXT,
+                                    fontFamily: "inherit",
+                                    boxSizing: "border-box",
+                                    resize: "none",
+                                    outline: "none",
+                                  }}
+                                />
+                                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveEdit(item.checklistItemID)}
+                                    style={primaryButtonStyle}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleCancelEdit}
+                                    style={{ ...greyButtonStyle, background: "transparent" }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <span
+                                  onClick={() => handleStartEdit(item)}
+                                  title="Click to edit"
+                                  style={{
+                                    flex: 1,
+                                    minWidth: 0,
+                                    fontSize: 14,
+                                    lineHeight: "20px",
+                                    cursor: "pointer",
+                                    overflowWrap: "anywhere",
+                                    textDecoration: item.isCompleted ? "line-through" : "none",
+                                    color: item.isCompleted ? MUTED_TEXT : TEXT,
+                                  }}
+                                >
+                                  {item.itemName}
+                                </span>
+                                <button
+                                  type="button"
+                                  title="Delete item"
+                                  aria-label="Delete item"
+                                  onClick={() => handleRemoveItem(item.checklistItemID)}
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    border: "none",
+                                    borderRadius: 4,
+                                    background: "transparent",
+                                    color: SUBTLE_TEXT,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: "pointer",
+                                    padding: 0,
+                                    flexShrink: 0,
+                                    visibility: isHovered ? "visible" : "hidden",
+                                  }}
+                                >
+                                  <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ paddingLeft: 32, marginTop: 8 }}>
+                      {addingItemFor === cl.checklistID ? (
+                        <div>
+                          <textarea
+                            autoFocus
+                            rows={2}
+                            placeholder="Add an item"
+                            value={newItems[cl.checklistID] || ""}
+                            onChange={(e) => setNewItems((prev) => ({ ...prev, [cl.checklistID]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleAddItem(cl.checklistID);
+                              }
+                              if (e.key === "Escape") setAddingItemFor(null);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              border: `2px solid ${BRAND}`,
+                              borderRadius: 4,
+                              fontSize: 14,
+                              color: TEXT,
+                              fontFamily: "inherit",
+                              boxSizing: "border-box",
+                              resize: "none",
+                              outline: "none",
+                            }}
+                          />
+                          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                            <button type="button" onClick={() => handleAddItem(cl.checklistID)} style={primaryButtonStyle}>
+                              Add
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAddingItemFor(null)}
+                              style={{ ...greyButtonStyle, background: "transparent" }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => setAddingItemFor(cl.checklistID)} style={greyButtonStyle}>
+                          Add an item
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
+          </div>
+
+          {/* Comments and activity */}
+          <aside
+            style={{
+              width: isNarrow ? "auto" : 400,
+              flexShrink: 0,
+              background: "#F7F8F9",
+              borderLeft: isNarrow ? "none" : `1px solid ${BORDER}`,
+              borderTop: isNarrow ? `1px solid ${BORDER}` : "none",
+              overflowY: isNarrow ? "visible" : "auto",
+              padding: 16,
+              boxSizing: "border-box",
+            }}
+          >
+            <CardCommentsPanel cardId={card.cardID} activityVersion={activityVersion} />
+          </aside>
         </div>
       </div>
-    </div>
+
+      {/* ------------------------------ Popovers ------------------------------ */}
+      <div onClick={(e) => e.stopPropagation()}>
+        <CardPopover open={popover.type === "labels"} anchorEl={popover.anchorEl} anchorPosition={popover.anchorPosition} onClose={closePopover}>
+          <LabelsPopover
+            labels={boardLabels}
+            loading={labelsLoading}
+            saving={labelSaving}
+            onToggle={handleToggleLabel}
+            onCreate={handleCreateLabel}
+            onUpdate={handleUpdateLabel}
+            onDelete={handleDeleteLabel}
+            onClose={closePopover}
+          />
+        </CardPopover>
+
+        <CardPopover open={popover.type === "attach"} anchorEl={popover.anchorEl} anchorPosition={popover.anchorPosition} onClose={closePopover}>
+          <AttachPopover
+            uploading={attachmentsUploading}
+            onUploadFiles={handleUploadAttachments}
+            onAddLink={handleAddAttachmentLink}
+            onClose={closePopover}
+          />
+        </CardPopover>
+
+        <CardPopover open={popover.type === "move"} anchorEl={popover.anchorEl} anchorPosition={popover.anchorPosition} onClose={closePopover}>
+          <MoveCardPopover
+            cardId={card.cardID}
+            currentBoardId={card.boardID ?? boardId}
+            currentListId={card.listID}
+            onMove={handleMoveCard}
+            onClose={closePopover}
+          />
+        </CardPopover>
+
+        <CardPopover open={popover.type === "cover"} anchorEl={popover.anchorEl} anchorPosition={popover.anchorPosition} onClose={closePopover}>
+          <CardCoverPopover
+            cover={cover}
+            saving={coverSaving}
+            onSave={handleSaveCover}
+            onRemove={handleRemoveCover}
+            onUpload={handleUploadCover}
+            onClose={closePopover}
+            style={{ position: "static", width: "100%", padding: 0, boxShadow: "none", maxHeight: "none", overflow: "visible" }}
+          />
+        </CardPopover>
+
+        <CardPopover open={popover.type === "checklist"} anchorEl={popover.anchorEl} anchorPosition={popover.anchorPosition} onClose={closePopover}>
+          <PopoverHeader title="Add checklist" onClose={closePopover} />
+          <p style={{ ...popoverSectionTitle, marginTop: 4 }}>Title</p>
+          <input
+            autoFocus
+            value={newChecklistTitle}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => setNewChecklistTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAddChecklist()}
+            style={inputStyle}
+          />
+          <button
+            type="button"
+            onClick={handleAddChecklist}
+            disabled={!newChecklistTitle.trim()}
+            style={{
+              ...primaryButtonStyle,
+              marginTop: 12,
+              opacity: newChecklistTitle.trim() ? 1 : 0.5,
+              cursor: newChecklistTitle.trim() ? "pointer" : "not-allowed",
+            }}
+          >
+            Add
+          </button>
+        </CardPopover>
+
+        <CardPopover open={popover.type === "deleteChecklist"} anchorEl={popover.anchorEl} anchorPosition={popover.anchorPosition} onClose={closePopover}>
+          <PopoverHeader title={`Delete ${popover.data?.checklistTitle || "checklist"}?`} onClose={closePopover} />
+          <p style={{ margin: "0 0 12px", fontSize: 14, lineHeight: "20px", color: TEXT }}>
+            Deleting a checklist is permanent and there is no way to get it back.
+          </p>
+          <button
+            type="button"
+            onClick={() => handleDeleteChecklist(popover.data?.checklistID)}
+            style={{ ...dangerButtonStyle, width: "100%" }}
+          >
+            Delete checklist
+          </button>
+        </CardPopover>
+
+        <CardPopover
+          open={popover.type === "members"}
+          anchorEl={popover.anchorEl} anchorPosition={popover.anchorPosition}
+          onClose={() => {
+            setMemberSearch("");
+            closePopover();
+          }}
+        >
+          <PopoverHeader
+            title="Members"
+            onClose={() => {
+              setMemberSearch("");
+              closePopover();
+            }}
+          />
+          <input
+            autoFocus
+            placeholder="Search members"
+            value={memberSearch}
+            onChange={(e) => setMemberSearch(e.target.value)}
+            style={inputStyle}
+          />
+          {visibleMembers.filter(matchesMemberSearch).length > 0 && (
+            <>
+              <p style={popoverSectionTitle}>Card members</p>
+              {visibleMembers.filter(matchesMemberSearch).map((m) => (
+                <div
+                  key={`cm-${m.userID ?? m.userId}`}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px", borderRadius: 4 }}
+                >
+                  <Avatar name={memberDisplayName(m)} size={28} />
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {memberDisplayName(m)}
+                  </span>
+                  {m.isFallbackAssignedUser ? (
+                    <span style={{ fontSize: 12, color: SUBTLE_TEXT }}>Assigned</span>
+                  ) : (
+                    <button
+                      type="button"
+                      title="Remove from card"
+                      aria-label={`Remove ${memberDisplayName(m)}`}
+                      onClick={() => handleRemoveMember(m.userID ?? m.userId)}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        border: "none",
+                        borderRadius: 4,
+                        background: "transparent",
+                        color: SUBTLE_TEXT,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0,
+                      }}
+                    >
+                      <CloseIcon sx={{ fontSize: 16 }} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+          <p style={popoverSectionTitle}>Users</p>
+          <div style={{ maxHeight: 260, overflowY: "auto" }}>
+            {availableUsers.length === 0 ? (
+              <p style={{ margin: "4px", fontSize: 13, color: SUBTLE_TEXT }}>
+                {memberTerm ? "No users found." : "All users already added."}
+              </p>
+            ) : (
+              availableUsers.map((u) => (
+                <button
+                  key={`u-${u.userId ?? u.userID}`}
+                  type="button"
+                  onClick={() => handleAddMember(u.userId ?? u.userID)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: 4,
+                    border: "none",
+                    borderRadius: 4,
+                    background: "transparent",
+                    color: TEXT,
+                    fontSize: 14,
+                    fontFamily: "inherit",
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = NEUTRAL_BG)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <Avatar name={memberDisplayName(u)} size={28} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {memberDisplayName(u)}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </CardPopover>
+
+        <CardPopover open={popover.type === "member"} anchorEl={popover.anchorEl} anchorPosition={popover.anchorPosition} onClose={closePopover} width={280}>
+          {popover.data && (
+            <>
+              <PopoverHeader title="" onClose={closePopover} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                <Avatar name={memberDisplayName(popover.data)} size={48} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>{memberDisplayName(popover.data)}</div>
+                  {popover.data.userName && (
+                    <div style={{ fontSize: 13, color: SUBTLE_TEXT }}>@{popover.data.userName}</div>
+                  )}
+                </div>
+              </div>
+              {popover.data.isFallbackAssignedUser ? (
+                <p style={{ margin: 0, fontSize: 13, color: SUBTLE_TEXT }}>
+                  This user is assigned to the card.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleRemoveMember(popover.data.userID ?? popover.data.userId);
+                    closePopover();
+                  }}
+                  style={{ ...greyButtonStyle, width: "100%" }}
+                >
+                  Remove from card
+                </button>
+              )}
+            </>
+          )}
+        </CardPopover>
+
+        <CardPopover open={popover.type === "dates"} anchorEl={popover.anchorEl} anchorPosition={popover.anchorPosition} onClose={handleCancelDueDate}>
+          <PopoverHeader title="Dates" onClose={handleCancelDueDate} />
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <button
+              type="button"
+              aria-label="Previous month"
+              onClick={() =>
+                setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))
+              }
+              style={{ ...squareAddButtonStyle, background: "transparent" }}
+            >
+              <ChevronLeftIcon sx={{ fontSize: 20 }} />
+            </button>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>
+              {MONTH_NAMES[calendarViewDate.getMonth()]} {calendarViewDate.getFullYear()}
+            </span>
+            <button
+              type="button"
+              aria-label="Next month"
+              onClick={() =>
+                setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))
+              }
+              style={{ ...squareAddButtonStyle, background: "transparent" }}
+            >
+              <ChevronRightIcon sx={{ fontSize: 20 }} />
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+            {WEEKDAY_LABELS.map((w) => (
+              <div key={w} style={{ textAlign: "center", fontSize: 11, color: SUBTLE_TEXT, fontWeight: 600, padding: "2px 0" }}>
+                {w}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 12 }}>
+            {getMonthGrid(calendarViewDate).map((cell, i) => {
+              const key = toDateKey(cell.date);
+              const isSelected = dueDateText === key;
+              const isToday = key === toDateKey(new Date());
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setDueDateText(key)}
+                  style={{
+                    height: 32,
+                    border: "none",
+                    borderRadius: 4,
+                    background: isSelected ? BRAND : "transparent",
+                    color: isSelected ? "#fff" : cell.currentMonth ? TEXT : "#A5ADBA",
+                    fontWeight: isToday || isSelected ? 700 : 400,
+                    boxShadow: isToday && !isSelected ? `inset 0 -2px 0 ${BRAND}` : "none",
+                    fontSize: 13,
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                  }}
+                >
+                  {cell.day}
+                </button>
+              );
+            })}
+          </div>
+
+          <p style={popoverSectionTitle}>Start date</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={includeStartDate}
+              onChange={(e) => {
+                setIncludeStartDate(e.target.checked);
+                if (e.target.checked && !startDateText) setStartDateText(dueDateText || toDateKey(new Date()));
+              }}
+              style={{ width: 16, height: 16, cursor: "pointer" }}
+            />
+            <input
+              type="date"
+              disabled={!includeStartDate}
+              value={startDateText}
+              onChange={(e) => setStartDateText(e.target.value)}
+              style={{ ...inputStyle, flex: 1, opacity: includeStartDate ? 1 : 0.5 }}
+            />
+          </div>
+
+          <p style={popoverSectionTitle}>Due date</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="date"
+              value={dueDateText}
+              onChange={(e) => {
+                setDueDateText(e.target.value);
+                if (e.target.value) setCalendarViewDate(new Date(`${e.target.value}T00:00:00`));
+              }}
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <input
+              type="time"
+              value={dueTimeText}
+              onChange={(e) => setDueTimeText(e.target.value || "09:00")}
+              style={{ ...inputStyle, width: 110 }}
+            />
+          </div>
+
+          <p style={popoverSectionTitle}>Recurring</p>
+          <select value={recurringRule} onChange={(e) => setRecurringRule(e.target.value)} style={selectStyle}>
+            {RECURRING_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+
+          <p style={popoverSectionTitle}>Set due date reminder</p>
+          <select value={reminderOffset} onChange={(e) => setReminderOffset(e.target.value)} style={selectStyle}>
+            {REMINDER_OPTIONS.map((opt) => (
+              <option key={opt.label} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <p style={{ margin: "6px 0 12px", fontSize: 12, color: SUBTLE_TEXT }}>
+            Reminders will be sent to all members and watchers of this card.
+          </p>
+
+          <button
+            type="button"
+            onClick={handleSaveDueDate}
+            disabled={!dueDateText}
+            style={{
+              ...primaryButtonStyle,
+              width: "100%",
+              opacity: dueDateText ? 1 : 0.5,
+              cursor: dueDateText ? "pointer" : "not-allowed",
+            }}
+          >
+            Save
+          </button>
+          {card.dueDate && (
+            <button type="button" onClick={handleClearDueDate} style={{ ...greyButtonStyle, width: "100%", marginTop: 8 }}>
+              Remove
+            </button>
+          )}
+        </CardPopover>
+      </div>
+    </div>,
+    document.body,
   );
 }
