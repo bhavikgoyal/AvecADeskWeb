@@ -238,7 +238,7 @@ function getStudentsButtonLabel(row, studentCount) {
   }
   return `View Student (${studentCount})`;
 }
-export default function InstituteScrappingPage() {
+export default function InstituteScrappingPage({ basePath = INSTITUTE_SCRAPPING_BASE_PATH } = {}) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAccounting = user?.role === 'Accounting';
@@ -637,7 +637,7 @@ const handleDialogTabChange = (_event, value) => {
   const handleRowClick = (row) => {
     if (row?.isPendingScrape) return;
     if (row?.id) {
-      navigate(`${INSTITUTE_SCRAPPING_BASE_PATH}/${row.id}`);
+     navigate(`${basePath}/${row.id}`);
     }
   };
 
@@ -674,7 +674,7 @@ const handleViewStudents = (event, row) => {
 const handleViewCredentials = (event, row) => {
   event.stopPropagation();
   if (row?.id) {
-    navigate(`${INSTITUTE_SCRAPPING_BASE_PATH}/${row.id}`, {
+    navigate(`${basePath}/${row.id}`, { 
       state: { openTab: 'credentials' },
     });
   }
