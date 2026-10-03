@@ -26,6 +26,7 @@ export default function PageShell({
   onAdd,
   onRowClick,
   onDelete,
+  renderRowActions,
 }) {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -78,24 +79,27 @@ useEffect(() => {
         id: '__delete__',
         label: 'Action',
         align: 'left',
-        headerSx: { width: 70, px: 1 },
+        headerSx: { width: renderRowActions ? 110 : 70, px: 1 },
         cellSx: { px: 1},
         render: (row) => (
-          <IconButton
-            size="small"
-            onClick={(e) => { e.stopPropagation(); onDelete(row); }}
-            sx={{
-              color: 'var(--danger)',
-              opacity: 0.55,
-              '&:hover': { opacity: 1, bgcolor: 'rgba(214, 57, 57, 0.08)' },
-            }}
-          >
-            <DeleteOutlinedIcon fontSize="small" />
-          </IconButton>
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap' }}>
+            {renderRowActions?.(row)}
+            <IconButton
+              size="small"
+              onClick={(e) => { e.stopPropagation(); onDelete(row); }}
+              sx={{
+                color: 'var(--danger)',
+                opacity: 0.55,
+                '&:hover': { opacity: 1, bgcolor: 'rgba(214, 57, 57, 0.08)' },
+              }}
+            >
+              <DeleteOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Box>
         ),
       },
     ];
-  }, [columns, onDelete]);
+  }, [columns, onDelete, renderRowActions]);
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100%' }}>
