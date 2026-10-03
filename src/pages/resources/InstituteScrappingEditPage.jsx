@@ -52,7 +52,7 @@ const TAB_BY_KEY = {
   contract: TAB_CONTRACT,
   credentials: TAB_CREDENTIALS,
 };
-export default function InstituteScrappingEditPage() {
+export default function InstituteScrappingEditPage({ basePath = INSTITUTE_SCRAPPING_BASE_PATH } = {}) {
   const navigate = useNavigate();
   const { id } = useParams();
   const location = useLocation();
@@ -118,7 +118,7 @@ useEffect(() => {
 
     try {
       await updateInstituteScrapping(id, form);
-      navigate(INSTITUTE_SCRAPPING_BASE_PATH);
+      navigate(basePath); 
     } catch (err) {
       setError(err.message || 'Failed to update record.');
     } finally {
@@ -133,7 +133,7 @@ useEffect(() => {
     try {
       await deleteInstituteScrapping(id);
       setDeleteDialogOpen(false);
-      navigate(INSTITUTE_SCRAPPING_BASE_PATH);
+      navigate(basePath); 
     } catch (err) {
       setError(err.message || 'Failed to delete record.');
     } finally {
@@ -203,7 +203,7 @@ useEffect(() => {
               <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5}>
                 <Button
                   variant="outlined"
-                  onClick={() => navigate(INSTITUTE_SCRAPPING_BASE_PATH)}
+                  onClick={() => navigate(basePath)}  
                   disabled={saving || deleting}
                   sx={{ ...listOutlinedButtonSx, width: { xs: '100%', sm: 'auto' } }}
                 >
