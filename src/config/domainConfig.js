@@ -566,14 +566,11 @@ courses: {
 },
 
   columns: [
-    { id: 'courseName', label: 'Course name', field: 'courseName' },
     { id: 'instituteName', label: 'Institute name', field: 'instituteName' },
-    { id: 'programLink', label: 'Program link', field: 'programLink' },
-    { id: 'CourseCategory', label: 'CourseCategory', field: 'CourseCategory' },
-    { id: 'programLogo', label: 'Program logo', field: 'programLogo' },
     { id: 'level', label: 'Level', field: 'level' },
+    { id: 'courseName', label: 'Course name', field: 'courseName', primary: true },
     { id: 'campus', label: 'Campus', field: 'campus' },
-    { id: 'intake', label: 'Intake', field: 'intake' },
+    { id: 'cricosCode', label: 'CRICOS Code', field: 'cricosCode' },
     { id: 'fees', label: 'Fees', field: 'fees' },
     { id: 'duration', label: 'Duration', field: 'duration' },
  { id: 'status', label: 'Status', field: 'isActive', render: (row) => row.isActive ? 'Active' : 'Inactive' },
