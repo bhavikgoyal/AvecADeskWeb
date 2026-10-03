@@ -25,8 +25,8 @@ import {
 } from './resourceTableStyles';
 import axiosClient from '../api/axiosClient'; 
 
-function renderTextCell(value, column, columnIndex, onRowClick) {
-  const isPrimaryLink = onRowClick && columnIndex === 0;
+function renderTextCell(value, column, columnIndex, onRowClick, primaryIndex = 0) {
+  const isPrimaryLink = onRowClick && columnIndex === primaryIndex;
   if (typeof value === 'string' || typeof value === 'number') {
     return (
       <Typography
@@ -68,6 +68,8 @@ export default function ResponsiveTable({
       : theme.breakpoints.values[collapseToCardsBelow] ?? theme.breakpoints.values.md;
   const isMobile = useMediaQuery(`(max-width:${cardBreakpoint - 0.05}px)`);
   const mobileColumns = columns.filter((col) => !col.hideOnMobile);
+  const primaryIndex = Math.max(0, columns.findIndex((col) => col.primary));
+  const mobilePrimaryIndex = Math.max(0, mobileColumns.findIndex((col) => col.primary));
   const isResource = variant === 'resource' || alwaysTable;
   const API_BASE_URL = axiosClient.defaults.baseURL;
  
@@ -190,7 +192,7 @@ if (column.field === 'programLogo') {
                       flexWrap: column.id === 'action' ? 'nowrap' : 'wrap',
                     }}
                   >
-                    {renderTextCell(renderCellValue(row, column), column, columnIndex, onRowClick)}
+                    {renderTextCell(renderCellValue(row, column), column, columnIndex, onRowClick, mobilePrimaryIndex)}
                   </Box>
                 </Box>
               ))}
@@ -262,7 +264,7 @@ if (column.field === 'programLogo') {
                 ...(isResource ? resourceTableBodyRowSx : {}),
                 ...(onRowClick
                   ? {
-                      '& td:first-of-type': {
+                      [`& td:nth-of-type(${primaryIndex + 1})`]: {
                         color: LIST_PRIMARY_COLUMN_COLOR,
                         fontWeight: 600,
                       },
@@ -292,7 +294,7 @@ if (column.field === 'programLogo') {
                     ...column.cellSx,
                   }}
                 >
-                  {renderTextCell(renderCellValue(row, column), column, columnIndex, onRowClick)}
+                  {renderTextCell(renderCellValue(row, column), column, columnIndex, onRowClick, primaryIndex)}
                 </TableCell>
               ))}
             </TableRow>
