@@ -80,10 +80,28 @@ function Checkbox({ checked }) {
   );
 }
 
-function LabelEditor({ mode, initial, saving, colorblind, onBack, onClose, onSubmit, onRequestDelete }) {
+function LabelEditor({
+  mode,
+  initial,
+  existingLabels = [],
+  saving,
+  colorblind,
+  onBack,
+  onClose,
+  onSubmit,
+  onRequestDelete,
+}) {
   const [name, setName] = useState(initial?.labelName ?? '');
   const [color, setColor] = useState(initial ? initial.color || '' : DEFAULT_LABEL_COLOR);
-  const canSave = !saving && (name.trim() !== '' || color !== '');
+  const normalizedName = name.trim().toLowerCase();
+  const isDuplicateName =
+    normalizedName !== '' &&
+    existingLabels.some(
+      (l) =>
+        l.boardLabelID !== initial?.boardLabelID &&
+        (l.labelName || '').trim().toLowerCase() === normalizedName,
+    );
+  const canSave = !saving && !isDuplicateName && (name.trim() !== '' || color !== '');
 
   return (
     <div>
@@ -118,8 +136,14 @@ function LabelEditor({ mode, initial, saving, colorblind, onBack, onClose, onSub
         onKeyDown={(e) => {
           if (e.key === 'Enter' && canSave) onSubmit({ labelName: name.trim(), color });
         }}
-        style={inputStyle}
+        aria-invalid={isDuplicateName}
+        style={isDuplicateName ? { ...inputStyle, borderColor: '#C9372C' } : inputStyle}
       />
+      {isDuplicateName && (
+        <p role="alert" style={{ margin: '4px 0 0', fontSize: 12, color: '#C9372C' }}>
+          A label named &quot;{name.trim()}&quot; already exists on this board.
+        </p>
+      )}
 
       <p style={popoverSectionTitle}>Select a color</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
@@ -217,6 +241,7 @@ export default function LabelsPopover({
         key={`${view.name}-${view.label?.boardLabelID ?? 'new'}`}
         mode={view.name}
         initial={view.label}
+        existingLabels={labels}
         saving={saving}
         colorblind={colorblind}
         onBack={backToList}
