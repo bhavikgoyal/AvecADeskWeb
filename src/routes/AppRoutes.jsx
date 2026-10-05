@@ -53,7 +53,6 @@ const AgreementTemplateForm = lazy(() => import('../pages/AgreementTemplate/Agre
 const AgreementTemplateView = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateView'));
 const NewCoursePage = lazy(() => import('../pages/resources/NewCoursePage'));
 const ApplicationDetailPage = lazy(() => import('../pages/resources/ApplicationDetailPage'));
-
 // const CourseDetailPage = lazy(() => import('../pages/resources/CourseDetailPage'));
 // const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) => path !== 'institutes-scrapping');
 

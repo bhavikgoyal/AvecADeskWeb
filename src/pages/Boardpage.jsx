@@ -206,8 +206,11 @@ function BoardSearch({ onBoardSelect }) {
       ref={searchRef}
       sx={{
         position: "relative",
-        width: { xs: "100%", sm: 300, md: 350 },
-        flex: "0 0 350px",
+        flex: "1 1 0",
+        minWidth: 0,
+        "@container (min-width: 1320px)": {
+          flex: "0 0 350px",
+        },
       }}
     >
       <TextField
@@ -334,6 +337,7 @@ function CreateBoardButton() {
       sx={{
         position: "relative",
         display: "inline-flex",
+        flexShrink: 0,
       }}
     >
       <Button
@@ -440,6 +444,8 @@ function CreateBoardButton() {
   );
 }
 
+const SELECTED_BOARD_KEY = "selected_board_id";
+
 export default function BoardPage() {
   const { user } = useAuth();
   const isAccounting = user?.role === "Accounting";
@@ -471,10 +477,20 @@ export default function BoardPage() {
         const data = await getBoards();
 
         if (data && data.length > 0) {
-          const defaultBoard = data[0];
+          const savedBoardId = localStorage.getItem("selectedBoardId");
 
-          setSelectedBoardId(defaultBoard.boardID);
-          setSelectedBoardName(defaultBoard.boardName);
+          const savedBoard = savedBoardId
+            ? data.find(
+                (board) => Number(board.boardID) === Number(savedBoardId),
+              )
+            : null;
+
+          const boardToOpen = savedBoard || data[0];
+
+          setSelectedBoardId(boardToOpen.boardID);
+          setSelectedBoardName(boardToOpen.boardName);
+
+          localStorage.setItem("selectedBoardId", String(boardToOpen.boardID));
         }
       } catch (err) {
         console.error("Failed to load default board:", err);
@@ -485,6 +501,10 @@ export default function BoardPage() {
 
     loadDefaultBoard();
   }, []);
+
+  useEffect(() => {
+    if (selectedBoardId) localStorage.setItem(SELECTED_BOARD_KEY, String(selectedBoardId));
+  }, [selectedBoardId]);
 
   useEffect(() => {
     if (isAccounting) return;
@@ -697,6 +717,14 @@ export default function BoardPage() {
   };
 
   const handleDeleteCard = async (cardId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this card?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       await deleteCard(cardId);
       loadBoard();
@@ -722,15 +750,10 @@ export default function BoardPage() {
         overflow: "hidden",
       }}
     >
+      {/* ================= HEADER ================= */}
       <Box
         sx={{
-          display: "flex",
-          justifyContent: { xs: "flex-start", md: "space-between" },
-          alignItems: { xs: "stretch", md: "center" },
-          flexDirection: { xs: "column", md: "row" },
-          mb: 2,
-          flexWrap: "wrap",
-          gap: 1.25,
+          containerType: "inline-size",
           backgroundColor: "#bfd8e9",
           margin: "-10px -10px 10px",
           padding: "10px 12px",
@@ -739,142 +762,215 @@ export default function BoardPage() {
         }}
       >
         <Box
-          ref={boardTitleRef}
-          sx={{
-            display: "inline-flex",
-            alignItems: "center",
-          }}
-        >
-          {isEditingBoardName ? (
-            <TextField
-              autoFocus
-              size="small"
-              value={boardNameDraft}
-              onFocus={(e) => e.target.select()}
-              onChange={(e) => setBoardNameDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleBoardNameSave();
-                }
-              }}
-              sx={{
-                width: 260,
-                "& .MuiInputBase-root": {
-                  height: 40,
-                },
-              }}
-            />
-          ) : (
-            <Box
-              component="h2"
-              onClick={() => {
-                setBoardNameDraft(selectedBoardName);
-                setIsEditingBoardName(true);
-              }}
-              sx={{
-                fontSize: 20,
-                fontWeight: 700,
-                lineHeight: 1.2,
-                margin: 0,
-                padding: "6px 10px",
-                borderRadius: "6px",
-                cursor: "pointer",
-                "&:hover": {
-                  backgroundColor: "#dcebf5",
-                },
-              }}
-            >
-              {boardInitializing ? "" : selectedBoardName || "Select Board"}
-            </Box>
-          )}
-        </Box>
-
-        <Box
           sx={{
             display: "flex",
-            gap: 1,
-            alignItems: "center",
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-            width: { xs: "100%", md: "auto" },
-            "& > .MuiTextField-root, & > .MuiButton-root": {
-              height: 40,
+            flexDirection: "column",
+            alignItems: "stretch",
+            gap: 1.25,
+            "@container (min-width: 860px)": {
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 2,
             },
           }}
         >
-          {/* Board Search */}
-          <BoardSearch
-            onBoardSelect={({ boardID, boardName }) => {
-              setIsEditingBoardName(false);
-              setSelectedBoardId(boardID);
-              setSelectedBoardName(boardName);
-            }}
-          />
-          <CreateBoardButton />
-
-          {/* Task Search */}
-          <TextField
-            size="small"
-            placeholder="Search task"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+          {/* ---------- Board Title ---------- */}
+          <Box
+            ref={boardTitleRef}
             sx={{
-              ...listSearchFieldSx,
-              width: { xs: "100%", sm: 180, md: 190 },
-              "& .MuiInputBase-root": {
-                height: 40,
-              },
-            }}
-          />
-
-          {/* From Date */}
-          <TextField
-            type="date"
-            size="small"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            sx={{
-              ...listSearchFieldSx,
-              minWidth: { xs: 0, md: 150 },
-              maxWidth: { xs: "100%", md: 170 },
-              "& .MuiInputBase-root": {
-                height: 40,
-              },
-            }}
-          />
-
-          {/* To Date */}
-          <TextField
-            type="date"
-            size="small"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            sx={{
-              ...listSearchFieldSx,
-              minWidth: { xs: 0, md: 150 },
-              maxWidth: { xs: "100%", md: 170 },
-              "& .MuiInputBase-root": {
-                height: 40,
-              },
-            }}
-          />
-
-          {/* Refresh */}
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<RefreshIcon />}
-            onClick={loadBoard}
-            disabled={loading}
-            sx={{
-              ...listContainedButtonSx,
-              height: 40,
-              minWidth: 100,
+              display: "inline-flex",
+              alignItems: "center",
+              flex: "0 1 auto",
+              minWidth: 0,
             }}
           >
-            Refresh
-          </Button>
+            {isEditingBoardName ? (
+              <TextField
+                autoFocus
+                size="small"
+                value={boardNameDraft}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setBoardNameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleBoardNameSave();
+                  }
+                }}
+                sx={{
+                  width: 260,
+                  maxWidth: "100%",
+                  "& .MuiInputBase-root": {
+                    height: 40,
+                  },
+                }}
+              />
+            ) : (
+              <Box
+                component="h2"
+                onClick={
+                  selectedBoardName
+                    ? () => {
+                        setBoardNameDraft(selectedBoardName);
+                        setIsEditingBoardName(true);
+                      }
+                    : undefined
+                }
+                sx={{
+                  fontSize: { xs: 18, md: 20 },
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: "100%",
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                  margin: 0,
+                  padding: "6px 10px",
+                  borderRadius: "6px",
+                  cursor: selectedBoardName ? "pointer" : "default",
+                  "&:hover": selectedBoardName
+                    ? {
+                        backgroundColor: "#dcebf5",
+                      }
+                    : {},
+                }}
+              >
+                {boardInitializing ? "" : selectedBoardName || "Select Board"}
+              </Box>
+            )}
+          </Box>
+
+          {/* ---------- Controls ---------- */}
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 1,
+              width: "100%",
+              minWidth: 0,
+              "@container (min-width: 860px)": {
+                flex: "1 1 auto",
+                width: "auto",
+                maxWidth: 820,
+                marginLeft: "auto",
+              },
+              "@container (min-width: 1320px)": {
+                flexDirection: "row",
+                alignItems: "center",
+                flex: "0 0 auto",
+                maxWidth: "none",
+              },
+            }}
+          >
+            {/* ROW 1: Search board + Create */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                minWidth: 0,
+              }}
+            >
+              <BoardSearch
+                onBoardSelect={({ boardID, boardName }) => {
+                  setIsEditingBoardName(false);
+                  setSelectedBoardId(boardID);
+                  setSelectedBoardName(boardName);
+
+                  localStorage.setItem("selectedBoardId", String(boardID));
+                }}
+              />
+              <CreateBoardButton />
+            </Box>
+
+            {/* ROW 2: Search task + From + To + Refresh */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 1,
+                minWidth: 0,
+                "@container (min-width: 1320px)": {
+                  flexWrap: "nowrap",
+                },
+              }}
+            >
+              {/* Task Search */}
+              <TextField
+                size="small"
+                placeholder="Search task"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                sx={{
+                  ...listSearchFieldSx,
+                  flex: "1 1 160px",
+                  minWidth: 140,
+                  maxWidth: "none",
+                  "@container (min-width: 1320px)": {
+                    flex: "0 0 190px",
+                  },
+                  "& .MuiInputBase-root": {
+                    height: 40,
+                  },
+                }}
+              />
+
+              {/* From Date */}
+              <TextField
+                type="date"
+                size="small"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                sx={{
+                  ...listSearchFieldSx,
+                  flex: "0 0 170px",
+                  width: 170,
+                  minWidth: 170,
+                  maxWidth: 170,
+                  "& .MuiInputBase-root": {
+                    height: 40,
+                  },
+                }}
+              />
+
+              {/* To Date */}
+              <TextField
+                type="date"
+                size="small"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                sx={{
+                  ...listSearchFieldSx,
+                  flex: "0 0 170px",
+                  width: 170,
+                  minWidth: 170,
+                  maxWidth: 170,
+                  "& .MuiInputBase-root": {
+                    height: 40,
+                  },
+                }}
+              />
+
+              {/* Refresh */}
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={loadBoard}
+                disabled={loading}
+                sx={{
+                  ...listContainedButtonSx,
+                  height: 40,
+                  minWidth: 100,
+                  flex: "0 0 auto",
+                }}
+              >
+                Refresh
+              </Button>
+            </Box>
+          </Box>
         </Box>
       </Box>
 
