@@ -185,6 +185,9 @@ const isScheduledInstallment = (row) => {
   return Number.isFinite(n) && n >= 1 && Math.abs(n - Math.round(n)) < 1e-6;
 };
 
+const isInitialGroupRow = (row) =>
+  Boolean(row?.isInitialPayment) || !isScheduledInstallment(row);
+
 // Tuition and Non-Tuition rows can share an installment number, so a row is identified by both.
 const isSamePaymentRow = (a, b) => a.installmentNo === b.installmentNo && isSameFeeType(a, b);
 
@@ -692,7 +695,7 @@ export default function NewStudentPage({ basePath }) {
       return undefined;
     }
 
-    fetchCoursesByScrappingId(resolvedScrappingId)
+    fetchCoursesByScrappingId(resolvedScrappingId, form.campusname)
       .then((data) => {
         if (!active) return;
         setCourses(data.courses);
@@ -705,7 +708,7 @@ export default function NewStudentPage({ basePath }) {
     return () => {
       active = false;
     };
-  }, [resolvedScrappingId]);
+  }, [resolvedScrappingId, form.campusname]);
 
   const selectOptions = useMemo(
     () => ({
@@ -1446,6 +1449,30 @@ const historyRows = useMemo(() => {
           if (row.studentPaymentInstallmentId) return true;
           return toCents(row.amount) > 0;
         });
+
+        return updated;
+      }
+      if (isInitialGroupRow(currentItem)) {
+        const upfrontCents = toCents(form.initialPayment);
+        const otherCents = updated.reduce((sum, row, index) => {
+          if (index === currentIndex || !isInitialGroupRow(row)) return sum;
+          return sum + toCents(row.amount);
+        }, 0);
+        const maxChildCents = Math.max(0, upfrontCents - otherCents);
+        const typed = toCents(updated[currentIndex].amount);
+
+        if (typed > maxChildCents) {
+          const capped = centsToAmount(maxChildCents);
+          updated[currentIndex] = {
+            ...updated[currentIndex],
+            amount: capped,
+            balance: updated[currentIndex].status === 'Partial' ? '0.00' : capped,
+            paidAmount:
+              updated[currentIndex].status === 'Partial'
+                ? capped
+                : updated[currentIndex].paidAmount,
+          };
+        }
 
         return updated;
       }

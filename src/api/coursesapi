@@ -245,10 +245,11 @@ export function getEmptyCourseForm(instituteId) {
   };
 }
 
-export async function fetchCoursesByScrappingId(scrappingId) {
+export async function fetchCoursesByScrappingId(scrappingId, campus) {
   const { data } = await axiosClient.get("/api/courses", {
     params: {
       scrappingId,
+      campus: campus || undefined,
     },
   });
 
