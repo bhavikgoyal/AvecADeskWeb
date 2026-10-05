@@ -12,7 +12,7 @@ import { fetchStudentContracts,  createStudentContract,  updateStudentContract, 
 import { fetchUniqueInstituteNames,  getCampusesForInstitute,  getUniqueInstituteNames,  normalizeInstituteName,  resolveScrappingId,} from '../../api/institutesScrappingApi';
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
 import { createStudentWithPaymentSchedule, fetchStudentPaymentDetail } from '../../api/studentsApi';
-import { createPaymentSchedule, createStudentPaymentInstallment,  createStudentCommission,  createStudentCommissionDetail,  updateStudentPaymentSchedule,  confirmInstallmentByStudent,} from '../../api/schedulesApi';
+import { createPaymentSchedule, createStudentPaymentInstallment,  createStudentCommission,  createStudentCommissionDetail,  updateStudentPaymentSchedule,} from '../../api/schedulesApi';
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
 import { formatDateDisplay } from '../../utils/dateFormat';
@@ -179,6 +179,11 @@ const getGroupMembers = (list, groupNo) => list.filter((x) => getGroupNo(x) === 
 const getGroupRoot = (list, groupNo) => list.find((x) => x.installmentNo === groupNo);
 
 const isSameFeeType = (a, b) => (a.feeType ?? null) === (b.feeType ?? null);
+
+const isScheduledInstallment = (row) => {
+  const n = Number(row?.installmentNo);
+  return Number.isFinite(n) && n >= 1 && Math.abs(n - Math.round(n)) < 1e-6;
+};
 
 // Tuition and Non-Tuition rows can share an installment number, so a row is identified by both.
 const isSamePaymentRow = (a, b) => a.installmentNo === b.installmentNo && isSameFeeType(a, b);
@@ -1042,7 +1047,7 @@ const historyRows = useMemo(() => {
     commissionRows.map((r) => [Number(r.studentPaymentInstallmentId), r])
   );
 
-  return commissionHistory
+  const rows = commissionHistory
     .map((h) => {
       const spiId = Number(h.studentPaymentInstallmentId ?? h.StudentPaymentInstallmentId);
       const payment = paymentList.find((p) => Number(p.studentPaymentInstallmentId) === spiId);
@@ -1077,6 +1082,40 @@ const historyRows = useMemo(() => {
         commissionStatus: status,
       };
     });
+
+  const historyKey = (row) =>
+    `${Number(row.installmentNo)}|${String(row.feeType || '').trim().toLowerCase()}`;
+  const seen = new Set(rows.map(historyKey));
+
+  commissionRows.forEach((calc) => {
+    const key = historyKey(calc);
+    const id = Number(calc.studentPaymentInstallmentId);
+    if (seen.has(key)) return;
+    if (id && rows.some((r) => Number(r.studentPaymentInstallmentId) === id)) return;
+
+    const extra = {
+      studentPaymentInstallmentId: calc.studentPaymentInstallmentId,
+      installmentNo: calc.installmentNo,
+      displayInstallmentNo: calc.installmentNo,
+      feeType: calc.feeType,
+      dueDate: calc.feesDate,
+      feesAmount: Number(calc.fees || 0),
+      paymentStatus: calc.paymentStatus,
+      commissionAmount: Number(calc.commission || 0),
+      gstAmount: Number(calc.gst || 0),
+      bonusAmount: Number(calc.bonus || 0),
+      invoiceAmount: Number(calc.invoice || 0),
+      commissionStatus: 'Pending',
+      commissionHistoryOriginalStatus: 'Pending',
+    };
+
+    const at = rows.findIndex((r) => Number(r.installmentNo) > Number(extra.installmentNo));
+    if (at === -1) rows.push(extra);
+    else rows.splice(at, 0, extra);
+    seen.add(key);
+  });
+
+  return rows;
 }, [isEdit, paymentList, commissionHistory, commissionRows]);
 
   const totals = useMemo(
@@ -1244,12 +1283,22 @@ const historyRows = useMemo(() => {
 
       const currentItem = updated[currentIndex];
 
-      // Later pending rows can shrink to zero. This row cannot take more than
-      // the course fee left after every row that will stay as it is.
+      // Later pending rows of this fee type can shrink to zero, even after they
+      // are saved. This row cannot take more than the course fee left after the rows that stay.
+      const currentFeeTypeForCap = String(currentItem.feeType || '').trim().toLowerCase();
       const reducible = new Set();
       for (let i = currentIndex + 1; i < updated.length; i++) {
         const row = updated[i];
-        if (row.status === 'Pending' && !row.studentPaymentInstallmentId) reducible.add(i);
+        const rowType = String(row.feeType || '').trim().toLowerCase();
+        const editingInitial =
+          Boolean(currentItem.isInitialPayment) || Number(currentItem.installmentNo) === 0;
+        if (
+          row.status === 'Pending' &&
+          rowType === currentFeeTypeForCap &&
+          !(editingInitial && isScheduledInstallment(row))
+        ) {
+          reducible.add(i);
+        }
       }
       const reservedCents = updated.reduce((sum, row, i) => {
         if (i === currentIndex || reducible.has(i)) return sum;
@@ -1303,6 +1352,103 @@ const historyRows = useMemo(() => {
         paidDate: nextPaidDate,
         autoPartial: nextAuto,
       };
+
+      const editingInitial =
+        Boolean(currentItem.isInitialPayment) || Number(currentItem.installmentNo) === 0;
+
+      // Initial Payment only moves its own remainder onto the split row (0.1).
+      // Installments 1, 2, 3... stay as they are.
+      if (editingInitial) {
+        const childIndexes = [];
+        for (let i = currentIndex + 1; i < updated.length; i++) {
+          const row = updated[i];
+          if (isScheduledInstallment(row)) break;
+          if (String(row.feeType || '').trim().toLowerCase() !== currentFeeTypeForCap) continue;
+          childIndexes.push(i);
+        }
+
+        childIndexes.forEach((i) => {
+          if (updated[i].originalAmount == null || updated[i].originalAmount === '') {
+            updated[i] = { ...updated[i], originalAmount: Number(updated[i].amount || 0) };
+          }
+        });
+
+        const poolCents =
+          toCents(updated[currentIndex].originalAmount) +
+          childIndexes.reduce((sum, i) => sum + toCents(updated[i].originalAmount), 0);
+
+        let typedCents = toCents(updated[currentIndex].amount);
+        if (typedCents > poolCents) {
+          typedCents = poolCents;
+          const capped = centsToAmount(poolCents);
+          updated[currentIndex] = {
+            ...updated[currentIndex],
+            amount: capped,
+            balance: updated[currentIndex].status === 'Partial' ? '0.00' : capped,
+            paidAmount:
+              updated[currentIndex].status === 'Partial' ? capped : updated[currentIndex].paidAmount,
+          };
+        }
+
+        const remainderCents = Math.max(0, poolCents - typedCents);
+        const remainderText = centsToAmount(remainderCents);
+
+        if (childIndexes.length === 0 && remainderCents > 0) {
+          const rootNo = Number(currentItem.parentGroupNo ?? currentItem.installmentNo ?? 0);
+          let n = 1;
+          let childNo = Number((rootNo + n / 10).toFixed(2));
+          while (
+            updated.some(
+              (x) => Number(x.installmentNo) === childNo && isSameFeeType(x, currentItem)
+            )
+          ) {
+            n += 1;
+            childNo = Number((rootNo + n / 10).toFixed(2));
+          }
+
+          updated.splice(currentIndex + 1, 0, {
+            installmentNo: childNo,
+            parentInstallmentNo: currentItem.installmentNo,
+            parentGroupNo: rootNo,
+            feeType: currentItem.feeType,
+            dueDate: currentItem.dueDate,
+            amount: remainderText,
+            paidAmount: '0.00',
+            balance: remainderText,
+            status: 'Pending',
+            originalStatus: 'Pending',
+            originalAmount: 0,
+          });
+        } else if (childIndexes.length > 0) {
+          const first = childIndexes[0];
+          const firstRow = updated[first];
+          updated[first] = {
+            ...firstRow,
+            amount: remainderText,
+            balance: firstRow.status === 'Partial' ? firstRow.balance : remainderText,
+            paidAmount: firstRow.status === 'Pending' ? '0.00' : firstRow.paidAmount,
+          };
+
+          for (let k = 1; k < childIndexes.length; k++) {
+            const row = updated[childIndexes[k]];
+            updated[childIndexes[k]] = {
+              ...row,
+              amount: '0.00',
+              balance: '0.00',
+            };
+          }
+        }
+
+        updated = updated.filter((row, i) => {
+          if (i <= currentIndex) return true;
+          if (isScheduledInstallment(row)) return true;
+          if (String(row.feeType || '').trim().toLowerCase() !== currentFeeTypeForCap) return true;
+          if (row.studentPaymentInstallmentId) return true;
+          return toCents(row.amount) > 0;
+        });
+
+        return updated;
+      }
 
       // Fee went back up to its original amount, so the auto-created Partial split is no longer needed.
       const revertedAutoPartial = isEdit && currentItem.autoPartial && !isReduced;
@@ -1379,8 +1525,8 @@ const historyRows = useMemo(() => {
           const targets = [];
           for (let i = currentIndex + 1; i < updated.length; i++) {
             const row = updated[i];
-            if (row.status !== 'Pending' || row.studentPaymentInstallmentId) continue;
-            if (String(row.feeType) !== String(currentItem.feeType)) continue;
+            if (row.status !== 'Pending') continue;
+            if (String(row.feeType || '').trim().toLowerCase() !== String(currentItem.feeType || '').trim().toLowerCase()) continue;
             targets.push(i);
           }
 
@@ -1577,35 +1723,10 @@ const historyRows = useMemo(() => {
     );
   };
 
-  const handleStatusChange = async (item, value) => {
+  const handleStatusChange = (item, value) => {
     if (value === 'ConfirmedByStudent') {
-      try {
-        await confirmInstallmentByStudent(item.studentPaymentInstallmentId);
-
-        setPaymentList((prev) =>
-          prev.map((x) => {
-            if (!isSamePaymentRow(x, item)) return x;
-
-            const paidLikeAmount = hasSplitChild(prev, x)
-              ? x.paidAmount || '0.00'
-              : x.amount;
-
-            return {
-              ...x,
-              status: 'ConfirmedByStudent',
-              paidAmount: paidLikeAmount,
-              balance: '0.00',
-              paidDate: x.paidDate || todayIso(),
-            };
-          })
-        );
-
-        setConfirmTargetInstallment(item);
-        setConfirmDialogOpen(true);
-      } catch (err) {
-        console.error('Failed to confirm installment by student:', err);
-      }
-      return;
+      setConfirmTargetInstallment(item);
+      setConfirmDialogOpen(true);
     }
 
     setPaymentList((prev) => {
@@ -1726,24 +1847,40 @@ const historyRows = useMemo(() => {
   };
 
   const handleConfirmedByStudent = (installment, documentUrl) => {
-    setPaymentList((prev) =>
-      prev.map((x) => {
+    setPaymentList((prev) => {
+      let updated = prev;
+      const leftoverChild = updated.find(
+        (x) =>
+          x.parentInstallmentNo === installment.installmentNo &&
+          isSameFeeType(x, installment) &&
+          !x.studentPaymentInstallmentId
+      );
+
+      if (leftoverChild) {
+        updated = updated.filter((x) => x !== leftoverChild);
+      }
+
+      return updated.map((x) => {
         if (!isSamePaymentRow(x, installment)) return x;
 
-        const paidLikeAmount = hasSplitChild(prev, x)
-          ? x.paidAmount || '0.00'
-          : Number(x.amount || 0).toFixed(2);
+        const paidLikeAmount = hasSplitChild(updated, x) && Number(x.paidAmount) > 0
+          ? x.paidAmount
+          : Number(x.originalAmount) > 0
+            ? Number(x.originalAmount).toFixed(2)
+            : Number(x.amount || 0).toFixed(2);
 
         return {
           ...x,
+          amount: hasSplitChild(updated, x) ? x.amount : paidLikeAmount,
           status: 'ConfirmedByStudent',
           paidAmount: paidLikeAmount,
           balance: '0.00',
           paidDate: x.paidDate || todayIso(),
           documentUrl,
+          originalAmount: hasSplitChild(updated, x) ? x.originalAmount : undefined,
         };
-      })
-    );
+      });
+    });
 
     setCommissionHistory((prev) =>
       prev.map((x) =>
@@ -2407,10 +2544,16 @@ const historyRows = useMemo(() => {
                               {canEditFees(item) ? (
                                 <TextField
                                   size="small"
-                                  type="number"
+                                  type="text"
                                   value={item.amount ?? ''}
-                                  onChange={(e) => handleFeeAmountChange(item, e.target.value)}
-                                  inputProps={{ min: 0, step: '0.01' }}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => {
+                                    const next = e.target.value;
+                                    if (next === '' || /^\d*\.?\d{0,2}$/.test(next)) {
+                                      handleFeeAmountChange(item, next);
+                                    }
+                                  }}
+                                  inputProps={{ inputMode: 'decimal' }}
                                   sx={{ width: 110 }}
                                 />
                               ) : (
