@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem, TextField, Dialog, DialogTitle, 
-  DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel, Switch, Tabs, Tab } from '@mui/material';
+import {
+  Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem, TextField, Dialog, DialogTitle,
+  DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel, Switch, Tabs, Tab
+} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { fetchCoursesByScrappingId } from '../../api/coursesApi';
-import { fetchStudentContracts,  createStudentContract,  updateStudentContract,  deleteStudentContract,  uploadStudentContractFile,} from '../../api/studentContractsApi';
-import { fetchUniqueInstituteNames,  getCampusesForInstitute,  getUniqueInstituteNames,  normalizeInstituteName,  resolveScrappingId,} from '../../api/institutesScrappingApi';
+import { fetchStudentContracts, createStudentContract, updateStudentContract, deleteStudentContract, uploadStudentContractFile, } from '../../api/studentContractsApi';
+import { fetchUniqueInstituteNames, getCampusesForInstitute, getUniqueInstituteNames, normalizeInstituteName, resolveScrappingId, } from '../../api/institutesScrappingApi';
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
 import { createStudentWithPaymentSchedule, fetchStudentPaymentDetail } from '../../api/studentsApi';
-import { createPaymentSchedule, createStudentPaymentInstallment,  createStudentCommission,  createStudentCommissionDetail,  updateStudentPaymentSchedule,} from '../../api/schedulesApi';
+import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule, } from '../../api/schedulesApi';
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
 import { formatDateDisplay } from '../../utils/dateFormat';
@@ -36,7 +38,7 @@ const tuitionFromCourseFee = (form) => {
     Number(form.oshcFee || 0);
   return Math.max(0, round2(courseFee - otherFees)).toFixed(2);
 };
-const amountFieldSx = { width: 170, '& .MuiOutlinedInput-root': { borderRadius: 1.5, backgroundColor: '#fff' },};
+const amountFieldSx = { width: 170, '& .MuiOutlinedInput-root': { borderRadius: 1.5, backgroundColor: '#fff' }, };
 
 const headerCellSx = {
   fontWeight: 700,
@@ -48,8 +50,8 @@ const headerCellSx = {
 };
 
 const tabSx = { textTransform: 'none', fontWeight: 700, minHeight: 48 };
-const statusSelectSx = { width: 150,height: 40,'& .MuiSelect-select': { minWidth: '70px', padding: '8px 32px 8px 12px' },};
-const commissionSelectSx = { width: 110,  height: 40, '& .MuiSelect-select': { minWidth: '70px', padding: '8px 32px 8px 12px' },};
+const statusSelectSx = { width: 150, height: 40, '& .MuiSelect-select': { minWidth: '70px', padding: '8px 32px 8px 12px' }, };
+const commissionSelectSx = { width: 110, height: 40, '& .MuiSelect-select': { minWidth: '70px', padding: '8px 32px 8px 12px' }, };
 const menuProps = { container: typeof document !== 'undefined' ? document.body : undefined };
 const getEmptyContractForm = () => ({
   status: 'Active',
@@ -116,8 +118,7 @@ const parseIsoDate = (value) => {
   const [year, month, day] = value.split('-').map(Number);
   const date = new Date(year, month - 1, day);
 
-  if ( Number.isNaN(date.getTime()) ||  date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day ) 
-  {
+  if (Number.isNaN(date.getTime()) || date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
     return null;
   }
   return date;
@@ -174,6 +175,28 @@ const shiftByFrequency = (baseDate, frequency, periods) => {
 };
 
 const formatDateCell = (value) => formatDateDisplay(value, '-');
+
+const compareInstallmentNo = (left, right) => {
+  const toParts = (value) =>
+    String(value ?? '')
+      .split('.')
+      .map((part) => {
+        const n = Number(part);
+        return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+      });
+
+  const a = toParts(left);
+  const b = toParts(right);
+  const len = Math.max(a.length, b.length);
+
+  for (let i = 0; i < len; i += 1) {
+    const av = a[i] ?? -1;
+    const bv = b[i] ?? -1;
+    if (av !== bv) return av - bv;
+  }
+
+  return 0;
+};
 const getGroupNo = (row) => row.parentGroupNo ?? row.installmentNo;
 const getGroupMembers = (list, groupNo) => list.filter((x) => getGroupNo(x) === groupNo);
 const getGroupRoot = (list, groupNo) => list.find((x) => x.installmentNo === groupNo);
@@ -183,6 +206,85 @@ const isSameFeeType = (a, b) => (a.feeType ?? null) === (b.feeType ?? null);
 const isScheduledInstallment = (row) => {
   const n = Number(row?.installmentNo);
   return Number.isFinite(n) && n >= 1 && Math.abs(n - Math.round(n)) < 1e-6;
+};
+
+const isInitialGroupRow = (row) =>
+  Boolean(row?.isInitialPayment) || !isScheduledInstallment(row);
+
+const isTuitionInstallment = (row) =>
+  String(row?.feeType || '').trim().toLowerCase() === 'tuition fee';
+
+// Initial Payment, partial rows, and paid rows stay as they are when the installment count changes.
+const isProtectedInstallment = (row) => {
+  if (isInitialGroupRow(row)) return true;
+  if (isPaidLike(row?.status)) return true;
+  return String(row?.status || '').toLowerCase() === 'partial';
+};
+
+const resizeUnpaidInstallments = (list, requestedCount, frequency, startDate) => {
+  const count = Math.floor(Number(requestedCount));
+  if (!count || count < 1) return { list, appliedCount: count };
+
+  const regularTuition = (row) => isScheduledInstallment(row) && isTuitionInstallment(row);
+  const regularLocked = list.filter((row) => regularTuition(row) && isProtectedInstallment(row));
+  const unpaid = list
+    .filter((row) => regularTuition(row) && !isProtectedInstallment(row))
+    .sort((a, b) => Number(a.installmentNo) - Number(b.installmentNo));
+
+  const target = Math.max(count, regularLocked.length);
+  const kept = unpaid.slice(0, target - regularLocked.length).map((row) => ({ ...row }));
+
+  const usedNumbers = new Set([
+    ...regularLocked.map((row) => Number(row.installmentNo)),
+    ...kept.map((row) => Number(row.installmentNo)),
+  ]);
+
+  const dated = [...regularLocked, ...kept]
+    .map((row) => parseIsoDate(String(row.dueDate || '').slice(0, 10)))
+    .filter(Boolean)
+    .sort((a, b) => a.getTime() - b.getTime());
+  let cursor = dated[dated.length - 1] || parseIsoDate(String(startDate || '').slice(0, 10));
+
+  const created = [];
+  let nextNo = 1;
+  while (kept.length + created.length < target - regularLocked.length) {
+    while (usedNumbers.has(nextNo)) nextNo += 1;
+    if (!cursor) break;
+    cursor = shiftByFrequency(cursor, frequency || 'Monthly', 1);
+    const amount = '0.00';
+    created.push({
+      installmentNo: String(nextNo),
+      feeType: 'Tuition Fee',
+      dueDate: toIsoDate(cursor),
+      amount,
+      paidAmount: '0.00',
+      balance: amount,
+      status: 'Pending',
+      originalStatus: 'Pending',
+      originalAmount: 0,
+    });
+    usedNumbers.add(nextNo);
+    nextNo += 1;
+  }
+
+  const adjustable = [...kept, ...created];
+  const poolCents = unpaid.reduce((sum, row) => sum + toCents(row.amount), 0);
+  const shares = splitCents(poolCents, adjustable.length);
+
+  adjustable.forEach((row, index) => {
+    const amount = centsToAmount(shares[index] ?? 0);
+    row.amount = amount;
+    row.balance = amount;
+    row.paidAmount = row.paidAmount && Number(row.paidAmount) > 0 ? row.paidAmount : '0.00';
+    row.originalAmount = Number(amount);
+  });
+
+  const others = list.filter((row) => !regularTuition(row));
+  const activeTuition = [...regularLocked.map((row) => ({ ...row })), ...adjustable].sort(
+    (a, b) => Number(a.installmentNo) - Number(b.installmentNo)
+  );
+
+  return { list: [...others, ...activeTuition], appliedCount: target };
 };
 
 // Tuition and Non-Tuition rows can share an installment number, so a row is identified by both.
@@ -408,6 +510,7 @@ export default function NewStudentPage({ basePath }) {
   const [commissionHistory, setCommissionHistory] = useState([]);
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
   const [originalSchedule, setOriginalSchedule] = useState(null);
+  const [installmentCountDraft, setInstallmentCountDraft] = useState('');
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmTargetInstallment, setConfirmTargetInstallment] = useState(null);
   const [instituteLocked, setInstituteLocked] = useState(false);
@@ -427,6 +530,7 @@ export default function NewStudentPage({ basePath }) {
   const [contractUploading, setContractUploading] = useState(false);
 
   const submittingRef = useRef(false);
+  const manualDueDatesRef = useRef(new Map());
   const prefillAppliedRef = useRef(false);
   const contractFileInputRef = useRef(null);
 
@@ -590,7 +694,14 @@ export default function NewStudentPage({ basePath }) {
       });
     }
 
-    setPaymentList(list);
+    setPaymentList(
+      list.map((row) => {
+        const manual = manualDueDatesRef.current.get(
+          `${String(row.installmentNo)}|${String(row.feeType || '').trim().toLowerCase()}`
+        );
+        return manual ? { ...row, dueDate: manual } : row;
+      })
+    );
   };
 
   useEffect(() => {
@@ -611,7 +722,8 @@ export default function NewStudentPage({ basePath }) {
     };
   }, []);
 
-  useEffect(() => { if (!isEdit || !form.courseId || !courses.length) return;
+  useEffect(() => {
+    if (!isEdit || !form.courseId || !courses.length) return;
     const selectedCourse = courses.find((c) => String(c.courseId) === String(form.courseId));
     if (!selectedCourse) return;
 
@@ -662,8 +774,8 @@ export default function NewStudentPage({ basePath }) {
   const uniqueInstituteNames = useMemo(() => getUniqueInstituteNames(institutes), [institutes]);
 
   const instituteSelectOptions = useMemo(() => {
-  const names = uniqueInstituteNames.map((name) => ({ value: name, label: name }));
-  const current = normalizeInstituteName(form.instituteId);
+    const names = uniqueInstituteNames.map((name) => ({ value: name, label: name }));
+    const current = normalizeInstituteName(form.instituteId);
 
     if (current && !names.some((n) => String(n.value) === current)) {
       names.push({ value: current, label: current });
@@ -692,7 +804,7 @@ export default function NewStudentPage({ basePath }) {
       return undefined;
     }
 
-    fetchCoursesByScrappingId(resolvedScrappingId)
+    fetchCoursesByScrappingId(resolvedScrappingId, form.campusname)
       .then((data) => {
         if (!active) return;
         setCourses(data.courses);
@@ -705,7 +817,7 @@ export default function NewStudentPage({ basePath }) {
     return () => {
       active = false;
     };
-  }, [resolvedScrappingId]);
+  }, [resolvedScrappingId, form.campusname]);
 
   const selectOptions = useMemo(
     () => ({
@@ -795,7 +907,7 @@ export default function NewStudentPage({ basePath }) {
           return next;
         });
 
-      const history = data.commissionHistory || [];
+        const history = data.commissionHistory || [];
 
         setOriginalPaymentList(list);
         setPaymentList(list);
@@ -831,6 +943,13 @@ export default function NewStudentPage({ basePath }) {
 
     loadData();
   }, [id, isEdit, basePath]);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    setInstallmentCountDraft(
+      form.noOfInstallment === '' || form.noOfInstallment == null ? '' : String(form.noOfInstallment)
+    );
+  }, [isEdit, form.noOfInstallment]);
 
   const handleTabChange = (_event, newValue) => {
     setActiveTab(newValue);
@@ -939,7 +1058,27 @@ export default function NewStudentPage({ basePath }) {
         field === 'startDate' ||
         FEE_COMPONENT_FIELDS.includes(field)
       ) {
-        generateInstallments(next);
+        if (!(isEdit && field === 'noOfInstallment')) {
+          generateInstallments(next);
+        }
+      }
+
+      if (isEdit && field === 'noOfInstallment') {
+        const count = Math.floor(Number(value));
+        if (count > 0) {
+          setPaymentList((prev) => {
+            const result = resizeUnpaidInstallments(
+              prev,
+              count,
+              next.frequency,
+              next.startDate
+            );
+            if (result.appliedCount !== count) {
+              next.noOfInstallment = result.appliedCount;
+            }
+            return result.list;
+          });
+        }
       }
 
       return next;
@@ -1039,84 +1178,103 @@ export default function NewStudentPage({ basePath }) {
     ]
   );
 
-const historyRows = useMemo(() => {
-  if (!isEdit) return commissionRows;
+  const historyRows = useMemo(() => {
+    if (!isEdit) return commissionRows;
 
-  // Payment rows ke commission (calculated values)
-  const calcById = new Map(
-    commissionRows.map((r) => [Number(r.studentPaymentInstallmentId), r])
-  );
+    // Payment rows ke commission (calculated values)
+    const calcById = new Map(
+      commissionRows.map((r) => [Number(r.studentPaymentInstallmentId), r])
+    );
 
-  const rows = commissionHistory
-    .map((h) => {
-      const spiId = Number(h.studentPaymentInstallmentId ?? h.StudentPaymentInstallmentId);
-      const payment = paymentList.find((p) => Number(p.studentPaymentInstallmentId) === spiId);
-      const calc = calcById.get(spiId);
-      const isBonus = Number(h.isBonus ?? h.IsBonus ?? 0) === 1;
-      const status = h.commissionStatus ?? h.CommissionStatus ?? 'Pending';
+    const rows = commissionHistory
+      .map((h) => {
+        const spiId = Number(h.studentPaymentInstallmentId ?? h.StudentPaymentInstallmentId);
+        const payment = paymentList.find((p) => Number(p.studentPaymentInstallmentId) === spiId);
+        const calc = calcById.get(spiId);
+        const isBonus = Number(h.isBonus ?? h.IsBonus ?? 0) === 1;
+        const status = h.commissionStatus ?? h.CommissionStatus ?? 'Pending';
 
-      return {
-        ...h,
-        studentPaymentInstallmentId: spiId,
-        installmentNo: h.installmentNo,                 // SP se jaisa aaya waisa (0, 0.1.1, 1 ...)
-        displayInstallmentNo: h.installmentNo,
-        feeType: payment?.feeType ?? h.feeType ?? h.FeeType ?? null,
-        isBonus,
-        dueDate: payment?.dueDate ?? h.dueDate ?? h.DueDate ?? null,
-        feesAmount: isBonus ? 0 : Number(calc?.fees ?? h.feesAmount ?? 0),
-        paymentStatus: payment?.status ?? h.paymentStatus ?? h.PaymentStatus ?? 'Pending',
-        commissionAmount: isBonus
-          ? Number(h.commissionAmount ?? h.CommissionAmount ?? 0)
-          : Number(calc?.commission ?? h.commissionAmount ?? 0),
-        gstAmount: isBonus
-          ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
-          : Number(calc?.gst ?? h.gstAmount ?? 0),
-        bonusAmount: isBonus
-          ? Number(h.bonusAmount ?? h.BonusAmount ?? 0)
-          : Number(calc?.bonus ?? h.bonusAmount ?? 0),
-        invoiceAmount: isBonus
-          ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
-          : Number(calc?.invoice ?? h.invoiceAmount ?? 0),
-        commissionDetailId: h.commissionDetailId ?? h.CommissionDetailId,
-        commissionHistoryOriginalStatus: status,
-        commissionStatus: status,
+        return {
+          ...h,
+          studentPaymentInstallmentId: spiId,
+          installmentNo: h.installmentNo,                 // SP se jaisa aaya waisa (0, 0.1.1, 1 ...)
+          displayInstallmentNo: h.installmentNo,
+          feeType: payment?.feeType ?? h.feeType ?? h.FeeType ?? null,
+          isBonus,
+          dueDate: payment?.dueDate ?? h.dueDate ?? h.DueDate ?? null,
+          feesAmount: isBonus ? 0 : Number(calc?.fees ?? h.feesAmount ?? 0),
+          paymentStatus: payment?.status ?? h.paymentStatus ?? h.PaymentStatus ?? 'Pending',
+          commissionAmount: isBonus
+            ? Number(h.commissionAmount ?? h.CommissionAmount ?? 0)
+            : Number(calc?.commission ?? h.commissionAmount ?? 0),
+          gstAmount: isBonus
+            ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
+            : Number(calc?.gst ?? h.gstAmount ?? 0),
+          bonusAmount: isBonus
+            ? Number(h.bonusAmount ?? h.BonusAmount ?? 0)
+            : Number(calc?.bonus ?? h.bonusAmount ?? 0),
+          invoiceAmount: isBonus
+            ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
+            : Number(calc?.invoice ?? h.invoiceAmount ?? 0),
+          commissionDetailId: h.commissionDetailId ?? h.CommissionDetailId,
+          commissionHistoryOriginalStatus: status,
+          commissionStatus: status,
+        };
+      })
+      .filter((row) => {
+        const paid = String(row.commissionHistoryOriginalStatus || '').trim().toLowerCase() === 'paid';
+        const initial = Number(row.installmentNo) < 1;
+        if (paid || initial || row.isBonus) return true;
+        return paymentList.some(
+          (item) =>
+            (row.studentPaymentInstallmentId &&
+              Number(item.studentPaymentInstallmentId) === Number(row.studentPaymentInstallmentId)) ||
+            (Number(item.installmentNo) === Number(row.installmentNo) &&
+              String(item.feeType || '').trim().toLowerCase() === String(row.feeType || '').trim().toLowerCase())
+        );
+      });
+
+    const historyKey = (row) =>
+      `${Number(row.installmentNo)}|${String(row.feeType || '').trim().toLowerCase()}`;
+    const seen = new Set(rows.map(historyKey));
+
+    commissionRows.forEach((calc) => {
+      const key = historyKey(calc);
+      const id = Number(calc.studentPaymentInstallmentId);
+      if (seen.has(key)) return;
+      if (id && rows.some((r) => Number(r.studentPaymentInstallmentId) === id)) return;
+
+      const extra = {
+        studentPaymentInstallmentId: calc.studentPaymentInstallmentId,
+        installmentNo: calc.installmentNo,
+        displayInstallmentNo: calc.installmentNo,
+        feeType: calc.feeType,
+        dueDate: calc.feesDate,
+        feesAmount: Number(calc.fees || 0),
+        paymentStatus: calc.paymentStatus,
+        commissionAmount: Number(calc.commission || 0),
+        gstAmount: Number(calc.gst || 0),
+        bonusAmount: Number(calc.bonus || 0),
+        invoiceAmount: Number(calc.invoice || 0),
+        commissionStatus: 'Pending',
+        commissionHistoryOriginalStatus: 'Pending',
       };
+
+      const at = rows.findIndex((r) => Number(r.installmentNo) > Number(extra.installmentNo));
+      if (at === -1) rows.push(extra);
+      else rows.splice(at, 0, extra);
+      seen.add(key);
     });
 
-  const historyKey = (row) =>
-    `${Number(row.installmentNo)}|${String(row.feeType || '').trim().toLowerCase()}`;
-  const seen = new Set(rows.map(historyKey));
+    rows.sort((a, b) =>
+      compareInstallmentNo(
+        a.displayInstallmentNo ?? a.installmentNo,
+        b.displayInstallmentNo ?? b.installmentNo
+      )
+    );
 
-  commissionRows.forEach((calc) => {
-    const key = historyKey(calc);
-    const id = Number(calc.studentPaymentInstallmentId);
-    if (seen.has(key)) return;
-    if (id && rows.some((r) => Number(r.studentPaymentInstallmentId) === id)) return;
-
-    const extra = {
-      studentPaymentInstallmentId: calc.studentPaymentInstallmentId,
-      installmentNo: calc.installmentNo,
-      displayInstallmentNo: calc.installmentNo,
-      feeType: calc.feeType,
-      dueDate: calc.feesDate,
-      feesAmount: Number(calc.fees || 0),
-      paymentStatus: calc.paymentStatus,
-      commissionAmount: Number(calc.commission || 0),
-      gstAmount: Number(calc.gst || 0),
-      bonusAmount: Number(calc.bonus || 0),
-      invoiceAmount: Number(calc.invoice || 0),
-      commissionStatus: 'Pending',
-      commissionHistoryOriginalStatus: 'Pending',
-    };
-
-    const at = rows.findIndex((r) => Number(r.installmentNo) > Number(extra.installmentNo));
-    if (at === -1) rows.push(extra);
-    else rows.splice(at, 0, extra);
-    seen.add(key);
-  });
-
-  return rows;
-}, [isEdit, paymentList, commissionHistory, commissionRows]);
+    return rows;
+  }, [isEdit, paymentList, commissionHistory, commissionRows]);
 
   const totals = useMemo(
     () => ({
@@ -1132,6 +1290,17 @@ const historyRows = useMemo(() => {
     }),
     [historyRows]
   );
+
+  const paymentTotals = useMemo(() => {
+    const paidCents = paymentList.reduce((sum, row) => sum + toCents(row.paidAmount), 0);
+    const feeCents = paymentList.reduce((sum, row) => sum + toCents(row.amount), 0);
+
+    return {
+      paid: centsToAmount(paidCents),
+      remaining: centsToAmount(Math.max(0, feeCents - paidCents)),
+      total: centsToAmount(feeCents),
+    };
+  }, [paymentList]);
 
   const hasChanges = useMemo(() => {
     if (!isEdit) return true;
@@ -1149,6 +1318,7 @@ const historyRows = useMemo(() => {
 
     return (
       studentNow !== savedStudentSnapshot ||
+      Number(originalSchedule?.noOfInstallment) !== Number(form.noOfInstallment) ||
       buildChangeSnapshot(paymentList, commissionHistory) !== savedScheduleSnapshot
     );
   }, [
@@ -1164,6 +1334,8 @@ const historyRows = useMemo(() => {
     form.bonusType,
     form.bonusOption,
     form.dueDate,
+    form.noOfInstallment,
+    originalSchedule,
     addBonus,
   ]);
 
@@ -1191,6 +1363,7 @@ const historyRows = useMemo(() => {
     item.originalStatus === 'PaidByCollege';
 
   const canEditPaidFields = (item) => {
+    if (!isEdit) return false;
     if (!item.studentPaymentInstallmentId) return true;
 
     if (isConfirmedByCollege(item)) { return isRowPastDataEditable(item); }
@@ -1221,26 +1394,26 @@ const historyRows = useMemo(() => {
     return isPaidLike(prevStatus) || prevStatus === 'Partial';
   };
 
- const isStatusDisabled = (item, groupComplete, isLastOfGroup) => {
-  // Pending row hamesha editable rahe
-  if (item.status === 'Pending' && (!item.originalStatus || item.originalStatus === 'Pending')) {
-    return false;
-  }
+  const isStatusDisabled = (item, groupComplete, isLastOfGroup) => {
+    // Pending row hamesha editable rahe
+    if (item.status === 'Pending' && (!item.originalStatus || item.originalStatus === 'Pending')) {
+      return false;
+    }
 
-  return (
-    (item.originalStatus &&
-      item.originalStatus !== 'Pending' &&
-      !isRowPastDataEditable(item)) ||
-    item.originalStatus === 'ConfirmedByCollege' ||
-    item.originalStatus === 'PaidByCollege' ||
-    (isPersistedPartial(item) && !isRowPastDataEditable(item)) ||
-    (groupComplete &&
-      !isLastOfGroup &&
-      !isPaidLike(item.status) &&
-      item.status !== 'Partial' &&
-      !isRowPastDataEditable(item))
-  );
-};
+    return (
+      (item.originalStatus &&
+        item.originalStatus !== 'Pending' &&
+        !isRowPastDataEditable(item)) ||
+      item.originalStatus === 'ConfirmedByCollege' ||
+      item.originalStatus === 'PaidByCollege' ||
+      (isPersistedPartial(item) && !isRowPastDataEditable(item)) ||
+      (groupComplete &&
+        !isLastOfGroup &&
+        !isPaidLike(item.status) &&
+        item.status !== 'Partial' &&
+        !isRowPastDataEditable(item))
+    );
+  };
 
   const canEditCommissionStatus = (row) => {
     const sortedRows = historyRows;
@@ -1449,6 +1622,30 @@ const historyRows = useMemo(() => {
 
         return updated;
       }
+      if (isInitialGroupRow(currentItem)) {
+        const upfrontCents = toCents(form.initialPayment);
+        const otherCents = updated.reduce((sum, row, index) => {
+          if (index === currentIndex || !isInitialGroupRow(row)) return sum;
+          return sum + toCents(row.amount);
+        }, 0);
+        const maxChildCents = Math.max(0, upfrontCents - otherCents);
+        const typed = toCents(updated[currentIndex].amount);
+
+        if (typed > maxChildCents) {
+          const capped = centsToAmount(maxChildCents);
+          updated[currentIndex] = {
+            ...updated[currentIndex],
+            amount: capped,
+            balance: updated[currentIndex].status === 'Partial' ? '0.00' : capped,
+            paidAmount:
+              updated[currentIndex].status === 'Partial'
+                ? capped
+                : updated[currentIndex].paidAmount,
+          };
+        }
+
+        return updated;
+      }
 
       // Fee went back up to its original amount, so the auto-created Partial split is no longer needed.
       const revertedAutoPartial = isEdit && currentItem.autoPartial && !isReduced;
@@ -1463,9 +1660,10 @@ const historyRows = useMemo(() => {
         );
       }
 
+      const becamePartial = nextStatus === 'Partial' && currentItem.originalStatus !== 'Partial';
       if (
         !revertedAutoPartial &&
-        (currentItem.status === 'Partial' || currentItem.originalStatus === 'Partial')
+        (currentItem.status === 'Partial' || currentItem.originalStatus === 'Partial' || becamePartial)
       ) {
         const baseAmount = Number(currentItem.originalAmount ?? oldAmount);
         const childIndex = updated.findIndex(
@@ -1718,6 +1916,20 @@ const historyRows = useMemo(() => {
       prev.map((x) =>
         isSamePaymentRow(x, item)
           ? { ...x, paidDate: value }
+          : x
+      )
+    );
+  };
+
+  const handleDueDateChange = (item, value) => {
+    manualDueDatesRef.current.set(
+      `${String(item.installmentNo)}|${String(item.feeType || '').trim().toLowerCase()}`,
+      value
+    );
+    setPaymentList((prev) =>
+      prev.map((x) =>
+        isSamePaymentRow(x, item)
+          ? { ...x, dueDate: value }
           : x
       )
     );
@@ -1997,6 +2209,8 @@ const historyRows = useMemo(() => {
           originalSchedule.frequency !== form.frequency ||
           originalSchedule.startDate !== form.startDate;
 
+        const rowsForSave = scheduleChanged ? paymentList : persistedRows;
+
         const result = await updateStudentPaymentSchedule({
           studentId: form.studentId,
           noOfInstallments: totalInstallmentCount,
@@ -2009,8 +2223,8 @@ const historyRows = useMemo(() => {
           bonusType: addBonus ? form.bonusType ?? null : null,
           bonusOption: addBonus ? form.bonusOption ?? null : null,
           dueDate: form.dueDate || null,
-          paymentList: persistedRows.map((x) => ({
-            studentPaymentInstallmentId: x.studentPaymentInstallmentId,
+          paymentList: rowsForSave.map((x) => ({
+            studentPaymentInstallmentId: x.studentPaymentInstallmentId || 0,
             installmentNo: String(x.installmentNo ?? x.apiInstallmentNo ?? ''),
             parentInstallmentId:
               x.parentInstallmentId ??
@@ -2065,7 +2279,7 @@ const historyRows = useMemo(() => {
         commissionId = result.commissionId;
       }
 
-      if (!isEdit || scheduleChanged) {
+      if (!isEdit) {
         const installmentIds = [];
 
         for (const item of paymentList) {
@@ -2508,6 +2722,7 @@ const historyRows = useMemo(() => {
                             <Checkbox
                               size="small"
                               checked={editPastDataAll}
+                              disabled={!isEdit}
                               onChange={(e) => {
                                 setEditPastDataAll(e.target.checked);
                                 if (e.target.checked) setEditPastDataRows(new Set());
@@ -2561,13 +2776,25 @@ const historyRows = useMemo(() => {
                               )}
                             </TableCell>
 
-                            <TableCell>{formatDateCell(item.dueDate)}</TableCell>
+                            <TableCell>
+                              {canEditFees(item) ? (
+                                <TextField
+                                  size="small"
+                                  type="date"
+                                  value={(item.dueDate || '').slice(0, 10)}
+                                  onChange={(e) => handleDueDateChange(item, e.target.value)}
+                                  sx={{ width: 140 }}
+                                />
+                              ) : (
+                                formatDateCell(item.dueDate)
+                              )}
+                            </TableCell>
 
                             <TableCell>
                               <Checkbox
                                 size="small"
                                 checked={isRowPastDataEditable(item)}
-                                disabled={editPastDataAll || item.status !== "Pending"}
+                                disabled={!isEdit || editPastDataAll || item.status !== "Pending"}
                                 onChange={() => toggleRowPastData(item)}
                               />
                             </TableCell>
@@ -2636,6 +2863,88 @@ const historyRows = useMemo(() => {
                           No Payment Schedule
                         </TableCell>
                       </TableRow>
+                    )}
+                    {paymentList.length > 0 && (
+                      <>
+                        <TableRow sx={{ height: 55 }}>
+                          <TableCell />
+                          <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            <b>Total Paid Amount:</b>
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>
+                            <b>{paymentTotals.paid}</b>
+                          </TableCell>
+                          <TableCell colSpan={6} />
+                        </TableRow>
+                        <TableRow sx={{ height: 55 }}>
+                          <TableCell
+                            sx={{
+                              verticalAlign: 'middle',
+                              padding: '4px 8px',
+                              width: 140,
+                            }}
+                          >
+                         {isEdit && (
+  <TextField
+    size="small"
+    label="Installments"
+    value={installmentCountDraft}
+    onChange={(e) => {
+      const next = e.target.value;
+
+      if (next !== '' && !/^\d+$/.test(next)) return;
+
+      setInstallmentCountDraft(next);
+
+      const count = Number(next);
+      if (count >= 1 && count !== Number(form.noOfInstallment)) {
+        updateField('noOfInstallment', String(count));
+      }
+    }}
+    inputProps={{
+      inputMode: 'numeric',
+      min: 1,
+    }}
+    sx={{
+      width: 125,
+
+      '& .MuiOutlinedInput-root': {
+        height: 42,
+        borderRadius: 1.5,
+      },
+
+      '& .MuiInputBase-input': {
+        fontWeight: 600,
+        fontSize: '0.85rem',
+        padding: '8px 10px',
+      },
+
+     '& .MuiInputLabel-root.Mui-focused': {
+  fontWeight: 700,
+},
+    }}
+  />
+)}
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            <b>Total Remaining Amount:</b>
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>
+                            <b>{paymentTotals.remaining}</b>
+                          </TableCell>
+                          <TableCell colSpan={6} />
+                        </TableRow>
+                        <TableRow sx={{ height: 55 }}>
+                          <TableCell />
+                          <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            <b>Total:</b>
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>
+                            <b>{paymentTotals.total}</b>
+                          </TableCell>
+                          <TableCell colSpan={6} />
+                        </TableRow>
+                      </>
                     )}
                   </TableBody>
                 </Table>
@@ -2772,13 +3081,13 @@ const historyRows = useMemo(() => {
                         <TableRow sx={{ backgroundColor: '#f5f7fb' }}>
                           <TableCell colSpan={3}> <b>Total</b>    </TableCell>
                           <TableCell> <b>{totals.fees.toFixed(2)}</b> </TableCell>
-                             <TableCell />
+                          <TableCell />
                           <TableCell>  <b>{totals.commission.toFixed(2)}</b> </TableCell>
                           <TableCell>  <b>{totals.bonus.toFixed(2)}</b> </TableCell>
                           <TableCell> <b>{totals.gst.toFixed(2)}</b> </TableCell>
                           <TableCell> <b>{totals.invoice.toFixed(2)}</b> </TableCell>
                           <TableCell />
-                              </TableRow>
+                        </TableRow>
                       </>
                     ) : (
                       <TableRow> <TableCell colSpan={10} align="center"> No Commission History </TableCell> </TableRow>
@@ -2792,14 +3101,14 @@ const historyRows = useMemo(() => {
 
         {activeTab === 3 && (
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
-            <Box sx={{ display: 'flex',  justifyContent: 'space-between', alignItems: 'center', mb: 1.5, }}  >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, }}  >
               <Typography variant="h6" sx={{ fontWeight: 700 }}> Offer Letter  </Typography>
 
               <Button
                 variant="contained" size="small"
                 startIcon={<AddIcon />}
-                onClick={openAddContract}> 
-                  Add Offer Letter</Button>
+                onClick={openAddContract}>
+                Add Offer Letter</Button>
             </Box>
 
             <TableContainer>
@@ -2863,9 +3172,9 @@ const historyRows = useMemo(() => {
         <FormActions
           onCancel={() => navigate(basePath)}
           onSubmit={handleCreate}
-          submitLabel={ submitting
-              ? isEdit ? 'Updating...'    : 'Saving...'
-              : isEdit ? 'Update Student' : 'Save Student'
+          submitLabel={submitting
+            ? isEdit ? 'Updating...' : 'Saving...'
+            : isEdit ? 'Update Student' : 'Save Student'
           }
           submitDisabled={
             !isFormValid(resource, form) ||
