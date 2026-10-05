@@ -319,6 +319,7 @@ export default function CardItem({ card, index, theme, onDelete, onCardClick }) 
             boxShadow: snapshot.isDragging ? '0 4px 10px rgba(0,0,0,0.12)' : 'none',
             boxSizing: 'border-box',
             maxWidth: '100%',
+            flexShrink: 0,
             overflowWrap: 'break-word',
             ...provided.draggableProps.style,
           }}

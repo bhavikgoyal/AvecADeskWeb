@@ -444,6 +444,8 @@ function CreateBoardButton() {
   );
 }
 
+const SELECTED_BOARD_KEY = "selected_board_id";
+
 export default function BoardPage() {
   const { user } = useAuth();
   const isAccounting = user?.role === "Accounting";
@@ -499,6 +501,10 @@ export default function BoardPage() {
 
     loadDefaultBoard();
   }, []);
+
+  useEffect(() => {
+    if (selectedBoardId) localStorage.setItem(SELECTED_BOARD_KEY, String(selectedBoardId));
+  }, [selectedBoardId]);
 
   useEffect(() => {
     if (isAccounting) return;
