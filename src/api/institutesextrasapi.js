@@ -52,7 +52,7 @@ export async function createInstituteContact(instituteId, form) {
 }
 
 export async function updateInstituteContact(instituteId, contactId, form) {
-  const { data } = await axiosClient.put(
+  const { data } = await axiosClient.post(
     `/api/institutes/${instituteId}/contacts/${contactId}`,
     toContactRequestBody(form),
   );
