@@ -330,9 +330,7 @@ useEffect(() => {
   ];
 
   
-const disabledFields = isEditMode
-  ? ['instituteId', 'campus']
-  : instituteLocked
+const disabledFields = instituteLocked
     ? ['instituteId', ...(!form.instituteId ? ['campus'] : [])]
     : (!form.instituteId ? ['campus'] : []);
   if (loading) {
