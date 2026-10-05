@@ -27,6 +27,15 @@ const FEE_TYPES = [
   { key: 'OSHC', label: 'OSHC Fee', amountField: 'oshcFee' },
 ];
 const FEE_COMPONENT_FIELDS = FEE_TYPES.map((ft) => ft.amountField);
+
+const tuitionFromCourseFee = (form) => {
+  const courseFee = Number(form.courseFee || 0);
+  const otherFees =
+    Number(form.enrollmentFee || 0) +
+    Number(form.materialFee || 0) +
+    Number(form.oshcFee || 0);
+  return Math.max(0, round2(courseFee - otherFees)).toFixed(2);
+};
 const amountFieldSx = { width: 170, '& .MuiOutlinedInput-root': { borderRadius: 1.5, backgroundColor: '#fff' },};
 
 const headerCellSx = {
@@ -64,6 +73,32 @@ const round2 = (value) => {
   if (!Number.isFinite(num)) return 0;
   const sign = num < 0 ? -1 : 1;
   return (sign * Number(`${Math.round(Number(`${Math.abs(num)}e2`))}e-2`)) || 0;
+};
+
+const toCents = (value) => {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return 0;
+  const sign = num < 0 ? -1 : 1;
+  return sign * Math.round(Number(`${Math.abs(num)}e2`));
+};
+
+const centsToAmount = (cents) => {
+  const sign = cents < 0 ? '-' : '';
+  const abs = Math.abs(Math.trunc(cents));
+  const whole = Math.trunc(abs / 100);
+  const frac = String(abs % 100).padStart(2, '0');
+  return `${sign}${whole}.${frac}`;
+};
+
+// Equal shares that still add back to the original cents. The last share
+// keeps any leftover cent, so 5020 / 2 stays 2510.00 + 2510.00 and
+// 5470 / 3 becomes 1823.33 + 1823.33 + 1823.34.
+const splitCents = (totalCents, count) => {
+  const n = Math.max(0, Number(count) || 0);
+  if (n === 0) return [];
+  const base = Math.trunc(totalCents / n);
+  const last = totalCents - base * (n - 1);
+  return Array.from({ length: n }, (_, index) => (index === n - 1 ? last : base));
 };
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -337,7 +372,7 @@ const buildChangeSnapshot = (list, history) =>
     })),
   });
 
-const buildStudentSnapshot = ({ phone, folderNo, leadNo, bonus, bonusType, bonusOption }) =>
+const buildStudentSnapshot = ({ phone, folderNo, leadNo, bonus, bonusType, bonusOption, dueDate }) =>
   JSON.stringify({
     phone: String(phone ?? ''),
     folderNo: String(folderNo ?? ''),
@@ -345,6 +380,7 @@ const buildStudentSnapshot = ({ phone, folderNo, leadNo, bonus, bonusType, bonus
     bonus: Number(bonus || 0),
     bonusType: bonus > 0 ? String(bonusType ?? '') : '',
     bonusOption: bonus > 0 ? String(bonusOption ?? '') : '',
+    dueDate: String(dueDate ?? '').slice(0, 10),
   });
 
 export default function NewStudentPage({ basePath }) {
@@ -446,18 +482,26 @@ export default function NewStudentPage({ basePath }) {
     const remainingNonTuitionFee = Math.max(nonTuitionFee - initialNonTuitionAmount, 0);
     const remainingTuitionFee = tuitionFee - initialTuitionAmount;
 
-    let installmentAmount;
-    if (isEdit) {
-      const paidRegularAmount = paidRegularInstallments.reduce(
-        (sum, x) => sum + Number(x.paidAmount || x.amount || 0),
-        0
-      );
-      const remainingAmount = remainingTuitionFee - paidRegularAmount;
-      const remainingInstallments = count - paidRegularInstallments.length;
-      installmentAmount = remainingInstallments > 0 ? remainingAmount / remainingInstallments : 0;
-    } else {
-      installmentAmount = count > 0 ? remainingTuitionFee / count : remainingTuitionFee;
+    const paidByInstallment = new Map(
+      paidRegularInstallments.map((row) => [Number(row.installmentNo), row])
+    );
+    const unpaidSlots = [];
+    let paidTuitionCents = 0;
+    for (let i = 0; i < count; i++) {
+      const paidRow = paidByInstallment.get(i + 1);
+      if (paidRow) {
+        paidTuitionCents += toCents(paidRow.paidAmount || paidRow.amount || 0);
+      } else {
+        unpaidSlots.push(i);
+      }
     }
+    const tuitionShares = splitCents(
+      toCents(remainingTuitionFee) - paidTuitionCents,
+      unpaidSlots.length
+    );
+    const tuitionShareBySlot = new Map(
+      unpaidSlots.map((slot, index) => [slot, tuitionShares[index] ?? 0])
+    );
 
     const list = [];
     const regularStartDate = initialPayment > 0 ? shiftByFrequency(startDate, data.frequency, 1) : new Date(startDate);
@@ -507,7 +551,7 @@ export default function NewStudentPage({ basePath }) {
 
       if (initialTuitionAmount > 0) {
         list.push({
-          installmentNo: 0.1,
+          installmentNo: 0,
           feeType: 'Tuition Fee',
           dueDate: toIsoDate(startDate),
           amount: initialTuitionAmount.toFixed(2),
@@ -521,21 +565,23 @@ export default function NewStudentPage({ basePath }) {
     }
 
     for (let i = 0; i < count; i++) {
-      const paidRow = paidRegularInstallments.find((x) => Number(x.installmentNo) === i + 1);
+      const paidRow = paidByInstallment.get(i + 1);
 
       if (paidRow) {
         list.push({ ...paidRow, feeType: paidRow.feeType || 'Tuition Fee' });
         continue;
       }
 
+      const amount = centsToAmount(tuitionShareBySlot.get(i) ?? 0);
       list.push({
         installmentNo: String(i + 1),
         feeType: 'Tuition Fee',
         dueDate: toIsoDate(shiftByFrequency(regularStartDate, data.frequency, i)),
-        amount: installmentAmount.toFixed(2),
+        amount,
         paidAmount: '0.00',
-        balance: installmentAmount.toFixed(2),
+        balance: amount,
         status: 'Pending',
+        originalAmount: Number(amount),
       });
     }
 
@@ -713,7 +759,10 @@ export default function NewStudentPage({ basePath }) {
           gstPercentage: data.gstPercentage,
           bonusType: data.bonusType,
           bonusOption: data.bonusOption,
-          remark: data.remark,
+          remark:
+            (data.commissionHistory || []).find((row) => String(row.remark ?? '').trim())?.remark
+            || data.remark
+            || '',
         });
 
         setOriginalSchedule({
@@ -741,10 +790,7 @@ export default function NewStudentPage({ basePath }) {
           return next;
         });
 
-        const history = (data.commissionHistory || []).map((x) => ({
-          ...x,
-          installmentNo: apiInstallmentMap.get(Number(x.installmentNo)) ?? x.installmentNo,
-        }));
+      const history = data.commissionHistory || [];
 
         setOriginalPaymentList(list);
         setPaymentList(list);
@@ -758,6 +804,7 @@ export default function NewStudentPage({ basePath }) {
             bonus: Number(data.bonusAmount || 0),
             bonusType: data.bonusType,
             bonusOption: data.bonusOption,
+            dueDate: data.dueDate,
           })
         );
 
@@ -822,16 +869,14 @@ export default function NewStudentPage({ basePath }) {
 
         const enrollmentFee = Number(selectedCourse?.enrollmentFee || 0);
         const materialFee = Number(selectedCourse?.materialFee || 0);
-        const tuitionFee = Number(selectedCourse?.tuitionFee || 0);
         const oshcFee = Number(selectedCourse?.oshcFee || 0);
-        const hasBreakdown = enrollmentFee + materialFee + tuitionFee + oshcFee > 0;
 
         next.enrollmentFee = enrollmentFee;
         next.materialFee = materialFee;
         next.oshcFee = oshcFee;
-        next.tuitionFee = hasBreakdown ? tuitionFee : Number(selectedCourse?.fees || 0);
         next.courseFee = selectedCourse?.fees ?? '';
-        next.amountDue = selectedCourse?.fees ?? '';
+        next.amountDue = next.courseFee;
+        next.tuitionFee = tuitionFromCourseFee(next);
         next.courseDurationWeeks = durationToWeeks(selectedCourse?.duration);
         next.commissionRate = Number(selectedCourse?.commissionRate ?? 0);
         next.rateType = selectedCourse?.rateType ?? '';
@@ -841,14 +886,9 @@ export default function NewStudentPage({ basePath }) {
         next.courseEndDate = computeCourseEndDate(next.courseStartDate, selectedCourse?.duration);
       }
 
-      if (FEE_COMPONENT_FIELDS.includes(field)) {
-        const total =
-          Number(next.enrollmentFee || 0) +
-          Number(next.materialFee || 0) +
-          Number(next.tuitionFee || 0) +
-          Number(next.oshcFee || 0);
-        next.courseFee = total.toFixed(2);
+      if (field === 'courseFee' || field === 'enrollmentFee' || field === 'materialFee' || field === 'oshcFee') {
         next.amountDue = next.courseFee;
+        next.tuitionFee = tuitionFromCourseFee(next);
       }
 
       if (field === 'startDate') {
@@ -994,81 +1034,50 @@ export default function NewStudentPage({ basePath }) {
     ]
   );
 
-  const historyRows = useMemo(() => {
-    if (!isEdit) return commissionRows;
+const historyRows = useMemo(() => {
+  if (!isEdit) return commissionRows;
 
-    const normalCounters = {};
-    const bonusCounters = {};
+  // Payment rows ke commission (calculated values)
+  const calcById = new Map(
+    commissionRows.map((r) => [Number(r.studentPaymentInstallmentId), r])
+  );
 
-    return commissionRows
-      .map((commissionRow) => {
-        const payment = paymentList.find(
-          (item) =>
-            Number(item.studentPaymentInstallmentId) ===
-            Number(commissionRow.studentPaymentInstallmentId)
-        );
+  return commissionHistory
+    .map((h) => {
+      const spiId = Number(h.studentPaymentInstallmentId ?? h.StudentPaymentInstallmentId);
+      const payment = paymentList.find((p) => Number(p.studentPaymentInstallmentId) === spiId);
+      const calc = calcById.get(spiId);
+      const isBonus = Number(h.isBonus ?? h.IsBonus ?? 0) === 1;
+      const status = h.commissionStatus ?? h.CommissionStatus ?? 'Pending';
 
-        const historyRow = commissionHistory.find(
-          (row) =>
-            Number(row.studentPaymentInstallmentId ?? row.StudentPaymentInstallmentId) ===
-            Number(commissionRow.studentPaymentInstallmentId)
-        );
-
-        const rawInstallmentNo = commissionRow.installmentNo ?? payment?.installmentNo ?? 0;
-        const installmentNo = Number(String(rawInstallmentNo).split('.')[0]);
-
-        const feeType =
-          payment?.feeType ?? commissionRow.feeType ?? historyRow?.feeType ?? historyRow?.FeeType ?? null;
-        const counterKey = `${installmentNo}|${feeType ?? ''}`;
-
-        const rawIsBonus = historyRow?.isBonus ?? historyRow?.IsBonus ?? false;
-        const isBonus =
-          rawIsBonus === 1 || rawIsBonus === '1' || String(rawIsBonus).toLowerCase() === 'true';
-
-        let displayInstallmentNo;
-        if (isBonus) {
-          bonusCounters[counterKey] = (bonusCounters[counterKey] ?? 0) + 1;
-          displayInstallmentNo = `${installmentNo}.1.${bonusCounters[counterKey]}`;
-        } else {
-          normalCounters[counterKey] = (normalCounters[counterKey] ?? 0) + 1;
-          const normalCount = normalCounters[counterKey];
-          displayInstallmentNo =
-            normalCount === 1 ? `${installmentNo}` : `${installmentNo}.${normalCount - 1}`;
-        }
-
-        return {
-          ...historyRow,
-          studentPaymentInstallmentId: commissionRow.studentPaymentInstallmentId,
-          installmentNo,
-          feeType,
-          displayInstallmentNo,
-          isBonus,
-          dueDate:
-            payment?.dueDate ??
-            historyRow?.dueDate ??
-            historyRow?.DueDate ??
-            commissionRow.feesDate ??
-            null,
-          feesAmount: Number(commissionRow.fees || 0),
-          paymentStatus:
-            payment?.status ??
-            commissionRow.paymentStatus ??
-            historyRow?.paymentStatus ??
-            historyRow?.PaymentStatus ??
-            'Pending',
-          commissionAmount: Number(commissionRow.commission || 0),
-          gstAmount: Number(commissionRow.gst || 0),
-          bonusAmount: Number(commissionRow.bonus || 0),
-          invoiceAmount: Number(commissionRow.invoice || 0),
-          commissionDetailId: historyRow?.commissionDetailId ?? historyRow?.CommissionDetailId,
-          commissionHistoryOriginalStatus:
-            historyRow?.commissionStatus ?? historyRow?.CommissionStatus ?? null,
-          commissionStatus:
-            historyRow?.commissionStatus ?? historyRow?.CommissionStatus ?? 'Pending',
-        };
-      })
-      .sort((a, b) => a.installmentNo - b.installmentNo);
-  }, [isEdit, paymentList, commissionHistory, commissionRows]);
+      return {
+        ...h,
+        studentPaymentInstallmentId: spiId,
+        installmentNo: h.installmentNo,                 // SP se jaisa aaya waisa (0, 0.1.1, 1 ...)
+        displayInstallmentNo: h.installmentNo,
+        feeType: payment?.feeType ?? h.feeType ?? h.FeeType ?? null,
+        isBonus,
+        dueDate: payment?.dueDate ?? h.dueDate ?? h.DueDate ?? null,
+        feesAmount: isBonus ? 0 : Number(calc?.fees ?? h.feesAmount ?? 0),
+        paymentStatus: payment?.status ?? h.paymentStatus ?? h.PaymentStatus ?? 'Pending',
+        commissionAmount: isBonus
+          ? Number(h.commissionAmount ?? h.CommissionAmount ?? 0)
+          : Number(calc?.commission ?? h.commissionAmount ?? 0),
+        gstAmount: isBonus
+          ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
+          : Number(calc?.gst ?? h.gstAmount ?? 0),
+        bonusAmount: isBonus
+          ? Number(h.bonusAmount ?? h.BonusAmount ?? 0)
+          : Number(calc?.bonus ?? h.bonusAmount ?? 0),
+        invoiceAmount: isBonus
+          ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
+          : Number(calc?.invoice ?? h.invoiceAmount ?? 0),
+        commissionDetailId: h.commissionDetailId ?? h.CommissionDetailId,
+        commissionHistoryOriginalStatus: status,
+        commissionStatus: status,
+      };
+    });
+}, [isEdit, paymentList, commissionHistory, commissionRows]);
 
   const totals = useMemo(
     () => ({
@@ -1096,6 +1105,7 @@ export default function NewStudentPage({ basePath }) {
       bonus: addBonus ? Number(form.bonus || 0) : 0,
       bonusType: form.bonusType,
       bonusOption: form.bonusOption,
+      dueDate: form.dueDate,
     });
 
     return (
@@ -1114,6 +1124,7 @@ export default function NewStudentPage({ basePath }) {
     form.bonus,
     form.bonusType,
     form.bonusOption,
+    form.dueDate,
     addBonus,
   ]);
 
@@ -1171,7 +1182,13 @@ export default function NewStudentPage({ basePath }) {
     return isPaidLike(prevStatus) || prevStatus === 'Partial';
   };
 
-  const isStatusDisabled = (item, groupComplete, isLastOfGroup) =>
+ const isStatusDisabled = (item, groupComplete, isLastOfGroup) => {
+  // Pending row hamesha editable rahe
+  if (item.status === 'Pending' && (!item.originalStatus || item.originalStatus === 'Pending')) {
+    return false;
+  }
+
+  return (
     (item.originalStatus &&
       item.originalStatus !== 'Pending' &&
       !isRowPastDataEditable(item)) ||
@@ -1182,10 +1199,12 @@ export default function NewStudentPage({ basePath }) {
       !isLastOfGroup &&
       !isPaidLike(item.status) &&
       item.status !== 'Partial' &&
-      !isRowPastDataEditable(item));
+      !isRowPastDataEditable(item))
+  );
+};
 
   const canEditCommissionStatus = (row) => {
-    const sortedRows = [...historyRows].sort((a, b) => a.installmentNo - b.installmentNo);
+    const sortedRows = historyRows;
     const currentIndex = sortedRows.findIndex((x) => x.commissionDetailId === row.commissionDetailId);
 
     if (currentIndex <= 0) return true;
@@ -1211,7 +1230,7 @@ export default function NewStudentPage({ basePath }) {
   };
 
   const handleFeeAmountChange = (item, value) => {
-    const newAmount = Number(value || 0);
+    let newAmount = Number(value || 0);
 
     setPaymentList((prev) => {
       let updated = prev.map((x) => ({ ...x }));
@@ -1224,6 +1243,23 @@ export default function NewStudentPage({ basePath }) {
       if (currentIndex === -1) return prev;
 
       const currentItem = updated[currentIndex];
+
+      // Later pending rows can shrink to zero. This row cannot take more than
+      // the course fee left after every row that will stay as it is.
+      const reducible = new Set();
+      for (let i = currentIndex + 1; i < updated.length; i++) {
+        const row = updated[i];
+        if (row.status === 'Pending' && !row.studentPaymentInstallmentId) reducible.add(i);
+      }
+      const reservedCents = updated.reduce((sum, row, i) => {
+        if (i === currentIndex || reducible.has(i)) return sum;
+        return sum + toCents(row.amount);
+      }, 0);
+      const maxCents = Math.max(0, toCents(form.courseFee) - reservedCents);
+      const typedCents = toCents(value);
+      const amountText = typedCents > maxCents ? centsToAmount(maxCents) : value;
+      newAmount = Number(amountText || 0);
+
       const oldAmount = Number(currentItem.originalAmount ?? currentItem.amount ?? 0);
       const difference = newAmount - oldAmount;
 
@@ -1259,7 +1295,7 @@ export default function NewStudentPage({ basePath }) {
 
       updated[currentIndex] = {
         ...currentItem,
-        amount: value,
+        amount: amountText,
         originalAmount: oldAmount,
         balance: nextBalance,
         status: nextStatus,
@@ -1349,22 +1385,24 @@ export default function NewStudentPage({ basePath }) {
           }
 
           targets.forEach((i) => { updated[i] = resetToOriginal(updated[i]); });
-          let left = Math.abs(diff);
+          let leftCents = toCents(Math.abs(diff));
           targets.forEach((i, idx) => {
-            if (left <= EPSILON) return;
+            if (leftCents <= 0) return;
 
-            const rowAmount = Number(updated[i].amount || 0);
-            const share =
-              idx === targets.length - 1
-                ? left : Number((left / (targets.length - idx)).toFixed(2));
-            const cut = Math.min(rowAmount, share);
+            const rowCents = toCents(updated[i].amount);
+            const slotsLeft = targets.length - idx;
+            const shareCents = idx === targets.length - 1
+              ? leftCents
+              : Math.trunc(leftCents / slotsLeft);
+            const cutCents = Math.min(rowCents, shareCents);
+            const nextCents = rowCents - cutCents;
 
             updated[i] = {
               ...updated[i],
-              amount: (rowAmount - cut).toFixed(2),
-              balance: (rowAmount - cut).toFixed(2),
+              amount: centsToAmount(nextCents),
+              balance: centsToAmount(nextCents),
             };
-            left -= cut;
+            leftCents -= cutCents;
           });
         }
 
@@ -1399,42 +1437,55 @@ export default function NewStudentPage({ basePath }) {
 
       // originalAmount is captured once per row, so this total stays fixed across repeated edits.
       const baselineOf = (row) => Number(row.originalAmount ?? row.amount ?? 0);
-      const feeTypeTotal = prev.reduce(
-        (sum, row) => (isCurrentFeeType(row) ? sum + baselineOf(row) : sum),
+      const baselineCents = prev.reduce(
+        (sum, row) => (isCurrentFeeType(row) ? sum + toCents(baselineOf(row)) : sum),
         0
       );
 
       const remainingSet = new Set(remainingIndexes);
-      const fixedAmount = updated.reduce((sum, row, i) => {
+      const fixedCents = updated.reduce((sum, row, i) => {
         if (!isCurrentFeeType(row) || remainingSet.has(i)) return sum;
-        return sum + (i === currentIndex ? newAmount : Number(row.amount || 0));
+        return sum + (i === currentIndex ? toCents(newAmount) : toCents(row.amount));
       }, 0);
 
-      const amountToSplit = feeTypeTotal - fixedAmount;
-      const distributable = Math.max(0, amountToSplit);
+      // Independent toFixed() on each generated row drops up to 1 cent per row
+      // (5470 / 3 => 1823.33 x 3 = 5469.99). Put that dust back when it is only
+      // rounding, so the later installments still add up to the course fee.
+      const componentPoolCents = isTuition
+        ? toCents(form.tuitionFee)
+        : isNonTuition
+          ? toCents(Number(form.enrollmentFee || 0) + Number(form.materialFee || 0) + Number(form.oshcFee || 0))
+          : null;
+      const feeTypeRowCount = prev.filter((row) => isCurrentFeeType(row)).length;
+      const roundingDustCents =
+        componentPoolCents == null ? 0 : componentPoolCents - baselineCents;
+      const dustCents =
+        roundingDustCents !== 0 && Math.abs(roundingDustCents) < Math.max(feeTypeRowCount, 1)
+          ? roundingDustCents
+          : 0;
+
+      const amountToSplitCents = baselineCents - fixedCents + dustCents;
+      const distributableCents = Math.max(0, amountToSplitCents);
 
       if (remainingIndexes.length > 0) {
-        const share = Number((distributable / remainingIndexes.length).toFixed(2));
-        let left = distributable;
+        const shares = splitCents(distributableCents, remainingIndexes.length);
 
         remainingIndexes.forEach((i, index) => {
           const row = updated[i];
-          const isLast = index === remainingIndexes.length - 1;
-          const rowAmount = Math.max(0, isLast ? Number(left.toFixed(2)) : share);
+          const rowAmount = centsToAmount(Math.max(0, shares[index] ?? 0));
 
           updated[i] = {
             ...row,
             originalAmount: baselineOf(row),
-            amount: rowAmount.toFixed(2),
-            balance: rowAmount.toFixed(2),
+            amount: rowAmount,
+            balance: rowAmount,
           };
-          left -= rowAmount;
         });
       }
 
-      const overflow = isNonTuition ? Math.max(0, -amountToSplit) : 0;
+      const overflowCents = isNonTuition ? Math.max(0, -amountToSplitCents) : 0;
 
-      if (overflow > EPSILON) {
+      if (overflowCents > 0) {
         const tuitionIndexes = [];
         for (let i = currentIndex + 1; i < updated.length; i++) {
           const row = updated[i];
@@ -1448,22 +1499,19 @@ export default function NewStudentPage({ basePath }) {
         }
 
         if (tuitionIndexes.length > 0) {
-          const cut = Number((overflow / tuitionIndexes.length).toFixed(2));
-          let cutLeft = overflow;
+          const cuts = splitCents(overflowCents, tuitionIndexes.length);
 
           tuitionIndexes.forEach((i, idx) => {
             const row = updated[i];
-            const base = Number(row.originalAmount ?? row.amount ?? 0);
-            const thisCut = idx === tuitionIndexes.length - 1 ? cutLeft : cut;
-            const newRowAmount = Math.max(0, base - thisCut);
+            const baseCents = toCents(row.originalAmount ?? row.amount ?? 0);
+            const nextCents = Math.max(0, baseCents - (cuts[idx] ?? 0));
 
             updated[i] = {
               ...row,
-              originalAmount: base,
-              amount: newRowAmount.toFixed(2),
-              balance: newRowAmount.toFixed(2),
+              originalAmount: Number(centsToAmount(baseCents)),
+              amount: centsToAmount(nextCents),
+              balance: centsToAmount(nextCents),
             };
-            cutLeft -= thisCut;
           });
         }
       }
@@ -1781,6 +1829,7 @@ export default function NewStudentPage({ basePath }) {
           bonus: addBonus ? Number(form.bonus) : 0,
           bonusType: addBonus ? form.bonusType : null,
           bonusOption: addBonus ? form.bonusOption : null,
+          dueDate: form.dueDate || null,
         });
 
         commissionId = commission.commissionId ?? commission.CommissionId;
@@ -1822,6 +1871,7 @@ export default function NewStudentPage({ basePath }) {
           bonus: addBonus ? Number(form.bonus || 0) : 0,
           bonusType: addBonus ? form.bonusType ?? null : null,
           bonusOption: addBonus ? form.bonusOption ?? null : null,
+          dueDate: form.dueDate || null,
           paymentList: persistedRows.map((x) => ({
             studentPaymentInstallmentId: x.studentPaymentInstallmentId,
             installmentNo: String(x.installmentNo ?? x.apiInstallmentNo ?? ''),
@@ -2241,7 +2291,7 @@ export default function NewStudentPage({ basePath }) {
                             type="number"
                             value={form[amountField] ?? 0}
                             onChange={(e) => updateField(amountField, e.target.value)}
-                            disabled={isEdit}
+                            disabled={isEdit || amountField === 'tuitionFee'}
                             inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
                             InputProps={{
                               startAdornment: (
@@ -2460,6 +2510,7 @@ export default function NewStudentPage({ basePath }) {
               selectOptions={selectOptions}
               requiredFields={resource.requiredFields}
               disabled={isEdit}
+              disabledFields={['dueDate']}
             />
 
             <Box sx={{ height: 24 }} />

@@ -311,15 +311,10 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
           }
 
           return {
-            commissionDetailId: Number(
-              row.commissionDetailId
-            ),
-
-            studentPaymentInstallmentId: Number(
-              row.studentPaymentInstallmentId
-            ),
-
+            commissionDetailId: Number( row.commissionDetailId),
+            studentPaymentInstallmentId: Number( row.studentPaymentInstallmentId),
             bonusAmount: bonusNum,
+            
           };
         })
         .filter(Boolean);

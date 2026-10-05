@@ -305,7 +305,7 @@ export async function insertBonusInstallments(items = []) {
     CommissionDetailId: Number(item.commissionDetailId),
     StudentPaymentInstallmentId: Number(item.studentPaymentInstallmentId),
     BonusAmount: item.bonusAmount == null ? 0 : Number(item.bonusAmount),
-    NewInstallmentNo: Number(item.newInstallmentNo),
+
   }));
 
   const { data } = await axiosClient.post('/api/invoices/bonus-installments', payload);

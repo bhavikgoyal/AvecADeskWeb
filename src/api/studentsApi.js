@@ -184,6 +184,7 @@ export async function createStudentWithPaymentSchedule(form) {
   coeVoe: form.coeVoe || null,
   serviceType: form.serviceTypeStudent || null,
   agent: form.agent || null,
+  campus: form.campusname?.trim() || null,
   });
   return normalizeStudent(student);
 }
