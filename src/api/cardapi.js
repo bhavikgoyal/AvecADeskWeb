@@ -61,7 +61,7 @@ export async function getBoards() {
 }
 
 export async function updateBoard(boardId, boardName) {
-  const response = await axiosClient.put(`/api/Board/${boardId}`, {
+  const response = await axiosClient.post(`/api/Board/${boardId}`, {
     boardName,
   });
 
@@ -74,7 +74,7 @@ export async function updateCard(payload) {
 }
 
 export async function moveCard(payload) {
-  const response = await axiosClient.patch('/api/Card/move', payload);
+  const response = await axiosClient.post('/api/Card/move', payload);
   return response.data;
 }
 

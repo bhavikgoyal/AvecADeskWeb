@@ -26,7 +26,7 @@ export async function getWeekItems() {
 }
 
 export async function toggleChecklistItem(itemId, isCompleted) {
-  const response = await axiosClient.patch(`/api/Checklist/item/toggle/${itemId}`, { isCompleted });
+  const response = await axiosClient.post(`/api/Checklist/item/toggle/${itemId}`, { isCompleted });
   return response.data;
 }
 
