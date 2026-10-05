@@ -27,6 +27,15 @@ const FEE_TYPES = [
   { key: 'OSHC', label: 'OSHC Fee', amountField: 'oshcFee' },
 ];
 const FEE_COMPONENT_FIELDS = FEE_TYPES.map((ft) => ft.amountField);
+
+const tuitionFromCourseFee = (form) => {
+  const courseFee = Number(form.courseFee || 0);
+  const otherFees =
+    Number(form.enrollmentFee || 0) +
+    Number(form.materialFee || 0) +
+    Number(form.oshcFee || 0);
+  return Math.max(0, round2(courseFee - otherFees)).toFixed(2);
+};
 const amountFieldSx = { width: 170, '& .MuiOutlinedInput-root': { borderRadius: 1.5, backgroundColor: '#fff' },};
 
 const headerCellSx = {
@@ -860,16 +869,14 @@ export default function NewStudentPage({ basePath }) {
 
         const enrollmentFee = Number(selectedCourse?.enrollmentFee || 0);
         const materialFee = Number(selectedCourse?.materialFee || 0);
-        const tuitionFee = Number(selectedCourse?.tuitionFee || 0);
         const oshcFee = Number(selectedCourse?.oshcFee || 0);
-        const hasBreakdown = enrollmentFee + materialFee + tuitionFee + oshcFee > 0;
 
         next.enrollmentFee = enrollmentFee;
         next.materialFee = materialFee;
         next.oshcFee = oshcFee;
-        next.tuitionFee = hasBreakdown ? tuitionFee : Number(selectedCourse?.fees || 0);
         next.courseFee = selectedCourse?.fees ?? '';
-        next.amountDue = selectedCourse?.fees ?? '';
+        next.amountDue = next.courseFee;
+        next.tuitionFee = tuitionFromCourseFee(next);
         next.courseDurationWeeks = durationToWeeks(selectedCourse?.duration);
         next.commissionRate = Number(selectedCourse?.commissionRate ?? 0);
         next.rateType = selectedCourse?.rateType ?? '';
@@ -879,14 +886,9 @@ export default function NewStudentPage({ basePath }) {
         next.courseEndDate = computeCourseEndDate(next.courseStartDate, selectedCourse?.duration);
       }
 
-      if (FEE_COMPONENT_FIELDS.includes(field)) {
-        const total =
-          Number(next.enrollmentFee || 0) +
-          Number(next.materialFee || 0) +
-          Number(next.tuitionFee || 0) +
-          Number(next.oshcFee || 0);
-        next.courseFee = total.toFixed(2);
+      if (field === 'courseFee' || field === 'enrollmentFee' || field === 'materialFee' || field === 'oshcFee') {
         next.amountDue = next.courseFee;
+        next.tuitionFee = tuitionFromCourseFee(next);
       }
 
       if (field === 'startDate') {
@@ -1228,7 +1230,7 @@ const historyRows = useMemo(() => {
   };
 
   const handleFeeAmountChange = (item, value) => {
-    const newAmount = Number(value || 0);
+    let newAmount = Number(value || 0);
 
     setPaymentList((prev) => {
       let updated = prev.map((x) => ({ ...x }));
@@ -1241,6 +1243,23 @@ const historyRows = useMemo(() => {
       if (currentIndex === -1) return prev;
 
       const currentItem = updated[currentIndex];
+
+      // Later pending rows can shrink to zero. This row cannot take more than
+      // the course fee left after every row that will stay as it is.
+      const reducible = new Set();
+      for (let i = currentIndex + 1; i < updated.length; i++) {
+        const row = updated[i];
+        if (row.status === 'Pending' && !row.studentPaymentInstallmentId) reducible.add(i);
+      }
+      const reservedCents = updated.reduce((sum, row, i) => {
+        if (i === currentIndex || reducible.has(i)) return sum;
+        return sum + toCents(row.amount);
+      }, 0);
+      const maxCents = Math.max(0, toCents(form.courseFee) - reservedCents);
+      const typedCents = toCents(value);
+      const amountText = typedCents > maxCents ? centsToAmount(maxCents) : value;
+      newAmount = Number(amountText || 0);
+
       const oldAmount = Number(currentItem.originalAmount ?? currentItem.amount ?? 0);
       const difference = newAmount - oldAmount;
 
@@ -1276,7 +1295,7 @@ const historyRows = useMemo(() => {
 
       updated[currentIndex] = {
         ...currentItem,
-        amount: value,
+        amount: amountText,
         originalAmount: oldAmount,
         balance: nextBalance,
         status: nextStatus,
@@ -2272,7 +2291,7 @@ const historyRows = useMemo(() => {
                             type="number"
                             value={form[amountField] ?? 0}
                             onChange={(e) => updateField(amountField, e.target.value)}
-                            disabled={isEdit}
+                            disabled={isEdit || amountField === 'tuitionFee'}
                             inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
                             InputProps={{
                               startAdornment: (
