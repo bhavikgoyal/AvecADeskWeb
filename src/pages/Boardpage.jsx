@@ -19,7 +19,7 @@ import {
   getMyBoardCards,
   getCardStatuses,
   createCardStatus,
-  moveCard,
+  moveCardToList,
   createCard,
   createBoard,
   getBoards,
@@ -609,8 +609,9 @@ export default function BoardPage() {
         .find((c) => c.cardID === selectedCardId) || null
     : null;
   const selectedCardListName = selectedCard
-    ? columns.find((col) => col.cards.some((c) => c.cardID === selectedCard.cardID))
-        ?.statusName || ""
+    ? columns.find((col) =>
+        col.cards.some((c) => c.cardID === selectedCard.cardID),
+      )?.statusName || ""
     : "";
 
   const handleDragEnd = async (result) => {
@@ -623,7 +624,7 @@ export default function BoardPage() {
       return;
 
     const cardId = parseInt(draggableId, 10);
-    const newStatusId = parseInt(destination.droppableId, 10);
+    const newListId = parseInt(destination.droppableId, 10);
     const newPosition = destination.index;
 
     const prevColumns = columns;
@@ -643,7 +644,11 @@ export default function BoardPage() {
     });
 
     try {
-      await moveCard({ cardId, newCardStatusID: newStatusId, newPosition });
+      await moveCardToList({
+        cardID: cardId,
+        listID: newListId,
+        position: newPosition,
+      });
     } catch (err) {
       setColumns(prevColumns);
       setError(err.message || "Could not move card. Please try again.");
