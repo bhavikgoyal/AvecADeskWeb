@@ -657,13 +657,17 @@ const handleViewCourses = (event, row) => {
 };
 const handleViewStudents = (event, row) => {
   event.stopPropagation();
-  navigate('/students', {
-    state: {
-      instituteId: row?.scrappingId ?? row?.id ?? '',
-      instituteName: row?.instituteName ?? '',
-      fromInstitute: true,
-    },
-  });
+
+  navigate(
+    `/students?institute=${encodeURIComponent(row?.instituteName || '')}`,
+    {
+      state: {
+        instituteId: row?.scrappingId ?? row?.id ?? '',
+        instituteName: row?.instituteName ?? '',
+        fromInstitute: true,
+      },
+    }
+  );
 };
 
   const handleViewInvoices = (event, row) => {

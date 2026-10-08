@@ -374,38 +374,79 @@ if (courseNameFilter.trim()) {
   return filtered;
 }
 
-    if (isInvoices) {
-      let filtered = rows;
+  if (isInvoices) {
+  let filtered = rows;
 
-      if (invoiceInstituteFilter) {
-        const target = normalizeInstituteName(invoiceInstituteFilter);
-        filtered = filtered.filter(
-          (r) => normalizeInstituteName(r.instituteNameRef) === target,
-        );
-      }
+  // Institute filter
+  if (invoiceInstituteFilter) {
+    const target = normalizeInstituteName(invoiceInstituteFilter);
 
-      if (invoiceView) {
-        if (invoiceView === 'paid') filtered = filtered.filter((r) => (((r.invoiceStatus || r.status || '') + '').toLowerCase()) === 'approved');
-        else if (invoiceView === 'due') filtered = filtered.filter((r) => {
-          const s = (((r.invoiceStatus || r.status || '') + '').toLowerCase());
-          return s === 'pending' || s === 'invoiced';
-        });
-      }
-      if (invoiceYear || invoiceMonth) {
-        filtered = filtered.filter((r) => {
-          const dateVal = r.createdAt ?? r.createdOn ?? r.createdDate ?? r.created_at;
-          const d = dateVal ? new Date(dateVal) : null;
-          if (!d || isNaN(d.getTime())) return false;
-          const y = d.getFullYear();
-          const m = d.getMonth() + 1;
-          if (invoiceYear && invoiceMonth) return y === invoiceYear && m === invoiceMonth;
-          if (invoiceYear) return y === invoiceYear;
-          if (invoiceMonth) return m === invoiceMonth;
-          return true;
-        });
-      }
-      return filtered;
+    filtered = filtered.filter(
+      (r) =>
+        normalizeInstituteName(r.instituteNameRef) === target
+    );
+  }
+
+  // Paid / Due filter
+  if (invoiceView) {
+    if (invoiceView === 'paid') {
+      filtered = filtered.filter((r) => {
+        const status = String(
+          r.invoiceStatus ?? r.status ?? ''
+        ).trim().toLowerCase();
+
+        return status === 'paid' || status === 'approved';
+      });
     }
+
+    if (invoiceView === 'due') {
+      filtered = filtered.filter((r) => {
+        const status = String(
+          r.invoiceStatus ?? r.status ?? ''
+        ).trim().toLowerCase();
+
+        return status === 'pending' || status === 'invoiced';
+      });
+    }
+  }
+
+  // Year + Month filter
+  if (invoiceYear || invoiceMonth) {
+    filtered = filtered.filter((r) => {
+      const dateVal =
+        r.createdAtRaw ??
+        r.createdAt ??
+        r.createdOn ??
+        r.createdDate ??
+        r.created_at;
+
+      if (!dateVal) return false;
+
+      const d = new Date(dateVal);
+
+      if (isNaN(d.getTime())) return false;
+
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+
+      if (invoiceYear && invoiceMonth) {
+        return y === invoiceYear && m === invoiceMonth;
+      }
+
+      if (invoiceYear) {
+        return y === invoiceYear;
+      }
+
+      if (invoiceMonth) {
+        return m === invoiceMonth;
+      }
+
+      return true;
+    });
+  }
+
+  return filtered;
+}
 
     if (isVendors) {
       if (vendorYear || vendorMonth) {

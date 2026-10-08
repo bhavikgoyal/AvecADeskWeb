@@ -31,6 +31,7 @@ export function mapInvoiceRow(item) {
     instituteNameRef: item.instituteName ?? item.InstituteName ?? '',
     instituteAddress: item.instituteAddress ?? item.InstituteAddress ?? '',
     invoiceStatus: item.status ?? item.Status ?? '',
+    invoiceMonthYear: item.invoiceMonthYear ?? item.InvoiceMonthYear ?? '',
     totalAmount: formatCurrency(item.totalAmount ?? item.TotalAmount),
     totalAmountRaw: Number(item.totalAmount ?? item.TotalAmount ?? 0),
     createdAt: formatDate(item.createdAt ?? item.CreatedAt),

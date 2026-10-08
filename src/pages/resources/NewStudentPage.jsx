@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import {
   Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem, TextField, Dialog, DialogTitle,
   DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel, Switch, Tabs, Tab
@@ -68,6 +68,33 @@ const isPaidLike = (status) =>
   status === 'ConfirmedByStudent' ||
   status === 'PaidByCollege' ||
   status === 'PaidByStudent';
+
+const shownPaidAmount = (row) => {
+  const paid = Number(row?.paidAmount || 0);
+  if (paid > 0) return paid;
+  if (isPaidLike(row?.status) || row?.status === 'Partial') return Number(row?.amount || 0);
+  return 0;
+};
+
+// Same rule as the Complete tab: fees are collected and every commission row is Paid.
+const isCourseCompleteStudent = (courseFee, payments, commissions) => {
+  const collected = (payments || []).reduce(
+    (sum, row) => sum + Number(row.paidAmount ?? row.PaidAmount ?? 0),
+    0
+  );
+  const fee = Number(courseFee || 0);
+  if (!(collected > 0 && fee - collected <= 1)) return false;
+
+  const details = (commissions || []).filter((row) => {
+    const deleted = row.isDeleted ?? row.IsDeleted;
+    return deleted !== true && deleted !== 1 && String(deleted) !== '1';
+  });
+  if (details.length === 0) return false;
+
+  return details.every(
+    (row) => String(row.commissionStatus ?? row.CommissionStatus ?? '').trim().toLowerCase() === 'paid'
+  );
+};
 
 // Half-up rounding like Excel/SQL ROUND; toFixed(2) turns 31.325 into 31.32 because of float error.
 const round2 = (value) => {
@@ -208,6 +235,25 @@ const isScheduledInstallment = (row) => {
   return Number.isFinite(n) && n >= 1 && Math.abs(n - Math.round(n)) < 1e-6;
 };
 
+const feeRemainderPoolCents = (list, item) => {
+  const currentIndex = (list || []).findIndex(
+    (x) =>
+      String(x.installmentNo) === String(item.installmentNo) &&
+      String(x.feeType).toLowerCase() === String(item.feeType).toLowerCase()
+  );
+  if (currentIndex < 0) return toCents(item?.amount);
+
+  const currentFeeType = String(list[currentIndex].feeType || '').trim().toLowerCase();
+  let pool = toCents(list[currentIndex].amount);
+  for (let i = currentIndex + 1; i < list.length; i += 1) {
+    const row = list[i];
+    if (isScheduledInstallment(row) || isPaidLike(row.status)) break;
+    if (String(row.feeType || '').trim().toLowerCase() !== currentFeeType) continue;
+    pool += toCents(row.amount);
+  }
+  return pool;
+};
+
 const isInitialGroupRow = (row) =>
   Boolean(row?.isInitialPayment) || !isScheduledInstallment(row);
 
@@ -267,8 +313,11 @@ const resizeUnpaidInstallments = (list, requestedCount, frequency, startDate) =>
     nextNo += 1;
   }
 
-  const adjustable = [...kept, ...created];
+  let adjustable = [...kept, ...created];
   const poolCents = unpaid.reduce((sum, row) => sum + toCents(row.amount), 0);
+  if (adjustable.length === 0 && poolCents > 0) {
+    adjustable = unpaid.map((row) => ({ ...row }));
+  }
   const shares = splitCents(poolCents, adjustable.length);
 
   adjustable.forEach((row, index) => {
@@ -280,11 +329,14 @@ const resizeUnpaidInstallments = (list, requestedCount, frequency, startDate) =>
   });
 
   const others = list.filter((row) => !regularTuition(row));
-  const activeTuition = [...regularLocked.map((row) => ({ ...row })), ...adjustable].sort(
-    (a, b) => Number(a.installmentNo) - Number(b.installmentNo)
-  );
+  const activeTuition = [...regularLocked.map((row) => ({ ...row })), ...adjustable];
 
-  return { list: [...others, ...activeTuition], appliedCount: target };
+  return {
+    list: [...others, ...activeTuition].sort((a, b) =>
+      compareInstallmentNo(a.installmentNo, b.installmentNo)
+    ),
+    appliedCount: target,
+  };
 };
 
 // Tuition and Non-Tuition rows can share an installment number, so a row is identified by both.
@@ -301,6 +353,54 @@ const isCommissionOfPaymentRow = (commissionRow, paymentRow) => {
 
 const hasSplitChild = (list, parent) =>
   list.some((row) => row.parentInstallmentNo === parent.installmentNo && isSameFeeType(row, parent));
+
+// A middle installment marked Partial reopens every confirmed or partial installment under it.
+const toPendingInstallment = (row) => {
+  const wasPartial = row.status === 'Partial';
+  const amount =
+    wasPartial && Number(row.originalAmount) > 0
+      ? Number(row.originalAmount).toFixed(2)
+      : Number(row.amount || 0).toFixed(2);
+
+  return {
+    ...row,
+    amount,
+    status: 'Pending',
+    originalStatus: 'Pending',
+    paidAmount: '0.00',
+    balance: amount,
+    paidDate: null,
+    autoPartial: false,
+    originalAmount: wasPartial ? undefined : row.originalAmount,
+  };
+};
+
+const pendingRowsBelow = (list, item) => {
+  const index = list.findIndex((row) => isSamePaymentRow(row, item));
+  if (index < 0) return list;
+
+  const shouldReset = (row) => isPaidLike(row.status) || row.status === 'Partial';
+  const parentsLeavingPartial = list.filter(
+    (row, rowIndex) => rowIndex > index && row.status === 'Partial'
+  );
+
+  const kept = list.filter((row, rowIndex) => {
+    if (rowIndex <= index || row.studentPaymentInstallmentId || row.parentInstallmentNo == null) {
+      return true;
+    }
+
+    return !parentsLeavingPartial.some(
+      (parent) =>
+        row.parentInstallmentNo === parent.installmentNo && isSameFeeType(row, parent)
+    );
+  });
+
+  return kept.map((row) => {
+    const sourceIndex = list.indexOf(row);
+    if (sourceIndex <= index || !shouldReset(row)) return row;
+    return toPendingInstallment(row);
+  });
+};
 
 const getEffectivePaidAmount = (list, row) => {
   if (isPaidLike(row.status)) {
@@ -439,7 +539,12 @@ const hydratePaymentList = (rows) => {
       dueDate: item.dueDate?.substring(0, 10),
       paidDate: item.paidDate?.substring(0, 10),
       amount: item.feesAmount,
-      paidAmount: item.paidAmount,
+      paidAmount:
+        Number(item.paidAmount || 0) > 0
+          ? item.paidAmount
+          : isPaidLike(item.status) || item.status === 'Partial'
+            ? item.feesAmount
+            : item.paidAmount,
       balance: item.balanceAmount,
       status: item.status,
       originalStatus: item.originalStatus ?? item.status,
@@ -479,8 +584,10 @@ const buildChangeSnapshot = (list, history) =>
     })),
   });
 
-const buildStudentSnapshot = ({ phone, folderNo, leadNo, bonus, bonusType, bonusOption, dueDate }) =>
+const buildStudentSnapshot = ({ fullName, email, phone, folderNo, leadNo, bonus, bonusType, bonusOption, dueDate }) =>
   JSON.stringify({
+    fullName: String(fullName ?? '').trim(),
+    email: String(email ?? '').trim(),
     phone: String(phone ?? ''),
     folderNo: String(folderNo ?? ''),
     leadNo: String(leadNo ?? ''),
@@ -494,6 +601,7 @@ export default function NewStudentPage({ basePath }) {
   const navigate = useNavigate();
   const { id } = useParams();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isEdit = Boolean(id);
   const resource = getResourceConfig(basePath);
 
@@ -511,6 +619,8 @@ export default function NewStudentPage({ basePath }) {
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
   const [originalSchedule, setOriginalSchedule] = useState(null);
   const [installmentCountDraft, setInstallmentCountDraft] = useState('');
+  const [installmentCountLocked, setInstallmentCountLocked] = useState(false);
+  const [feeDraft, setFeeDraft] = useState(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmTargetInstallment, setConfirmTargetInstallment] = useState(null);
   const [instituteLocked, setInstituteLocked] = useState(false);
@@ -531,6 +641,7 @@ export default function NewStudentPage({ basePath }) {
 
   const submittingRef = useRef(false);
   const manualDueDatesRef = useRef(new Map());
+  const installmentResizeTimer = useRef(null);
   const prefillAppliedRef = useRef(false);
   const contractFileInputRef = useRef(null);
 
@@ -544,22 +655,21 @@ export default function NewStudentPage({ basePath }) {
     const installmentFee = installments > 0 ? remainingFee / installments : remainingFee;
     const tuitionShare = fee > 0 && tuitionFee > 0 ? installmentFee * (tuitionFee / fee) : installmentFee;
 
-    const rawCommission = round2((tuitionShare * Number(next.commissionPercentage || 0)) / 100);
+    const rawCommission = (tuitionShare * Number(next.commissionPercentage || 0)) / 100;
     const gstPct = Number(next.gstPercentage || 0);
 
-    let commission;
     let gst;
     if (gstInclusive) {
-      gst = round2(rawCommission - rawCommission / (1 + gstPct / 100));
-      commission = round2(rawCommission - gst);
+      gst = rawCommission - rawCommission / (1 + gstPct / 100);
     } else {
-      commission = rawCommission;
-      gst = round2((rawCommission * gstPct) / 100);
+      gst = (rawCommission * gstPct) / 100;
     }
 
-    next.commissionAmount = commission.toFixed(2);
+    next.commissionAmount = rawCommission.toFixed(2);
     next.gstAmount = gst.toFixed(2);
-    next.invoiceAmount = round2(commission + gst).toFixed(2);
+    next.invoiceAmount = gstInclusive
+      ? rawCommission.toFixed(2)
+      : (rawCommission + gst).toFixed(2);
   };
 
   const generateInstallments = (data) => {
@@ -736,7 +846,8 @@ export default function NewStudentPage({ basePath }) {
   useEffect(() => {
     if (isEdit || prefillAppliedRef.current) return;
 
-    const preselectedInstituteName = normalizeInstituteName(location.state?.instituteName);
+    const fromQuery = normalizeInstituteName(searchParams.get('institute'));
+    const preselectedInstituteName = fromQuery || normalizeInstituteName(location.state?.instituteName);
     const preselectedInstituteId = location.state?.instituteId;
 
     if (!preselectedInstituteName && !preselectedInstituteId) return;
@@ -748,12 +859,16 @@ export default function NewStudentPage({ basePath }) {
       setForm((prev) => ({ ...prev, instituteId: String(preselectedInstituteId) }));
     }
 
-    if (location.state?.fromInstitute) {
+    if (fromQuery || location.state?.fromInstitute) {
       setInstituteLocked(true);
     }
 
-    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-  }, [isEdit, location.pathname, location.search, location.state, navigate]);
+    if (searchParams.get('institute')) {
+      setSearchParams({}, { replace: true });
+    } else if (location.state) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [isEdit, location.pathname, location.state, navigate, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!institutes.length || !form.instituteId) return;
@@ -834,7 +949,7 @@ export default function NewStudentPage({ basePath }) {
   });
 
   useEffect(() => {
-    if (!isEdit) return;
+    if (!isEdit || !/^\d+$/.test(String(id || ''))) return;
 
     async function loadData() {
       try {
@@ -908,6 +1023,9 @@ export default function NewStudentPage({ basePath }) {
         });
 
         const history = data.commissionHistory || [];
+        setInstallmentCountLocked(
+          isCourseCompleteStudent(data.totalCourseFee, list, history)
+        );
 
         setOriginalPaymentList(list);
         setPaymentList(list);
@@ -915,6 +1033,8 @@ export default function NewStudentPage({ basePath }) {
         setSavedScheduleSnapshot(buildChangeSnapshot(list, history));
         setSavedStudentSnapshot(
           buildStudentSnapshot({
+            fullName: data.fullName,
+            email: data.email,
             phone: data.phone,
             folderNo: data.folderNo,
             leadNo: data.leadNo,
@@ -961,7 +1081,14 @@ export default function NewStudentPage({ basePath }) {
     });
   };
 
+  const installmentsLocked =
+    installmentCountLocked ||
+    (isEdit &&
+      paymentList.length > 0 &&
+      paymentList.every((row) => row.status && row.status !== 'Pending'));
+
   const updateField = (field, value) => {
+    if (field === 'noOfInstallment' && installmentsLocked) return;
     setForm((prev) => {
       const next = { ...prev, [field]: value };
 
@@ -1091,16 +1218,9 @@ export default function NewStudentPage({ basePath }) {
   const commissionRows = useMemo(
     () =>
       paymentList.map((item) => {
-        const isNewPartial = item.status === 'Partial' && item.originalStatus !== 'Partial';
-
-        const fees = isNewPartial
-          ? Number(item.amount || 0)
-          : isPaidLike(item.status) || item.status === 'Partial'
-            ? getEffectivePaidAmount(paymentList, item)
-            : Number(item.amount || 0);
+        const fees = Number(item.amount || 0);
 
         let rawCommission = 0;
-        let commission = 0;
         let gst = 0;
 
         const feeTypeKey = String(item.feeType || '').trim().toLowerCase();
@@ -1109,15 +1229,13 @@ export default function NewStudentPage({ basePath }) {
           : Number(item.installmentNo) !== 0;
 
         if (isCommissionable) {
-          rawCommission = round2((fees * Number(form.commissionPercentage || 0)) / 100);
+          rawCommission = (fees * Number(form.commissionPercentage || 0)) / 100;
           const gstPct = Number(form.gstPercentage || 0);
 
           if (gstInclusive) {
-            gst = round2(rawCommission - rawCommission / (1 + gstPct / 100));
-            commission = round2(rawCommission - gst);
+            gst = rawCommission - rawCommission / (1 + gstPct / 100);
           } else {
-            commission = rawCommission;
-            gst = round2((rawCommission * gstPct) / 100);
+            gst = (rawCommission * gstPct) / 100;
           }
         }
 
@@ -1141,15 +1259,17 @@ export default function NewStudentPage({ basePath }) {
 
         let bonus = 0;
 
-        if (isCommissionable && addBonus && bonusApplied && applyBonus) {
+        // Percentage is entered in the form; the row stores the money amount. Non-tuition never gets a bonus.
+        const isTuitionFee = feeTypeKey === 'tuition fee';
+        if (isTuitionFee && addBonus && bonusApplied && applyBonus) {
           if (form.bonusType === 'Percentage') {
-            bonus = round2((fees * Number(form.bonus || 0)) / 100);
+            bonus = round2((rawCommission * Number(form.bonus || 0)) / 100);
           } else if (form.bonusType === 'Fixed') {
             bonus = round2(form.bonus);
           }
         }
 
-        const invoice = round2(commission + gst + bonus);
+        const invoice = gstInclusive ? rawCommission + bonus : rawCommission + gst + bonus;
 
         return {
           studentPaymentInstallmentId: item.studentPaymentInstallmentId,
@@ -1158,7 +1278,7 @@ export default function NewStudentPage({ basePath }) {
           feesDate: item.dueDate,
           fees: fees.toFixed(2),
           paymentStatus: item.status,
-          commission: commission.toFixed(2),
+          commission: rawCommission.toFixed(2),
           gst: gst.toFixed(2),
           bonus: bonus.toFixed(2),
           invoice: invoice.toFixed(2),
@@ -1292,7 +1412,7 @@ export default function NewStudentPage({ basePath }) {
   );
 
   const paymentTotals = useMemo(() => {
-    const paidCents = paymentList.reduce((sum, row) => sum + toCents(row.paidAmount), 0);
+    const paidCents = paymentList.reduce((sum, row) => sum + toCents(shownPaidAmount(row)), 0);
     const feeCents = paymentList.reduce((sum, row) => sum + toCents(row.amount), 0);
 
     return {
@@ -1307,6 +1427,8 @@ export default function NewStudentPage({ basePath }) {
     if (!savedScheduleSnapshot || !savedStudentSnapshot) return false;
 
     const studentNow = buildStudentSnapshot({
+      fullName: form.fullName,
+      email: form.email,
       phone: form.phone,
       folderNo: form.FolderNo,
       leadNo: form.leadNo,
@@ -1327,6 +1449,8 @@ export default function NewStudentPage({ basePath }) {
     savedStudentSnapshot,
     paymentList,
     commissionHistory,
+    form.fullName,
+    form.email,
     form.phone,
     form.FolderNo,
     form.leadNo,
@@ -1442,8 +1566,6 @@ export default function NewStudentPage({ basePath }) {
   };
 
   const handleFeeAmountChange = (item, value) => {
-    let newAmount = Number(value || 0);
-
     setPaymentList((prev) => {
       let updated = prev.map((x) => ({ ...x }));
 
@@ -1456,69 +1578,56 @@ export default function NewStudentPage({ basePath }) {
 
       const currentItem = updated[currentIndex];
 
-      // Later pending rows of this fee type can shrink to zero, even after they
-      // are saved. This row cannot take more than the course fee left after the rows that stay.
-      const currentFeeTypeForCap = String(currentItem.feeType || '').trim().toLowerCase();
-      const reducible = new Set();
+      // This row plus the leftover rows already split from it (0.1, 2.1, ...) is the
+      // ceiling. A smaller amount keeps the difference on the next row. A larger
+      // amount is not applied, and going back to the full amount removes that row.
+      const currentFeeType = String(currentItem.feeType || '').trim().toLowerCase();
+      const childIndexes = [];
       for (let i = currentIndex + 1; i < updated.length; i++) {
         const row = updated[i];
-        const rowType = String(row.feeType || '').trim().toLowerCase();
-        const editingInitial =
-          Boolean(currentItem.isInitialPayment) || Number(currentItem.installmentNo) === 0;
-        if (
-          row.status === 'Pending' &&
-          rowType === currentFeeTypeForCap &&
-          !(editingInitial && isScheduledInstallment(row))
-        ) {
-          reducible.add(i);
-        }
+        if (isScheduledInstallment(row) || isPaidLike(row.status)) break;
+        if (String(row.feeType || '').trim().toLowerCase() !== currentFeeType) continue;
+        childIndexes.push(i);
       }
-      const reservedCents = updated.reduce((sum, row, i) => {
-        if (i === currentIndex || reducible.has(i)) return sum;
-        return sum + toCents(row.amount);
-      }, 0);
-      const maxCents = Math.max(0, toCents(form.courseFee) - reservedCents);
-      const typedCents = toCents(value);
-      const amountText = typedCents > maxCents ? centsToAmount(maxCents) : value;
-      newAmount = Number(amountText || 0);
 
-      const oldAmount = Number(currentItem.originalAmount ?? currentItem.amount ?? 0);
-      const difference = newAmount - oldAmount;
+      const poolCents =
+        toCents(currentItem.amount) +
+        childIndexes.reduce((sum, i) => sum + toCents(updated[i].amount), 0);
+      let typedCents = toCents(value);
+      if (typedCents > poolCents) typedCents = poolCents;
+      if (typedCents < 0) typedCents = 0;
 
-      const currentFeeType = String(currentItem.feeType || '').trim().toLowerCase();
-      const isNonTuition = currentFeeType === 'non-tuition fee';
-      const isTuition = currentFeeType === 'tuition fee';
-
-      const isReduced = newAmount + EPSILON < oldAmount;
-
+      const cappedAmount = centsToAmount(typedCents);
+      const reduced = typedCents < poolCents;
       let nextStatus = currentItem.status;
       let nextPaid = currentItem.paidAmount;
-      let nextBalance = newAmount.toFixed(2);
+      let nextBalance = cappedAmount;
       let nextPaidDate = currentItem.paidDate;
       let nextAuto = currentItem.autoPartial;
 
-      if (isEdit) {
-        if (currentItem.status === 'Pending' && isReduced) {
-          nextStatus = 'Partial';
-          nextAuto = true;
-          nextPaidDate = currentItem.paidDate || todayIso();
-        } else if (currentItem.autoPartial && !isReduced) {
+      if (isEdit && !isPaidLike(currentItem.status)) {
+        if (currentItem.autoPartial && !reduced) {
           nextStatus = 'Pending';
           nextAuto = false;
           nextPaid = '0.00';
+          nextBalance = cappedAmount;
           nextPaidDate = null;
-        }
-
-        if (nextStatus === 'Partial' && currentItem.originalStatus !== 'Partial') {
-          nextPaid = newAmount.toFixed(2);
+        } else if (reduced && (currentItem.status === 'Pending' || currentItem.autoPartial)) {
+          nextStatus = 'Partial';
+          nextAuto = true;
+          nextPaid = cappedAmount;
+          nextBalance = '0.00';
+          nextPaidDate = currentItem.paidDate || todayIso();
+        } else if (currentItem.status === 'Partial') {
+          nextPaid = cappedAmount;
           nextBalance = '0.00';
         }
       }
 
       updated[currentIndex] = {
         ...currentItem,
-        amount: amountText,
-        originalAmount: oldAmount,
+        amount: cappedAmount,
+        originalAmount: Number(centsToAmount(poolCents)),
         balance: nextBalance,
         status: nextStatus,
         paidAmount: nextPaid,
@@ -1526,385 +1635,56 @@ export default function NewStudentPage({ basePath }) {
         autoPartial: nextAuto,
       };
 
-      const editingInitial =
-        Boolean(currentItem.isInitialPayment) || Number(currentItem.installmentNo) === 0;
+      const remainderCents = poolCents - typedCents;
+      const remainderText = centsToAmount(remainderCents);
 
-      // Initial Payment only moves its own remainder onto the split row (0.1).
-      // Installments 1, 2, 3... stay as they are.
-      if (editingInitial) {
-        const childIndexes = [];
-        for (let i = currentIndex + 1; i < updated.length; i++) {
-          const row = updated[i];
-          if (isScheduledInstallment(row)) break;
-          if (String(row.feeType || '').trim().toLowerCase() !== currentFeeTypeForCap) continue;
-          childIndexes.push(i);
-        }
-
-        childIndexes.forEach((i) => {
-          if (updated[i].originalAmount == null || updated[i].originalAmount === '') {
-            updated[i] = { ...updated[i], originalAmount: Number(updated[i].amount || 0) };
-          }
-        });
-
-        const poolCents =
-          toCents(updated[currentIndex].originalAmount) +
-          childIndexes.reduce((sum, i) => sum + toCents(updated[i].originalAmount), 0);
-
-        let typedCents = toCents(updated[currentIndex].amount);
-        if (typedCents > poolCents) {
-          typedCents = poolCents;
-          const capped = centsToAmount(poolCents);
-          updated[currentIndex] = {
-            ...updated[currentIndex],
-            amount: capped,
-            balance: updated[currentIndex].status === 'Partial' ? '0.00' : capped,
-            paidAmount:
-              updated[currentIndex].status === 'Partial' ? capped : updated[currentIndex].paidAmount,
-          };
-        }
-
-        const remainderCents = Math.max(0, poolCents - typedCents);
-        const remainderText = centsToAmount(remainderCents);
-
-        if (childIndexes.length === 0 && remainderCents > 0) {
-          const rootNo = Number(currentItem.parentGroupNo ?? currentItem.installmentNo ?? 0);
-          let n = 1;
-          let childNo = Number((rootNo + n / 10).toFixed(2));
-          while (
-            updated.some(
-              (x) => Number(x.installmentNo) === childNo && isSameFeeType(x, currentItem)
-            )
-          ) {
-            n += 1;
-            childNo = Number((rootNo + n / 10).toFixed(2));
-          }
-
-          updated.splice(currentIndex + 1, 0, {
-            installmentNo: childNo,
-            parentInstallmentNo: currentItem.installmentNo,
-            parentGroupNo: rootNo,
-            feeType: currentItem.feeType,
-            dueDate: currentItem.dueDate,
-            amount: remainderText,
-            paidAmount: '0.00',
-            balance: remainderText,
-            status: 'Pending',
-            originalStatus: 'Pending',
-            originalAmount: 0,
-          });
-        } else if (childIndexes.length > 0) {
-          const first = childIndexes[0];
-          const firstRow = updated[first];
-          updated[first] = {
-            ...firstRow,
-            amount: remainderText,
-            balance: firstRow.status === 'Partial' ? firstRow.balance : remainderText,
-            paidAmount: firstRow.status === 'Pending' ? '0.00' : firstRow.paidAmount,
-          };
-
-          for (let k = 1; k < childIndexes.length; k++) {
-            const row = updated[childIndexes[k]];
-            updated[childIndexes[k]] = {
-              ...row,
-              amount: '0.00',
-              balance: '0.00',
-            };
-          }
-        }
-
-        updated = updated.filter((row, i) => {
-          if (i <= currentIndex) return true;
-          if (isScheduledInstallment(row)) return true;
-          if (String(row.feeType || '').trim().toLowerCase() !== currentFeeTypeForCap) return true;
-          if (row.studentPaymentInstallmentId) return true;
-          return toCents(row.amount) > 0;
-        });
-
-        return updated;
-      }
-      if (isInitialGroupRow(currentItem)) {
-        const upfrontCents = toCents(form.initialPayment);
-        const otherCents = updated.reduce((sum, row, index) => {
-          if (index === currentIndex || !isInitialGroupRow(row)) return sum;
-          return sum + toCents(row.amount);
-        }, 0);
-        const maxChildCents = Math.max(0, upfrontCents - otherCents);
-        const typed = toCents(updated[currentIndex].amount);
-
-        if (typed > maxChildCents) {
-          const capped = centsToAmount(maxChildCents);
-          updated[currentIndex] = {
-            ...updated[currentIndex],
-            amount: capped,
-            balance: updated[currentIndex].status === 'Partial' ? '0.00' : capped,
-            paidAmount:
-              updated[currentIndex].status === 'Partial'
-                ? capped
-                : updated[currentIndex].paidAmount,
-          };
-        }
-
-        return updated;
-      }
-
-      // Fee went back up to its original amount, so the auto-created Partial split is no longer needed.
-      const revertedAutoPartial = isEdit && currentItem.autoPartial && !isReduced;
-      if (revertedAutoPartial) {
-        updated = updated.filter(
-          (x) =>
-            !(
-              x.parentInstallmentNo === currentItem.installmentNo &&
-              isSameFeeType(x, currentItem) &&
-              !x.studentPaymentInstallmentId
-            )
-        );
-      }
-
-      const becamePartial = nextStatus === 'Partial' && currentItem.originalStatus !== 'Partial';
-      if (
-        !revertedAutoPartial &&
-        (currentItem.status === 'Partial' || currentItem.originalStatus === 'Partial' || becamePartial)
-      ) {
-        const baseAmount = Number(currentItem.originalAmount ?? oldAmount);
-        const childIndex = updated.findIndex(
-          (x) => x.parentInstallmentNo === currentItem.installmentNo && isSameFeeType(x, currentItem)
-        );
-        const diff = baseAmount - newAmount;
-
-        updated[currentIndex] = {
-          ...updated[currentIndex],
-          paidAmount: newAmount.toFixed(2),
-          balance: '0.00',
-        };
-
-        if (childIndex === -1 && diff > EPSILON) {
-          const rootNo = currentItem.parentGroupNo ?? currentItem.installmentNo;
-          let n = 1;
-          let childNo = Number((rootNo + n / 10).toFixed(2));
-          while (updated.some((x) => x.installmentNo === childNo)) {
-            n++;
-            childNo = Number((rootNo + n / 10).toFixed(2));
-          }
-
-          updated.splice(currentIndex + 1, 0, {
-            installmentNo: childNo,
-            parentInstallmentNo: currentItem.installmentNo,
-            parentGroupNo: rootNo,
-            feeType: currentItem.feeType,
-            dueDate: currentItem.dueDate,
-            amount: diff.toFixed(2),
-            paidAmount: '0.00',
-            balance: diff.toFixed(2),
-            status: 'Pending',
-            originalStatus: 'Pending',
-            originalAmount: 0,
-          });
-        }
-
-        if (diff >= -EPSILON && childIndex !== -1) {
-          updated[childIndex] = {
-            ...updated[childIndex],
-            originalAmount: 0,
-            amount: Math.max(0, diff).toFixed(2),
-            balance: Math.max(0, diff).toFixed(2),
-          };
-
-          for (let i = childIndex + 1; i < updated.length; i++) {
-            const row = updated[i];
-            if (row.status !== 'Pending' || row.studentPaymentInstallmentId) continue;
-            if (String(row.feeType) !== String(currentItem.feeType)) continue;
-            updated[i] = resetToOriginal(row);
-          }
-        } else if (diff < -EPSILON) {
-          if (childIndex !== -1 && !updated[childIndex].studentPaymentInstallmentId) {
-            updated.splice(childIndex, 1);
-          }
-
-          const targets = [];
-          for (let i = currentIndex + 1; i < updated.length; i++) {
-            const row = updated[i];
-            if (row.status !== 'Pending') continue;
-            if (String(row.feeType || '').trim().toLowerCase() !== String(currentItem.feeType || '').trim().toLowerCase()) continue;
-            targets.push(i);
-          }
-
-          targets.forEach((i) => { updated[i] = resetToOriginal(updated[i]); });
-          let leftCents = toCents(Math.abs(diff));
-          targets.forEach((i, idx) => {
-            if (leftCents <= 0) return;
-
-            const rowCents = toCents(updated[i].amount);
-            const slotsLeft = targets.length - idx;
-            const shareCents = idx === targets.length - 1
-              ? leftCents
-              : Math.trunc(leftCents / slotsLeft);
-            const cutCents = Math.min(rowCents, shareCents);
-            const nextCents = rowCents - cutCents;
-
-            updated[i] = {
-              ...updated[i],
-              amount: centsToAmount(nextCents),
-              balance: centsToAmount(nextCents),
-            };
-            leftCents -= cutCents;
-          });
-        }
-
-        return updated;
-      }
-
-      const feeTypeKey = (row) => String(row.feeType || '').trim().toLowerCase();
-      const isCurrentFeeType = (row) =>
-        (isNonTuition || isTuition) && feeTypeKey(row) === currentFeeType;
-
-      const remainingIndexes = [];
-      for (let i = currentIndex + 1; i < updated.length; i++) {
-        const row = updated[i];
-        if (isCurrentFeeType(row) && row.status === 'Pending') {
-          remainingIndexes.push(i);
-        }
-      }
-
-      if (remainingIndexes.length === 0 && !isNonTuition) {
-        return updated;
-      }
-
-      // Tuition rows are reset only so a Non-Tuition overflow can be re-applied on top of them.
-      if (isNonTuition) {
-        for (let i = currentIndex + 1; i < updated.length; i++) {
-          const row = updated[i];
-          if (row.status !== 'Pending' || row.studentPaymentInstallmentId) continue;
-          if (isCurrentFeeType(row)) continue;
-          updated[i] = resetToOriginal(row);
-        }
-      }
-
-      // originalAmount is captured once per row, so this total stays fixed across repeated edits.
-      const baselineOf = (row) => Number(row.originalAmount ?? row.amount ?? 0);
-      const baselineCents = prev.reduce(
-        (sum, row) => (isCurrentFeeType(row) ? sum + toCents(baselineOf(row)) : sum),
-        0
-      );
-
-      const remainingSet = new Set(remainingIndexes);
-      const fixedCents = updated.reduce((sum, row, i) => {
-        if (!isCurrentFeeType(row) || remainingSet.has(i)) return sum;
-        return sum + (i === currentIndex ? toCents(newAmount) : toCents(row.amount));
-      }, 0);
-
-      // Independent toFixed() on each generated row drops up to 1 cent per row
-      // (5470 / 3 => 1823.33 x 3 = 5469.99). Put that dust back when it is only
-      // rounding, so the later installments still add up to the course fee.
-      const componentPoolCents = isTuition
-        ? toCents(form.tuitionFee)
-        : isNonTuition
-          ? toCents(Number(form.enrollmentFee || 0) + Number(form.materialFee || 0) + Number(form.oshcFee || 0))
-          : null;
-      const feeTypeRowCount = prev.filter((row) => isCurrentFeeType(row)).length;
-      const roundingDustCents =
-        componentPoolCents == null ? 0 : componentPoolCents - baselineCents;
-      const dustCents =
-        roundingDustCents !== 0 && Math.abs(roundingDustCents) < Math.max(feeTypeRowCount, 1)
-          ? roundingDustCents
-          : 0;
-
-      const amountToSplitCents = baselineCents - fixedCents + dustCents;
-      const distributableCents = Math.max(0, amountToSplitCents);
-
-      if (remainingIndexes.length > 0) {
-        const shares = splitCents(distributableCents, remainingIndexes.length);
-
-        remainingIndexes.forEach((i, index) => {
-          const row = updated[i];
-          const rowAmount = centsToAmount(Math.max(0, shares[index] ?? 0));
-
-          updated[i] = {
-            ...row,
-            originalAmount: baselineOf(row),
-            amount: rowAmount,
-            balance: rowAmount,
-          };
-        });
-      }
-
-      const overflowCents = isNonTuition ? Math.max(0, -amountToSplitCents) : 0;
-
-      if (overflowCents > 0) {
-        const tuitionIndexes = [];
-        for (let i = currentIndex + 1; i < updated.length; i++) {
-          const row = updated[i];
-          if (
-            String(row.feeType || '').trim().toLowerCase() === 'tuition fee' &&
-            row.status === 'Pending' &&
-            !row.studentPaymentInstallmentId
-          ) {
-            tuitionIndexes.push(i);
-          }
-        }
-
-        if (tuitionIndexes.length > 0) {
-          const cuts = splitCents(overflowCents, tuitionIndexes.length);
-
-          tuitionIndexes.forEach((i, idx) => {
-            const row = updated[i];
-            const baseCents = toCents(row.originalAmount ?? row.amount ?? 0);
-            const nextCents = Math.max(0, baseCents - (cuts[idx] ?? 0));
-
-            updated[i] = {
-              ...row,
-              originalAmount: Number(centsToAmount(baseCents)),
-              amount: centsToAmount(nextCents),
-              balance: centsToAmount(nextCents),
-            };
-          });
-        }
-      }
-
-      if (isNonTuition && difference < -EPSILON && remainingIndexes.length === 0) {
-        const newRowAmount = Math.abs(difference);
-
-        const nextDue =
-          updated.find((x, i) => i > currentIndex && !x.isInitialPayment)?.dueDate ||
-          currentItem.dueDate;
-
-        let childNo = 1;
-        let childInstallmentNo = Number((childNo / 10).toFixed(2));
-        while (updated.some((x) => x.installmentNo === childInstallmentNo)) {
-          childNo++;
-          childInstallmentNo = Number((childNo / 10).toFixed(2));
+      if (remainderCents > 0 && childIndexes.length === 0) {
+        const rootNo = Number(currentItem.parentGroupNo ?? currentItem.installmentNo ?? 0);
+        let n = 1;
+        let childNo = Number((rootNo + n / 10).toFixed(2));
+        while (
+          updated.some(
+            (x) => Number(x.installmentNo) === childNo && isSameFeeType(x, currentItem)
+          )
+        ) {
+          n += 1;
+          childNo = Number((rootNo + n / 10).toFixed(2));
         }
 
         updated.splice(currentIndex + 1, 0, {
-          installmentNo: childInstallmentNo,
+          installmentNo: childNo,
           parentInstallmentNo: currentItem.installmentNo,
-          parentGroupNo: 0,
-          feeType: 'Non-Tuition Fee',
-          dueDate: nextDue,
-          amount: newRowAmount.toFixed(2),
+          parentGroupNo: rootNo,
+          feeType: currentItem.feeType,
+          dueDate: currentItem.dueDate,
+          amount: remainderText,
           paidAmount: '0.00',
-          balance: newRowAmount.toFixed(2),
+          balance: remainderText,
           status: 'Pending',
           originalStatus: 'Pending',
-          isInitialPayment: false,
-          originalAmount: 0,
         });
+      } else if (remainderCents > 0) {
+        const first = childIndexes[0];
+        const firstRow = updated[first];
+        const childPartial = firstRow.status === 'Partial';
+        updated[first] = {
+          ...firstRow,
+          amount: remainderText,
+          balance: childPartial ? '0.00' : remainderText,
+          paidAmount: childPartial ? remainderText : '0.00',
+        };
+
+        const drop = new Set(childIndexes.slice(1));
+        if (drop.size > 0) {
+          updated = updated.filter((_, index) => !drop.has(index));
+        }
+      } else if (childIndexes.length > 0) {
+        const drop = new Set(childIndexes);
+        updated = updated.filter((_, index) => !drop.has(index));
       }
 
-      if (isNonTuition) {
-        updated = updated.filter((x, i) => {
-          if (i <= currentIndex) return true;
-
-          const sameType = String(x.feeType || '').trim().toLowerCase() === 'non-tuition fee';
-          const isZero = Number(x.amount || 0) <= EPSILON;
-          const shouldDelete =
-            sameType &&
-            isZero &&
-            !x.studentPaymentInstallmentId &&
-            x.status === 'Pending' &&
-            !x.isInitialPayment;
-
-          return !shouldDelete;
-        });
+      if (nextStatus === 'Partial') {
+        updated = pendingRowsBelow(updated, updated[currentIndex]);
       }
 
       return updated;
@@ -1947,9 +1727,10 @@ export default function NewStudentPage({ basePath }) {
 
         const isPaid = isPaidLike(value);
         const isPartial = value === 'Partial';
-        const paidLikeAmount = hasSplitChild(prev, x)
-          ? x.paidAmount || '0.00'
-          : x.amount;
+        const paidLikeAmount =
+          hasSplitChild(prev, x) && Number(x.paidAmount) > 0
+            ? x.paidAmount
+            : x.amount;
 
         return {
           ...x,
@@ -1962,40 +1743,10 @@ export default function NewStudentPage({ basePath }) {
       });
 
       if (value === 'Partial') {
-        const alreadySplit = hasSplitChild(updated, item);
+        updated = pendingRowsBelow(updated, item);
+      }
 
-        if (!alreadySplit) {
-          const rootNo = item.parentGroupNo ?? item.installmentNo;
-          const childCount = updated.filter(
-            (x) => x.parentGroupNo === rootNo && isSameFeeType(x, item) && !isSamePaymentRow(x, item)
-          ).length;
-
-          let n = childCount + 1;
-          let newInstallmentNo = Number((rootNo + n / 10).toFixed(2));
-          while (
-            updated.some((x) => x.installmentNo === newInstallmentNo && isSameFeeType(x, item))
-          ) {
-            n++;
-            newInstallmentNo = Number((rootNo + n / 10).toFixed(2));
-          }
-
-          const remainingRow = {
-            installmentNo: newInstallmentNo,
-            parentInstallmentNo: item.installmentNo,
-            parentGroupNo: rootNo,
-            feeType: item.feeType,
-            dueDate: item.dueDate,
-            amount: '0.00',
-            paidAmount: '0.00',
-            balance: '0.00',
-            status: 'Pending',
-          };
-
-          const insertIndex = updated.findIndex((x) => isSamePaymentRow(x, item)) + 1;
-
-          updated = [...updated.slice(0, insertIndex), remainingRow, ...updated.slice(insertIndex)];
-        }
-      } else {
+      if (value !== 'Partial') {
         // Only a row leaving Partial gets its pre-split amount back; split children carry
         // originalAmount 0 and fee-edited rows carry a baseline, neither of which is a restore target.
         const wasPartial = item.status === 'Partial';
@@ -2037,7 +1788,10 @@ export default function NewStudentPage({ basePath }) {
         if (isCommissionOfPaymentRow(x, item)) {
           return { ...x, paymentStatus: value };
         }
-        if (value === 'Pending' && x.installmentNo > item.installmentNo) {
+        if (
+          (value === 'Pending' || value === 'Partial') &&
+          Number(x.installmentNo) > Number(item.installmentNo)
+        ) {
           return { ...x, paymentStatus: 'Pending' };
         }
         return x;
@@ -2132,13 +1886,21 @@ export default function NewStudentPage({ basePath }) {
       return;
     }
 
-    const invalidPartialRow = paymentList.find(
-      (x) => x.status === 'Partial' && (!x.paidAmount || Number(x.paidAmount) <= 0)
-    );
+    const invalidPartialRow = paymentList.find((x) => {
+      if (x.status !== 'Partial') return false;
+      if (!x.paidAmount || Number(x.paidAmount) <= 0) return true;
+
+      // Partial is only valid after the fee is reduced and the remainder sits on the next row.
+      const baseline = Number(x.originalAmount);
+      const feeNotReduced =
+        !hasSplitChild(paymentList, x) &&
+        (!(baseline > 0) || Number(x.amount) + EPSILON >= baseline);
+      return feeNotReduced;
+    });
     if (invalidPartialRow) {
       setError(
         `Installment ${invalidPartialRow.isInitialPayment ? 'Initial Payment' : invalidPartialRow.installmentNo
-        } is marked "Partial" but Paid Amount is 0. Please enter a paid amount or change the status.`
+        } is marked "Partial", but the amount has not been changed. Please update the amount before saving.`
       );
       return;
     }
@@ -2213,6 +1975,8 @@ export default function NewStudentPage({ basePath }) {
 
         const result = await updateStudentPaymentSchedule({
           studentId: form.studentId,
+          fullName: String(form.fullName ?? '').trim(),
+          email: String(form.email ?? '').trim(),
           noOfInstallments: totalInstallmentCount,
           frequency: form.frequency,
           firstDueDate: form.startDate,
@@ -2536,6 +2300,27 @@ export default function NewStudentPage({ basePath }) {
     }
   };
 
+  if (id && !/^\d+$/.test(String(id))) {
+    let raw = String(id);
+    try {
+      raw = decodeURIComponent(raw);
+    } catch {
+      raw = String(id);
+    }
+    const fromInstituteLink = /^institute=/i.test(raw);
+    return (
+      <Navigate
+        to="/students"
+        replace
+        state={
+          fromInstituteLink
+            ? { instituteName: raw.replace(/^institute=/i, ''), fromInstitute: true }
+            : null
+        }
+      />
+    );
+  }
+
   if (!resource) return null;
 
   return (
@@ -2571,6 +2356,7 @@ export default function NewStudentPage({ basePath }) {
             requiredFields={resource.requiredFields}
             disabled={false}
             disabledFields={isEdit ? ['fullName', 'email', 'studentIdDisplay'] : []}
+            fieldDefsOverride={isEdit ? { studentIdDisplay: { readOnly: true } } : {}}
           />
         )}
 
@@ -2760,13 +2546,52 @@ export default function NewStudentPage({ basePath }) {
                                 <TextField
                                   size="small"
                                   type="text"
-                                  value={item.amount ?? ''}
-                                  onFocus={(e) => e.target.select()}
+                                  value={
+                                    feeDraft?.key === getPaymentRowKey(item)
+                                      ? feeDraft.text
+                                      : (item.amount ?? '')
+                                  }
+                                  onFocus={(e) => {
+                                    setFeeDraft({
+                                      key: getPaymentRowKey(item),
+                                      text: String(item.amount ?? ''),
+                                      maxCents: feeRemainderPoolCents(paymentList, item),
+                                    });
+                                    e.target.select();
+                                  }}
                                   onChange={(e) => {
                                     const next = e.target.value;
-                                    if (next === '' || /^\d*\.?\d{0,2}$/.test(next)) {
-                                      handleFeeAmountChange(item, next);
+                                    if (!(next === '' || /^\d*\.?\d{0,2}$/.test(next))) return;
+
+                                    const rowKey = getPaymentRowKey(item);
+                                    const maxCents =
+                                      feeDraft?.key === rowKey
+                                        ? feeDraft.maxCents
+                                        : feeRemainderPoolCents(paymentList, item);
+                                    const text =
+                                      next !== '' && toCents(next) > maxCents
+                                        ? centsToAmount(maxCents)
+                                        : next;
+
+                                    setFeeDraft({
+                                      key: rowKey,
+                                      text,
+                                      maxCents,
+                                    });
+
+                                    if (text !== '' && text !== '.') {
+                                      handleFeeAmountChange(item, text);
                                     }
+                                  }}
+                                  onBlur={() => {
+                                    const rowKey = getPaymentRowKey(item);
+                                    if (feeDraft?.key === rowKey) {
+                                      handleFeeAmountChange(
+                                        item,
+                                        feeDraft.text === '' ? '0' : feeDraft.text
+                                      );
+                                    }
+                                    setFeeDraft(null);
                                   }}
                                   inputProps={{ inputMode: 'decimal' }}
                                   sx={{ width: 110 }}
@@ -2841,7 +2666,7 @@ export default function NewStudentPage({ basePath }) {
                               )}
                             </TableCell>
 
-                            <TableCell>{Number(item.paidAmount || 0).toFixed(2)}</TableCell>
+                            <TableCell>{shownPaidAmount(item).toFixed(2)}</TableCell>
 
                             <TableCell>
                               {item.documentUrl ? (
@@ -2889,15 +2714,29 @@ export default function NewStudentPage({ basePath }) {
     size="small"
     label="Installments"
     value={installmentCountDraft}
+    disabled={installmentsLocked}
     onChange={(e) => {
       const next = e.target.value;
 
       if (next !== '' && !/^\d+$/.test(next)) return;
 
       setInstallmentCountDraft(next);
-
+      if (installmentResizeTimer.current) clearTimeout(installmentResizeTimer.current);
       const count = Number(next);
       if (count >= 1 && count !== Number(form.noOfInstallment)) {
+        installmentResizeTimer.current = setTimeout(() => {
+          updateField('noOfInstallment', String(count));
+        }, 400);
+      }
+    }}
+    onBlur={() => {
+      if (installmentResizeTimer.current) clearTimeout(installmentResizeTimer.current);
+      const count = Math.floor(Number(installmentCountDraft));
+      if (!count || count < 1) {
+        setInstallmentCountDraft(String(form.noOfInstallment ?? ''));
+        return;
+      }
+      if (count !== Number(form.noOfInstallment)) {
         updateField('noOfInstallment', String(count));
       }
     }}
