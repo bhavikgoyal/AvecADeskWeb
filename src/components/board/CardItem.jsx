@@ -9,6 +9,7 @@ import {
   useColorblindMode,
 } from '../../utils/cardCover';
 import { getLabelTextColor } from '../../utils/labelColors';
+import { getAvatarColor, getInitials } from './cardModalStyles';
 
 function tagStyle(tag) {
   const map = {
@@ -54,6 +55,27 @@ export default function CardItem({ card, index, theme, onDelete, onCardClick }) 
     ? getCoverBackground(cover.color, getCoverHex(cover), colorblind)
     : null;
   const isFullCover = cover?.size === 'full';
+
+    // Card members + assigned user (modal જેવી જ logic)
+  const cardMembers = (card.members || []).map((m) => ({
+    id: m.userID ?? m.userId,
+    name:
+      `${m.firstName || ''} ${m.lastName || ''}`.trim() ||
+      m.userName ||
+      'Unknown',
+  }));
+  const assignedInMembers = cardMembers.some(
+    (m) => String(m.id) === String(card.assignedUserID),
+  );
+  const memberList =
+    card.assignedUserName && !assignedInMembers
+      ? [
+          { id: `assigned-${card.assignedUserID}`, name: card.assignedUserName },
+          ...cardMembers,
+        ]
+      : cardMembers;
+  const shownMembers = memberList.slice(0, 3);
+  const extraMembers = memberList.length - shownMembers.length;
 
   const deleteButton = (color = '#9ca3af', extraStyle = {}) => (
     <button
@@ -155,25 +177,56 @@ export default function CardItem({ card, index, theme, onDelete, onCardClick }) 
           </span>
         )}
 
-        <div
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: '50%',
-            background: '#f3f4f6',
-            color: '#000',
-            border: '1px solid #d1d5db',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 10,
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-          title={card.assignedUserName || 'Unassigned'}
-        >
-          {card.assignedUserName ? card.assignedUserName.slice(0, 2).toUpperCase() : '?'}
-        </div>
+                {memberList.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            {shownMembers.map((m, i) => (
+              <div
+                key={m.id}
+                title={m.name}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  background: getAvatarColor(m.name),
+                  color: '#fff',
+                  border: '2px solid #fff',
+                  boxSizing: 'border-box',
+                  marginLeft: i === 0 ? 0 : -6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 9,
+                  fontWeight: 700,
+                  flexShrink: 0,
+                }}
+              >
+                {getInitials(m.name)}
+              </div>
+            ))}
+            {extraMembers > 0 && (
+              <div
+                title={`${extraMembers} more`}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  background: '#e5e7eb',
+                  color: '#374151',
+                  border: '2px solid #fff',
+                  boxSizing: 'border-box',
+                  marginLeft: -6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 9,
+                  fontWeight: 700,
+                }}
+              >
+                +{extraMembers}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
