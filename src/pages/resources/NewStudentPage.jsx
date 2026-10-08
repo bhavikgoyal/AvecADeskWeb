@@ -254,6 +254,29 @@ const feeRemainderPoolCents = (list, item) => {
   return pool;
 };
 
+// On create, a fee edit can use this row plus every later installment of the same fee.
+// Rows above stay as they are, so they are not part of the pool.
+const createFeePoolCents = (list, item) => {
+  const currentIndex = (list || []).findIndex(
+    (x) =>
+      String(x.installmentNo) === String(item.installmentNo) &&
+      String(x.feeType).toLowerCase() === String(item.feeType).toLowerCase()
+  );
+  if (currentIndex < 0) return toCents(item?.amount);
+
+  const feeType = String(list[currentIndex].feeType || '').trim().toLowerCase();
+  let followers = 0;
+  let pool = toCents(list[currentIndex].amount);
+  for (let i = currentIndex + 1; i < list.length; i += 1) {
+    const row = list[i];
+    if (String(row.feeType || '').trim().toLowerCase() !== feeType) continue;
+    if (!isScheduledInstallment(row)) continue;
+    pool += toCents(row.amount);
+    followers += 1;
+  }
+  return followers > 0 ? pool : Number.MAX_SAFE_INTEGER;
+};
+
 const isInitialGroupRow = (row) =>
   Boolean(row?.isInitialPayment) || !isScheduledInstallment(row);
 
@@ -1578,6 +1601,45 @@ export default function NewStudentPage({ basePath }) {
 
       const currentItem = updated[currentIndex];
 
+      if (!isEdit) {
+        const feeType = String(currentItem.feeType || '').trim().toLowerCase();
+        const followerIndexes = [];
+        for (let i = currentIndex + 1; i < updated.length; i += 1) {
+          const row = updated[i];
+          if (String(row.feeType || '').trim().toLowerCase() !== feeType) continue;
+          if (!isScheduledInstallment(row)) continue;
+          followerIndexes.push(i);
+        }
+
+        let typedCents = toCents(value);
+        if (typedCents < 0) typedCents = 0;
+
+        const setFee = (row, cents) => {
+          const amount = centsToAmount(cents);
+          return {
+            ...row,
+            amount,
+            balance: amount,
+            originalAmount: Number(amount),
+            autoPartial: false,
+          };
+        };
+
+        if (followerIndexes.length > 0) {
+          const poolCents =
+            toCents(currentItem.amount) +
+            followerIndexes.reduce((sum, i) => sum + toCents(updated[i].amount), 0);
+          if (typedCents > poolCents) typedCents = poolCents;
+          const shares = splitCents(poolCents - typedCents, followerIndexes.length);
+          followerIndexes.forEach((index, shareIndex) => {
+            updated[index] = setFee(updated[index], shares[shareIndex] ?? 0);
+          });
+        }
+
+        updated[currentIndex] = setFee(currentItem, typedCents);
+        return updated;
+      }
+
       // This row plus the leftover rows already split from it (0.1, 2.1, ...) is the
       // ceiling. A smaller amount keeps the difference on the next row. A larger
       // amount is not applied, and going back to the full amount removes that row.
@@ -2555,7 +2617,9 @@ export default function NewStudentPage({ basePath }) {
                                     setFeeDraft({
                                       key: getPaymentRowKey(item),
                                       text: String(item.amount ?? ''),
-                                      maxCents: feeRemainderPoolCents(paymentList, item),
+                                      maxCents: isEdit
+                                        ? feeRemainderPoolCents(paymentList, item)
+                                        : createFeePoolCents(paymentList, item),
                                     });
                                     e.target.select();
                                   }}
@@ -2567,7 +2631,9 @@ export default function NewStudentPage({ basePath }) {
                                     const maxCents =
                                       feeDraft?.key === rowKey
                                         ? feeDraft.maxCents
-                                        : feeRemainderPoolCents(paymentList, item);
+                                        : isEdit
+                                          ? feeRemainderPoolCents(paymentList, item)
+                                          : createFeePoolCents(paymentList, item);
                                     const text =
                                       next !== '' && toCents(next) > maxCents
                                         ? centsToAmount(maxCents)

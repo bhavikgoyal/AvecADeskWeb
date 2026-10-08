@@ -16,7 +16,7 @@ import {
   fetchReceivablesSummary,
   fetchReceivedInvoices,
   fetchInvoiceLineItems,
-} from '../../api/receivablesApi';
+} from '../../api/Receivablesapi';
 import { fetchInstitutesForReceivables, fetchStudentsLookup } from '../../api/lookupApi';
 import CardListSkeleton from '../../components/CardListSkeleton';
 import TableContentSkeleton from '../../components/TableContentSkeleton';
