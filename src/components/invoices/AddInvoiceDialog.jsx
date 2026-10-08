@@ -3,23 +3,8 @@ import {  Alert,  Box,  Button,  Checkbox,  CircularProgress,  Dialog,  DialogAc
   Stack,  TextField,  Tooltip,  Typography,} from '@mui/material';
 import ResponsiveTable from '../ResponsiveTable';
 import { fetchUniqueInstituteNames, getCampusesForInstitute, getUniqueInstituteNames, resolveScrappingId, } from '../../api/institutesScrappingApi';
-import { fetchPaidStudentsForInvoice, generateMonthlyInvoice, fetchSettledPaymentStatuses, updateInstallmentFeesAndInvoiceAmounts, insertBonusInstallments,
+import { fetchPaidStudentsForInvoice, generateMonthlyInvoice, updateInstallmentFeesAndInvoiceAmounts, insertBonusInstallments,
 } from '../../api/invoicesApi';
-
-const MONTHS = [
-  { value: 1, label: 'January' },
-  { value: 2, label: 'February' },
-  { value: 3, label: 'March' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'June' },
-  { value: 7, label: 'July' },
-  { value: 8, label: 'August' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'October' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'December' },
-];
 
 function isValidAmountInput(value) {
   return value === '' || /^\d*\.?\d{0,2}$/.test(value);
@@ -31,12 +16,6 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
   const [institutes, setInstitutes] = useState([]);
   const [instituteName, setInstituteName] = useState('');
   const [campus, setCampus] = useState('');
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const years = useMemo(() => {
-    const current = now.getFullYear();
-    return Array.from({ length: 7 }, (_, index) => current - 5 + index);
-  }, [now]);
   const [students, setStudents] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [editedFees, setEditedFees] = useState({});
@@ -46,13 +25,6 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
-  const [paidStatuses, setPaidStatuses] = useState([
-    'paid',
-    'paidbycollege',
-    'paidbystudent',
-    'confirmedbycollege',
-    'confirmedbystudent',
-  ]);
 
   const getDisplayInstallmentNo = (row, rows) => {
     if (!row.isBonus) {
@@ -85,8 +57,6 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
   const resetForm = useCallback(() => {
     setInstituteName('');
     setCampus('');
-    setYear(now.getFullYear());
-    setMonth(now.getMonth() + 1);
     setStudents([]);
     setSelectedIds([]);
     setEditedFees({});
@@ -94,7 +64,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
     setError('');
     setGenerating(false);
     setEditedBonuses({});
-  }, [now]);
+  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -139,8 +109,8 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
     setError('');
 
     fetchPaidStudentsForInvoice({
-      year,
-      month,
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
       instituteId: Number(resolvedInstituteId),
       campus,
     })
@@ -175,31 +145,11 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
     return () => {
       cancelled = true;
     };
-  }, [open, resolvedInstituteId, campus, year, month]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    let cancelled = false;
-    fetchSettledPaymentStatuses()
-      .then((list) => {
-        if (cancelled) return;
-        if (Array.isArray(list) && list.length > 0) {
-          setPaidStatuses(
-            list.map((status) => String(status).trim().toLowerCase()),
-          );
-        }
-      })
-      .catch(() => {
-      });
-
-    return () => {cancelled = true;};
-  }, [open]);
+  }, [open, resolvedInstituteId, campus, now]);
 
   const isPaidRow = useCallback(
-    (row) =>
-      paidStatuses.includes(String(row?.paymentStatus ?? '').trim().toLowerCase()),
-    [paidStatuses],
+    (row) => String(row?.paymentStatus ?? '').trim().toLowerCase() !== 'pending',
+    [],
   );
 
   const paidStudents = useMemo(
@@ -358,8 +308,8 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         (x) => Number(editedInvoiceAmts[x.id] ?? x.invoiceAmountRaw ?? 0));
 
       const result = await generateMonthlyInvoice({
-        year,
-        month,
+        year: now.getFullYear(),
+        month: now.getMonth() + 1,
         instituteId: Number(resolvedInstituteId),
         campus,
         installmentIds: selectedPaid.map((s) => s.id),
@@ -372,7 +322,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         setError(
           result?.message ||
             result?.Message ||
-            `No paid installments were invoiced for ${MONTHS[month - 1]?.label} ${year}.`
+            `No paid installments were invoiced for ${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()}.`
         );
         return;
       }
@@ -409,7 +359,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
           title={
             isPaidRow(row)
               ? 'Checked rows can edit Invoice/ bonus Amt and will be included in the invoice'
-              : 'Only settled (paid/confirmed) installments can be selected. Partial and Pending stay disabled.'
+              : 'Pending installments are not included in the invoice.'
           }
         >
           <span>
@@ -417,7 +367,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
               size="small"
               checked={selectedIds.includes(row.id)}
               onChange={() => toggleRow(row)}
-              disabled={generating}
+              disabled={generating || !isPaidRow(row)}
             />
           </span>
         </Tooltip>
@@ -472,6 +422,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         </Typography>
       ),
     },
+    { id: 'dueDate', label: 'Date', field: 'dueDate' },
     { id: 'feesAmount', label: 'Fees', field: 'feesAmount', render: (row) => row.feesAmount, },
     {
       id: 'invoiceAmount',
@@ -542,7 +493,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
   ];
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg">
       <DialogTitle>Add Invoice</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -594,49 +545,19 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
                 </MenuItem>
               ))}
             </TextField>
-
-            <TextField
-              select
-              fullWidth
-              label="Year"
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              disabled={generating}
-            >
-              {years.map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              select
-              fullWidth
-              label="Month"
-              value={month}
-              onChange={(e) => setMonth(Number(e.target.value))}
-              disabled={generating}
-            >
-              {MONTHS.map((item) => (
-                <MenuItem key={item.value} value={item.value}>
-                  {item.label}
-                </MenuItem>
-              ))}
-            </TextField>
           </Stack>
 
           {resolvedInstituteId && campus && (
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 700 }}>
-                Students — {MONTHS[month - 1]?.label} {year}
+                Students
               </Typography>
               <Typography
                 variant="caption"
                 sx={{ color: 'var(--muted)', display: 'block', mb: 1 }}
               >
-                All installments due this month are listed. Only checked (Paid)
-                students will be included in the invoice
+                Installments for this institute and campus are listed. Pending installments are not
+                shown. Checked rows are included in the invoice
                 {selectedPaidCount > 0
                   ? ` (${selectedPaidCount} selected)`
                   : ''}
@@ -647,21 +568,20 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
                   <CircularProgress size={28} />
                 </Box>
-              ) : students.length === 0 ? (
+              ) : paidStudents.length === 0 ? (
                 <Alert severity="info">
-                  No student installments found for this institute and campus in{' '}
-                  {MONTHS[month - 1]?.label} {year}.
+                  No student installments found for this institute and campus.
                 </Alert>
               ) : (
                 <ResponsiveTable
                   columns={columns}
-                  rows={students}
+                  rows={paidStudents}
                   getRowKey={(row) => row.id}
                   alwaysTable
                   showInvoiceTotal
                   totalInvoiceAmount={totalInvoiceAmount}
                   sx={{
-                    maxHeight: 400,
+                    maxHeight: 560,
                     overflowY: 'auto',
                   }}
                 />
@@ -685,7 +605,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
             fontWeight: 600,
           }}
         >
-          {generating ? 'Generating...' : `Generate Invoice — ${MONTHS[month - 1]?.label} ${year}`}
+          {generating ? 'Generating...' : 'Generate Invoice'}
         </Button>
       </DialogActions>
     </Dialog>

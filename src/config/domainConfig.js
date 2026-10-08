@@ -446,6 +446,7 @@ export const DOMAIN_RESOURCES = {
       { id: 'invoiceNumber', label: 'Invoice #', field: 'invoiceNumber' },
       { id: 'instituteNameRef', label: 'Institute', field: 'instituteNameRef' },
       { id: 'invoiceStatus', label: 'Status', field: 'invoiceStatus' },
+      { id: 'invoiceMonthYear', label: 'Invoice Month/Year', field: 'invoiceMonthYear' },
       { id: 'totalAmount', label: 'Amount', field: 'totalAmount' },
       { id: 'createdAt', label: 'Created', field: 'createdAt' },
     ],
@@ -503,7 +504,7 @@ courses: {
   actionLabel: 'Add Course',
   primaryField: 'courseName',
 
-  requiredFields: ['instituteId', 'courseName'],
+  requiredFields: ['instituteId', 'courseName', 'campus'],
 
   sections: [
     {

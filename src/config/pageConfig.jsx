@@ -86,6 +86,7 @@ export const PAGE_CONFIG = {
       { id: 'invoiceNumber', label: 'Invoice #', field: 'invoiceNumber' },
       { id: 'instituteNameRef', label: 'Institute', field: 'instituteNameRef' },
       { id: 'invoiceStatus', label: 'Status', field: 'invoiceStatus' },
+      { id: 'invoiceMonthYear', label: 'invoiceMonthYear', field: 'invoiceMonthYear' },
       { id: 'totalAmount', label: 'Amount', field: 'totalAmount' },
       { id: 'createdAt', label: 'Created', field: 'createdAt' },
     ],

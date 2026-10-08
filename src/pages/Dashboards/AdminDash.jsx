@@ -59,7 +59,6 @@ export default function AdminDash() {
   }, []);
 
   useEffect(() => {
-    console.log("Updated State:", nextMonthInvoiceTotal);
   }, [nextMonthInvoiceTotal]);
 
   useEffect(() => {

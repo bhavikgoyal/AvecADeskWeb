@@ -12,7 +12,7 @@ import {
   Tabs,
   Tab,
 } from "@mui/material";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ResponsiveTable from "../../components/ResponsiveTable";
@@ -32,14 +32,27 @@ import { fetchStudentPaymentScheduleList, fetchStudentCourseCompleteList, format
 const INSTITUTE_SCRAPPING_BASE_PATH = "/institutes-scrapping";
 
 function normalizeInstituteName(value) {
-  return String(value || "").trim().replace(/:+\s*$/, "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .replace(/:\s*$/, "")
+    .trim()
+    .toLowerCase();
 }
 
 export default function PaymentSchedulesPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const selectedInstituteName = location.state?.instituteName || "";
-  const fromInstitute = Boolean(location.state?.fromInstitute);
+const location = useLocation();
+const [searchParams] = useSearchParams();
+
+const selectedInstituteName = String(
+  searchParams.get("institute") || ""
+)
+  .trim()
+  .replace(/:\s*$/, "")
+  .trim();
+
+const fromInstitute =
+  Boolean(selectedInstituteName) || Boolean(location.state?.fromInstitute);
   const selectedInstituteKey = useMemo(
     () => normalizeInstituteName(selectedInstituteName),
     [selectedInstituteName],
@@ -49,8 +62,14 @@ export default function PaymentSchedulesPage() {
 
   const [students, setStudents] = useState([]);
   const [studentFilter, setStudentFilter] = useState("");
-  const [instituteFilter, setInstituteFilter] = useState('');
+  const [instituteFilter, setInstituteFilter] = useState(selectedInstituteName);
   const [studentNameFilter, setStudentNameFilter] = useState('');
+
+  useEffect(() => {
+  setInstituteFilter(selectedInstituteName);
+  setPage(0);
+}, [selectedInstituteName]);
+  
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,6 +83,7 @@ export default function PaymentSchedulesPage() {
   const initCurrent = initParams.has("currentMonth") || initParams.get("currentMonth") === "true";
   const [currentMonthOnly, setCurrentMonthOnly] = useState(initCurrent);
   const [activeTab, setActiveTab] = useState(0);
+
 
   const handleTabChange = (_e, newValue) => {
     setActiveTab(newValue);
@@ -273,30 +293,35 @@ export default function PaymentSchedulesPage() {
   }, [resource, navigate]);
 
   const handleRowClick = useCallback((row) => navigate(`/students/${row.studentId}`), [navigate]);
-  const instituteOptions = useMemo(() => {
-    const seen = new Set();
+ const instituteOptions = useMemo(() => {
+  const seen = new Set();
 
-    return rows
-      .map((row) => String(row.instituteName || '').trim())
-      .filter((name) => {
-        if (!name) return false;
+  const names = rows
+    .map((row) => String(row.instituteName || "").trim())
+    .filter(Boolean);
 
-        const key = name.toLowerCase();
+  if (selectedInstituteName) {
+    names.push(selectedInstituteName);
+  }
 
-        if (seen.has(key)) return false;
+  return names
+    .filter((name) => {
+      const key = name.toLowerCase();
 
-        seen.add(key);
-        return true;
-      })
-      .sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+      if (seen.has(key)) return false;
+
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => a.localeCompare(b));
+}, [rows, selectedInstituteName]);
   return (
     <Box>
       {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            Student Payment Schedules
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Student Payment Schedules{instituteFilter ? ` — ${instituteFilter}` : ''}
           </Typography>
 
           <Typography variant="body2" color="text.secondary">
