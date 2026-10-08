@@ -628,6 +628,7 @@ export default function CardDetailModal({
         newValue: String(userId),
       });
       await loadMembers();
+      onUpdated?.();
     } catch (err) {
       window.alert(err?.message || "Unable to add member.");
     }
@@ -641,6 +642,7 @@ export default function CardDetailModal({
         oldValue: String(userId),
       });
       await loadMembers();
+      onUpdated?.();
     } catch (err) {
       window.alert(err?.message || "Unable to remove member.");
     }
@@ -1267,8 +1269,8 @@ export default function CardDetailModal({
         onDrop={handleModalDrop}
         style={{
           width: "min(1080px, 100%)",
-          height: isNarrow ? "auto" : "min(750px, calc(100vh - 96px))",
-          maxHeight: isNarrow ? "none" : "min(750px, calc(100vh - 96px))",
+          height: "auto",
+          maxHeight: isNarrow ? "none" : "calc(100vh - 96px)",
           background: "#fff",
           borderRadius: 12,
           boxShadow: "0 8px 24px rgba(9,30,66,0.25)",
@@ -1306,10 +1308,79 @@ export default function CardDetailModal({
             <CloseIcon sx={{ fontSize: 20 }} />
           </button>
 
+          {/* Top-left: List (Move card) button */}
+          <button
+            type="button"
+            title="Move card"
+            onClick={openPopover("move")}
+            style={{
+              position: "absolute",
+              top: 16,
+              left: isNarrow ? 16 : 24,
+              zIndex: 2,
+              maxWidth: isNarrow ? 140 : 200,
+              height: 32,
+              padding: "0 8px 0 12px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              border: `1px solid ${BORDER}`,
+              borderRadius: 6,
+              background: coverActive ? "rgba(255,255,255,0.85)" : NEUTRAL_BG,
+              color: TEXT,
+              fontSize: 13,
+              fontWeight: 600,
+              fontFamily: "inherit",
+              cursor: "pointer",
+            }}
+          >
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {listName || "Move card"}
+            </span>
+            <KeyboardArrowDownIcon sx={{ fontSize: 18, flexShrink: 0 }} />
+          </button>
+
+          {/* Top-right: Cover button (Close button ની બરાબર ડાબી બાજુ) */}
+          <button
+            type="button"
+            title="Cover"
+            aria-label="Cover"
+            onClick={openPopover("cover")}
+            style={{
+              ...headerIconButtonStyle,
+              position: "absolute",
+              top: 16,
+              right: 56,
+              zIndex: 2,
+            }}
+          >
+            <WebAssetOutlinedIcon sx={{ fontSize: 18 }} />
+          </button>
+
+          {/* Trello-style cover band (top ma image) */}
+
+          {coverActive && (
+            <div
+              style={{
+                height: 160,
+                background: coverBandBackground,
+                flexShrink: 0,
+              }}
+            />
+          )}
+
           {/* Header: title + list dropdown + date + user */}
           <div
             style={{
-              padding: isNarrow ? "16px 16px 14px" : "16px 24px 14px",
+              padding: isNarrow
+                ? `${coverActive ? 16 : 56}px 16px 14px`
+                : `${coverActive ? 16 : 56}px 24px 14px`,
               borderBottom: `1px solid ${BORDER}`,
               background: "#fff",
               flexShrink: 0,
@@ -1401,783 +1472,509 @@ export default function CardDetailModal({
                 </h2>
               )}
 
+              {/* Date + logged-in user */}
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
                   alignItems: "center",
+                  alignSelf: "center",
                   gap: 8,
-                  flexShrink: 0,
-                  height: 36,
+                  margin: "0 0 0 32px",
                 }}
               >
                 <button
                   type="button"
-                  title="Move card"
-                  onClick={openPopover("move")}
+                  onClick={openPopover("dates")}
                   style={{
-                    maxWidth: isNarrow ? 140 : 200,
                     height: 32,
-                    padding: "0 8px 0 12px",
+                    padding: "0 10px",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 4,
-                    border: `1px solid ${BORDER}`,
+                    gap: 8,
+                    border: "none",
                     borderRadius: 6,
                     background: NEUTRAL_BG,
                     color: TEXT,
                     fontSize: 13,
-                    fontWeight: 600,
+                    fontWeight: 500,
                     fontFamily: "inherit",
                     cursor: "pointer",
                   }}
                 >
-                  <span
-                    style={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {listName || "Move card"}
-                  </span>
-                  <KeyboardArrowDownIcon sx={{ fontSize: 18, flexShrink: 0 }} />
+                  <AccessTimeOutlinedIcon sx={{ fontSize: 16, color: BRAND }} />
+                  <span>{dueMeta ? dueMeta.label : "Set date"}</span>
+                  {dueMeta?.badge && (
+                    <span
+                      style={{
+                        padding: "0 4px",
+                        borderRadius: 3,
+                        background: dueMeta.bg,
+                        color: dueMeta.color,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        lineHeight: "16px",
+                      }}
+                    >
+                      {dueMeta.badge}
+                    </span>
+                  )}
                 </button>
-                <button
-                  type="button"
-                  title="Cover"
-                  aria-label="Cover"
-                  onClick={openPopover("cover")}
-                  style={squareAddButtonStyle}
+
+                <span
+                  style={{
+                    height: 32,
+                    padding: "0 10px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    borderRadius: 6,
+                    background: NEUTRAL_BG,
+                    color: TEXT,
+                    fontSize: 13,
+                    fontWeight: 500,
+                  }}
                 >
-                  <WebAssetOutlinedIcon sx={{ fontSize: 18 }} />
-                </button>
+                  <PersonOutlineIcon sx={{ fontSize: 16, color: BRAND }} />
+                  {currentUserName}
+                </span>
               </div>
             </div>
 
-            {/* Line 3: Date + logged-in user */}
+            {/* Tabs + content */}
             <div
               style={{
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: 8,
-                margin: "8px 0 0 32px",
+                flex: "1 1 auto",
+                minHeight: 0,
+                overflowY: isNarrow ? "visible" : "auto",
+                background: "#F7F8F9",
+                padding: isNarrow ? "12px" : "16px 24px 24px",
               }}
             >
-              <button
-                type="button"
-                onClick={openPopover("dates")}
+              {/* Tab bar (alag box) */}
+              <div
+                role="tablist"
                 style={{
-                  height: 32,
-                  padding: "0 10px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  border: "none",
-                  borderRadius: 6,
-                  background: NEUTRAL_BG,
-                  color: TEXT,
-                  fontSize: 13,
-                  fontWeight: 500,
-                  fontFamily: "inherit",
-                  cursor: "pointer",
+                  display: "flex",
+                  background: "#fff",
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: 8,
+                  padding: "0 8px",
+                  overflowX: "auto",
                 }}
               >
-                <AccessTimeOutlinedIcon sx={{ fontSize: 16, color: BRAND }} />
-                <span>{dueMeta ? dueMeta.label : "Set date"}</span>
-                {dueMeta?.badge && (
-                  <span
-                    style={{
-                      padding: "0 4px",
-                      borderRadius: 3,
-                      background: dueMeta.bg,
-                      color: dueMeta.color,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      lineHeight: "16px",
-                    }}
-                  >
-                    {dueMeta.badge}
-                  </span>
-                )}
-              </button>
-
-              <span
-                style={{
-                  height: 32,
-                  padding: "0 10px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  borderRadius: 6,
-                  background: NEUTRAL_BG,
-                  color: TEXT,
-                  fontSize: 13,
-                  fontWeight: 500,
-                }}
-              >
-                <PersonOutlineIcon sx={{ fontSize: 16, color: BRAND }} />
-                {currentUserName}
-              </span>
-            </div>
-          </div>
-
-          {/* Tabs + content */}
-          <div
-            style={{
-              flex: "1 1 auto",
-              minHeight: 0,
-              overflowY: isNarrow ? "visible" : "auto",
-              background: "#F7F8F9",
-              padding: isNarrow ? "12px" : "16px 24px 24px",
-            }}
-          >
-            {/* Tab bar (alag box) */}
-            <div
-              role="tablist"
-              style={{
-                display: "flex",
-                background: "#fff",
-                border: `1px solid ${BORDER}`,
-                borderRadius: 8,
-                padding: "0 8px",
-                overflowX: "auto",
-              }}
-            >
-              {TABS.map((tab) => {
-                const active = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => setActiveTab(tab.key)}
-                    style={{
-                      flex: 1,
-                      minWidth: 110,
-                      height: 44,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      border: "none",
-                      borderBottom: active
-                        ? `2px solid ${BRAND}`
-                        : "2px solid transparent",
-                      background: "transparent",
-                      color: active ? BRAND : SUBTLE_TEXT,
-                      fontSize: 14,
-                      fontWeight: active ? 600 : 500,
-                      fontFamily: "inherit",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {tab.icon}
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Tab content box */}
-            <div
-              style={
-                activeTab === "details"
-                  ? { marginTop: 12 }
-                  : {
-                      marginTop: 12,
-                      background: "#fff",
-                      border: `1px solid ${BORDER}`,
-                      borderRadius: 8,
-                      padding: isNarrow ? 16 : 20,
-                    }
-              }
-            >
-              {/* ---------------- DETAILS ---------------- */}
-              {activeTab === "details" && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: isNarrow
-                      ? "minmax(0, 1fr)"
-                      : "minmax(0, 1fr) 300px",
-                    gap: 16,
-                    alignItems: "start",
-                  }}
-                >
-                  {/* ---------- LEFT: Labels, Description, Members, Cover ---------- */}
-                  <div
-                    style={{ ...detailBoxStyle, padding: isNarrow ? 16 : 20 }}
-                  >
-                    {/* Labels */}
-                    <h3 style={detailHeadingStyle}>Labels</h3>
-                    <div
+                {TABS.map((tab) => {
+                  const active = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setActiveTab(tab.key)}
                       style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 4,
-                        marginBottom: 24,
-                      }}
-                    >
-                      {assignedLabels.map((l) => (
-                        <LabelChip
-                          key={l.boardLabelID}
-                          label={l}
-                          colorblind={colorblind}
-                          onClick={openPopover("labels")}
-                          style={{ maxWidth: 220 }}
-                        />
-                      ))}
-                      <button
-                        type="button"
-                        title="Add label"
-                        aria-label="Add label"
-                        onClick={openPopover("labels")}
-                        style={squareAddButtonStyle}
-                      >
-                        <AddIcon sx={{ fontSize: 18 }} />
-                      </button>
-                    </div>
-
-                    {/* Description */}
-                    <div
-                      style={{
+                        flex: 1,
+                        minWidth: 110,
+                        height: 44,
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "space-between",
-                        minHeight: 32,
-                        marginBottom: 8,
+                        justifyContent: "center",
+                        gap: 6,
+                        border: "none",
+                        borderBottom: active
+                          ? `2px solid ${BRAND}`
+                          : "2px solid transparent",
+                        background: "transparent",
+                        color: active ? BRAND : SUBTLE_TEXT,
+                        fontSize: 14,
+                        fontWeight: active ? 600 : 500,
+                        fontFamily: "inherit",
+                        cursor: "pointer",
                       }}
                     >
-                      <h3 style={{ ...detailHeadingStyle, margin: 0 }}>
-                        Description
-                      </h3>
-                      {!isEditingDescription && (
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingDescription(true)}
-                          style={greyButtonStyle}
-                        >
-                          Edit
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ marginBottom: 24 }}>
-                      {isEditingDescription ? (
-                        <div>
-                          <textarea
-                            autoFocus
-                            value={descriptionText}
-                            onChange={(e) => setDescriptionText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Escape") handleCancelDescription();
-                            }}
-                            placeholder="Add a more detailed description..."
-                            style={{
-                              width: "100%",
-                              height: DESCRIPTION_BOX_HEIGHT,
-                              padding: "10px 12px",
-                              border: `2px solid ${BRAND}`,
-                              borderRadius: 6,
-                              fontSize: 14,
-                              lineHeight: "22px",
-                              color: TEXT,
-                              boxSizing: "border-box",
-                              resize: "none",
-                              overflowY: "auto",
-                              fontFamily: "inherit",
-                              outline: "none",
-                            }}
-                          />
-                          <div
-                            style={{ display: "flex", gap: 8, marginTop: 8 }}
-                          >
-                            <button
-                              type="button"
-                              onClick={handleSaveDescription}
-                              style={primaryButtonStyle}
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleCancelDescription}
-                              style={{
-                                ...greyButtonStyle,
-                                background: "transparent",
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : descriptionText ? (
-                        <div
-                          onClick={(e) => {
-                            if (e.target.tagName !== "A")
-                              setIsEditingDescription(true);
-                          }}
-                          style={{
-                            height: DESCRIPTION_BOX_HEIGHT,
-                            padding: "8px 12px",
-                            border: `1px solid ${BORDER}`,
-                            borderRadius: 6,
-                            boxSizing: "border-box",
-                            overflowY: "auto",
-                            fontSize: 14,
-                            lineHeight: "22px",
-                            color: TEXT,
-                            whiteSpace: "pre-wrap",
-                            overflowWrap: "anywhere",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <LinkifiedText text={descriptionText} />
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingDescription(true)}
-                          style={{
-                            width: "100%",
-                            height: DESCRIPTION_BOX_HEIGHT,
-                            padding: "10px 12px",
-                            border: "none",
-                            borderRadius: 6,
-                            background: NEUTRAL_BG,
-                            color: SUBTLE_TEXT,
-                            fontSize: 14,
-                            fontFamily: "inherit",
-                            textAlign: "left",
-                            verticalAlign: "top",
-                            display: "flex",
-                            alignItems: "flex-start",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Add a more detailed description...
-                        </button>
-                      )}
-                    </div>
+                      {tab.icon}
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-                    {/* Members */}
-                    <h3 style={detailHeadingStyle}>Members</h3>
+              {/* Tab content box */}
+              <div
+                style={
+                  activeTab === "details"
+                    ? { marginTop: 12 }
+                    : {
+                        marginTop: 12,
+                        background: "#fff",
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: 8,
+                        padding: isNarrow ? 16 : 20,
+                      }
+                }
+              >
+                {/* ---------------- DETAILS ---------------- */}
+                {activeTab === "details" && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: isNarrow
+                        ? "minmax(0, 1fr)"
+                        : "minmax(0, 1fr) 300px",
+                      gap: 16,
+                      alignItems: "start",
+                    }}
+                  >
+                    {/* ---------- LEFT: Labels, Description, Members, Cover ---------- */}
                     <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 4,
-                        marginBottom: coverActive ? 24 : 0,
-                      }}
+                      style={{ ...detailBoxStyle, padding: isNarrow ? 16 : 20 }}
                     >
-                      {visibleMembers.map((m) => (
-                        <Avatar
-                          key={`${m.userID ?? m.userId}-${m.isFallbackAssignedUser ? "assigned" : "member"}`}
-                          name={memberDisplayName(m)}
-                          title={
-                            m.isFallbackAssignedUser
-                              ? `${memberDisplayName(m)} (assigned user)`
-                              : memberDisplayName(m)
-                          }
-                          onClick={openPopover("member", m)}
-                        />
-                      ))}
-                      <button
-                        type="button"
-                        title="Add member"
-                        aria-label="Add member"
-                        onClick={openPopover("members")}
-                        style={{ ...squareAddButtonStyle, borderRadius: "50%" }}
+                      {/* Labels + Members */}
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          alignItems: "flex-start",
+                          gap: 40,
+                          marginBottom: 24,
+                        }}
                       >
-                        <AddIcon sx={{ fontSize: 18 }} />
-                      </button>
-                    </div>
-
-                    {/* Cover Image (fakt tyare jyare cover select hoy) */}
-                    {coverActive && (
-                      <>
-                        <h3 style={detailHeadingStyle}>Cover Image</h3>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                            gap: 12,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 152,
-                              height: 96,
-                              borderRadius: 8,
-                              background: coverBandBackground,
-                              flexShrink: 0,
-                            }}
-                          />
+                        {/* Labels */}
+                        <div style={{ minWidth: 0 }}>
+                          <h3 style={detailHeadingStyle}>Labels</h3>
                           <div
                             style={{
                               display: "flex",
-                              flexDirection: "column",
-                              gap: 8,
+                              flexWrap: "wrap",
+                              gap: 4,
                             }}
                           >
+                            {assignedLabels.map((l) => (
+                              <LabelChip
+                                key={l.boardLabelID}
+                                label={l}
+                                colorblind={colorblind}
+                                onClick={openPopover("labels")}
+                                style={{ maxWidth: 220 }}
+                              />
+                            ))}
                             <button
                               type="button"
-                              onClick={openPopover("cover")}
-                              style={actionButtonStyle}
+                              title="Add label"
+                              aria-label="Add label"
+                              onClick={openPopover("labels")}
+                              style={squareAddButtonStyle}
                             >
-                              <WebAssetOutlinedIcon sx={{ fontSize: 16 }} />{" "}
-                              Change Image
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleRemoveCover}
-                              disabled={coverSaving}
-                              style={{ ...actionButtonStyle, color: "#C9372C" }}
-                            >
-                              <DeleteOutlineIcon sx={{ fontSize: 16 }} /> Remove
+                              <AddIcon sx={{ fontSize: 18 }} />
                             </button>
                           </div>
                         </div>
-                      </>
-                    )}
-                  </div>
 
-                  {/* ---------- RIGHT: Quick Actions + Task Info ---------- */}
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 16,
-                      minWidth: 0,
-                    }}
-                  >
-                    {/* Quick Actions */}
-                    <div style={detailBoxStyle}>
-                      <h3 style={detailHeadingStyle}>Quick Actions</h3>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr",
-                          gap: 8,
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={openPopover("move")}
-                          style={quickActionButtonStyle}
-                        >
-                          <SwapHorizIcon sx={{ fontSize: 20 }} />
-                          Move
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleDeleteCard}
-                          style={{
-                            ...quickActionButtonStyle,
-                            color: "#C9372C",
-                            border: "1px solid #F5C6C2",
-                          }}
-                        >
-                          <DeleteOutlineIcon sx={{ fontSize: 20 }} />
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Task Info + Progress */}
-                    <div style={detailBoxStyle}>
-                      <h3 style={detailHeadingStyle}>Task Info</h3>
-                      {[
-                        [
-                          "Created",
-                          formatInfoDate(
-                            card.createdDate ??
-                              card.createdAt ??
-                              card.createdOn,
-                          ),
-                        ],
-                        [
-                          "Updated",
-                          formatInfoDate(
-                            card.updatedDate ??
-                              card.updatedAt ??
-                              card.modifiedDate ??
-                              card.modifiedOn,
-                          ),
-                        ],
-                        [
-                          "Created by",
-                          (() => {
-                            const currentUsername =
-                              localStorage.getItem("userName") ||
-                              localStorage.getItem("username") ||
-                              sessionStorage.getItem("userName") ||
-                              sessionStorage.getItem("username") ||
-                              "";
-
-                            const currentUser = allMembers.find(
-                              (m) =>
-                                String(
-                                  m.UserName ?? m.userName ?? "",
-                                ).toLowerCase() ===
-                                String(currentUsername).toLowerCase(),
-                            );
-
-                            return currentUser
-                              ? `${currentUser.FirstName ?? currentUser.firstName ?? ""} ${
-                                  currentUser.LastName ??
-                                  currentUser.lastName ??
-                                  ""
-                                }`.trim() ||
-                                  currentUser.UserName ||
-                                  currentUser.userName
-                              : currentUserName;
-                          })(),
-                        ],
-                        [
-                          "Board",
-                          boards.find(
-                            (b) =>
-                              normalizeUserId(b.boardID ?? b.boardId) ===
-                              normalizeUserId(boardId),
-                          )?.boardName ??
-                            card.boardName ??
-                            "—",
-                        ],
-                      ].map(([label, value], i, arr) => (
-                        <div
-                          key={label}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: 12,
-                            padding: "10px 0",
-                            borderBottom:
-                              i < arr.length - 1
-                                ? `1px solid ${BORDER}`
-                                : "none",
-                            fontSize: 14,
-                          }}
-                        >
-                          <span style={{ color: SUBTLE_TEXT, flexShrink: 0 }}>
-                            {label}
-                          </span>
-                          <span
+                        {/* Members */}
+                        <div style={{ minWidth: 0 }}>
+                          <h3 style={detailHeadingStyle}>Members</h3>
+                          <div
                             style={{
-                              color: TEXT,
-                              textAlign: "right",
-                              overflowWrap: "anywhere",
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 4,
                             }}
                           >
-                            {String(value)}
-                          </span>
+                            {visibleMembers.map((m) => (
+                              <Avatar
+                                key={`${m.userID ?? m.userId}-${m.isFallbackAssignedUser ? "assigned" : "member"}`}
+                                name={memberDisplayName(m)}
+                                title={
+                                  m.isFallbackAssignedUser
+                                    ? `${memberDisplayName(m)} (assigned user)`
+                                    : memberDisplayName(m)
+                                }
+                                onClick={openPopover("member", m)}
+                              />
+                            ))}
+                            <button
+                              type="button"
+                              title="Add member"
+                              aria-label="Add member"
+                              onClick={openPopover("members")}
+                              style={{
+                                ...squareAddButtonStyle,
+                                borderRadius: "50%",
+                              }}
+                            >
+                              <AddIcon sx={{ fontSize: 18 }} />
+                            </button>
+                          </div>
                         </div>
-                      ))}
+                      </div>
 
-                      <h3 style={{ ...detailHeadingStyle, marginTop: 28 }}>
-                        Progress
-                      </h3>
+                      {/* Description */}
                       <div
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 12,
+                          justifyContent: "space-between",
+                          minHeight: 32,
+                          marginBottom: 8,
                         }}
                       >
-                        <div
-                          style={{
-                            flex: 1,
-                            height: 8,
-                            borderRadius: 4,
-                            background: NEUTRAL_BG,
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: `${totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0}%`,
-                              height: "100%",
-                              borderRadius: 4,
-                              background:
-                                totalItems > 0 && completedItems === totalItems
-                                  ? "#1F845A"
-                                  : BRAND,
-                              transition: "width 0.3s, background 0.3s",
-                            }}
-                          />
-                        </div>
-                        <span
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: TEXT,
-                          }}
-                        >
-                          {totalItems > 0
-                            ? Math.round((completedItems / totalItems) * 100)
-                            : 0}
-                          %
-                        </span>
+                        <h3 style={{ ...detailHeadingStyle, margin: 0 }}>
+                          Description
+                        </h3>
+                        {!isEditingDescription && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingDescription(true)}
+                            style={greyButtonStyle}
+                          >
+                            Edit
+                          </button>
+                        )}
                       </div>
-                      <p
-                        style={{
-                          margin: "6px 0 0",
-                          fontSize: 12,
-                          color: SUBTLE_TEXT,
-                        }}
-                      >
-                        {completedItems}/{totalItems} completed
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === "commentsActivity" && (
-                <CardCommentsPanel
-                  cardId={card.cardID}
-                  activityVersion={activityVersion}
-                />
-              )}
-
-              {/* ---------------- ATTACHMENTS ---------------- */}
-              {activeTab === "attachments" &&
-                (attachments.length > 0 ? (
-                  <CardAttachmentsSection
-                    attachments={attachments}
-                    coverImageUrl={cover?.imageUrl || null}
-                    onAddClick={openPopover("attach")}
-                    onUpdate={updateAttachment}
-                    onDelete={handleDeleteAttachment}
-                    onMakeCover={handleMakeAttachmentCover}
-                    onRemoveCover={handleRemoveCover}
-                  />
-                ) : (
-                  <div style={{ textAlign: "center", padding: "24px 0" }}>
-                    <p
-                      style={{
-                        margin: "0 0 12px",
-                        fontSize: 14,
-                        color: SUBTLE_TEXT,
-                      }}
-                    >
-                      No attachments yet.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={openPopover("attach")}
-                      style={actionButtonStyle}
-                    >
-                      <AttachFileIcon sx={{ fontSize: 16 }} /> Add attachment
-                    </button>
-                  </div>
-                ))}
-
-              {/* ---------------- CHECKLIST ---------------- */}
-              {activeTab === "checklist" && (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      marginBottom: 16,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={openPopover("checklist")}
-                      style={actionButtonStyle}
-                    >
-                      <CheckBoxOutlinedIcon sx={{ fontSize: 16 }} /> Add
-                      checklist
-                    </button>
-                  </div>
-
-                  {checklists.length === 0 && (
-                    <p
-                      style={{
-                        margin: 0,
-                        padding: "16px 0",
-                        textAlign: "center",
-                        fontSize: 14,
-                        color: SUBTLE_TEXT,
-                      }}
-                    >
-                      No checklists yet.
-                    </p>
-                  )}
-
-                  {checklists.map((cl) => {
-                    const items = cl.items || [];
-                    const completed = items.filter((i) => i.isCompleted).length;
-                    const total = items.length;
-                    const percent =
-                      total > 0 ? Math.round((completed / total) * 100) : 0;
-                    const hideChecked = !!hideCheckedFor[cl.checklistID];
-                    const shownItems = hideChecked
-                      ? items.filter((i) => !i.isCompleted)
-                      : items;
-
-                    return (
-                      <section
-                        key={cl.checklistID}
-                        style={{ marginBottom: 28 }}
-                      >
-                        <SectionHeader
-                          icon={<CheckBoxOutlinedIcon sx={{ fontSize: 20 }} />}
-                          title={cl.checklistTitle}
-                          action={
+                      <div style={{ marginBottom: 24 }}>
+                        {isEditingDescription ? (
+                          <div>
+                            <textarea
+                              autoFocus
+                              value={descriptionText}
+                              onChange={(e) =>
+                                setDescriptionText(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape")
+                                  handleCancelDescription();
+                              }}
+                              placeholder="Add a more detailed description..."
+                              style={{
+                                width: "100%",
+                                height: DESCRIPTION_BOX_HEIGHT,
+                                padding: "10px 12px",
+                                border: `2px solid ${BRAND}`,
+                                borderRadius: 6,
+                                fontSize: 14,
+                                lineHeight: "22px",
+                                color: TEXT,
+                                boxSizing: "border-box",
+                                resize: "none",
+                                overflowY: "auto",
+                                fontFamily: "inherit",
+                                outline: "none",
+                              }}
+                            />
                             <div
-                              style={{ display: "flex", gap: 8, flexShrink: 0 }}
+                              style={{ display: "flex", gap: 8, marginTop: 8 }}
                             >
-                              {completed > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setHideCheckedFor((prev) => ({
-                                      ...prev,
-                                      [cl.checklistID]: !prev[cl.checklistID],
-                                    }))
-                                  }
-                                  style={greyButtonStyle}
-                                >
-                                  {hideChecked
-                                    ? `Show checked items (${completed})`
-                                    : "Hide checked items"}
-                                </button>
-                              )}
                               <button
                                 type="button"
-                                onClick={openPopover("deleteChecklist", cl)}
-                                style={greyButtonStyle}
+                                onClick={handleSaveDescription}
+                                style={primaryButtonStyle}
                               >
-                                Delete
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelDescription}
+                                style={{
+                                  ...greyButtonStyle,
+                                  background: "transparent",
+                                }}
+                              >
+                                Cancel
                               </button>
                             </div>
-                          }
-                        />
+                          </div>
+                        ) : descriptionText ? (
+                          <div
+                            onClick={(e) => {
+                              if (e.target.tagName !== "A")
+                                setIsEditingDescription(true);
+                            }}
+                            style={{
+                              height: DESCRIPTION_BOX_HEIGHT,
+                              padding: "8px 12px",
+                              border: `1px solid ${BORDER}`,
+                              borderRadius: 6,
+                              boxSizing: "border-box",
+                              overflowY: "auto",
+                              fontSize: 14,
+                              lineHeight: "22px",
+                              color: TEXT,
+                              whiteSpace: "pre-wrap",
+                              overflowWrap: "anywhere",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <LinkifiedText text={descriptionText} />
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingDescription(true)}
+                            style={{
+                              width: "100%",
+                              height: DESCRIPTION_BOX_HEIGHT,
+                              padding: "10px 12px",
+                              border: "none",
+                              borderRadius: 6,
+                              background: NEUTRAL_BG,
+                              color: SUBTLE_TEXT,
+                              fontSize: 14,
+                              fontFamily: "inherit",
+                              textAlign: "left",
+                              verticalAlign: "top",
+                              display: "flex",
+                              alignItems: "flex-start",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Add a more detailed description...
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
+                    {/* ---------- RIGHT: Quick Actions + Task Info ---------- */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 16,
+                        minWidth: 0,
+                      }}
+                    >
+                      {/* Quick Actions */}
+                      <div style={detailBoxStyle}>
+                        <h3 style={detailHeadingStyle}>Quick Actions</h3>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 8,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={openPopover("move")}
+                            style={quickActionButtonStyle}
+                          >
+                            <SwapHorizIcon sx={{ fontSize: 20 }} />
+                            Move
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDeleteCard}
+                            style={{
+                              ...quickActionButtonStyle,
+                              color: "#C9372C",
+                              border: "1px solid #F5C6C2",
+                            }}
+                          >
+                            <DeleteOutlineIcon sx={{ fontSize: 20 }} />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Task Info + Progress */}
+                      <div style={detailBoxStyle}>
+                        <h3 style={detailHeadingStyle}>Task Info</h3>
+                        {[
+                          [
+                            "Created",
+                            formatInfoDate(
+                              card.createdDate ??
+                                card.createdAt ??
+                                card.createdOn,
+                            ),
+                          ],
+                          [
+                            "Updated",
+                            formatInfoDate(
+                              card.updatedDate ??
+                                card.updatedAt ??
+                                card.modifiedDate ??
+                                card.modifiedOn,
+                            ),
+                          ],
+                          [
+                            "Created by",
+                            (() => {
+                              const currentUsername =
+                                localStorage.getItem("userName") ||
+                                localStorage.getItem("username") ||
+                                sessionStorage.getItem("userName") ||
+                                sessionStorage.getItem("username") ||
+                                "";
+
+                              const currentUser = allMembers.find(
+                                (m) =>
+                                  String(
+                                    m.UserName ?? m.userName ?? "",
+                                  ).toLowerCase() ===
+                                  String(currentUsername).toLowerCase(),
+                              );
+
+                              return currentUser
+                                ? `${currentUser.FirstName ?? currentUser.firstName ?? ""} ${
+                                    currentUser.LastName ??
+                                    currentUser.lastName ??
+                                    ""
+                                  }`.trim() ||
+                                    currentUser.UserName ||
+                                    currentUser.userName
+                                : currentUserName;
+                            })(),
+                          ],
+                          [
+                            "Board",
+                            boards.find(
+                              (b) =>
+                                normalizeUserId(b.boardID ?? b.boardId) ===
+                                normalizeUserId(boardId),
+                            )?.boardName ??
+                              card.boardName ??
+                              "—",
+                          ],
+                        ].map(([label, value], i, arr) => (
+                          <div
+                            key={label}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 12,
+                              padding: "10px 0",
+                              borderBottom:
+                                i < arr.length - 1
+                                  ? `1px solid ${BORDER}`
+                                  : "none",
+                              fontSize: 14,
+                            }}
+                          >
+                            <span style={{ color: SUBTLE_TEXT, flexShrink: 0 }}>
+                              {label}
+                            </span>
+                            <span
+                              style={{
+                                color: TEXT,
+                                textAlign: "right",
+                                overflowWrap: "anywhere",
+                              }}
+                            >
+                              {String(value)}
+                            </span>
+                          </div>
+                        ))}
+
+                        <h3 style={{ ...detailHeadingStyle, marginTop: 28 }}>
+                          Progress
+                        </h3>
                         <div
                           style={{
                             display: "flex",
                             alignItems: "center",
                             gap: 12,
-                            marginBottom: 8,
                           }}
                         >
-                          <span
-                            style={{
-                              width: 20,
-                              fontSize: 11,
-                              color: SUBTLE_TEXT,
-                              textAlign: "center",
-                              flexShrink: 0,
-                            }}
-                          >
-                            {percent}%
-                          </span>
                           <div
                             style={{
                               flex: 1,
@@ -2189,812 +1986,1033 @@ export default function CardDetailModal({
                           >
                             <div
                               style={{
-                                width: `${percent}%`,
+                                width: `${totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0}%`,
                                 height: "100%",
                                 borderRadius: 4,
-                                background: percent === 100 ? "#1F845A" : BRAND,
+                                background:
+                                  totalItems > 0 &&
+                                  completedItems === totalItems
+                                    ? "#1F845A"
+                                    : BRAND,
                                 transition: "width 0.3s, background 0.3s",
                               }}
                             />
                           </div>
+                          <span
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: TEXT,
+                            }}
+                          >
+                            {totalItems > 0
+                              ? Math.round((completedItems / totalItems) * 100)
+                              : 0}
+                            %
+                          </span>
                         </div>
+                        <p
+                          style={{
+                            margin: "6px 0 0",
+                            fontSize: 12,
+                            color: SUBTLE_TEXT,
+                          }}
+                        >
+                          {completedItems}/{totalItems} completed
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                        {hideChecked &&
-                          shownItems.length === 0 &&
-                          total > 0 && (
-                            <p
-                              style={{
-                                margin: "4px 0 8px 32px",
-                                fontSize: 14,
-                                color: SUBTLE_TEXT,
-                              }}
-                            >
-                              Everything in this checklist is complete!
-                            </p>
-                          )}
+                {activeTab === "commentsActivity" && (
+                  <CardCommentsPanel
+                    cardId={card.cardID}
+                    activityVersion={activityVersion}
+                  />
+                )}
 
-                        <div>
-                          {shownItems.map((item) => {
-                            const isEditing =
-                              editingItemId === item.checklistItemID;
-                            const isHovered =
-                              hoveredItemId === item.checklistItemID;
-                            return (
-                              <div
-                                key={item.checklistItemID}
-                                onMouseEnter={() =>
-                                  setHoveredItemId(item.checklistItemID)
-                                }
-                                onMouseLeave={() => setHoveredItemId(null)}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "flex-start",
-                                  gap: 12,
-                                  padding: "6px 4px",
-                                  margin: "0 -4px",
-                                  borderRadius: 4,
-                                  background:
-                                    isHovered && !isEditing
-                                      ? NEUTRAL_BG
-                                      : "transparent",
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    width: 20,
-                                    display: "flex",
-                                    justifyContent: "center",
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <ChecklistCheckbox
-                                    checked={!!item.isCompleted}
-                                    onChange={() =>
-                                      handleToggleItem(
-                                        item.checklistItemID,
-                                        item.isCompleted,
-                                      )
-                                    }
-                                  />
-                                </span>
+                {/* ---------------- ATTACHMENTS ---------------- */}
+                {activeTab === "attachments" &&
+                  (attachments.length > 0 ? (
+                    <CardAttachmentsSection
+                      attachments={attachments}
+                      coverImageUrl={cover?.imageUrl || null}
+                      onAddClick={openPopover("attach")}
+                      onUpdate={updateAttachment}
+                      onDelete={handleDeleteAttachment}
+                      onMakeCover={handleMakeAttachmentCover}
+                      onRemoveCover={handleRemoveCover}
+                    />
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "24px 0" }}>
+                      <p
+                        style={{
+                          margin: "0 0 12px",
+                          fontSize: 14,
+                          color: SUBTLE_TEXT,
+                        }}
+                      >
+                        No attachments yet.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={openPopover("attach")}
+                        style={actionButtonStyle}
+                      >
+                        <AttachFileIcon sx={{ fontSize: 16 }} /> Add attachment
+                      </button>
+                    </div>
+                  ))}
 
-                                {isEditing ? (
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <textarea
-                                      autoFocus
-                                      rows={2}
-                                      value={editingText}
-                                      onChange={(e) =>
-                                        setEditingText(e.target.value)
-                                      }
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          e.preventDefault();
-                                          handleSaveEdit(item.checklistItemID);
-                                        }
-                                        if (e.key === "Escape")
-                                          handleCancelEdit();
-                                      }}
-                                      style={{
-                                        width: "100%",
-                                        padding: "6px 8px",
-                                        border: `2px solid ${BRAND}`,
-                                        borderRadius: 4,
-                                        fontSize: 14,
-                                        color: TEXT,
-                                        fontFamily: "inherit",
-                                        boxSizing: "border-box",
-                                        resize: "none",
-                                        outline: "none",
-                                      }}
-                                    />
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        gap: 8,
-                                        marginTop: 6,
-                                      }}
-                                    >
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleSaveEdit(item.checklistItemID)
-                                        }
-                                        style={primaryButtonStyle}
-                                      >
-                                        Save
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={handleCancelEdit}
-                                        style={{
-                                          ...greyButtonStyle,
-                                          background: "transparent",
-                                        }}
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <span
-                                      onClick={() => handleStartEdit(item)}
-                                      title="Click to edit"
-                                      style={{
-                                        flex: 1,
-                                        minWidth: 0,
-                                        fontSize: 14,
-                                        lineHeight: "20px",
-                                        cursor: "pointer",
-                                        overflowWrap: "anywhere",
-                                        textDecoration: item.isCompleted
-                                          ? "line-through"
-                                          : "none",
-                                        color: item.isCompleted
-                                          ? MUTED_TEXT
-                                          : TEXT,
-                                      }}
-                                    >
-                                      {item.itemName}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      title="Delete item"
-                                      aria-label="Delete item"
-                                      onClick={() =>
-                                        handleRemoveItem(item.checklistItemID)
-                                      }
-                                      style={{
-                                        width: 24,
-                                        height: 24,
-                                        border: "none",
-                                        borderRadius: 4,
-                                        background: "transparent",
-                                        color: SUBTLE_TEXT,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        cursor: "pointer",
-                                        padding: 0,
-                                        flexShrink: 0,
-                                        visibility: isHovered
-                                          ? "visible"
-                                          : "hidden",
-                                      }}
-                                    >
-                                      <DeleteOutlineIcon
-                                        sx={{ fontSize: 18 }}
-                                      />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
+                {/* ---------------- CHECKLIST ---------------- */}
+                {activeTab === "checklist" && (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        marginBottom: 16,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={openPopover("checklist")}
+                        style={actionButtonStyle}
+                      >
+                        <CheckBoxOutlinedIcon sx={{ fontSize: 16 }} /> Add
+                        checklist
+                      </button>
+                    </div>
 
-                        <div style={{ paddingLeft: 32, marginTop: 8 }}>
-                          {addingItemFor === cl.checklistID ? (
-                            <div>
-                              <textarea
-                                autoFocus
-                                rows={2}
-                                placeholder="Add an item"
-                                value={newItems[cl.checklistID] || ""}
-                                onChange={(e) =>
-                                  setNewItems((prev) => ({
-                                    ...prev,
-                                    [cl.checklistID]: e.target.value,
-                                  }))
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    handleAddItem(cl.checklistID);
-                                  }
-                                  if (e.key === "Escape")
-                                    setAddingItemFor(null);
-                                }}
-                                style={{
-                                  width: "100%",
-                                  padding: "8px 10px",
-                                  border: `2px solid ${BRAND}`,
-                                  borderRadius: 4,
-                                  fontSize: 14,
-                                  color: TEXT,
-                                  fontFamily: "inherit",
-                                  boxSizing: "border-box",
-                                  resize: "none",
-                                  outline: "none",
-                                }}
-                              />
+                    {checklists.length === 0 && (
+                      <p
+                        style={{
+                          margin: 0,
+                          padding: "16px 0",
+                          textAlign: "center",
+                          fontSize: 14,
+                          color: SUBTLE_TEXT,
+                        }}
+                      >
+                        No checklists yet.
+                      </p>
+                    )}
+
+                    {checklists.map((cl) => {
+                      const items = cl.items || [];
+                      const completed = items.filter(
+                        (i) => i.isCompleted,
+                      ).length;
+                      const total = items.length;
+                      const percent =
+                        total > 0 ? Math.round((completed / total) * 100) : 0;
+                      const hideChecked = !!hideCheckedFor[cl.checklistID];
+                      const shownItems = hideChecked
+                        ? items.filter((i) => !i.isCompleted)
+                        : items;
+
+                      return (
+                        <section
+                          key={cl.checklistID}
+                          style={{ marginBottom: 28 }}
+                        >
+                          <SectionHeader
+                            icon={
+                              <CheckBoxOutlinedIcon sx={{ fontSize: 20 }} />
+                            }
+                            title={cl.checklistTitle}
+                            action={
                               <div
                                 style={{
                                   display: "flex",
                                   gap: 8,
-                                  marginTop: 6,
+                                  flexShrink: 0,
                                 }}
                               >
+                                {completed > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setHideCheckedFor((prev) => ({
+                                        ...prev,
+                                        [cl.checklistID]: !prev[cl.checklistID],
+                                      }))
+                                    }
+                                    style={greyButtonStyle}
+                                  >
+                                    {hideChecked
+                                      ? `Show checked items (${completed})`
+                                      : "Hide checked items"}
+                                  </button>
+                                )}
                                 <button
                                   type="button"
-                                  onClick={() => handleAddItem(cl.checklistID)}
-                                  style={primaryButtonStyle}
+                                  onClick={openPopover("deleteChecklist", cl)}
+                                  style={greyButtonStyle}
                                 >
-                                  Add
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setAddingItemFor(null)}
-                                  style={{
-                                    ...greyButtonStyle,
-                                    background: "transparent",
-                                  }}
-                                >
-                                  Cancel
+                                  Delete
                                 </button>
                               </div>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setAddingItemFor(cl.checklistID)}
-                              style={greyButtonStyle}
+                            }
+                          />
+
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 12,
+                              marginBottom: 8,
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: 20,
+                                fontSize: 11,
+                                color: SUBTLE_TEXT,
+                                textAlign: "center",
+                                flexShrink: 0,
+                              }}
                             >
-                              Add an item
-                            </button>
-                          )}
-                        </div>
-                      </section>
-                    );
-                  })}
-                </>
-              )}
+                              {percent}%
+                            </span>
+                            <div
+                              style={{
+                                flex: 1,
+                                height: 8,
+                                borderRadius: 4,
+                                background: NEUTRAL_BG,
+                                overflow: "hidden",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: `${percent}%`,
+                                  height: "100%",
+                                  borderRadius: 4,
+                                  background:
+                                    percent === 100 ? "#1F845A" : BRAND,
+                                  transition: "width 0.3s, background 0.3s",
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {hideChecked &&
+                            shownItems.length === 0 &&
+                            total > 0 && (
+                              <p
+                                style={{
+                                  margin: "4px 0 8px 32px",
+                                  fontSize: 14,
+                                  color: SUBTLE_TEXT,
+                                }}
+                              >
+                                Everything in this checklist is complete!
+                              </p>
+                            )}
+
+                          <div>
+                            {shownItems.map((item) => {
+                              const isEditing =
+                                editingItemId === item.checklistItemID;
+                              const isHovered =
+                                hoveredItemId === item.checklistItemID;
+                              return (
+                                <div
+                                  key={item.checklistItemID}
+                                  onMouseEnter={() =>
+                                    setHoveredItemId(item.checklistItemID)
+                                  }
+                                  onMouseLeave={() => setHoveredItemId(null)}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: 12,
+                                    padding: "6px 4px",
+                                    margin: "0 -4px",
+                                    borderRadius: 4,
+                                    background:
+                                      isHovered && !isEditing
+                                        ? NEUTRAL_BG
+                                        : "transparent",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      width: 20,
+                                      display: "flex",
+                                      justifyContent: "center",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <ChecklistCheckbox
+                                      checked={!!item.isCompleted}
+                                      onChange={() =>
+                                        handleToggleItem(
+                                          item.checklistItemID,
+                                          item.isCompleted,
+                                        )
+                                      }
+                                    />
+                                  </span>
+
+                                  {isEditing ? (
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <textarea
+                                        autoFocus
+                                        rows={2}
+                                        value={editingText}
+                                        onChange={(e) =>
+                                          setEditingText(e.target.value)
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            handleSaveEdit(
+                                              item.checklistItemID,
+                                            );
+                                          }
+                                          if (e.key === "Escape")
+                                            handleCancelEdit();
+                                        }}
+                                        style={{
+                                          width: "100%",
+                                          padding: "6px 8px",
+                                          border: `2px solid ${BRAND}`,
+                                          borderRadius: 4,
+                                          fontSize: 14,
+                                          color: TEXT,
+                                          fontFamily: "inherit",
+                                          boxSizing: "border-box",
+                                          resize: "none",
+                                          outline: "none",
+                                        }}
+                                      />
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          gap: 8,
+                                          marginTop: 6,
+                                        }}
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleSaveEdit(item.checklistItemID)
+                                          }
+                                          style={primaryButtonStyle}
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={handleCancelEdit}
+                                          style={{
+                                            ...greyButtonStyle,
+                                            background: "transparent",
+                                          }}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <span
+                                        onClick={() => handleStartEdit(item)}
+                                        title="Click to edit"
+                                        style={{
+                                          flex: 1,
+                                          minWidth: 0,
+                                          fontSize: 14,
+                                          lineHeight: "20px",
+                                          cursor: "pointer",
+                                          overflowWrap: "anywhere",
+                                          textDecoration: item.isCompleted
+                                            ? "line-through"
+                                            : "none",
+                                          color: item.isCompleted
+                                            ? MUTED_TEXT
+                                            : TEXT,
+                                        }}
+                                      >
+                                        {item.itemName}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        title="Delete item"
+                                        aria-label="Delete item"
+                                        onClick={() =>
+                                          handleRemoveItem(item.checklistItemID)
+                                        }
+                                        style={{
+                                          width: 24,
+                                          height: 24,
+                                          border: "none",
+                                          borderRadius: 4,
+                                          background: "transparent",
+                                          color: SUBTLE_TEXT,
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          cursor: "pointer",
+                                          padding: 0,
+                                          flexShrink: 0,
+                                          visibility: isHovered
+                                            ? "visible"
+                                            : "hidden",
+                                        }}
+                                      >
+                                        <DeleteOutlineIcon
+                                          sx={{ fontSize: 18 }}
+                                        />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div style={{ paddingLeft: 32, marginTop: 8 }}>
+                            {addingItemFor === cl.checklistID ? (
+                              <div>
+                                <textarea
+                                  autoFocus
+                                  rows={2}
+                                  placeholder="Add an item"
+                                  value={newItems[cl.checklistID] || ""}
+                                  onChange={(e) =>
+                                    setNewItems((prev) => ({
+                                      ...prev,
+                                      [cl.checklistID]: e.target.value,
+                                    }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleAddItem(cl.checklistID);
+                                    }
+                                    if (e.key === "Escape")
+                                      setAddingItemFor(null);
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    padding: "8px 10px",
+                                    border: `2px solid ${BRAND}`,
+                                    borderRadius: 4,
+                                    fontSize: 14,
+                                    color: TEXT,
+                                    fontFamily: "inherit",
+                                    boxSizing: "border-box",
+                                    resize: "none",
+                                    outline: "none",
+                                  }}
+                                />
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    marginTop: 6,
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleAddItem(cl.checklistID)
+                                    }
+                                    style={primaryButtonStyle}
+                                  >
+                                    Add
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setAddingItemFor(null)}
+                                    style={{
+                                      ...greyButtonStyle,
+                                      background: "transparent",
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setAddingItemFor(cl.checklistID)}
+                                style={greyButtonStyle}
+                              >
+                                Add an item
+                              </button>
+                            )}
+                          </div>
+                        </section>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* ------------------------------ Popovers ------------------------------ */}
-        <div onClick={(e) => e.stopPropagation()}>
-          <CardPopover
-            open={popover.type === "labels"}
-            anchorEl={popover.anchorEl}
-            anchorPosition={popover.anchorPosition}
-            onClose={closePopover}
-          >
-            <LabelsPopover
-              labels={boardLabels}
-              loading={labelsLoading}
-              saving={labelSaving}
-              onToggle={handleToggleLabel}
-              onCreate={handleCreateLabel}
-              onUpdate={handleUpdateLabel}
-              onDelete={handleDeleteLabel}
+          {/* ------------------------------ Popovers ------------------------------ */}
+          <div onClick={(e) => e.stopPropagation()}>
+            <CardPopover
+              open={popover.type === "labels"}
+              anchorEl={popover.anchorEl}
+              anchorPosition={popover.anchorPosition}
               onClose={closePopover}
-            />
-          </CardPopover>
-
-          <CardPopover
-            open={popover.type === "attach"}
-            anchorEl={popover.anchorEl}
-            anchorPosition={popover.anchorPosition}
-            onClose={closePopover}
-          >
-            <AttachPopover
-              uploading={attachmentsUploading}
-              onUploadFiles={handleUploadAttachments}
-              onAddLink={handleAddAttachmentLink}
-              onClose={closePopover}
-            />
-          </CardPopover>
-
-          <CardPopover
-            open={popover.type === "move"}
-            anchorEl={popover.anchorEl}
-            anchorPosition={popover.anchorPosition}
-            onClose={closePopover}
-          >
-            <MoveCardPopover
-              cardId={card.cardID}
-              currentBoardId={card.boardID ?? boardId}
-              currentListId={card.listID}
-              onMove={handleMoveCard}
-              onClose={closePopover}
-            />
-          </CardPopover>
-
-          <CardPopover
-            open={popover.type === "cover"}
-            anchorEl={popover.anchorEl}
-            anchorPosition={popover.anchorPosition}
-            onClose={closePopover}
-          >
-            <CardCoverPopover
-              cover={cover}
-              saving={coverSaving}
-              onSave={handleSaveCover}
-              onRemove={handleRemoveCover}
-              onUpload={handleUploadCover}
-              onClose={closePopover}
-              style={{
-                position: "static",
-                width: "100%",
-                padding: 0,
-                boxShadow: "none",
-                maxHeight: "none",
-                overflow: "visible",
-              }}
-            />
-          </CardPopover>
-
-          <CardPopover
-            open={popover.type === "checklist"}
-            anchorEl={popover.anchorEl}
-            anchorPosition={popover.anchorPosition}
-            onClose={closePopover}
-          >
-            <PopoverHeader title="Add checklist" onClose={closePopover} />
-            <p style={{ ...popoverSectionTitle, marginTop: 4 }}>Title</p>
-            <input
-              autoFocus
-              value={newChecklistTitle}
-              onFocus={(e) => e.target.select()}
-              onChange={(e) => setNewChecklistTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddChecklist()}
-              style={inputStyle}
-            />
-            <button
-              type="button"
-              onClick={handleAddChecklist}
-              disabled={!newChecklistTitle.trim()}
-              style={{
-                ...primaryButtonStyle,
-                marginTop: 12,
-                opacity: newChecklistTitle.trim() ? 1 : 0.5,
-                cursor: newChecklistTitle.trim() ? "pointer" : "not-allowed",
-              }}
             >
-              Add
-            </button>
-          </CardPopover>
+              <LabelsPopover
+                labels={boardLabels}
+                loading={labelsLoading}
+                saving={labelSaving}
+                onToggle={handleToggleLabel}
+                onCreate={handleCreateLabel}
+                onUpdate={handleUpdateLabel}
+                onDelete={handleDeleteLabel}
+                onClose={closePopover}
+              />
+            </CardPopover>
 
-          <CardPopover
-            open={popover.type === "deleteChecklist"}
-            anchorEl={popover.anchorEl}
-            anchorPosition={popover.anchorPosition}
-            onClose={closePopover}
-          >
-            <PopoverHeader
-              title={`Delete ${popover.data?.checklistTitle || "checklist"}?`}
+            <CardPopover
+              open={popover.type === "attach"}
+              anchorEl={popover.anchorEl}
+              anchorPosition={popover.anchorPosition}
               onClose={closePopover}
-            />
-            <p
-              style={{
-                margin: "0 0 12px",
-                fontSize: 14,
-                lineHeight: "20px",
-                color: TEXT,
-              }}
             >
-              Deleting a checklist is permanent and there is no way to get it
-              back.
-            </p>
-            <button
-              type="button"
-              onClick={() => handleDeleteChecklist(popover.data?.checklistID)}
-              style={{ ...dangerButtonStyle, width: "100%" }}
-            >
-              Delete checklist
-            </button>
-          </CardPopover>
+              <AttachPopover
+                uploading={attachmentsUploading}
+                onUploadFiles={handleUploadAttachments}
+                onAddLink={handleAddAttachmentLink}
+                onClose={closePopover}
+              />
+            </CardPopover>
 
-          <CardPopover
-            open={popover.type === "members"}
-            anchorEl={popover.anchorEl}
-            anchorPosition={popover.anchorPosition}
-            onClose={() => {
-              setMemberSearch("");
-              closePopover();
-            }}
-          >
-            <PopoverHeader
-              title="Members"
+            <CardPopover
+              open={popover.type === "move"}
+              anchorEl={popover.anchorEl}
+              anchorPosition={popover.anchorPosition}
+              onClose={closePopover}
+            >
+              <MoveCardPopover
+                cardId={card.cardID}
+                currentBoardId={card.boardID ?? boardId}
+                currentListId={card.listID}
+                onMove={handleMoveCard}
+                onClose={closePopover}
+              />
+            </CardPopover>
+
+            <CardPopover
+              open={popover.type === "cover"}
+              anchorEl={popover.anchorEl}
+              anchorPosition={popover.anchorPosition}
+              onClose={closePopover}
+            >
+              <CardCoverPopover
+                cover={cover}
+                saving={coverSaving}
+                onSave={handleSaveCover}
+                onRemove={handleRemoveCover}
+                onUpload={handleUploadCover}
+                onClose={closePopover}
+                style={{
+                  position: "static",
+                  width: "100%",
+                  padding: 0,
+                  boxShadow: "none",
+                  maxHeight: "none",
+                  overflow: "visible",
+                }}
+              />
+            </CardPopover>
+
+            <CardPopover
+              open={popover.type === "checklist"}
+              anchorEl={popover.anchorEl}
+              anchorPosition={popover.anchorPosition}
+              onClose={closePopover}
+            >
+              <PopoverHeader title="Add checklist" onClose={closePopover} />
+              <p style={{ ...popoverSectionTitle, marginTop: 4 }}>Title</p>
+              <input
+                autoFocus
+                value={newChecklistTitle}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setNewChecklistTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddChecklist()}
+                style={inputStyle}
+              />
+              <button
+                type="button"
+                onClick={handleAddChecklist}
+                disabled={!newChecklistTitle.trim()}
+                style={{
+                  ...primaryButtonStyle,
+                  marginTop: 12,
+                  opacity: newChecklistTitle.trim() ? 1 : 0.5,
+                  cursor: newChecklistTitle.trim() ? "pointer" : "not-allowed",
+                }}
+              >
+                Add
+              </button>
+            </CardPopover>
+
+            <CardPopover
+              open={popover.type === "deleteChecklist"}
+              anchorEl={popover.anchorEl}
+              anchorPosition={popover.anchorPosition}
+              onClose={closePopover}
+            >
+              <PopoverHeader
+                title={`Delete ${popover.data?.checklistTitle || "checklist"}?`}
+                onClose={closePopover}
+              />
+              <p
+                style={{
+                  margin: "0 0 12px",
+                  fontSize: 14,
+                  lineHeight: "20px",
+                  color: TEXT,
+                }}
+              >
+                Deleting a checklist is permanent and there is no way to get it
+                back.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleDeleteChecklist(popover.data?.checklistID)}
+                style={{ ...dangerButtonStyle, width: "100%" }}
+              >
+                Delete checklist
+              </button>
+            </CardPopover>
+
+            <CardPopover
+              open={popover.type === "members"}
+              anchorEl={popover.anchorEl}
+              anchorPosition={popover.anchorPosition}
               onClose={() => {
                 setMemberSearch("");
                 closePopover();
               }}
-            />
-            <input
-              autoFocus
-              placeholder="Search members"
-              value={memberSearch}
-              onChange={(e) => setMemberSearch(e.target.value)}
-              style={inputStyle}
-            />
-            {visibleMembers.filter(matchesMemberSearch).length > 0 && (
-              <>
-                <p style={popoverSectionTitle}>Card members</p>
-                {visibleMembers.filter(matchesMemberSearch).map((m) => (
-                  <div
-                    key={`cm-${m.userID ?? m.userId}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "4px",
-                      borderRadius: 4,
-                    }}
-                  >
-                    <Avatar name={memberDisplayName(m)} size={28} />
-                    <span
+            >
+              <PopoverHeader
+                title="Members"
+                onClose={() => {
+                  setMemberSearch("");
+                  closePopover();
+                }}
+              />
+              <input
+                autoFocus
+                placeholder="Search members"
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                style={inputStyle}
+              />
+              {visibleMembers.filter(matchesMemberSearch).length > 0 && (
+                <>
+                  <p style={popoverSectionTitle}>Card members</p>
+                  {visibleMembers.filter(matchesMemberSearch).map((m) => (
+                    <div
+                      key={`cm-${m.userID ?? m.userId}`}
                       style={{
-                        flex: 1,
-                        minWidth: 0,
-                        fontSize: 14,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "4px",
+                        borderRadius: 4,
                       }}
                     >
-                      {memberDisplayName(m)}
-                    </span>
-                    {m.isFallbackAssignedUser ? (
-                      <span style={{ fontSize: 12, color: SUBTLE_TEXT }}>
-                        Assigned
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        title="Remove from card"
-                        aria-label={`Remove ${memberDisplayName(m)}`}
-                        onClick={() => handleRemoveMember(m.userID ?? m.userId)}
+                      <Avatar name={memberDisplayName(m)} size={28} />
+                      <span
                         style={{
-                          width: 28,
-                          height: 28,
-                          border: "none",
-                          borderRadius: 4,
-                          background: "transparent",
-                          color: SUBTLE_TEXT,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: 0,
+                          flex: 1,
+                          minWidth: 0,
+                          fontSize: 14,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        <CloseIcon sx={{ fontSize: 16 }} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </>
-            )}
-            <p style={popoverSectionTitle}>Users</p>
-            <div style={{ maxHeight: 260, overflowY: "auto" }}>
-              {availableUsers.length === 0 ? (
-                <p style={{ margin: "4px", fontSize: 13, color: SUBTLE_TEXT }}>
-                  {memberTerm ? "No users found." : "All users already added."}
-                </p>
-              ) : (
-                availableUsers.map((u) => (
-                  <button
-                    key={`u-${u.userId ?? u.userID}`}
-                    type="button"
-                    onClick={() => handleAddMember(u.userId ?? u.userID)}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: 4,
-                      border: "none",
-                      borderRadius: 4,
-                      background: "transparent",
-                      color: TEXT,
-                      fontSize: 14,
-                      fontFamily: "inherit",
-                      textAlign: "left",
-                      cursor: "pointer",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = NEUTRAL_BG)
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "transparent")
-                    }
-                  >
-                    <Avatar name={memberDisplayName(u)} size={28} />
-                    <span
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {memberDisplayName(u)}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </CardPopover>
-
-          <CardPopover
-            open={popover.type === "member"}
-            anchorEl={popover.anchorEl}
-            anchorPosition={popover.anchorPosition}
-            onClose={closePopover}
-            width={280}
-          >
-            {popover.data && (
-              <>
-                <PopoverHeader title="" onClose={closePopover} />
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    marginBottom: 12,
-                  }}
-                >
-                  <Avatar name={memberDisplayName(popover.data)} size={48} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>
-                      {memberDisplayName(popover.data)}
+                        {memberDisplayName(m)}
+                      </span>
+                      {m.isFallbackAssignedUser ? (
+                        <span style={{ fontSize: 12, color: SUBTLE_TEXT }}>
+                          Assigned
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          title="Remove from card"
+                          aria-label={`Remove ${memberDisplayName(m)}`}
+                          onClick={() =>
+                            handleRemoveMember(m.userID ?? m.userId)
+                          }
+                          style={{
+                            width: 28,
+                            height: 28,
+                            border: "none",
+                            borderRadius: 4,
+                            background: "transparent",
+                            color: SUBTLE_TEXT,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: 0,
+                          }}
+                        >
+                          <CloseIcon sx={{ fontSize: 16 }} />
+                        </button>
+                      )}
                     </div>
-                    {popover.data.userName && (
-                      <div style={{ fontSize: 13, color: SUBTLE_TEXT }}>
-                        @{popover.data.userName}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {popover.data.isFallbackAssignedUser ? (
-                  <p style={{ margin: 0, fontSize: 13, color: SUBTLE_TEXT }}>
-                    This user is assigned to the card.
+                  ))}
+                </>
+              )}
+              <p style={popoverSectionTitle}>Users</p>
+              <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                {availableUsers.length === 0 ? (
+                  <p
+                    style={{ margin: "4px", fontSize: 13, color: SUBTLE_TEXT }}
+                  >
+                    {memberTerm
+                      ? "No users found."
+                      : "All users already added."}
                   </p>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await handleRemoveMember(
-                        popover.data.userID ?? popover.data.userId,
-                      );
-                      closePopover();
-                    }}
-                    style={{ ...greyButtonStyle, width: "100%" }}
-                  >
-                    Remove from card
-                  </button>
+                  availableUsers.map((u) => (
+                    <button
+                      key={`u-${u.userId ?? u.userID}`}
+                      type="button"
+                      onClick={() => handleAddMember(u.userId ?? u.userID)}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: 4,
+                        border: "none",
+                        borderRadius: 4,
+                        background: "transparent",
+                        color: TEXT,
+                        fontSize: 14,
+                        fontFamily: "inherit",
+                        textAlign: "left",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = NEUTRAL_BG)
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
+                    >
+                      <Avatar name={memberDisplayName(u)} size={28} />
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {memberDisplayName(u)}
+                      </span>
+                    </button>
+                  ))
                 )}
-              </>
-            )}
-          </CardPopover>
+              </div>
+            </CardPopover>
 
-          <CardPopover
-            open={popover.type === "dates"}
-            anchorEl={popover.anchorEl}
-            anchorPosition={popover.anchorPosition}
-            onClose={handleCancelDueDate}
-          >
-            <PopoverHeader title="Dates" onClose={handleCancelDueDate} />
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 8,
-              }}
+            <CardPopover
+              open={popover.type === "member"}
+              anchorEl={popover.anchorEl}
+              anchorPosition={popover.anchorPosition}
+              onClose={closePopover}
+              width={280}
             >
-              <button
-                type="button"
-                aria-label="Previous month"
-                onClick={() =>
-                  setCalendarViewDate(
-                    new Date(
-                      calendarViewDate.getFullYear(),
-                      calendarViewDate.getMonth() - 1,
-                      1,
-                    ),
-                  )
-                }
-                style={{ ...squareAddButtonStyle, background: "transparent" }}
-              >
-                <ChevronLeftIcon sx={{ fontSize: 20 }} />
-              </button>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>
-                {MONTH_NAMES[calendarViewDate.getMonth()]}{" "}
-                {calendarViewDate.getFullYear()}
-              </span>
-              <button
-                type="button"
-                aria-label="Next month"
-                onClick={() =>
-                  setCalendarViewDate(
-                    new Date(
-                      calendarViewDate.getFullYear(),
-                      calendarViewDate.getMonth() + 1,
-                      1,
-                    ),
-                  )
-                }
-                style={{ ...squareAddButtonStyle, background: "transparent" }}
-              >
-                <ChevronRightIcon sx={{ fontSize: 20 }} />
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(7, 1fr)",
-                marginBottom: 4,
-              }}
-            >
-              {WEEKDAY_LABELS.map((w) => (
-                <div
-                  key={w}
-                  style={{
-                    textAlign: "center",
-                    fontSize: 11,
-                    color: SUBTLE_TEXT,
-                    fontWeight: 600,
-                    padding: "2px 0",
-                  }}
-                >
-                  {w}
-                </div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(7, 1fr)",
-                gap: 2,
-                marginBottom: 12,
-              }}
-            >
-              {getMonthGrid(calendarViewDate).map((cell, i) => {
-                const key = toDateKey(cell.date);
-                const isSelected = dueDateText === key;
-                const isToday = key === toDateKey(new Date());
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setDueDateText(key)}
+              {popover.data && (
+                <>
+                  <PopoverHeader title="" onClose={closePopover} />
+                  <div
                     style={{
-                      height: 32,
-                      border: "none",
-                      borderRadius: 4,
-                      background: isSelected ? BRAND : "transparent",
-                      color: isSelected
-                        ? "#fff"
-                        : cell.currentMonth
-                          ? TEXT
-                          : "#A5ADBA",
-                      fontWeight: isToday || isSelected ? 700 : 400,
-                      boxShadow:
-                        isToday && !isSelected
-                          ? `inset 0 -2px 0 ${BRAND}`
-                          : "none",
-                      fontSize: 13,
-                      fontFamily: "inherit",
-                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      marginBottom: 12,
                     }}
                   >
-                    {cell.day}
-                  </button>
-                );
-              })}
-            </div>
+                    <Avatar name={memberDisplayName(popover.data)} size={48} />
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{ fontSize: 16, fontWeight: 600, color: TEXT }}
+                      >
+                        {memberDisplayName(popover.data)}
+                      </div>
+                      {popover.data.userName && (
+                        <div style={{ fontSize: 13, color: SUBTLE_TEXT }}>
+                          @{popover.data.userName}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {popover.data.isFallbackAssignedUser ? (
+                    <p style={{ margin: 0, fontSize: 13, color: SUBTLE_TEXT }}>
+                      This user is assigned to the card.
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handleRemoveMember(
+                          popover.data.userID ?? popover.data.userId,
+                        );
+                        closePopover();
+                      }}
+                      style={{ ...greyButtonStyle, width: "100%" }}
+                    >
+                      Remove from card
+                    </button>
+                  )}
+                </>
+              )}
+            </CardPopover>
 
-            <p style={popoverSectionTitle}>Start date</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={includeStartDate}
-                onChange={(e) => {
-                  setIncludeStartDate(e.target.checked);
-                  if (e.target.checked && !startDateText)
-                    setStartDateText(dueDateText || toDateKey(new Date()));
-                }}
-                style={{ width: 16, height: 16, cursor: "pointer" }}
-              />
-              <input
-                type="date"
-                disabled={!includeStartDate}
-                value={startDateText}
-                onChange={(e) => setStartDateText(e.target.value)}
+            <CardPopover
+              open={popover.type === "dates"}
+              anchorEl={popover.anchorEl}
+              anchorPosition={popover.anchorPosition}
+              onClose={handleCancelDueDate}
+            >
+              <PopoverHeader title="Dates" onClose={handleCancelDueDate} />
+
+              <div
                 style={{
-                  ...inputStyle,
-                  flex: 1,
-                  opacity: includeStartDate ? 1 : 0.5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
                 }}
-              />
-            </div>
+              >
+                <button
+                  type="button"
+                  aria-label="Previous month"
+                  onClick={() =>
+                    setCalendarViewDate(
+                      new Date(
+                        calendarViewDate.getFullYear(),
+                        calendarViewDate.getMonth() - 1,
+                        1,
+                      ),
+                    )
+                  }
+                  style={{ ...squareAddButtonStyle, background: "transparent" }}
+                >
+                  <ChevronLeftIcon sx={{ fontSize: 20 }} />
+                </button>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>
+                  {MONTH_NAMES[calendarViewDate.getMonth()]}{" "}
+                  {calendarViewDate.getFullYear()}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Next month"
+                  onClick={() =>
+                    setCalendarViewDate(
+                      new Date(
+                        calendarViewDate.getFullYear(),
+                        calendarViewDate.getMonth() + 1,
+                        1,
+                      ),
+                    )
+                  }
+                  style={{ ...squareAddButtonStyle, background: "transparent" }}
+                >
+                  <ChevronRightIcon sx={{ fontSize: 20 }} />
+                </button>
+              </div>
 
-            <p style={popoverSectionTitle}>Due date</p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="date"
-                value={dueDateText}
-                onChange={(e) => {
-                  setDueDateText(e.target.value);
-                  if (e.target.value)
-                    setCalendarViewDate(new Date(`${e.target.value}T00:00:00`));
-                }}
-                style={{ ...inputStyle, flex: 1 }}
-              />
-              <input
-                type="time"
-                value={dueTimeText}
-                onChange={(e) => setDueTimeText(e.target.value || "09:00")}
+              <div
                 style={{
-                  ...inputStyle,
-                  width: 140,
-                  minWidth: 125,
-                  boxSizing: "border-box",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, 1fr)",
+                  marginBottom: 4,
                 }}
-              />
-            </div>
+              >
+                {WEEKDAY_LABELS.map((w) => (
+                  <div
+                    key={w}
+                    style={{
+                      textAlign: "center",
+                      fontSize: 11,
+                      color: SUBTLE_TEXT,
+                      fontWeight: 600,
+                      padding: "2px 0",
+                    }}
+                  >
+                    {w}
+                  </div>
+                ))}
+              </div>
 
-            <p style={popoverSectionTitle}>Recurring</p>
-            <select
-              value={recurringRule}
-              onChange={(e) => setRecurringRule(e.target.value)}
-              style={selectStyle}
-            >
-              {RECURRING_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, 1fr)",
+                  gap: 2,
+                  marginBottom: 12,
+                }}
+              >
+                {getMonthGrid(calendarViewDate).map((cell, i) => {
+                  const key = toDateKey(cell.date);
+                  const isSelected = dueDateText === key;
+                  const isToday = key === toDateKey(new Date());
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setDueDateText(key)}
+                      style={{
+                        height: 32,
+                        border: "none",
+                        borderRadius: 4,
+                        background: isSelected ? BRAND : "transparent",
+                        color: isSelected
+                          ? "#fff"
+                          : cell.currentMonth
+                            ? TEXT
+                            : "#A5ADBA",
+                        fontWeight: isToday || isSelected ? 700 : 400,
+                        boxShadow:
+                          isToday && !isSelected
+                            ? `inset 0 -2px 0 ${BRAND}`
+                            : "none",
+                        fontSize: 13,
+                        fontFamily: "inherit",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {cell.day}
+                    </button>
+                  );
+                })}
+              </div>
 
-            <p style={popoverSectionTitle}>Set due date reminder</p>
-            <select
-              value={reminderOffset}
-              onChange={(e) => setReminderOffset(e.target.value)}
-              style={selectStyle}
-            >
-              {REMINDER_OPTIONS.map((opt) => (
-                <option key={opt.label} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <p
-              style={{ margin: "6px 0 12px", fontSize: 12, color: SUBTLE_TEXT }}
-            >
-              Reminders will be sent to all members and watchers of this card.
-            </p>
+              <p style={popoverSectionTitle}>Start date</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={includeStartDate}
+                  onChange={(e) => {
+                    setIncludeStartDate(e.target.checked);
+                    if (e.target.checked && !startDateText)
+                      setStartDateText(dueDateText || toDateKey(new Date()));
+                  }}
+                  style={{ width: 16, height: 16, cursor: "pointer" }}
+                />
+                <input
+                  type="date"
+                  disabled={!includeStartDate}
+                  value={startDateText}
+                  onChange={(e) => setStartDateText(e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    flex: 1,
+                    opacity: includeStartDate ? 1 : 0.5,
+                  }}
+                />
+              </div>
 
-            <button
-              type="button"
-              onClick={handleSaveDueDate}
-              disabled={!dueDateText}
-              style={{
-                ...primaryButtonStyle,
-                width: "100%",
-                opacity: dueDateText ? 1 : 0.5,
-                cursor: dueDateText ? "pointer" : "not-allowed",
-              }}
-            >
-              Save
-            </button>
-            {card.dueDate && (
+              <p style={popoverSectionTitle}>Due date</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="date"
+                  value={dueDateText}
+                  onChange={(e) => {
+                    setDueDateText(e.target.value);
+                    if (e.target.value)
+                      setCalendarViewDate(
+                        new Date(`${e.target.value}T00:00:00`),
+                      );
+                  }}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <input
+                  type="time"
+                  value={dueTimeText}
+                  onChange={(e) => setDueTimeText(e.target.value || "09:00")}
+                  style={{
+                    ...inputStyle,
+                    width: 140,
+                    minWidth: 125,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <p style={popoverSectionTitle}>Recurring</p>
+              <select
+                value={recurringRule}
+                onChange={(e) => setRecurringRule(e.target.value)}
+                style={selectStyle}
+              >
+                {RECURRING_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+
+              <p style={popoverSectionTitle}>Set due date reminder</p>
+              <select
+                value={reminderOffset}
+                onChange={(e) => setReminderOffset(e.target.value)}
+                style={selectStyle}
+              >
+                {REMINDER_OPTIONS.map((opt) => (
+                  <option key={opt.label} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <p
+                style={{
+                  margin: "6px 0 12px",
+                  fontSize: 12,
+                  color: SUBTLE_TEXT,
+                }}
+              >
+                Reminders will be sent to all members and watchers of this card.
+              </p>
+
               <button
                 type="button"
-                onClick={handleClearDueDate}
-                style={{ ...greyButtonStyle, width: "100%", marginTop: 8 }}
+                onClick={handleSaveDueDate}
+                disabled={!dueDateText}
+                style={{
+                  ...primaryButtonStyle,
+                  width: "100%",
+                  opacity: dueDateText ? 1 : 0.5,
+                  cursor: dueDateText ? "pointer" : "not-allowed",
+                }}
               >
-                Remove
+                Save
               </button>
-            )}
-          </CardPopover>
+              {card.dueDate && (
+                <button
+                  type="button"
+                  onClick={handleClearDueDate}
+                  style={{ ...greyButtonStyle, width: "100%", marginTop: 8 }}
+                >
+                  Remove
+                </button>
+              )}
+            </CardPopover>
+          </div>
         </div>
       </div>
     </div>,
