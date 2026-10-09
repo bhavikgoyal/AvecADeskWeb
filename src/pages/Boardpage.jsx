@@ -39,6 +39,9 @@ import {
   LIST_FILTER_ALL,
 } from "../components/forms";
 import AddListComposer from "../components/board/AddListComposer";
+import { useTrelloRefresh } from "../components/board/useTrelloRefresh";
+
+const BOARD_REFRESH_INTERVAL_MS = 30000;
 
 function BoardCardSkeleton() {
   return (
@@ -575,6 +578,33 @@ export default function BoardPage() {
     };
   }, [isEditingBoardName, handleBoardNameSave]);
 
+  const fetchBoardColumns = useCallback(async () => {
+    const filters = {
+      searchText,
+      assignedUserId: selectedUserId,
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+    };
+
+    const [lists, cards] = await Promise.all([
+      getListsByBoardId(selectedBoardId),
+      getCardsByBoardId(selectedBoardId, filters),
+    ]);
+
+    return (lists || []).map((list) => {
+      const listCards = (cards || []).filter(
+        (card) => Number(card.listID) === Number(list.listID),
+      );
+
+      return {
+        cardStatusID: list.listID,
+        statusName: list.listName,
+        count: listCards.length,
+        cards: listCards,
+      };
+    });
+  }, [selectedBoardId, searchText, selectedUserId, fromDate, toDate]);
+
   const loadBoard = useCallback(async () => {
     if (!selectedBoardId) {
       setColumns([]);
@@ -585,43 +615,32 @@ export default function BoardPage() {
     setError(null);
 
     try {
-      const filters = {
-        searchText,
-        assignedUserId: selectedUserId,
-        fromDate: fromDate || undefined,
-        toDate: toDate || undefined,
-      };
-
-      const [lists, cards] = await Promise.all([
-        getListsByBoardId(selectedBoardId),
-        getCardsByBoardId(selectedBoardId, filters),
-      ]);
-
-      const boardColumns = (lists || []).map((list) => {
-        const listCards = (cards || []).filter(
-          (card) => Number(card.listID) === Number(list.listID),
-        );
-
-        return {
-          cardStatusID: list.listID,
-          statusName: list.listName,
-          count: listCards.length,
-          cards: listCards,
-        };
-      });
-
-      setColumns(boardColumns);
+      setColumns(await fetchBoardColumns());
     } catch (err) {
       setError(err.message || "Failed to load board");
       setColumns([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedBoardId, searchText, selectedUserId, fromDate, toDate]);
+  }, [selectedBoardId, fetchBoardColumns]);
 
   useEffect(() => {
     loadBoard();
   }, [loadBoard]);
+
+  // Trello se aaye changes (labels, cover, dates) dikhane ke liye; drag ke beech columns nahi badalte
+  const isDraggingRef = useRef(false);
+  const refreshBoardSilently = useCallback(async () => {
+    if (!selectedBoardId || isDraggingRef.current) return;
+    try {
+      const boardColumns = await fetchBoardColumns();
+      if (!isDraggingRef.current) setColumns(boardColumns);
+    } catch (err) {
+      console.error("Failed to refresh board", err);
+    }
+  }, [selectedBoardId, fetchBoardColumns]);
+
+  useTrelloRefresh(refreshBoardSilently, BOARD_REFRESH_INTERVAL_MS);
 
   const selectedCard = selectedCardId
     ? columns
@@ -635,6 +654,7 @@ export default function BoardPage() {
     : "";
 
   const handleDragEnd = async (result) => {
+    isDraggingRef.current = false;
     const { source, destination, draggableId } = result;
     if (!destination) return;
     if (
@@ -1006,7 +1026,12 @@ export default function BoardPage() {
       ) : loading ? (
         <TasksBoardSkeleton />
       ) : (
-        <DragDropContext onDragEnd={handleDragEnd}>
+        <DragDropContext
+          onDragStart={() => {
+            isDraggingRef.current = true;
+          }}
+          onDragEnd={handleDragEnd}
+        >
           <div
             className="board-scroll"
             style={{
