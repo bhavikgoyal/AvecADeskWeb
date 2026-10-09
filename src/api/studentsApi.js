@@ -170,7 +170,7 @@ export async function createStudentWithPaymentSchedule(form) {
     fullName: form.fullName.trim(),
     email: form.email?.trim() || '',
     phone: form.phone.trim(),
-    enrollmentNumber: form.enrollmentNumber?.trim() || null,
+    enrollmentNumber: String(form.studentIdDisplay ?? form.enrollmentNumber ?? '').trim() || null,
     enrolmentStatus: form.enrolmentStatus || 'Interested',
     folderNo: form.FolderNo || null,
     courseStartDate: form.courseStartDate || null,
@@ -178,7 +178,8 @@ export async function createStudentWithPaymentSchedule(form) {
       enrollmentFee: form.enrollmentFee !== '' && form.enrollmentFee != null ? Number(form.enrollmentFee) : null,   
   materialFee: form.materialFee !== '' && form.materialFee != null ? Number(form.materialFee) : null,         
   tuitionFee: form.tuitionFee !== '' && form.tuitionFee != null ? Number(form.tuitionFee) : null,             
-  oshcFee: form.oshcFee !== '' && form.oshcFee != null ? Number(form.oshcFee) : null,    
+  oshcFee: form.oshcFee !== '' && form.oshcFee != null ? Number(form.oshcFee) : null,
+    initialPayment: form.initialPayment !== '' && form.initialPayment != null ? Number(form.initialPayment) : null,
     assignment: form.assignment ?? form.Assignment ?? null,
     leadNo: form.leadNo?.trim() || null,
   coeVoe: form.coeVoe || null,
@@ -354,6 +355,34 @@ export async function updateStudentEnrolment(studentId, form) {
 
   return normalizeStudent(updated);
 }
+export async function saveStudentEnrollmentNumber(studentId, form) {
+  const existing = await fetchStudentById(studentId);
+  const feeOrNull = (value) =>
+    value !== '' && value != null && !Number.isNaN(Number(value)) ? Number(value) : null;
+
+  const { data } = await axiosClient.post(`/api/students/${studentId}`, {
+    instituteId: existing.instituteId,
+    courseId: existing.courseId,
+    fullName: String(form.fullName ?? existing.fullName ?? '').trim(),
+    email: String(form.email ?? existing.email ?? '').trim(),
+    phone: String(form.phone ?? existing.phone ?? '').trim(),
+    enrollmentNumber: String(form.studentIdDisplay ?? '').trim() || null,
+    isActive: existing.isActive,
+    assignment: form.assignment ?? existing.assignment ?? null,
+    leadNo: String(form.leadNo ?? '').trim() || null,
+    coeVoe: form.coeVoe || null,
+    serviceType: form.serviceTypeStudent || null,
+    agent: form.agent || null,
+    enrollmentFee: feeOrNull(form.enrollmentFee),
+    materialFee: feeOrNull(form.materialFee),
+    tuitionFee: feeOrNull(form.tuitionFee),
+    oshcFee: feeOrNull(form.oshcFee),
+    initialPayment: feeOrNull(form.initialPayment),
+  });
+
+  return normalizeStudent(data);
+}
+
 export async function fetchStudentPaymentDetail(studentId) {
   const { data } = await axiosClient.get(
     `/api/students/GetStudentPaymentDetail/${studentId}`
@@ -412,7 +441,8 @@ export async function fetchStudentPaymentDetail(studentId) {
    enrollmentFee: data.enrollmentFee ?? data.EnrollmentFee ?? null,
     materialFee: data.materialFee ?? data.MaterialFee ?? null,        
   tuitionFee: data.tuitionFee ?? data.TuitionFee ?? null,           
-  oshcFee: data.oshcFee ?? data.OSHCFee ?? null,        
+  oshcFee: data.oshcFee ?? data.OSHCFee ?? null,
+    initialPayment: data.initialPayment ?? data.InitialPayment ?? null,        
     commissionId: data.commissionId ?? data.CommissionId,
     commissionPercentage: data.commissionPercentage ?? data.CommissionPercentage,
     gstPercentage: data.gstPercentage ?? data.GSTPercentage,
