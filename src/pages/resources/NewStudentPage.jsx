@@ -1457,6 +1457,16 @@ export default function NewStudentPage({ basePath }) {
       seen.add(key);
     });
 
+    const bonusIndexByInstallment = new Map();
+    rows.forEach((row) => {
+      if (!row.isBonus) return;
+      const base = String(row.installmentNo ?? '').split('.')[0] || '0';
+      const groupKey = String(row.studentPaymentInstallmentId ?? base);
+      const nextIndex = (bonusIndexByInstallment.get(groupKey) ?? 0) + 1;
+      bonusIndexByInstallment.set(groupKey, nextIndex);
+      row.displayInstallmentNo = `${base}.1.${nextIndex}`;
+    });
+
     rows.sort((a, b) =>
       compareInstallmentNo(
         a.displayInstallmentNo ?? a.installmentNo,
@@ -2830,61 +2840,61 @@ export default function NewStudentPage({ basePath }) {
                               width: 140,
                             }}
                           >
-                         {isEdit && (
-  <TextField
-    size="small"
-    label="Installments"
-    value={installmentCountDraft}
-    disabled={installmentsLocked}
-    onChange={(e) => {
-      const next = e.target.value;
+                            {isEdit && (
+                              <TextField
+                                size="small"
+                                label="Installments"
+                                value={installmentCountDraft}
+                                disabled={installmentsLocked}
+                                onChange={(e) => {
+                                  const next = e.target.value;
 
-      if (next !== '' && !/^\d+$/.test(next)) return;
+                                  if (next !== '' && !/^\d+$/.test(next)) return;
 
-      setInstallmentCountDraft(next);
-      if (installmentResizeTimer.current) clearTimeout(installmentResizeTimer.current);
-      const count = Number(next);
-      if (count >= 1 && count !== Number(form.noOfInstallment)) {
-        installmentResizeTimer.current = setTimeout(() => {
-          updateField('noOfInstallment', String(count));
-        }, 400);
-      }
-    }}
-    onBlur={() => {
-      if (installmentResizeTimer.current) clearTimeout(installmentResizeTimer.current);
-      const count = Math.floor(Number(installmentCountDraft));
-      if (!count || count < 1) {
-        setInstallmentCountDraft(String(form.noOfInstallment ?? ''));
-        return;
-      }
-      if (count !== Number(form.noOfInstallment)) {
-        updateField('noOfInstallment', String(count));
-      }
-    }}
-    inputProps={{
-      inputMode: 'numeric',
-      min: 1,
-    }}
-    sx={{
-      width: 125,
+                                  setInstallmentCountDraft(next);
+                                  if (installmentResizeTimer.current) clearTimeout(installmentResizeTimer.current);
+                                  const count = Number(next);
+                                  if (count >= 1 && count !== Number(form.noOfInstallment)) {
+                                    installmentResizeTimer.current = setTimeout(() => {
+                                      updateField('noOfInstallment', String(count));
+                                    }, 400);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  if (installmentResizeTimer.current) clearTimeout(installmentResizeTimer.current);
+                                  const count = Math.floor(Number(installmentCountDraft));
+                                  if (!count || count < 1) {
+                                    setInstallmentCountDraft(String(form.noOfInstallment ?? ''));
+                                    return;
+                                  }
+                                  if (count !== Number(form.noOfInstallment)) {
+                                    updateField('noOfInstallment', String(count));
+                                  }
+                                }}
+                                inputProps={{
+                                  inputMode: 'numeric',
+                                  min: 1,
+                                }}
+                                sx={{
+                                  width: 125,
 
-      '& .MuiOutlinedInput-root': {
-        height: 42,
-        borderRadius: 1.5,
-      },
+                                  '& .MuiOutlinedInput-root': {
+                                    height: 42,
+                                    borderRadius: 1.5,
+                                  },
 
-      '& .MuiInputBase-input': {
-        fontWeight: 600,
-        fontSize: '0.85rem',
-        padding: '8px 10px',
-      },
+                                  '& .MuiInputBase-input': {
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    padding: '8px 10px',
+                                  },
 
-     '& .MuiInputLabel-root.Mui-focused': {
-  fontWeight: 700,
-},
-    }}
-  />
-)}
+                                  '& .MuiInputLabel-root.Mui-focused': {
+                                    fontWeight: 700,
+                                  },
+                                }}
+                              />
+                            )}
                           </TableCell>
                           <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
                             <b>Total Remaining Amount:</b>
@@ -3013,8 +3023,8 @@ export default function NewStudentPage({ basePath }) {
                             <TableCell> {Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
                             <TableCell>
                               {isTuitionFeeType(row.feeType) &&
-                              String(row.commissionHistoryOriginalStatus ?? '').trim().toLowerCase() !== 'paid' &&
-                              !row.isBonus ? (
+                                String(row.commissionHistoryOriginalStatus ?? '').trim().toLowerCase() !== 'paid' &&
+                                !row.isBonus ? (
                                 <TextField
                                   size="small"
                                   value={
