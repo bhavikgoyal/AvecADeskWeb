@@ -43,16 +43,13 @@ export default function DashboardTemplate({
   rows,
   activity = [],
   tableBasePath = '/tasks',
-  // section visibility flags (default: show)
   showSnapshot = true,
   showQuickInsights = true,
   showUpcoming = true,
   showCharts = true,
   showMiniStats = true,
   showTable = true,
-  // slot for extra content in right column (e.g., custom panels)
   rightExtra = null,
-  // custom children to render in the main left area (optional)
   children = null,
 }) {
   const { user } = useAuth();
@@ -82,9 +79,7 @@ export default function DashboardTemplate({
     <Box sx={{ width: '100%', maxWidth: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.25, mb: 1.5, flexWrap: 'wrap' }}>
         <Box>
-          {/* <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase' }}>
-            Overview
-          </Typography> */}
+
           <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text)', mt: 0.5 }}>
             {title}
           </Typography>
@@ -136,7 +131,6 @@ export default function DashboardTemplate({
               <StatCard key={stat.label} {...stat} />
             ))}
             {rightExtra}
-            {/* Quick insights panel removed for simplified dashboard */}
             {showUpcoming && (
               <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
                 <DashboardUpcomingPanel title={upcomingTitle} items={upcomingItems} fill />

@@ -76,7 +76,6 @@ const shownPaidAmount = (row) => {
   return 0;
 };
 
-// Same rule as the Complete tab: fees are collected and every commission row is Paid.
 const isCourseCompleteStudent = (courseFee, payments, commissions) => {
   const collected = (payments || []).reduce(
     (sum, row) => sum + Number(row.paidAmount ?? row.PaidAmount ?? 0),
@@ -96,7 +95,6 @@ const isCourseCompleteStudent = (courseFee, payments, commissions) => {
   );
 };
 
-// Half-up rounding like Excel/SQL ROUND; toFixed(2) turns 31.325 into 31.32 because of float error.
 const round2 = (value) => {
   const num = Number(value || 0);
   if (!Number.isFinite(num)) return 0;
@@ -119,9 +117,7 @@ const centsToAmount = (cents) => {
   return `${sign}${whole}.${frac}`;
 };
 
-// Equal shares that still add back to the original cents. The last share
-// keeps any leftover cent, so 5020 / 2 stays 2510.00 + 2510.00 and
-// 5470 / 3 becomes 1823.33 + 1823.33 + 1823.34.
+
 const splitCents = (totalCents, count) => {
   const n = Math.max(0, Number(count) || 0);
   if (n === 0) return [];
@@ -254,8 +250,7 @@ const feeRemainderPoolCents = (list, item) => {
   return pool;
 };
 
-// On create, a fee edit can use this row plus every later installment of the same fee.
-// Rows above stay as they are, so they are not part of the pool.
+
 const createFeePoolCents = (list, item) => {
   const currentIndex = (list || []).findIndex(
     (x) =>
@@ -283,7 +278,6 @@ const isInitialGroupRow = (row) =>
 const isTuitionInstallment = (row) =>
   String(row?.feeType || '').trim().toLowerCase() === 'tuition fee';
 
-// Initial Payment, partial rows, and paid rows stay as they are when the installment count changes.
 const isProtectedInstallment = (row) => {
   if (isInitialGroupRow(row)) return true;
   if (isPaidLike(row?.status)) return true;
@@ -362,7 +356,6 @@ const resizeUnpaidInstallments = (list, requestedCount, frequency, startDate) =>
   };
 };
 
-// Tuition and Non-Tuition rows can share an installment number, so a row is identified by both.
 const isSamePaymentRow = (a, b) => a.installmentNo === b.installmentNo && isSameFeeType(a, b);
 
 const isCommissionOfPaymentRow = (commissionRow, paymentRow) => {
@@ -377,7 +370,6 @@ const isCommissionOfPaymentRow = (commissionRow, paymentRow) => {
 const hasSplitChild = (list, parent) =>
   list.some((row) => row.parentInstallmentNo === parent.installmentNo && isSameFeeType(row, parent));
 
-// A middle installment marked Partial reopens every confirmed or partial installment under it.
 const toPendingInstallment = (row) => {
   const wasPartial = row.status === 'Partial';
   const amount =
@@ -1294,7 +1286,6 @@ export default function NewStudentPage({ basePath }) {
 
         let bonus = 0;
 
-        // Percentage is entered in the form; the row stores the money amount. Non-tuition never gets a bonus.
         const isTuitionFee = feeTypeKey === 'tuition fee';
         if (isTuitionFee && addBonus && bonusApplied && applyBonus) {
           if (form.bonusType === 'Percentage') {
@@ -1362,7 +1353,6 @@ export default function NewStudentPage({ basePath }) {
 
     if (!isEdit) return commissionRows.map(applyBonusEdit);
 
-    // Payment rows ke commission (calculated values)
     const calcById = new Map(
       commissionRows.map((r) => [Number(r.studentPaymentInstallmentId), r])
     );
@@ -1396,7 +1386,7 @@ export default function NewStudentPage({ basePath }) {
         return {
           ...h,
           studentPaymentInstallmentId: spiId,
-          installmentNo: h.installmentNo,                 // SP se jaisa aaya waisa (0, 0.1.1, 1 ...)
+          installmentNo: h.installmentNo,                
           displayInstallmentNo: h.installmentNo,
           feeType: payment?.feeType ?? h.feeType ?? h.FeeType ?? null,
           isBonus,
@@ -1598,7 +1588,6 @@ export default function NewStudentPage({ basePath }) {
   };
 
   const isStatusDisabled = (item, groupComplete, isLastOfGroup) => {
-    // Pending row hamesha editable rahe
     if (item.status === 'Pending' && (!item.originalStatus || item.originalStatus === 'Pending')) {
       return false;
     }
@@ -1696,9 +1685,6 @@ export default function NewStudentPage({ basePath }) {
         return updated;
       }
 
-      // This row plus the leftover rows already split from it (0.1, 2.1, ...) is the
-      // ceiling. A smaller amount keeps the difference on the next row. A larger
-      // amount is not applied, and going back to the full amount removes that row.
       const currentFeeType = String(currentItem.feeType || '').trim().toLowerCase();
       const childIndexes = [];
       for (let i = currentIndex + 1; i < updated.length; i++) {
@@ -1865,8 +1851,7 @@ export default function NewStudentPage({ basePath }) {
       }
 
       if (value !== 'Partial') {
-        // Only a row leaving Partial gets its pre-split amount back; split children carry
-        // originalAmount 0 and fee-edited rows carry a baseline, neither of which is a restore target.
+
         const wasPartial = item.status === 'Partial';
 
         if (wasPartial) {
@@ -2006,7 +1991,6 @@ export default function NewStudentPage({ basePath }) {
       if (x.status !== 'Partial') return false;
       if (!x.paidAmount || Number(x.paidAmount) <= 0) return true;
 
-      // Partial is only valid after the fee is reduced and the remainder sits on the next row.
       const baseline = Number(x.originalAmount);
       const feeNotReduced =
         !hasSplitChild(paymentList, x) &&
@@ -2226,7 +2210,6 @@ export default function NewStudentPage({ basePath }) {
         const sortedNewSplitRows = [...newSplitRows].sort((a, b) => a.installmentNo - b.installmentNo);
 
         for (const item of sortedNewSplitRows) {
-          // Parent can be the Initial Payment (installment 0), so check for null rather than truthiness.
           const parentId =
             item.parentInstallmentNo != null
               ? idByInstallmentNo.get(rowKey(item.parentInstallmentNo, item.feeType)) ?? null

@@ -26,23 +26,16 @@ export const GET_MENU = (role) => {
         category: 'CORE',
         items: [
           { title: 'DashBoard', path: '/dashboard/admin', Icon: DashboardIcon },
-          // { title: 'Vendor Dashboard', path: '/dashboard/vendor', Icon: DashboardIcon },
-          // { title: 'Accounting Dashboard', path: '/dashboard/accounting', Icon: DashboardIcon },
-          // { title: 'Student Dashboard', path: '/dashboard/student', Icon: DashboardIcon },
         ],
       },
       {
         category: 'INSTITUTE MANAGEMENT',
         items: [
           
-          // { title: 'Institute Commission old', path: '/institutes', Icon: AccountBalanceIcon },
-          //{ title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
            { title: 'Courses', path: '/courses', Icon: SchoolIcon },
            { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
             { title: 'Student Inquiry', path: '/reports/student-Inquiry', Icon: PeopleIcon },
-          //{ title: 'Users Management', path: '/users', Icon: ManageAccountsIcon },
-          // { title: 'Work History', path: '/work-history', Icon: HistoryIcon },
         ],
       },
        {
@@ -69,29 +62,16 @@ export const GET_MENU = (role) => {
         ],
       },
       {
-        //category: 'STATUSES',
         items: [
-          //{ title: 'Student Enrolment', path: '/status/students', Icon: FactCheckIcon },
-         // { title: 'Vendor Statuses', path: '/status/vendors', Icon: FactCheckIcon },
-          //{ title: 'Institute Statuses', path: '/status/institutes', Icon: FactCheckIcon },
         ],
       },
       {
         category: 'REPORTS',
         items: [
-          // { title: 'AI Scraping Jobs', path: '/reports/ai-scraping', Icon: SmartToyIcon },
-          //{ title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
            { title: 'Employee Work Hours', path: '/EmployeeWorkHours', Icon: AssignmentIcon },
-          // { title: 'Payment Received', path: '/reports/received', Icon: AutoGraphIcon },
-          // { title: 'Payment Dues', path: '/reports/dues', Icon: AutoGraphIcon },
-          // { title: 'Work Hours', path: '/reports/work-hours', Icon: HistoryIcon },
-         
         ],
       },
-      // {
-      //   category: 'ADMIN TOOLS',
-      //   items: [{ title: 'AI Scraping Tool', path: '/ai-tool', Icon: SmartToyIcon }],
-      // },
+     
     ],
 
     'Accounting': [
@@ -110,18 +90,11 @@ export const GET_MENU = (role) => {
       {
         category: 'FINANCE',
         items: [
-         //{ title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institute Contracts', path: '/institute-contracts', Icon: AccountBalanceIcon, },
          { title: 'Courses', path: '/courses', Icon: SchoolIcon},
           { title: 'Invoices', path: '/invoices', Icon: ReceiptIcon },
           { title: 'Student Payments', path: '/students', Icon: PeopleIcon },    ],
       },
-      // {
-      //   category: 'REPORTS',
-      //   items: [
-      //     { title: 'Anticipated Receivables', path: '/reports/receivables', Icon: PaymentsIcon },
-      //   ],
-      // },
     ],
 
     'Admission': [
@@ -135,7 +108,6 @@ export const GET_MENU = (role) => {
         category: 'MANAGEMENT',
         items: [
           { title: 'Vendors', path: '/vendors', Icon: StoreIcon },
-          // { title: 'Institute Commission', path: '/institute-commission', Icon: AccountBalanceIcon },
           { title: 'Institutes', path: '/institutes-scrapping', Icon: TravelExploreIcon },
           { title: 'Courses', path: '/courses', Icon: SchoolIcon },
          

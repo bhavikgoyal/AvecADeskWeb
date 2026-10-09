@@ -26,7 +26,6 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 
-// ─── helpers ────────────────────────────────────────────────────────────────
 function fmt(amount) {
   if (amount == null) return '—';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
@@ -150,7 +149,6 @@ function InstallmentCardList({ rows, loading, variant }) {
               overflow: 'hidden',
             }}
           >
-            {/* Institute header row — clickable */}
             <Box
               onClick={() => toggleInstitute(group.instituteName)}
               sx={{
@@ -185,7 +183,6 @@ function InstallmentCardList({ rows, loading, variant }) {
               </Typography>
             </Box>
 
-            {/* Expanded: student-level cards */}
             <Collapse in={isExpanded} timeout="auto" unmountOnExit>
               <Box sx={{ px: 2, pb: 2, pt: 0.5, bgcolor: '#f8f9fb', borderTop: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1.5 }}>
@@ -203,7 +200,6 @@ function InstallmentCardList({ rows, loading, variant }) {
                         borderColor: 'divider',
                       }}
                     >
-                      {/* Avatar */}
                       <Box
                         sx={{
                           width: 34,
@@ -474,7 +470,6 @@ function ReceivedInvoicesTable({ rows, loading }) {
   );
 }
 
-// ─── CSV export column defs (unchanged, used only for export, not for display anymore) ──
 const RECEIVED_INVOICE_CSV_HEADERS = [
   { key: 'invoiceNumber', label: 'Invoice Number' },
   { key: 'instituteName', label: 'Institute' },
@@ -517,7 +512,7 @@ export default function ReceivablesPage() {
   const [students, setStudents] = useState([]);
   const [filters, setFilters] = useState({ fromDate: '', toDate: '', instituteId: '', studentId: '' });
   const [summary, setSummary] = useState(null);
-  const [rows, setRows] = useState({ 0: [], 1: [] }); // anticipated, overdue
+  const [rows, setRows] = useState({ 0: [], 1: [] }); 
   const [receivedInvoices, setReceivedInvoices] = useState([]);
   const [loadingRows, setLoadingRows] = useState(true);
   const [loadingReceived, setLoadingReceived] = useState(true);
@@ -577,7 +572,6 @@ export default function ReceivablesPage() {
 
   useEffect(() => {
     loadAll();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load, standard fetch-on-mount pattern
   }, [loadAll]);
 
   const handleFilterChange = (field) => (e) => setFilters((prev) => ({ ...prev, [field]: e.target.value }));
@@ -591,14 +585,11 @@ export default function ReceivablesPage() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
-      {/* Header */}
       <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1, flexDirection: { xs: 'column', md: 'row' } }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Receivables</Typography>
           <Typography variant="body2" color="text.secondary">Track anticipated, overdue, and received payments</Typography>
         </Box>
-
-        {/* Export buttons */}
         <Box sx={listToolbarActionsSx}>
           <Button variant="outlined" size="small" startIcon={<DownloadIcon />}
             onClick={() => exportCsv(currentRows, headers, `receivables-${tabName}.csv`)}
@@ -623,7 +614,6 @@ export default function ReceivablesPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      {/* Summary Cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         {loadingSummary ? (
           <>
@@ -645,7 +635,6 @@ export default function ReceivablesPage() {
         )}
       </Box>
 
-      {/* Filters */}
       <Box sx={{ ...listToolbarRowSx, mb: 3, p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <TextField type="date" size="small"
           value={filters.fromDate} onChange={handleFilterChange('fromDate')} sx={listSearchFieldSx} />
@@ -698,7 +687,6 @@ export default function ReceivablesPage() {
         </Box>
       </Box>
 
-      {/* Tabs + Content */}
       <Box sx={{ bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: '1px solid', borderColor: 'divider', px: 2 }}>
           <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>Anticipated<Chip label={rows[0].length} size="small" sx={{ height: 18, fontSize: 11 }} /></Box>} />

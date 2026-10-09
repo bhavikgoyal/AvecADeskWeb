@@ -1,5 +1,3 @@
-/** Vendor onboarding fields — shown on edit vendor only (11-step onboarding). */
-
 const grid = {
   half: { xs: 12, md: 6, lg: 6 },
   third: { xs: 12, md: 6, lg: 4 },

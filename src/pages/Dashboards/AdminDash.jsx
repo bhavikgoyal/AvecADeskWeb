@@ -127,7 +127,6 @@ export default function AdminDash() {
   const [newStudentsList, setNewStudents] = useState([]);
   const [installmentSummary, setInstallmentSummary] = useState({ weeksPrev: [], weeksThis: [], weeksNext: [], upcomingNext: [] });
   const [invoiceTotals, setInvoiceTotals] = useState(null);
-  //const now = useMemo(() => new Date(), []);
   useEffect(() => {
     const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
     const cur = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -334,7 +333,6 @@ export default function AdminDash() {
   return (
     <>
       <DashboardTemplate
-        //  title="Admin Overview"
         welcomeFooterStats={(() => {
           if (invoiceTotals) {
             const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
@@ -490,17 +488,6 @@ export default function AdminDash() {
         </ResponsiveContainer>
       </Box>
     </Paper>
-        {/* <Box sx={{ mt: 1.5 }}>
-          <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 }, cursor: "pointer", }}
-            onClick={() => { navigate("/students?filter=next-month"); }}>
-            <Typography sx={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem' }}>
-              Next Month — Total Upcoming
-            </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: 'var(--text)', mt: 1 }}>
-              {`$${Number(nextMonthInvoiceTotal || 0).toLocaleString()}`}
-            </Typography>
-          </Paper>
-        </Box> */}
         <Box sx={{ mt: 1.5 }}>
           <Grid container spacing={1.25} sx={{ alignItems: 'stretch' }}>
             <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>

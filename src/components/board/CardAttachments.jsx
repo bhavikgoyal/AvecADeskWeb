@@ -66,9 +66,6 @@ function getHost(url) {
   }
 }
 
-/* ------------------------------------------------------------------------ */
-/* "Attach" popover: file from computer OR paste a link                     */
-/* ------------------------------------------------------------------------ */
 
 export function AttachPopover({
   uploading,
@@ -188,9 +185,6 @@ export function AttachPopover({
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/* "..." menu for one attachment: edit / download / cover / delete          */
-/* ------------------------------------------------------------------------ */
 
 function AttachmentMenu({
   attachment,
@@ -365,9 +359,6 @@ function AttachmentMenu({
   );
 }
 
-/* ------------------------------------------------------------------------ */
-/* Attachments section (card modal main column)                             */
-/* ------------------------------------------------------------------------ */
 
 export function CardAttachmentsSection({
   attachments,

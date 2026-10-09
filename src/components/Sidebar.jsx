@@ -48,7 +48,6 @@ export default function Sidebar({
         overflow: 'hidden',
       }}
     >
-      {/* Header */}
       <Box
         sx={{
           px: 1.5,
@@ -92,7 +91,6 @@ export default function Sidebar({
 
       <Divider sx={{ borderColor: '#e7eaf3' }} />
 
-      {/* Menu */}
       <Box sx={{ px: 1, py: 1, overflowY: 'auto', flexGrow: 1 }}>
         {menuGroups.map((group) => (
           <Box key={group.category} sx={{ mb: 2 }}>
@@ -157,7 +155,6 @@ export default function Sidebar({
 
       <Divider sx={{ borderColor: '#e7eaf3' }} />
 
-      {/* Logout */}
       <Box sx={{ p: 2, flexShrink: 0 }}>
         <ListItemButton
           onClick={() => {

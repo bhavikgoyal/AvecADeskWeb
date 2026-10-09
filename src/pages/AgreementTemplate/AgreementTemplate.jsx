@@ -83,7 +83,6 @@ const AgreementTemplate = () => {
 
   function stripHtml(html) {
     if (!html) return '';
-    // basic strip tags
     return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   }
 

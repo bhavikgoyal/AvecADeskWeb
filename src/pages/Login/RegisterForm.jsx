@@ -97,9 +97,6 @@ export default function RegisterForm() {
   });
   const navigate = useNavigate();
 
-  // const updateField = (field) => (e) => {
-  //   setForm((prev) => ({ ...prev, [field]: e.target.value }));
-  // };
 const updateField = (field) => (e) => {
   if (field === "email") {
     setEmailError("");
@@ -113,7 +110,6 @@ const updateField = (field) => (e) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // First Name
     if (!form.firstName.trim()) {
       setSnackbar({
         open: true,
@@ -123,7 +119,6 @@ const updateField = (field) => (e) => {
       return;
     }
 
-    // Last Name
     if (!form.lastName.trim()) {
       setSnackbar({
         open: true,
@@ -133,7 +128,6 @@ const updateField = (field) => (e) => {
       return;
     }
 
-    // Mobile Number
     if (!/^[0-9]{10}$/.test(form.mobileNumber)) {
       setSnackbar({
         open: true,
@@ -143,7 +137,6 @@ const updateField = (field) => (e) => {
       return;
     }
 
-    // Email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(form.email)) {
@@ -155,7 +148,6 @@ const updateField = (field) => (e) => {
       return;
     }
 
-    // Password
     if (form.password.length < 6) {
       setSnackbar({
         open: true,
@@ -165,7 +157,6 @@ const updateField = (field) => (e) => {
       return;
     }
 
-    // Confirm Password
     if (form.password !== form.confirmPassword) {
       setSnackbar({
         open: true,

@@ -11,14 +11,11 @@ import { formFieldSx } from '../../components/forms/formStyles';
 function toCourseForm(data, emptyForm) {
   return {
     ...emptyForm,
-    // NOTE: instituteId here temporarily holds the raw value from the DB.
-    // It gets resolved into the institute NAME (for the select) right after
-    // load, once we know the institute rows (see loadPageData below).
+
     instituteId: data?.instituteId != null ? String(data.instituteId) : '',
     courseName: data?.courseName || '',
     CourseCategory: data?.CourseCategory || data?.Category || '',
     description: data?.description || '',
-    // Fee breakdown (feeds into the auto-computed "fees" total below).
     enrollmentFee: data?.enrollmentFee != null ? String(data.enrollmentFee) : '',
     materialFee: data?.materialFee != null ? String(data.materialFee) : '',
     tuitionFee: data?.tuitionFee != null ? String(data.tuitionFee) : '',
@@ -42,7 +39,6 @@ function toCourseForm(data, emptyForm) {
   };
 }
 
-// Fee-breakdown fields — editing any of these recomputes the "fees" total.
 const FEE_BREAKDOWN_FIELDS = ['enrollmentFee', 'materialFee', 'tuitionFee', 'oshcFee'];
 
 function CourseFeeTable({ courseCost, form, onChange, disabled = false }) {
@@ -99,7 +95,6 @@ function CourseFeeTable({ courseCost, form, onChange, disabled = false }) {
 export default function NewCoursePage({ basePath = '/courses' }) {
   const navigate = useNavigate();
   const { id: courseId } = useParams();
-  //const location = useLocation();
   const submittingRef = useRef(false);
   const resource = getResourceConfig(basePath);
   const isEditMode = Boolean(courseId);
@@ -112,8 +107,7 @@ export default function NewCoursePage({ basePath = '/courses' }) {
   const [loading, setLoading] = useState(isEditMode);
   const [searchParams, setSearchParams] = useSearchParams();
   const [error, setError] = useState('');
-  // Raw scrapping rows: [{ id, name, campusname }, ...]
-  // One row per institute+campus combination.
+
   const [instituteRows, setInstituteRows] = useState([]);
 
   useEffect(() => {
@@ -138,9 +132,6 @@ export default function NewCoursePage({ basePath = '/courses' }) {
 
           const courseForm = toCourseForm(courseData, getEmptyForm(basePath));
 
-          // Resolve the saved instituteId (a scrappingId) back into the
-          // institute NAME (for the institute select) + keep the
-          // scrappingId in `campus` (for the campus select).
           const matchedRow = rows.find(
             (item) => String(item.id) === String(courseData?.instituteId)
           );
@@ -198,7 +189,6 @@ useEffect(() => {
   pendingInstituteNameRef.current = preselectedInstituteName;
   setInstituteLocked(true);
 
-  // Query param clean karo, taaki refresh pe institute dobara "locked" na dikhe
   setSearchParams({}, { replace: true });
 }, [isEditMode, searchParams, setSearchParams]);
   if (!resource) return null;
@@ -233,7 +223,6 @@ useEffect(() => {
         return false;
       }
 
-      // File upload field
       if (value instanceof File) {
         return true;
       }
@@ -244,10 +233,6 @@ useEffect(() => {
 
   const hasChanges = originalForm !== null && JSON.stringify(form) !== JSON.stringify(originalForm);
 
-  // Resolves the UI-level selection (institute name + campus scrappingId)
-  // back into the real payload shape the backend expects:
-  //   instituteId -> the scrappingId of the chosen institute+campus row
-  //   campus      -> the actual campus name text
   const buildSubmissionPayload = () => {
     const matchedRow =
       instituteRows.find((item) => String(item.id) === String(form.campus)) ||
@@ -305,7 +290,6 @@ useEffect(() => {
     }
   };
 
-  // Unique institute names for the first dropdown.
   const uniqueInstituteNames = Array.from(
     new Set(instituteRows.map((item) => item.name).filter(Boolean))
   );
@@ -315,7 +299,6 @@ useEffect(() => {
     ...uniqueInstituteNames.map((name) => ({ value: name, label: name })),
   ];
 
-  // Campus dropdown is scoped to whichever institute name is selected.
   const campusOptions = [
     {
       value: '',

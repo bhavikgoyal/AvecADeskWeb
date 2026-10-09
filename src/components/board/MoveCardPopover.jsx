@@ -94,7 +94,6 @@ export default function MoveCardPopover({ cardId, currentBoardId, currentListId,
     return () => {
       mounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId]);
 
   const loading = !!boardId && loadedBoardId !== boardId;

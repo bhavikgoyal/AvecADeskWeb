@@ -130,7 +130,6 @@ async function drawLetterhead(doc) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const centerX = pageWidth / 2;
   const top = 8;
-  // Full lockup is wider than icon-only logo
   const logoWidth = 58;
 
   const logo = await loadLogoAsset();
@@ -176,7 +175,6 @@ function drawPageNumber(doc, pageNumber, totalPages) {
   doc.setTextColor(0, 0, 0);
 }
 
-/** Company name and address stay at opposite sides of the page footer. */
 function drawAddressFooter(doc) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -253,7 +251,6 @@ function drawInfoBox(doc, invoice, startY) {
     invoiceY += lineHeight;
   });
 
-  // Tight gap between To box and particulars table
   return startY + boxHeight + 3;
 }
 
@@ -436,10 +433,6 @@ function pageContentBottom(doc) {
   return doc.internal.pageSize.getHeight() - PAGE_BOTTOM_SAFE - FOOTER_RESERVE;
 }
 
-/**
- * Draw one invoice, continuing Sr. No. across pages/invoices.
- * Education Commission header only once (first page of this invoice section).
- */
 async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
   const {
     startSrNo = 1,
@@ -475,7 +468,6 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
       y = await drawLetterhead(doc);
       y = drawInfoBox(doc, invoice, y);
       y = drawTableHeader(doc, y, geo);
-      // Education Commission does NOT repeat on continuation pages
     }
 
     y = drawItemRow(doc, y, geo, srNo, itemLines);
@@ -500,7 +492,6 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
   return { nextSrNo: srNo, lastPageNumber: pageNumber, educationHeaderDrawn };
 }
 
-/** Build one invoice PDF blob (does not download). */
 export async function buildInvoicePdf(invoice, lineItems = []) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   await drawInvoiceSection(doc, invoice, lineItems, {
@@ -535,23 +526,18 @@ export async function exportInvoicePdf(invoice, lineItems = []) {
   saveAs(blob, fileName);
 }
 
-/**
- * Never merges invoices into one PDF — each invoice downloads as its own .pdf file.
- */
 export async function exportInvoicesPdf(items = []) {
   if (!items.length) return;
 
   const files = [];
   for (let i = 0; i < items.length; i += 1) {
     const { invoice, lineItems = [] } = items[i] || {};
-    // eslint-disable-next-line no-await-in-loop
     files.push(await buildInvoicePdf(invoice, lineItems));
   }
 
   for (let i = 0; i < files.length; i += 1) {
     triggerPdfDownload(files[i].blob, files[i].fileName);
     if (i < files.length - 1) {
-      // eslint-disable-next-line no-await-in-loop
       await delay(1500);
     }
   }

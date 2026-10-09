@@ -78,7 +78,6 @@ const fileInputRef = useRef(null);
 
   useEffect(() => {
     void loadContracts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instituteId]);
 
   const openAddDialog = () => {
@@ -326,7 +325,6 @@ const handleFileSelect = async (event) => {
     flexDirection: { xs: 'column', sm: 'row' },
   }}
 >
-  {/* Start Date */}
   <Box sx={{ flex: 1 }}>
     <Typography
       variant="body2"
@@ -351,7 +349,6 @@ const handleFileSelect = async (event) => {
     />
   </Box>
 
-  {/* End Date */}
   <Box sx={{ flex: 1 }}>
     <Typography
       variant="body2"

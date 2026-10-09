@@ -19,7 +19,6 @@ export const RESOURCE_PATHS = [
   'templates',
   'users',
   'work-history',
-  // 'tasks',
   'status/students',
   'status/vendors',
   'status/institutes',

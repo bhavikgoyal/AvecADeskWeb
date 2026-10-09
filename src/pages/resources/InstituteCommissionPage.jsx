@@ -6,7 +6,6 @@ import {
   DialogTitle, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
 import ExcelIcon from '@mui/icons-material/TableView';
-// or another icon you're using
 import ResponsiveTable from '../../components/ResponsiveTable';
 import TableContentSkeleton from '../../components/TableContentSkeleton';
 import { listContainedButtonSx, listOutlinedButtonSx, listSelectFieldSx, listSelectProps, listToolbarActionsSx, listToolbarRowSx, listToolbarSearchGroupSx, LIST_FILTER_ALL } from '../../components/forms';
@@ -18,9 +17,6 @@ import XLSX from 'xlsx-js-style';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import { exportInstituteCommissionPdf } from '../../utils/instituteCommissionPdf';
 
-// Sentinel value used in the Course dropdown for the "All Courses" option.
-// It never gets sent to the backend as a real courseId — see handleSave below,
-// where it is translated into { courseId: null, appliesToAllCourses: true }.
 const ALL_COURSES_VALUE = 'ALL';
 
 function formatDate(value) {
@@ -367,29 +363,24 @@ export default function InstituteCommissionPage() {
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    // Merge first two rows
     ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 3 } },];
 
-    // Column Width
     ws["!cols"] = [{ wch: 20 }, { wch: 15 }, { wch: 18 }, { wch: 18 },];
 
-    // Institute Row
     ws["A1"].s = {
       font: { bold: true, sz: 12 },
       alignment: { horizontal: "left", vertical: "center" },
     };
 
-    // Course Row
     ws["A2"].s = {
       font: { bold: true, sz: 12 },
       alignment: { horizontal: "left", vertical: "center" },
     };
 
-    // Header Style
     ["A4", "B4", "C4", "D4"].forEach((cell) => {
       ws[cell].s = {
         font: { bold: true, color: { rgb: "000000" }, },
-        fill: { fgColor: { rgb: "A6A6A6" }, }, // Light gray header background
+        fill: { fgColor: { rgb: "A6A6A6" }, },
         alignment: { horizontal: "center", vertical: "center" },
         border: {
           top: { style: "thin", color: { rgb: "BFBFBF" } },
@@ -400,7 +391,6 @@ export default function InstituteCommissionPage() {
       };
     });
 
-    // Data Rows
     for (let row = 5; row < historyData.length + 5; row++) {
       ["A", "B", "C", "D"].forEach((col) => {
         const ref = `${col}${row}`;
@@ -574,7 +564,6 @@ export default function InstituteCommissionPage() {
           <Button variant="contained" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Add'}</Button>
         </DialogActions>
       </Dialog>
-      {/* History Dialog */}
       <Dialog
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}

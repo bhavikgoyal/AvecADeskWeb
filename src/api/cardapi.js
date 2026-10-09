@@ -77,7 +77,6 @@ export async function moveCard(payload) {
   return response.data;
 }
 
-// position = 0-based index in the destination list
 export async function moveCardToList({ cardID, listID, position }) {
   const response = await axiosClient.post('/api/Card/move-to-list', { cardID, listID, position });
   return response.data;

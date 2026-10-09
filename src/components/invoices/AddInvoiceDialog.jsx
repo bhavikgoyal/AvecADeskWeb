@@ -261,9 +261,6 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         })
         .filter(Boolean);
 
-      // if (amountUpdates.length > 0) {
-      //   await updateInstallmentFeesAndInvoiceAmounts(amountUpdates);
-      // }
       const bonusUpdates = selectedPaid
         .map((row) => {
           const bonusNum = Number(

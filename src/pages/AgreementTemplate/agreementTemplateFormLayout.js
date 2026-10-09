@@ -1,4 +1,3 @@
-/** Shared responsive layout styles for agreement template create / edit / view pages. */
 export const pageSx = {
   width: '100%',
   maxWidth: '100%',

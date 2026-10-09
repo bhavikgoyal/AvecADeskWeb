@@ -3,8 +3,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import { BRAND, SUBTLE_TEXT, TEXT, getAvatarColor, getInitials } from './cardModalStyles';
 
-// anchorPosition: open karte waqt button ki jagah; button baad me hat jaye
-// (jaise "Labels" button label lagne ke baad) to bhi popup wahi rehta hai
 export function CardPopover({ open, anchorEl, anchorPosition, onClose, width = 304, children }) {
   return (
     <Popover
@@ -105,7 +103,6 @@ export function Avatar({ name, size = 32, title, onClick, style }) {
 
 const URL_PATTERN = /(https?:\/\/[^\s]+|[\w.+-]+@[\w-]+\.[\w.-]+|(?:^|(?<=\s))@[\w.-]+)/g;
 
-// Plain text ke andar URLs / emails ko clickable link aur @mention ko highlight karta hai
 export function LinkifiedText({ text }) {
   if (!text) return null;
   const parts = text.split(URL_PATTERN);

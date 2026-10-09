@@ -469,7 +469,6 @@ export default function AnticipatedReceivables1Page() {
   const summary = useMemo(() => summarizeMatrix(matrix), [matrix]);
 
   const viewMatrix = useMemo(() => {
-    // Anticipated tab = full Excel estimate (all statuses, colored)
     if (tab === 0) return matrix;
     return filterMatrixByStatus(matrix, TAB_STATUS[tab]);
   }, [matrix, tab]);
@@ -497,91 +496,6 @@ export default function AnticipatedReceivables1Page() {
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          mb: 3,
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            Receivables
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Track anticipated, overdue, and received payments
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleExport('csv')}
-            disabled={!hasRows}
-          >
-            CSV
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<TableChartIcon />}
-            color="success"
-            onClick={() => handleExport('excel')}
-            disabled={!hasRows}
-          >
-            Excel
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<PictureAsPdfIcon />}
-            color="error"
-            onClick={() => handleExport('pdf')}
-            disabled={!hasRows}
-          >
-            PDF
-          </Button>
-        </Box>
-      </Box>
-
-      {error ? (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      ) : null}
-
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        {loading && !matrix ? (
-          <CircularProgress size={24} />
-        ) : (
-          <>
-            <StatCard
-              label="Anticipated"
-              amount={summary.anticipated.amount}
-              count={summary.anticipated.count}
-              color="var(--primary, #1976d2)"
-            />
-            <StatCard
-              label="Overdue"
-              amount={summary.overdue.amount}
-              count={summary.overdue.count}
-              color="var(--error, #d32f2f)"
-            />
-            <StatCard
-              label="Received"
-              amount={summary.paid.amount}
-              count={summary.paid.count}
-              color="var(--teal, #00897b)"
-            />
-          </>
-        )}
-      </Box> */}
-
       <Box
         sx={{
           display: 'flex',

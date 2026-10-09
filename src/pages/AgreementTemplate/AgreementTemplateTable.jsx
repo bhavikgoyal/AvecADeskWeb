@@ -6,7 +6,6 @@ import {
   TablePagination,
   Typography,
 } from '@mui/material';
-//import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import ResponsiveTable from '../../components/ResponsiveTable';

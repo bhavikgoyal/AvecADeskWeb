@@ -1,6 +1,5 @@
 import { Box, Skeleton } from '@mui/material';
 
-/** Collapsible list-row skeleton used by receivables-style grouped cards. */
 export default function CardListSkeleton({ rows = 6, sx = {} }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, ...sx }}>

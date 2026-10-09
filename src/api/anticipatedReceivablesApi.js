@@ -52,7 +52,6 @@ function toIsoDate(value) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
-/** 18 months through current month + 6 future months = 24 columns */
 export function buildReceivablesMonthRange(referenceDate = new Date()) {
   const current = startOfMonth(referenceDate);
   const start = new Date(current.getFullYear(), current.getMonth() - (PAST_MONTHS - 1), 1);
@@ -147,7 +146,6 @@ function resolveRawStatus(row) {
     .replace(/\s+/g, '')
     .trim();
 
-  // DB settled/paid statuses: PaidByCollege, PaidByStudent, ConfirmedByCollege, ConfirmedByStudent
   if (
     raw.includes('paid') ||
     raw.includes('confirm') ||
@@ -165,7 +163,6 @@ function resolveRawStatus(row) {
 
 function resolveCellStatus(row, todayStart) {
   const raw = resolveRawStatus(row);
-  // Paid / settled / confirmed must never be remapped to anticipated/overdue
   if (raw === 'paid') return 'paid';
   if (raw === 'overdue') return 'overdue';
 
@@ -174,10 +171,6 @@ function resolveCellStatus(row, todayStart) {
   return 'anticipated';
 }
 
-/**
- * Pivot flat installment / receivable rows into college × month matrix.
- * Amounts are bucketed by status so Paid stays green (Received).
- */
 export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivablesMonthRange()) {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -219,12 +212,10 @@ export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivables
         const amount = paid + overdue + anticipated;
         if (!amount) continue;
 
-        // Color rule: unpaid first; otherwise Paid/Received (green)
         let status = 'paid';
         if (overdue > 0) status = 'overdue';
         else if (anticipated > 0 && paid === 0) status = 'anticipated';
         else if (anticipated > 0 && paid > 0) {
-          // Mixed month: show dominant bucket; prefer paid when paid >= anticipated
           status = paid >= anticipated ? 'paid' : 'anticipated';
         } else {
           status = 'paid';
@@ -252,10 +243,6 @@ export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivables
   };
 }
 
-/**
- * New Anticipated Receivables API — 24-month college grid.
- * Calls GET /api/receivables/anticipated-receivables (sp_GetAnticipatedReceivablesGrid).
- */
 export async function fetchAnticipatedReceivablesMatrix(filters = {}) {
   const range = buildReceivablesMonthRange();
   const params = {

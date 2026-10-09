@@ -7,7 +7,7 @@ function formatDate(value) {
 
 function formatTime(value) {
     if (!value || typeof value !== 'string') return '00:00:00';
-    return value.split('.')[0]; // Remove milliseconds if present
+    return value.split('.')[0]; 
 }
 
 function normalizeWorkReport(report) {
@@ -24,7 +24,7 @@ function normalizeWorkReport(report) {
 
 export function mapWorkHistoryRow(report) {
     return {
-        id: `${report.userId}-${report.workDate}-${Math.random()}`, // Add random factor for unique key
+        id: `${report.userId}-${report.workDate}-${Math.random()}`, 
         workDate: formatDate(report.workDate),
         member: report.userName,
         workspace: report.workspaces,

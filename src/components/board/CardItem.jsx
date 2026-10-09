@@ -56,7 +56,6 @@ export default function CardItem({ card, index, theme, onDelete, onCardClick }) 
     : null;
   const isFullCover = cover?.size === 'full';
 
-    // Card members + assigned user (modal જેવી જ logic)
   const cardMembers = (card.members || []).map((m) => ({
     id: m.userID ?? m.userId,
     name:
@@ -251,7 +250,6 @@ export default function CardItem({ card, index, theme, onDelete, onCardClick }) 
     </div>
   );
 
-  // Full image cover: title sits on the image, but labels/badges stay visible below it
   const renderFullImageCover = () => {
     const darkImage = (cover.brightness || 'dark') === 'dark';
     return (

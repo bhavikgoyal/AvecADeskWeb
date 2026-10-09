@@ -14,13 +14,11 @@
 .rollCell { width: 48px; text-align: center; color: #6b7785; }
 .actionBtn { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px; border-radius: 18px; border: none; cursor: pointer; }
 
-/* table row styling similar to screenshot */
 table.table tbody tr { background: transparent; }
 table.table tbody tr td { padding: 14px 12px; vertical-align: middle; border-bottom: 1px solid rgba(16,24,40,0.03); }
 table.table tbody tr:nth-child(odd) { background: #ffffff; }
 table.table tbody tr:nth-child(even) { background: #fbfcfd; }
 
-/* search box and invite button style helper - used by header */
 .header .MuiTextField-root { border-radius: 8px; }
 .header .MuiOutlinedInput-root { background: #fff; box-shadow: none; }
 .header .MuiButton-root { border-radius: 8px; }

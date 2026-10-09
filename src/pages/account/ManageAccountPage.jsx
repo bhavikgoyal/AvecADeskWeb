@@ -37,7 +37,6 @@ const initialVisibility = {
     confirmPassword: false,
 };
 
-/** Hides the browser's built-in password reveal (Edge/Chrome on Windows). */
 const hideNativePasswordRevealSx = {
     '& input[type="password"]::-ms-reveal': {
         display: 'none',

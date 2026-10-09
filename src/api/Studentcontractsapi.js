@@ -24,13 +24,11 @@ const fromApiDto = (dto) => ({
   notes: dto.notes ?? dto.Notes ?? "",
 });
 
-// GET api/students/{studentId}/contracts
 export async function fetchStudentContracts(studentId) {
   const { data } = await axiosClient.get(API_BASE(studentId));
   return (data || []).map(fromApiDto);
 }
 
-// POST api/students/{studentId}/contracts
 export async function createStudentContract(contract) {
   const { data } = await axiosClient.post(
     API_BASE(contract.studentId),
@@ -39,7 +37,6 @@ export async function createStudentContract(contract) {
   return fromApiDto(data);
 }
 
-// PUT api/students/{studentId}/contracts/{contractId}
 export async function updateStudentContract(contractId, contract) {
   const { data } = await axiosClient.post(
     `${API_BASE(contract.studentId)}/${contractId}`,
@@ -48,13 +45,11 @@ export async function updateStudentContract(contractId, contract) {
   return fromApiDto(data);
 }
 
-// DELETE api/students/{studentId}/contracts/{contractId}
 export async function deleteStudentContract(contractId, studentId) {
   const { data } = await axiosClient.delete(`${API_BASE(studentId)}/${contractId}`);
   return data;
 }
 
-// POST api/students/{studentId}/contracts/upload (multipart/form-data)
 export async function uploadStudentContractFile(studentId, file) {
   const formData = new FormData();
   formData.append("file", file);
@@ -69,7 +64,6 @@ export async function uploadStudentContractFile(studentId, file) {
     }
   );
 
-  // Matches the controller response { url, fileName }
   return {
     fileUrl: data?.url ?? "",
     fileName: data?.fileName ?? file.name,

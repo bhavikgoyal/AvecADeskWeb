@@ -32,7 +32,6 @@ function getCourseDisplay(row, courseMap) {
   return '—';
 }
 
-//export default function InstituteCommissionRatesPanel({ instituteId = null, courseLookupId = null }) {
 export default function InstituteCommissionRatesPanel({ instituteId = null, courseLookupId = null, instituteName = '' }) {
   const [rates, setRates] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -56,7 +55,6 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
   const handleCoursesChange = (e) => {
     const value = e.target.value;
     if (value.includes(ALL_COURSES_VALUE)) {
-      // "Select all" was clicked: toggle everything
       setSelectedCourseIds(allSelected ? [] : allCourseIds);
     } else {
       setSelectedCourseIds(value);
@@ -288,7 +286,6 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
         />
       )}
 
-      {/* Add Dialog */}
       <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
         <DialogTitle>Add commission rate</DialogTitle>
         <DialogContent>
@@ -362,7 +359,6 @@ export default function InstituteCommissionRatesPanel({ instituteId = null, cour
         </DialogActions>
       </Dialog>
 
-      {/* History Dialog */}
       <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>Commission History</DialogTitle>
         <DialogContent>

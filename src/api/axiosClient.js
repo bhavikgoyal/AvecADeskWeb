@@ -19,10 +19,6 @@ export function clearAuthSession() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-// const axiosClient = axios.create({
-//   baseURL: API_BASE_URL,
-//   headers: { 'Content-Type': 'application/json' },
-// });
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
 });

@@ -83,7 +83,6 @@ export default function NewVendorPage({ basePath }) {
               </Alert>
             )}
 
-            {/* Vendor save */}
             {createdVendorId && (
               <Alert severity="success" sx={{ mb: 1.5 }}>
                 Vendor saved successfully! You can now add commission rates from the Commission rates tab.

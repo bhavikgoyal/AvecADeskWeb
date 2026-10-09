@@ -29,7 +29,6 @@ export default function WelcomeCard({ userName = 'User', subtitle, avatar, foote
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: 1, textTransform: 'uppercase', mb: 0.5 }}>
-            {/* Overview */}
           </Typography>
           <Typography sx={{ fontWeight: 800, fontSize: { xs: '1.15rem', md: '1.35rem' }, color: 'var(--text)', lineHeight: 1.2 }}>
             Welcome back, {userName.split(' ')[0]}

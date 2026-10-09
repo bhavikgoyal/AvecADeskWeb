@@ -34,9 +34,7 @@ export default function ResourceDetailPage({ basePath }) {
     getEmailTemplateById(id)
       .then((data) => {
         if (cancelled) return;
-        // merge fetched values into the existing form to avoid wiping unexpected keys
         setForm((prev) => ({ ...prev, ...(data || {}) }));
-        // only switch to view-mode after load if the caller didn't request edit mode
         if (!location.state?.edit) setEditMode(false);
       })
       .catch((err) => {
@@ -66,7 +64,6 @@ export default function ResourceDetailPage({ basePath }) {
         if (isTemplates) {
           if (form.id || id) {
             const updated = await updateEmailTemplate(form.id || id, form);
-            // merge returned values so fields remain consistent
             setForm((prev) => ({ ...prev, ...(updated || form) }));
             setEditMode(false);
           } else {

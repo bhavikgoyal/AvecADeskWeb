@@ -22,7 +22,6 @@ function buildRow(families, shade) {
   }));
 }
 
-// Trello popover jaisa order: pehle 5 families ke 3 shades, phir baaki 5 ke
 export const LABEL_COLOR_GRID = [
   ...buildRow(FAMILIES.slice(0, 5), 'subtle'),
   ...buildRow(FAMILIES.slice(0, 5), 'normal'),
@@ -55,7 +54,6 @@ function parseHex(hex) {
   return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
 }
 
-// Light background par dark text, dark background par white text
 export function getLabelTextColor(hex) {
   const rgb = parseHex(hex);
   if (!rgb) return '#172B4D';

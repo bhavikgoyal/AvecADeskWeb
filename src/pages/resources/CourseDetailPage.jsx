@@ -8,8 +8,6 @@ import TableContentSkeleton from '../../components/TableContentSkeleton';
 
 const INSTITUTE_SCRAPPING_BASE_PATH = '/institutes-scrapping';
 
-// NOTE: adjust this to match however your project already exposes the API base URL
-// (e.g. import it from '../../api/axiosClient' if it's exported there instead).
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 export default function CourseDetailPage({

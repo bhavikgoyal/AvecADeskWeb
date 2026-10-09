@@ -157,7 +157,6 @@ export function getCampusesForInstitute(rows, instituteName) {
   return Array.from(campuses).sort((a, b) => a.localeCompare(b));
 }
 
-/** Resolve ScrappingId for institute name + campus (used for courses / save / invoice). */
 export function resolveScrappingId(rows, instituteName, campusName) {
   const key = normalizeInstituteName(instituteName).toLowerCase();
   if (!key) return '';

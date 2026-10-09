@@ -61,7 +61,6 @@ export default function InstituteCredentialsPanel({ instituteId }) {
 
   useEffect(() => {
     void loadCredentials();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instituteId]);
 
   const openAddDialog = () => {
@@ -141,7 +140,6 @@ export default function InstituteCredentialsPanel({ instituteId }) {
 
     next.add(id);
 
-    // Automatically hide after 1 minute
     setTimeout(() => {
       setVisiblePasswordIds((current) => {
         const updated = new Set(current);
@@ -157,7 +155,6 @@ export default function InstituteCredentialsPanel({ instituteId }) {
     try {
       await navigator.clipboard.writeText(value || '');
     } catch {
-      // Ignore clipboard failures (e.g. insecure context).
     }
   };
 

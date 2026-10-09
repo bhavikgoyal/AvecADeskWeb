@@ -1,6 +1,5 @@
 import { Box, Paper, Skeleton } from '@mui/material';
 
-/** Form / detail-page skeleton matching outlined fields + action buttons. */
 export default function FormContentSkeleton({ rows = 9, sx = {} }) {
   return (
     <Paper

@@ -86,7 +86,6 @@ function BoardColumnSkeleton({ cardCount = 4 }) {
   );
 }
 
-/** Kanban skeleton matching Tasks Management board layout */
 export default function BoardContentSkeleton({ columns = 5, sx = {} }) {
   const cardsPerColumn = [4, 5, 3, 4, 3, 4];
 

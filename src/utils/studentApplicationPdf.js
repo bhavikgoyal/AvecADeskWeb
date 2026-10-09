@@ -241,7 +241,6 @@ export function exportStudentApplicationPdf(data) {
   const sections = buildSections(data);
   const pageHeight = doc.internal.pageSize.getHeight();
   const bottomMargin = 18;
-  // Header + at least 2 body rows — agar itni jagah na ho to pehle naya page
   const minSectionBlock = 30;
 
   sections.forEach((section) => {
