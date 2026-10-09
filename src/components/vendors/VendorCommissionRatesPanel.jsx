@@ -275,7 +275,6 @@ const openHistoryDialog = async (row) => {
         />
       )}
 
-      {/* Add Dialog */}
       <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
         <DialogTitle>Add commission rate</DialogTitle>
         <DialogContent>
@@ -350,7 +349,6 @@ const openHistoryDialog = async (row) => {
         </DialogActions>
       </Dialog>
 
-      {/* History Dialog */}
       <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>Commission History</DialogTitle>
         <DialogContent>

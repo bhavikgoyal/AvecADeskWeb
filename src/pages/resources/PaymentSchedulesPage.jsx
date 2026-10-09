@@ -133,15 +133,12 @@ const fromInstitute =
     try {
       const { nextMonth } = parseFilterFromUrl();
 
-      // Do not send student name as studentId
       const result = await fetchStudentPaymentScheduleList(
         undefined,
         nextMonth
       );
 
       let filteredResult = result || [];
-
-      // Existing institute filter from navigation
       if (selectedInstituteKey) {
         filteredResult = filteredResult.filter(
           (item) =>
@@ -150,7 +147,6 @@ const fromInstitute =
         );
       }
 
-      // Institute dropdown filter
       if (instituteFilter.trim()) {
         const instituteSearch = instituteFilter
           .trim()
@@ -163,7 +159,6 @@ const fromInstitute =
         );
       }
 
-      // Student name textbox filter
       if (studentNameFilter.trim()) {
         const studentSearch = studentNameFilter
           .trim()
@@ -317,7 +312,6 @@ const fromInstitute =
 }, [rows, selectedInstituteName]);
   return (
     <Box>
-      {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
@@ -338,7 +332,6 @@ const fromInstitute =
         <Box
           sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'nowrap', }}
         >
-          {/* 1. Institute Dropdown */}
           <Box
             sx={{ width: 280, minWidth: 280, maxWidth: 280, flexShrink: 0, }}
           >
@@ -372,7 +365,6 @@ const fromInstitute =
               ))} </TextField>
           </Box>
 
-          {/* 2. Student Name TextField */}
           <Box sx={{ width: 280, minWidth: 280, maxWidth: 280, flexShrink: 0 }} >
             <TextField
               fullWidth
@@ -388,7 +380,6 @@ const fromInstitute =
             />
           </Box>
 
-          {/* 3. Buttons */}
           <Box
             sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap', ml: 'auto', }}   >
             {fromInstitute && (

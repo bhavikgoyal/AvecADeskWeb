@@ -25,20 +25,12 @@ function normalizeTemplate(raw) {
     };
 }
 
-/**
- * GET
- * api/email-templates
- */
 export const getEmailTemplates = async () => {
     const { data } = await axiosClient.get('/api/email-templates');
     if (!Array.isArray(data)) return [];
     return data.map(normalizeTemplate);
 };
 
-/**
- * POST
- * api/email-templates
- */
 export const createEmailTemplate = async (templateData) => {
     const payload = {
         Name: templateData.templateName ?? templateData.name ?? '',
@@ -53,10 +45,6 @@ export const createEmailTemplate = async (templateData) => {
     return normalizeTemplate(data);
 };
 
-/**
- * PUT
- * api/email-templates/{templateId}
- */
 export const updateEmailTemplate = async (templateId, templateData) => {
     const payload = {
         Name: templateData.templateName ?? templateData.name ?? '',
@@ -71,19 +59,12 @@ export const updateEmailTemplate = async (templateId, templateData) => {
     return normalizeTemplate(data);
 };
 
-/**
- * GET
- * api/email-templates/{templateId}
- */
+
 export const getEmailTemplateById = async (templateId) => {
     const { data } = await axiosClient.get(`/api/email-templates/${templateId}`);
     return normalizeTemplate(data);
 };
 
-/**
- * DELETE
- * api/email-templates/{templateId}
- */
 export const deleteEmailTemplate = async (templateId) => {
     await axiosClient.post(`/api/email-templates/${templateId}/delete`);
     return true;

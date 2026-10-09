@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { API_BASE_URL } from '../api/api';
 import { getCoverColors } from '../api/cardCoverApi';
 
-// Trello ka fixed cover palette. DB (dbo.CardCoverColors) se colors na aaye to yahi use hota hai.
 export const DEFAULT_COVER_COLORS = [
   { colorKey: 'green', colorName: 'Green', hexCode: '#4BCE97', textHexCode: '#172B4D' },
   { colorKey: 'yellow', colorName: 'Yellow', hexCode: '#EED12B', textHexCode: '#172B4D' },
@@ -22,7 +21,6 @@ const DEFAULT_COLOR_MAP = Object.fromEntries(
 
 const PATTERN_INK = 'rgba(9, 30, 66, 0.28)';
 
-// Colorblind friendly mode me har color ka alag pattern (Trello jaisa)
 const COLORBLIND_PATTERNS = {
   green: `repeating-linear-gradient(45deg, ${PATTERN_INK} 0 2px, transparent 2px 8px)`,
   yellow: `radial-gradient(${PATTERN_INK} 1.5px, transparent 1.6px) 0 0 / 8px 8px`,
@@ -64,7 +62,6 @@ export function resolveCoverImageUrl(url) {
   return `${API_BASE_URL || ''}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-// Color + (optional) colorblind pattern ko ek CSS background me convert karta hai
 export function getCoverBackground(colorKey, hex, colorblind) {
   if (!hex) return undefined;
   const pattern = colorblind ? COLORBLIND_PATTERNS[colorKey] : null;
@@ -99,7 +96,6 @@ export function useColorblindMode() {
     try {
       localStorage.setItem(COLORBLIND_STORAGE_KEY, value ? '1' : '0');
     } catch {
-      /* storage blocked - sirf current session me apply hoga */
     }
     setEnabled(value);
     window.dispatchEvent(new Event(COLORBLIND_EVENT));

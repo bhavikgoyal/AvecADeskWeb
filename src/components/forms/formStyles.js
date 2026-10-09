@@ -1,30 +1,24 @@
 export const FORM_PAGE_MAX_WIDTH = '100%';
 
-/** xs: 1 col | md: 2 cols | lg: 3 cols — full-width section */
 export const defaultFieldGrid = { xs: 12, md: 6, lg: 4 };
 
-/** xs: 1 col | md+: 2 cols — side-by-side section panel */
 export const compactFieldGrid = { xs: 12, md: 6 };
 
-/** Shared Select dropdown: ~5 rows visible, then scroll; capped width; opens below field */
 export const SELECT_ITEM_HEIGHT = 36;
 export const SELECT_MENU_MAX_ITEMS = 5;
-export const SELECT_MENU_MAX_HEIGHT = SELECT_ITEM_HEIGHT * SELECT_MENU_MAX_ITEMS + 16; // 196
+export const SELECT_MENU_MAX_HEIGHT = SELECT_ITEM_HEIGHT * SELECT_MENU_MAX_ITEMS + 16; 
 
 export const selectMenuProps = {
   disableScrollLock: true,
   keepMounted: false,
   marginThreshold: 8,
-  // Prefer opening under the field (avoids huge menus flipping above)
   anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
   transformOrigin: { vertical: 'top', horizontal: 'left' },
-  // MUI v6+/v9 Select reads slotProps.paper (PaperProps is ignored)
   slotProps: {
     paper: {
       className: 'select-menu-paper',
       style: {
         maxHeight: SELECT_MENU_MAX_HEIGHT,
-        // width: 0 + MUI's minWidth(select) => menu width always matches the input
         width: 0,
       },
       sx: {
@@ -134,7 +128,6 @@ export const primaryButtonSx = {
   '&:hover': { bgcolor: 'var(--primary-dark)', boxShadow: 'none' },
 };
 
-/** List-page search field — gray fill, 40px, rounded (Courses toolbar) */
 export const listSearchFieldSx = {
   minWidth: { xs: 0, md: 240 },
   maxWidth: { xs: '100%', md: 420 },
@@ -236,14 +229,12 @@ export const listOutlinedButtonSx = {
   width: { xs: '100%', md: 'auto' },
 };
 
-/** Sentinel value for “show all” list filters. Not sent to APIs. */
 export const LIST_FILTER_ALL = 'all';
 
 export function isListFilterAll(value) {
   return value === '' || value == null || value === LIST_FILTER_ALL;
 }
 
-/** MUI select props so empty / “all” shows a page-specific placeholder. */
 export function listSelectProps(placeholder) {
   return {
     displayEmpty: true,
@@ -254,7 +245,6 @@ export function listSelectProps(placeholder) {
   };
 }
 
-/** Search-field styles for list filters; muted text when showing the placeholder. */
 export function listSelectFieldSx(hasValue) {
   return {
     ...listSearchFieldSx,

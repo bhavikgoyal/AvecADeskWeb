@@ -43,7 +43,6 @@ export default function NewResourcePage({ basePath }) {
     } catch (err) {
       console.error('createEmailTemplate error:', err);
       setError(err.message || 'Failed to create template via API; saved locally instead.');
-      // fallback to local upsert so user doesn't lose data
       upsertRecord(basePath, {
         ...form,
         id,

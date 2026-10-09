@@ -25,7 +25,6 @@ export function useCardAttachments(cardId) {
     };
   }, [cardId]);
 
-  // Returns the uploaded attachments (failed files are reported and skipped)
   const uploadFiles = async (fileList) => {
     const files = Array.from(fileList || []);
     const tooBig = files.filter((f) => f.size > MAX_ATTACHMENT_BYTES);

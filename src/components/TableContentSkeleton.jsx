@@ -1,9 +1,5 @@
 import { Box, Skeleton } from '@mui/material';
 
-/**
- * Table-shaped skeleton aligned to column widths.
- * @param {{ label?: string, width?: string|number, flex?: number }[]} columns
- */
 export default function TableContentSkeleton({
   columns = [],
   rows = 8,

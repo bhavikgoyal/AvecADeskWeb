@@ -4,7 +4,7 @@ const WEEK_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'
 
 function getWeekdayName(isoDateString) {
   const d = new Date(isoDateString);
-  const idx = d.getDay(); // 0 (Sun) .. 6 (Sat)
+  const idx = d.getDay(); 
   const mondayIndex = idx === 0 ? 6 : idx - 1;
   return WEEK_DAYS[mondayIndex];
 }
@@ -32,7 +32,6 @@ export async function fetchWeekChecklistStats() {
       map[day].completed += 1;
       completedThisWeek += 1;
     } else {
-      // not completed -> either due today or overdue depending on created date
       if (created >= startOfToday && created < endOfToday) {
         dueToday += 1;
       } else if (created < startOfToday) {

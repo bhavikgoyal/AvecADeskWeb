@@ -77,7 +77,6 @@ export default function UserPortal() {
 
   return (
     <Box sx={{ bgcolor: '#f8fbff', minHeight: '100vh' }}>
-      {/* Header */}
       <AppBar position="sticky" elevation={0} sx={{ bgcolor: '#fff', borderBottom: '1px solid #e8eef5' }}>
         <Container maxWidth="lg">
           <Toolbar disableGutters sx={{ py: 1, gap: 2 }}>
@@ -145,8 +144,6 @@ export default function UserPortal() {
           )}
         </Container>
       </AppBar>
-
-      {/* Hero search */}
       <Box
         id="home"
         sx={{
@@ -231,7 +228,6 @@ export default function UserPortal() {
         </Container>
       </Box>
 
-      {/* Partner institution */}
       <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }} id="universities">
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
           <Box sx={{ flex: 1, height: '1px', bgcolor: '#d8e2ee' }} />
@@ -421,7 +417,6 @@ export default function UserPortal() {
         </Paper>
       </Container>
 
-      {/* Popular courses */}
       <Box sx={{ bgcolor: '#fff', py: { xs: 4, md: 6 } }} id="courses">
         <Container maxWidth="lg">
           <Typography align="center" sx={{ fontWeight: 800, fontSize: { xs: '1.25rem', md: '1.5rem' }, color: '#0f2d52', mb: 3 }}>
@@ -468,7 +463,6 @@ export default function UserPortal() {
         </Container>
       </Box>
 
-      {/* Why choose */}
       <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }} id="about">
         <Typography align="center" sx={{ fontWeight: 800, fontSize: { xs: '1.25rem', md: '1.5rem' }, color: '#0f2d52', mb: 4 }}>
           Why Students Choose AVEC Global
@@ -491,7 +485,6 @@ export default function UserPortal() {
         </Grid>
       </Container>
 
-      {/* Footer CTA */}
       <Box
         id="contact"
         sx={{

@@ -628,7 +628,6 @@ export default function BoardPage() {
     loadBoard();
   }, [loadBoard]);
 
-  // Trello se aaye changes (labels, cover, dates) dikhane ke liye; drag ke beech columns nahi badalte
   const isDraggingRef = useRef(false);
   const refreshBoardSilently = useCallback(async () => {
     if (!selectedBoardId || isDraggingRef.current) return;
@@ -770,7 +769,6 @@ export default function BoardPage() {
         overflow: "hidden",
       }}
     >
-      {/* ================= HEADER ================= */}
       <Box
         sx={{
           containerType: "inline-size",
@@ -795,7 +793,6 @@ export default function BoardPage() {
             },
           }}
         >
-          {/* ---------- Board Title ---------- */}
           <Box
             ref={boardTitleRef}
             sx={{
@@ -861,7 +858,6 @@ export default function BoardPage() {
             )}
           </Box>
 
-          {/* ---------- Controls ---------- */}
           <Box
             sx={{
               display: "flex",
@@ -903,8 +899,6 @@ export default function BoardPage() {
               />
               <CreateBoardButton />
             </Box>
-
-            {/* ROW 2: Search task + From + To + Refresh */}
             <Box
               sx={{
                 display: "flex",
@@ -917,7 +911,6 @@ export default function BoardPage() {
                 },
               }}
             >
-              {/* Task Search */}
               <TextField
                 size="small"
                 placeholder="Search task"
@@ -937,7 +930,6 @@ export default function BoardPage() {
                 }}
               />
 
-              {/* From Date */}
               <TextField
                 type="date"
                 size="small"
@@ -955,7 +947,6 @@ export default function BoardPage() {
                 }}
               />
 
-              {/* To Date */}
               <TextField
                 type="date"
                 size="small"
@@ -972,8 +963,6 @@ export default function BoardPage() {
                   },
                 }}
               />
-
-              {/* Refresh */}
               <Button
                 variant="contained"
                 size="small"

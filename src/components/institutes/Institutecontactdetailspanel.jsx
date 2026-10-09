@@ -108,7 +108,6 @@ export default function InstituteContactDetailsPanel({ instituteId }) {
 
   useEffect(() => {
     void loadContacts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instituteId]);
 
   const openAddDialog = () => {
@@ -275,7 +274,6 @@ export default function InstituteContactDetailsPanel({ instituteId }) {
     },
   }}
 >
-  {/* Header */}
   <DialogTitle
     sx={{
       px: 3,
@@ -341,7 +339,6 @@ export default function InstituteContactDetailsPanel({ instituteId }) {
     </Box>
   </DialogTitle>
 
-  {/* Form content */}
   <DialogContent
     sx={{
       px: { xs: 2, sm: 3 },
@@ -420,7 +417,6 @@ export default function InstituteContactDetailsPanel({ instituteId }) {
     </Grid>
   </DialogContent>
 
-  {/* Footer */}
   <DialogActions
     sx={{
       px: { xs: 2, sm: 3 },

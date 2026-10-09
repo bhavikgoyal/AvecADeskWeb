@@ -222,7 +222,6 @@ function getLoggedInUserName() {
       if (name) return name;
     }
   } catch (err) {
-    // ignore
   }
   return "";
 }
@@ -387,8 +386,6 @@ export default function CardDetailModal({
 
       let left = rect.left;
       let top = rect.bottom;
-
-      // Keep popups inside the card modal.
       if (
         (type === "move" ||
           type === "checklist" ||
@@ -598,7 +595,6 @@ export default function CardDetailModal({
     };
   }, [card.cardID]);
 
-  /* ------------------------------- members ------------------------------- */
 
   const assignedUserId = normalizeUserId(
     card.assignedUserID ?? card.assignedUserId,
@@ -663,7 +659,6 @@ export default function CardDetailModal({
     }
   };
 
-  /* -------------------------------- labels ------------------------------- */
 
   const assignedLabels = boardLabels.filter((l) => l.isAssigned);
 
@@ -739,8 +734,6 @@ export default function CardDetailModal({
         prev.filter((l) => l.boardLabelID !== boardLabelId),
       );
     }, "Unable to delete label.");
-
-  /* ------------------------------ checklists ----------------------------- */
 
   const handleAddChecklist = async () => {
     const title = newChecklistTitle.trim();
@@ -863,8 +856,6 @@ export default function CardDetailModal({
     setEditingItemId(null);
     setEditingText("");
   };
-
-  /* ------------------------- card fields (update) ------------------------ */
 
   const handleClose = () => {
     onUpdated?.();
@@ -1048,8 +1039,6 @@ export default function CardDetailModal({
     }
   };
 
-  /* -------------------------------- cover -------------------------------- */
-
   const runCoverAction = async (action) => {
     setCoverSaving(true);
     try {
@@ -1115,8 +1104,6 @@ export default function CardDetailModal({
     if (files.length) handleUploadAttachments(files);
   };
 
-  /* ----------------------------- attachments ----------------------------- */
-
   const handleUploadAttachments = async (files) => {
     const uploaded = await uploadAttachmentFiles(files);
     if (uploaded.length === 0) return;
@@ -1173,8 +1160,6 @@ export default function CardDetailModal({
       brightness: "dark",
     });
 
-  /* ------------------------------ keyboard ------------------------------- */
-
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key !== "Escape" || popover.type) return;
@@ -1191,8 +1176,6 @@ export default function CardDetailModal({
     const timer = window.setInterval(() => setNow(Date.now()), 60 * 1000);
     return () => window.clearInterval(timer);
   }, []);
-
-  /* ------------------------------- derived ------------------------------- */
 
   const totalItems = checklists.reduce(
     (sum, cl) => sum + (cl.items?.length || 0),
@@ -1253,9 +1236,6 @@ export default function CardDetailModal({
       matchesMemberSearch(u),
   );
 
-  /* -------------------------------- render ------------------------------- */
-
-
   return createPortal(
     <div
       style={{
@@ -1304,7 +1284,6 @@ export default function CardDetailModal({
             flexDirection: "column",
           }}
         >
-          {/* Close button (top-right corner) */}
           <button
             type="button"
             aria-label="Close"
@@ -1321,7 +1300,6 @@ export default function CardDetailModal({
             <CloseIcon sx={{ fontSize: 20 }} />
           </button>
 
-          {/* Top-left: List (Move card) button */}
           <button
             type="button"
             title="Move card"
@@ -1396,7 +1374,6 @@ export default function CardDetailModal({
               flexShrink: 0,
             }}
           >
-            {/* Line 2: Card name + List dropdown */}
             <div
               style={{
                 display: "flex",
@@ -1482,7 +1459,6 @@ export default function CardDetailModal({
                 </h2>
               )}
 
-              {/* Date + logged-in user */}
               <div
                 style={{
                   display: "flex",
@@ -1552,7 +1528,6 @@ export default function CardDetailModal({
             </div>
           </div>
 
-            {/* Tabs + content */}
             <div
               style={{
                 flex: "1 1 auto",
@@ -1562,7 +1537,6 @@ export default function CardDetailModal({
                 padding: isNarrow ? "12px" : "16px 24px 24px",
               }}
             >
-              {/* Tab bar (alag box) */}
               <div
                 role="tablist"
                 style={{
@@ -1610,7 +1584,6 @@ export default function CardDetailModal({
                 })}
               </div>
 
-              {/* Tab content box */}
               <div
                 style={
                   activeTab === "details"
@@ -1624,7 +1597,6 @@ export default function CardDetailModal({
                       }
                 }
               >
-                {/* ---------------- DETAILS ---------------- */}
                 {activeTab === "details" && (
                   <div
                     style={{
@@ -1636,11 +1608,9 @@ export default function CardDetailModal({
                       alignItems: "start",
                     }}
                   >
-                    {/* ---------- LEFT: Labels, Description, Members, Cover ---------- */}
                     <div
                       style={{ ...detailBoxStyle, padding: isNarrow ? 16 : 20 }}
                     >
-                      {/* Labels + Members */}
                       <div
                         style={{
                           display: "flex",
@@ -1650,7 +1620,6 @@ export default function CardDetailModal({
                           marginBottom: 24,
                         }}
                       >
-                        {/* Labels */}
                         <div style={{ minWidth: 0 }}>
                           <h3 style={detailHeadingStyle}>Labels</h3>
                           <div
@@ -1717,8 +1686,6 @@ export default function CardDetailModal({
                           </div>
                         </div>
                       </div>
-
-                      {/* Description */}
                       <div
                         style={{
                           display: "flex",
@@ -2039,7 +2006,6 @@ export default function CardDetailModal({
                   />
                 )}
 
-                {/* ---------------- ATTACHMENTS ---------------- */}
                 {activeTab === "attachments" &&
                   (attachments.length > 0 ? (
                     <CardAttachmentsSection
@@ -2072,7 +2038,6 @@ export default function CardDetailModal({
                     </div>
                   ))}
 
-                {/* ---------------- CHECKLIST ---------------- */}
                 {activeTab === "checklist" && (
                   <>
                     <div
@@ -2463,7 +2428,6 @@ export default function CardDetailModal({
               </div>
             </div>
 
-          {/* ------------------------------ Popovers ------------------------------ */}
           <div onClick={(e) => e.stopPropagation()}>
             <CardPopover
               open={popover.type === "labels"}

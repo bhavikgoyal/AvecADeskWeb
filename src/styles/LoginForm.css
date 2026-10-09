@@ -1,9 +1,7 @@
-/* Login page only — remove MUI default end-adornment padding on password field */
 .login-page .MuiInputBase-root.MuiInputBase-adornedEnd {
   padding-right: 0;
 }
 
-/* Override browser autofill yellow/blue background on saved credentials */
 .login-page .MuiOutlinedInput-input:-webkit-autofill,
 .login-page .MuiOutlinedInput-input:-webkit-autofill:hover,
 .login-page .MuiOutlinedInput-input:-webkit-autofill:focus,

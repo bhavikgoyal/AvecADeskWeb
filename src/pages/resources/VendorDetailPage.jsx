@@ -59,7 +59,6 @@ export default function VendorDetailPage({ basePath }) {
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...(prev || {}), [field]: value }));
-    // eslint-disable-next-line no-console
     console.log('updateField', field, value);
     if (error) setError('');
   };

@@ -247,10 +247,6 @@ export async function updateStudentWithPaymentSchedule(studentId, form) {
     throw new Error('Due date is required');
   }
 
-  // if (!form.scheduleId) {
-  //   throw new Error('No payment schedule found for this student.');
-  // }
-
   const existing = await fetchStudentById(studentId);
 
   await axiosClient.post(`/api/students/${studentId}/enrolment-status`, {

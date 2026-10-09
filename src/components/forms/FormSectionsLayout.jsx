@@ -2,10 +2,7 @@ import { Grid } from '@mui/material';
 import FormSection from './FormSection';
 import ResourceFormFields from './ResourceFormFields';
 
-/**
- * Assign grid size per section based on total section count.
- * 1 → full | 2 → 1-1 | 3 → 2 top + 1 full bottom | 4 → 2×2 | 5+ → pairs + last full
- */
+
 export function assignSectionLayouts(sections) {
   const n = sections.length;
 

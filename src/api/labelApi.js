@@ -21,7 +21,6 @@ export async function deleteLabel(labelId) {
   return response.data;
 }
 
-// Board level labels (Trello style) - card par sirf tick / untick hota hai
 export async function getBoardLabelsForCard(cardId) {
   const response = await axiosClient.get(`/api/Label/board/card/${cardId}`);
   return response.data;

@@ -88,7 +88,6 @@ export default function StudentApplicationDetailsPage() {
   useEffect(() => {
     setPageNumber(1);
     loadData(search, 1, pageSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendorId, isNewOnly, recentLimit]);
 
   const loadData = async (searchText = '', pageNo = pageNumber, size = pageSize) => {

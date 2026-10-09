@@ -1,10 +1,8 @@
-/** Field definitions aligned with Project_Architecture_v2 (18 SQL tables). */
 import React from 'react';
 import Badge from "@mui/material/Badge";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import { VENDOR_EDIT_SECTIONS } from './vendorOnboardingEditConfig';
 
-/** xs: 1 col | md: 2 cols | lg: 3 cols */
 const grid = {
   half: { xs: 12, md: 6, lg: 6 },
   third: { xs: 12, md: 6, lg: 4 },
@@ -47,7 +45,6 @@ export const DOMAIN_FIELD_DEFS = {
   courseName: { label: 'Course name', type: 'text', required: true, grid: grid.half },
   CourseCategory: { label: 'CourseCategory', type: 'text', grid: grid.half },
   description: { label: 'Description', type: 'textarea', grid: grid.full },
-  //fees: { label: 'Fees', type: 'number', grid: grid.half },
   fees: { label: 'Fees', type: 'number', grid: grid.half, readOnly: true },
   duration: { label: 'Duration', type: 'text', grid: grid.half },
   eligibility: { label: 'Eligibility', type: 'text', grid: grid.half },
@@ -63,10 +60,6 @@ export const DOMAIN_FIELD_DEFS = {
   programLogo: { label: 'Program logo', type: 'file', accept: 'image/*', grid: grid.full, },
   isApproved: { label: 'Approved', type: 'select', options: ['Yes', 'No'], grid: grid.half },
   isActive: { label: 'Active', type: 'select', options: ['Yes', 'No'], grid: grid.half },
-// enrollmentFee: { label: 'Enrollment Fee', type: 'number', grid: grid.half },
-// materialFee: { label: 'Material Fee', type: 'number', grid: grid.half },
-// tuitionFee: { label: 'Tuition Fee', type: 'number', grid: grid.half },
-// oshcFee: { label: 'OSHC Fee', type: 'number', grid: grid.half },
 
 enrollmentInstallments: { label: 'Enrollment Installments', type: 'number', grid: grid.quarter },
 materialInstallments: { label: 'Material Installments', type: 'number', grid: grid.quarter },
@@ -118,7 +111,6 @@ agent: {
       { value: 'Quarterly', label: 'Quarterly' }],
   },
   startDate: { label: 'Installment Start Date', type: 'date', grid: grid.half, },
-//courseStartDate: { label: 'Course Start Date', type: 'date', grid: grid.half, readOnly: true, },
 courseStartDate: { label: 'Course Start Date', type: 'date', grid: grid.half },
   courseEndDate: { label: 'Course End Date', type: 'date', grid: grid.half, readOnly: true, },
   enrolmentStatus: {
@@ -180,7 +172,6 @@ courseStartDate: { label: 'Course Start Date', type: 'date', grid: grid.half },
 
   taskTitle: { label: 'Task title', type: 'text', required: true, grid: grid.half },
   taskDescription: { label: 'Description', type: 'textarea', grid: grid.full },
-  //dueDate: { label: 'Due date', type: 'date', grid: grid.quarter },
   priority: {
     label: 'Priority',
     type: 'select',
@@ -348,7 +339,6 @@ export const DOMAIN_RESOURCES = {
       {
         title: 'Institute details',
         description: 'Vendor link, identity, and publishing.',
-        //fields: ['vendorId', 'instituteName', 'websiteUrl', 'instituteStatus', 'isPublished'],
         fields: ['vendorId', 'instituteName', 'websiteUrl', 'linkedScrappingId', 'instituteCommissionRate', 'instituteStatus', 'isPublished']
       },
       {
@@ -393,7 +383,6 @@ export const DOMAIN_RESOURCES = {
     requiredFields: ['fullName', 'phone', 'email', 'instituteId', 'courseId'],
     sections: [
       { title: 'Student Details', description: 'Registered student details', fields: ['fullName', 'email', 'phone', 'FolderNo', 'studentIdDisplay', 'leadNo'] },
-      // { title: 'Enrolment', description: 'Institute and course assignment.', fields: ['instituteId', 'courseId', 'phone'] },
       { title: 'Student Payment schedule', description: 'Institute and course details.',  fields: [
       'instituteId', 'campusname', 'courseId', 'assignment',
       'coeVoe', 'serviceTypeStudent',   
@@ -401,8 +390,6 @@ export const DOMAIN_RESOURCES = {
       'courseFee',   
        'noOfInstallment', 
        'courseDurationWeeks',                                          
-      // 'enrollmentInstallments', 'materialInstallments',         
-      // 'tuitionInstallments', 'oshcInstallments',                
       'frequency', 'startDate', 'courseStartDate', 'courseEndDate',
     ], },
       { title: 'Commission', description: 'Commission & GST information.', fields: ['agent','commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'dueDate', 'remark',] },
@@ -426,7 +413,6 @@ export const DOMAIN_RESOURCES = {
       coeVoe: '', serviceTypeStudent: '', agent: '', 
       studentIdDisplay: '', leadNo: '',
       courseDurationWeeks: '',
-      //enrollmentInstallments: '', materialInstallments: '', tuitionInstallments: '', oshcInstallments: '',
       amountDue: '', amountPaid: '', paymentStatus: 'Pending', startDate: '',
       assignment: '',
       commissionPercentage: '', gstPercentage: '', bonus: '',

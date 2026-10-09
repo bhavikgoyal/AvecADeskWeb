@@ -32,7 +32,6 @@ const defaultEditorConfig = {
           }));
         },
         abort() {
-          // no-op for base64
         }
       };
     };
@@ -74,7 +73,6 @@ export default function ResourceFormFields({
   selectOptions = {},
   requiredFields = [],
   fieldDefsOverride = {},
-  /** When true: empty selects keep label inside; focus/value floats it to the top (Edit Vendor). */
   fixSelectLabels = false,
 }) {
   const handleChange = (field) => (event) => {
@@ -190,7 +188,6 @@ export default function ResourceFormFields({
     }
 
     if (def.type === 'select' || def.type === 'api-select') {
-     // const options = def.type === 'api-select' ? selectOptions[fieldName] || [] : def.options.map((option) => ({ value: option, label: option }));
       const options =
   def.type === 'api-select'
     ? (selectOptions[fieldName] || [])

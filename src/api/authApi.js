@@ -1,13 +1,5 @@
 import axiosClient, { setAuthToken } from './axiosClient';
 
-// const ROLE_BY_ID = {
-//   1: 'Admin',
-//   2: 'Accounting',
-//   3: 'Consultant',
-//   4: 'Vendor',
-// };
-
-
 function mapApiUser(apiUser, fallbackEmail = '') {
   return {
     id: String(apiUser?.userId ?? apiUser?.UserId ?? 'api-user'),
@@ -18,14 +10,6 @@ function mapApiUser(apiUser, fallbackEmail = '') {
     avatar: '',
   };
 
-
-  // return {
-  //   id: String(apiUser?.userId ?? apiUser?.UserId ?? 'api-user'),
-  //   email: apiUser?.email ?? apiUser?.Email ?? fallbackEmail,
-  //   role: ROLE_BY_ID[roleId] ?? 'Vendor',
-  //   name: apiUser?.userName ?? apiUser?.UserName ?? fallbackEmail,
-  //   avatar: '',
-  // };
 }
 
 function applyAuthResponse(data, fallbackEmail = '') {

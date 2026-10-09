@@ -255,15 +255,12 @@ export default function AccDash() {
                 { month.due += amount;  }
             });
 
-            // Current month should match Accounting Dashboard totals
             if (invoiceTotals?.thisMonth)
             {
               const currentMonth = months[months.length - 1];
               currentMonth.paid = Number(invoiceTotals.thisMonth.paid || 0 );
               currentMonth.due = Number(invoiceTotals.thisMonth.due || 0 );
             }
-
-            // Previous month should use invoice totals when available
             if (invoiceTotals?.lastMonth) 
             {
               const previousMonth = months[months.length - 2];
@@ -288,24 +285,6 @@ export default function AccDash() {
       </ResponsiveContainer>
     </Box>
   </Paper>
-        {/* <Box sx={{ mt: 1.5 }}>
-          <Paper elevation={0} className="dashboard-card" sx={{ borderRadius: 3, p: { xs: 1.25, md: 1.5 } }}>
-            <Typography sx={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.95rem' }}>
-              Next Month — Total Upcoming
-            </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: 'var(--text)', mt: 1 }}>
-              {`$${(installmentSummary.upcomingNext || [])
-                .reduce((sum, it) => {
-                  const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
-                  const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
-                  const balance = Number(it.balanceAmount ?? 0) || 0;
-                  const value = (comm || bonus) ? (comm + bonus) : balance;
-                  return sum + value;
-                }, 0)
-                .toLocaleString()}`}
-            </Typography>
-          </Paper>
-        </Box> */}
         <Box sx={{ mt: 1.5, width: '100%' }}>
                 <AnticipatedReceivables1Page />
               </Box>

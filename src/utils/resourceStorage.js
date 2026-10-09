@@ -97,7 +97,6 @@ export function deleteRecord(path, id) {
   saveRecords(path, records);
 }
 
-/** Clear seeded data so architecture-aligned samples reload (dev helper). */
 export function resetModuleData(path) {
   localStorage.removeItem(storageKey(path));
 }

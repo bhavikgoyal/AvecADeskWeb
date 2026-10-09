@@ -68,7 +68,6 @@ import {
 } from '../../api/commissionsApi';
 import { fetchInvoices } from '../../api/invoicesApi';
 import { fetchCourseList } from '../../api/coursesApi';
-//import { fetchCoursesByInstitute } from '../../api/lookupApi';
 import InstituteContactDetailsPanel from '../../components/institutes/InstituteContactDetailsPanel';
 import InstituteContractPanel from '../../components/institutes/InstituteContractPanel';
 import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
@@ -181,7 +180,6 @@ function savePendingScrapes(rows) {
 
     window.localStorage.setItem(PENDING_SCRAPES_STORAGE_KEY, JSON.stringify(rows));
   } catch {
-    // Ignore storage failures and keep runtime behavior intact.
   }
 }
 
@@ -256,8 +254,6 @@ export default function InstituteScrappingPage({ basePath = INSTITUTE_SCRAPPING_
   const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  // Add Institute dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [activeDialogTab, setActiveDialogTab] = useState(0);
   const [manualForm, setManualForm] = useState(() => ({ ...getEmptyManualForm(), autoDataCollection: false }));
@@ -340,7 +336,6 @@ useEffect(() => {
   }, [backgroundScrapes.length, rows.length]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadList();
   }, [loadList]);
 
@@ -979,87 +974,8 @@ const handleViewCredentials = (event, row) => {
             </>
           )}
 
-          {/* {activeDialogTab === 1 && (
-            <>
-              {commissionError && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {commissionError}
-                </Alert>
-              )}
-              {commissionSuccess && (
-                <Alert severity="success" sx={{ mb: 2 }}>
-                  {commissionSuccess}
-                </Alert>
-              )}
-
-              <Stack spacing={1.5} sx={{ mt: 0.5 }}>
-                <TextField
-                  select
-                  label="Course"
-                  value={commissionForm.courseId}
-                  fullWidth
-                  disabled={commissionSaving}
-                  onChange={(e) => updateCommissionField('courseId', e.target.value)}
-                >
-                  <MenuItem value="">Select Course</MenuItem>
-                  {commissionCourses.map((c) => (
-                    <MenuItem key={c.courseId} value={c.courseId}>
-                      {c.courseName}
-                    </MenuItem>
-                  ))}
-                  {commissionCourses.length === 0 && (
-                    <MenuItem value="" disabled>
-                      No courses available yet
-                    </MenuItem>
-                  )}
-                </TextField>
-
-                <TextField
-                  select
-                  label="Rate Type"
-                  value={commissionForm.rateType}
-                  fullWidth
-                  required
-                  disabled={commissionSaving}
-                  onChange={(e) => updateCommissionField('rateType', e.target.value)}
-                >
-                  <MenuItem value="Fixed">Fixed</MenuItem>
-                  <MenuItem value="Percentage">Percentage</MenuItem>
-                </TextField>
-
-                <TextField
-                  label="Rate"
-                  type="number"
-                  value={commissionForm.rate}
-                  fullWidth
-                  required
-                  disabled={commissionSaving}
-                  onChange={(e) => updateCommissionField('rate', e.target.value)}
-                />
-
-                <TextField
-                  label="Effective From"
-                  type="date"
-                  value={commissionForm.effectiveFrom}
-                  fullWidth
-                  required
-                  disabled={commissionSaving}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  onChange={(e) => updateCommissionField('effectiveFrom', e.target.value)}
-                />
-
-                <TextField
-                  label="Effective To"
-                  type="date"
-                  value={commissionForm.effectiveTo}
-                  fullWidth
-                  disabled={commissionSaving}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  onChange={(e) => updateCommissionField('effectiveTo', e.target.value)}
-                />
-              </Stack>
-            </>
-          )} */}{activeDialogTab === 1 && (
+          {
+          }{activeDialogTab === 1 && (
   <InstituteContactDetailsPanel instituteId={createdInstituteId} />
 )}
 

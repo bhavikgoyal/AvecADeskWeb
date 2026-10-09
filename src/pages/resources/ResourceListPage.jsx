@@ -197,13 +197,6 @@ const [editInvoiceId, setEditInvoiceId] = useState(null);
   return () => clearTimeout(timer);
 }, [success]);
 
-  // Courses page: institute filter passed via ?institute=<name> from
-  // the "View Courses" button on the Institutes Scrapping list.
-  // const instituteFilter = useMemo(() => {
-  //   if (!isCourses) return '';
-  //   return new URLSearchParams(location.search).get('institute')?.trim() || '';
-  // }, [isCourses, location.search]);
-
 const [courseInstituteFilter, setCourseInstituteFilter] = useState('');
 
 useEffect(() => {
@@ -212,7 +205,7 @@ useEffect(() => {
   setCourseInstituteFilter(fromUrl);
 }, [isCourses, location.search]);
 
-const instituteFilter = courseInstituteFilter; // baaki code isi naam se reference karta hai, ab state-backed hai
+const instituteFilter = courseInstituteFilter; 
   const cameFromInstitute = isCourses && location.state?.fromInstitute === true;
   const invoiceInstituteFilter = useMemo(() => {
     if (!isInvoices) return '';
@@ -520,7 +513,6 @@ if (courseNameFilter.trim()) {
 
     return filteredRows;
   }, [displayRows, isVendors, statusFilter, activityFilter]);
-  // Commission history dialog state (institutes only)
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
@@ -616,11 +608,9 @@ useEffect(() => {
         setLoading(false);
       });
 
-    // If navigated back with a refresh flag, trigger refresh and clear state
     if (location?.state?.refresh) {
       refreshRows();
       try {
-        // clear history state so refresh doesn't loop
         window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
       } catch (e) {
         // ignore
@@ -632,7 +622,6 @@ useEffect(() => {
     };
   }, [basePath, isStudents, isEnrolment, isInstitutes, isVendors, isTemplates, isCourses, isInvoices, pageStats, usesApi]);
 
-  // Reset selection whenever the resource type or the underlying rows change
   useEffect(() => {
     setSelectedIds([]);
   }, [basePath, rows]);
@@ -933,7 +922,6 @@ const handleExportInvoicesPdf = useCallback(async () => {
         <Box
           sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'nowrap', }}
         >
-          {/* 1. Institute Dropdown */}
           <Box
             sx={{ width: 280, minWidth: 280, maxWidth: 280, flexShrink: 0, }}
           >
@@ -945,7 +933,6 @@ const handleExportInvoicesPdf = useCallback(async () => {
               onChange={(e) => {
                 const next = e.target.value;
                 setCourseInstituteFilter(next === LIST_FILTER_ALL ? '' : next);
-                // setCourseNameFilter('');
               }}
               SelectProps={{
                 ...listSelectProps('All Institutes'),
@@ -970,7 +957,6 @@ const handleExportInvoicesPdf = useCallback(async () => {
             </TextField>
           </Box>
 
-          {/* 2. Course Name TextField */}
           <Box sx={{ width: 260, flexShrink: 0 }}>
             <TextField
               fullWidth

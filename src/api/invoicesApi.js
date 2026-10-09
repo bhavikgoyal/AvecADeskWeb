@@ -149,16 +149,6 @@ export async function fetchPaidStudentsForInvoice({ year, month, instituteId, ca
   return list.map(mapPaidStudentRow);
 }
 
-// export async function generateMonthlyInvoice({ year, month, instituteId, campus } = {}) {
-//   const body = {};
-//   if (year != null) body.year = year;
-//   if (month != null) body.month = month;
-//   if (instituteId != null) body.instituteId = instituteId;
-//   if (campus) body.campus = campus;
-//   const { data } = await axiosClient.post('/api/invoices/generate-monthly', body);
-//   return data;
-// }
-// PATCH for invoicesApi.js — replace the existing generateMonthlyInvoice export with this.
 
 export async function generateMonthlyInvoice({ year, month, instituteId, campus, installmentIds, commissionDetailId, bonusAmount, invoiceAmounts, } = {}) {
   const body = {};
@@ -175,7 +165,6 @@ export async function generateMonthlyInvoice({ year, month, instituteId, campus,
       .filter((id) => Number.isFinite(id) && id > 0);
   }
 
-  // IMPORTANT: List<decimal>
   if (Array.isArray(bonusAmount) && bonusAmount.length > 0) {
     body.bonusAmount = bonusAmount.map((amount) => Number(amount));
   }
@@ -185,22 +174,6 @@ export async function generateMonthlyInvoice({ year, month, instituteId, campus,
   const { data } = await axiosClient.post('/api/invoices/generate-monthly', body);
   return data;
 }
-// export async function downloadInvoiceDocument(invoiceId) {
-//   const { data, headers } = await axiosClient.get(`/api/invoices/${invoiceId}/pdf`, {
-//     responseType: 'blob',
-//   });
-//   const contentDisposition = headers['content-disposition'] || '';
-//   const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
-//   const fileName = match?.[1]?.replace(/['"]/g, '') || `invoice-${invoiceId}.txt`;
-//   const url = window.URL.createObjectURL(new Blob([data], { type: 'text/plain' }));
-//   const link = document.createElement('a');
-//   link.href = url;
-//   link.download = fileName.endsWith('.txt') ? fileName : `${fileName.replace(/\.(pdf|doc|docx)$/i, '')}.txt`;
-//   document.body.appendChild(link);
-//   link.click();
-//   link.remove();
-//   window.URL.revokeObjectURL(url);
-// }
 
 export async function downloadInvoiceDocument(invoiceId) {
   const invoice = await fetchInvoiceById(invoiceId);
@@ -267,12 +240,9 @@ export async function downloadInvoiceDocuments(invoiceIds = []) {
     return;
   }
 
-  // Fetch all invoices first, then save one separate PDF per invoice.
   const items = [];
   for (const id of invoiceIds) {
-    // eslint-disable-next-line no-await-in-loop
     const invoice = await fetchInvoiceById(id);
-    // eslint-disable-next-line no-await-in-loop
     const lineItems = await fetchInvoiceLineItems(id);
     items.push({ invoice, lineItems });
   }

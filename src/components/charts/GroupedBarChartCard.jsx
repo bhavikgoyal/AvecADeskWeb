@@ -32,17 +32,6 @@ function SingleGroupedBarChart({
   );
 }
 
-/**
- * Single card, or pass `items` for a built-in 2-column auto-row grid.
- *
- * @example
- * <GroupedBarChartCard
- *   items={[
- *     { title: 'A', data, keys: ['paid', 'due'] },
- *     { title: 'B', data, keys: ['paid', 'due'] },
- *   ]}
- * />
- */
 export default function GroupedBarChartCard({ items, ...singleProps }) {
   if (items?.length) {
     return (

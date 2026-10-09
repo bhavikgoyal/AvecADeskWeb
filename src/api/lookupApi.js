@@ -30,7 +30,6 @@ function normalizeCourse(course) {
   };
 }
 
-/** Public search endpoint — no JWT required. */
 export async function fetchInstitutes() {
   const { data } = await axiosClient.get('/api/institutes');
   return data;
@@ -38,12 +37,6 @@ export async function fetchInstitutes() {
 
 export async function fetchCoursesByInstitute(instituteId) {
   if (!instituteId) return [];
-
-  //  const { data } = await axiosClient.get('/api/courses/scrapping', {
-  //   params: { instituteId },
-  // });
-
-  //const { data } = await axiosClient.get('/api/courses', { params: { instituteId } });
   const { data } = await axiosClient.get('/api/courses', { params: { scrappingId: instituteId } });
 
   const rawCourses = Array.isArray(data)
