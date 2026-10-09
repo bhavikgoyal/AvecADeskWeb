@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlined';
 import {
   createCardComment,
@@ -17,6 +17,7 @@ import {
   primaryButtonStyle,
 } from './cardModalStyles';
 import { Avatar, LinkifiedText } from './cardModalUi';
+import { useTrelloRefresh } from './useTrelloRefresh';
 
 const bubbleStyle = {
   background: '#fff',
@@ -133,6 +134,30 @@ function describeActivity(activity) {
           renamed this card from <strong>{activity.oldValue}</strong> to <strong>{activity.newValue}</strong>
         </>
       );
+    case 'cardCreated':
+      return activity.newValue ? (
+        <>
+          added this card to <strong>{activity.newValue}</strong>
+        </>
+      ) : (
+        'added this card'
+      );
+    case 'cardCopied':
+      return (
+        <>
+          copied this card from <strong>{activity.oldValue || 'another card'}</strong>
+          {activity.newValue && (
+            <>
+              {' '}
+              in list <strong>{activity.newValue}</strong>
+            </>
+          )}
+        </>
+      );
+    case 'cardArchived':
+      return 'archived this card';
+    case 'cardUnarchived':
+      return 'sent this card to the board';
     default:
       return description || activity.activityType || 'updated this card';
   }
@@ -143,7 +168,7 @@ function CommentEditor({ initialText = '', saving, autoFocus, onSave, onCancel, 
   const textareaRef = useRef(null);
   const canSave = !saving && text.trim() !== '' && text.trim() !== initialText.trim();
 
-  // Reply prefill ("@name ") ke baad cursor end par rahe
+
   useEffect(() => {
     const el = textareaRef.current;
     if (autoFocus && el) {
@@ -186,7 +211,7 @@ export default function CardCommentsPanel({ cardId, activityVersion = 0 }) {
   const [comments, setComments] = useState([]);
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
   const [activityLoaded, setActivityLoaded] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -211,6 +236,21 @@ export default function CardCommentsPanel({ cardId, activityVersion = 0 }) {
       mounted = false;
     };
   }, [cardId]);
+
+  const refreshComments = useCallback(async () => {
+    try {
+      const [commentData, activityData] = await Promise.all([
+        getCardComments(cardId),
+        showDetails ? getCardActivity(cardId) : null,
+      ]);
+      if (Array.isArray(commentData)) setComments(commentData);
+      if (Array.isArray(activityData)) setActivity(activityData);
+    } catch (err) {
+      console.error('Failed to refresh comments', err);
+    }
+  }, [cardId, showDetails]);
+
+  useTrelloRefresh(refreshComments);
 
   useEffect(() => {
     if (!showDetails) return;

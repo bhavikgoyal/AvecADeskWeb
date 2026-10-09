@@ -1,6 +1,5 @@
 import axiosClient from './axiosClient';
 
-// Saare columns + cards laata hai
 export async function getBoardCards(filters = {}) {
   const { searchText, assignedUserId, fromDate, toDate } = filters;
   const response = await axiosClient.get('/api/Card/board', {
@@ -116,5 +115,10 @@ export async function addCardMember(cardId, userId) {
 
 export async function removeCardMember(cardId, userId) {
   const response = await axiosClient.post(`/api/CardMember/${cardId}/remove/${userId}`);
+  return response.data;
+}
+
+export async function requestTrelloCardSync(cardId) {
+  const response = await axiosClient.post(`/api/Trello/sync/card/${cardId}`);
   return response.data;
 }

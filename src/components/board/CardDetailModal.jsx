@@ -53,6 +53,7 @@ import CardCommentsPanel from "./CardCommentsPanel";
 import MoveCardPopover from "./MoveCardPopover";
 import { AttachPopover, CardAttachmentsSection } from "./CardAttachments";
 import { useCardAttachments } from "./useCardAttachments";
+import { useTrelloCardSync, useTrelloRefresh } from "./useTrelloRefresh";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubble";
 import HistoryIcon from "@mui/icons-material/History";
@@ -209,7 +210,7 @@ const TABS = [
   },
 ];
 
-// Logged-in user nu name localStorage/sessionStorage mathi vanche che
+
 function getLoggedInUserName() {
   try {
     for (const key of ["user", "currentUser", "userInfo", "authUser"]) {
@@ -226,7 +227,6 @@ function getLoggedInUserName() {
   return "";
 }
 
-// Naya card ka dueDate string ("2026-07-16") ya ISO datetime ho sakta hai - dono ko "YYYY-MM-DD" me normalize karta hai
 function normalizeDueDateValue(value) {
   if (!value) return "";
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
@@ -240,7 +240,7 @@ function normalizeDueDateValue(value) {
   return localDate.toISOString().slice(0, 10);
 }
 
-// dueDate se sirf time (HH:mm) nikalta hai, default "09:00"
+
 function normalizeDueTimeValue(value) {
   if (!value) return "09:00";
   const date = new Date(value);
@@ -250,7 +250,6 @@ function normalizeDueTimeValue(value) {
   return `${hours}:${minutes}`;
 }
 
-// Ek month ka poora 6x7 calendar grid banata hai (prev/next month ke overflow days ke saath)
 function getMonthGrid(viewDate) {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -493,7 +492,7 @@ export default function CardDetailModal({
 
   const [activityVersion, setActivityVersion] = useState(0);
 
-  // Activity is best-effort: a logging failure must never undo or block the real action
+
   const logActivity = (
     activityType,
     { description = null, oldValue = null, newValue = null } = {},
@@ -508,7 +507,6 @@ export default function CardDetailModal({
       .then(() => setActivityVersion((v) => v + 1))
       .catch((err) => console.error("Failed to log card activity", err));
 
-  /* ----------------------------- data loading ---------------------------- */
 
   const loadChecklists = useCallback(async () => {
     try {
@@ -519,6 +517,23 @@ export default function CardDetailModal({
       setChecklists([]);
     }
   }, [card.cardID]);
+
+
+  const refreshChecklistsAndLabels = useCallback(async () => {
+    try {
+      const [checklistData, labelData] = await Promise.all([
+        getChecklists(card.cardID),
+        getBoardLabelsForCard(card.cardID),
+      ]);
+      if (Array.isArray(checklistData)) setChecklists(checklistData);
+      if (Array.isArray(labelData)) setBoardLabels(labelData);
+    } catch (err) {
+      console.error("Failed to refresh checklists and labels", err);
+    }
+  }, [card.cardID]);
+
+  useTrelloCardSync(card.cardID);
+  useTrelloRefresh(refreshChecklistsAndLabels);
 
   const loadMembers = useCallback(async () => {
     try {
@@ -856,7 +871,7 @@ export default function CardDetailModal({
     onClose();
   };
 
-  // "YYYY-MM-DD" + "HH:mm" ko ISO datetime string me convert karta hai (API ke liye)
+
   const formatDueDateForApi = (dateText, timeText) => {
     if (!dateText) return null;
     const [year, month, day] = dateText.split("-").map(Number);
@@ -885,7 +900,7 @@ export default function CardDetailModal({
     );
   };
 
-  // Card (ya uski dates) badalne par date state reset - render ke dauraan, effect ke bina
+
   const dateSourceKey = `${card.cardID}|${card.dueDate}|${card.startDate}|${card.recurringRule}|${card.reminderOffsetMinutes}`;
   const [dateSource, setDateSource] = useState(null);
   if (dateSource !== dateSourceKey) {
@@ -898,7 +913,7 @@ export default function CardDetailModal({
     setCover(card.cover || null);
   }
 
-  // Shared payload builder - koi bhi partial save baaki fields ko null nahi karega
+
   const buildUpdatePayload = (overrides = {}) => ({
     cardID: card.cardID,
     cardTitle: titleText || card.cardTitle,
@@ -969,7 +984,7 @@ export default function CardDetailModal({
       : "";
     try {
       await updateCard(buildUpdatePayload());
-      // Local (zone-less) value so the activity shows the same wall-clock time the user picked
+
       if (nextKey && nextKey !== previousKey) {
         logActivity("cardDueDateChanged", {
           oldValue: previousKey ? `${previousKey}:00` : null,
@@ -1076,7 +1091,7 @@ export default function CardDetailModal({
       return;
     }
     return runCoverAction(async () => {
-      // A new image always starts as a normal cover so the card details stay visible
+
       const saved = await uploadCardCoverImage(card.cardID, file, "normal");
       setCover(saved || null);
     });
@@ -1102,7 +1117,6 @@ export default function CardDetailModal({
 
   /* ----------------------------- attachments ----------------------------- */
 
-  // Trello: first uploaded image becomes the cover when the card has none
   const handleUploadAttachments = async (files) => {
     const uploaded = await uploadAttachmentFiles(files);
     if (uploaded.length === 0) return;
@@ -1241,8 +1255,7 @@ export default function CardDetailModal({
 
   /* -------------------------------- render ------------------------------- */
 
-  // Portal so the overlay isn't trapped by the board's scroll/transform containers.
-  // zIndex sits above the app bar/sidebar (1100/1200) but below MUI popovers (1300).
+
   return createPortal(
     <div
       style={{
@@ -1346,7 +1359,6 @@ export default function CardDetailModal({
             <KeyboardArrowDownIcon sx={{ fontSize: 18, flexShrink: 0 }} />
           </button>
 
-          {/* Top-right: Cover button (Close button ની બરાબર ડાબી બાજુ) */}
           <button
             type="button"
             title="Cover"
@@ -1363,7 +1375,6 @@ export default function CardDetailModal({
             <WebAssetOutlinedIcon sx={{ fontSize: 18 }} />
           </button>
 
-          {/* Trello-style cover band (top ma image) */}
 
           {coverActive && (
             <div
@@ -1375,7 +1386,6 @@ export default function CardDetailModal({
             />
           )}
 
-          {/* Header: title + list dropdown + date + user */}
           <div
             style={{
               padding: isNarrow
@@ -1540,6 +1550,7 @@ export default function CardDetailModal({
                 </span>
               </div>
             </div>
+          </div>
 
             {/* Tabs + content */}
             <div
@@ -1670,7 +1681,6 @@ export default function CardDetailModal({
                           </div>
                         </div>
 
-                        {/* Members */}
                         <div style={{ minWidth: 0 }}>
                           <h3 style={detailHeadingStyle}>Members</h3>
                           <div
@@ -1833,7 +1843,6 @@ export default function CardDetailModal({
                       </div>
                     </div>
 
-                    {/* ---------- RIGHT: Quick Actions + Task Info ---------- */}
                     <div
                       style={{
                         display: "flex",
@@ -1842,7 +1851,6 @@ export default function CardDetailModal({
                         minWidth: 0,
                       }}
                     >
-                      {/* Quick Actions */}
                       <div style={detailBoxStyle}>
                         <h3 style={detailHeadingStyle}>Quick Actions</h3>
                         <div
@@ -1875,7 +1883,6 @@ export default function CardDetailModal({
                         </div>
                       </div>
 
-                      {/* Task Info + Progress */}
                       <div style={detailBoxStyle}>
                         <h3 style={detailHeadingStyle}>Task Info</h3>
                         {[
@@ -2455,7 +2462,6 @@ export default function CardDetailModal({
                 )}
               </div>
             </div>
-          </div>
 
           {/* ------------------------------ Popovers ------------------------------ */}
           <div onClick={(e) => e.stopPropagation()}>

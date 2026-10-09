@@ -21,6 +21,8 @@ function normalizeRecord(raw) {
     logo: raw.logo ?? raw.Logo ?? '',
     country: raw.country ?? raw.Country ?? '',
     city: raw.city ?? raw.City ?? '',
+    zipCode: raw.zipCode ?? raw.ZipCode ?? '',
+    address: raw.address ?? raw.Address ?? '',
     description: raw.description ?? raw.Description ?? '',
     countryRanking: raw.countryRanking ?? raw.CountryRanking ?? '',
     scholarshipsDetails: raw.scholarshipsDetails ?? raw.ScholarshipsDetails ?? '',
@@ -58,6 +60,8 @@ function toManualRequestBody(form) {
     logo: form.logo || null,
     country: form.country || null,
     city: form.city || null,
+    zipCode: form.zipCode || null,
+    address: form.address || null,
     description: form.description || null,
     countryRanking: form.countryRanking || null,
     scholarshipsDetails: form.scholarshipsDetails || null,
@@ -74,6 +78,8 @@ function getEmptyManualForm() {
     logo: '',
     country: '',
     city: '',
+    zipCode: '',
+    address: '',
     description: '',
     countryRanking: '',
     scholarshipsDetails: '',
@@ -113,7 +119,7 @@ export async function fetchUniqueInstituteNames() {
   }));
 }
 
-/** Trim + drop trailing colons so "NAME" and "NAME:" group as one institute. */
+
 export function normalizeInstituteName(name) {
   return String(name || '')
     .trim()
