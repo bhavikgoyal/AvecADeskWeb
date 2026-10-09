@@ -13,7 +13,7 @@ import { fetchCoursesByScrappingId } from '../../api/coursesApi';
 import { fetchStudentContracts, createStudentContract, updateStudentContract, deleteStudentContract, uploadStudentContractFile, } from '../../api/studentContractsApi';
 import { fetchUniqueInstituteNames, getCampusesForInstitute, getUniqueInstituteNames, normalizeInstituteName, resolveScrappingId, } from '../../api/institutesScrappingApi';
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
-import { createStudentWithPaymentSchedule, fetchStudentPaymentDetail } from '../../api/studentsApi';
+import { createStudentWithPaymentSchedule, fetchStudentById, fetchStudentPaymentDetail, saveStudentEnrollmentNumber } from '../../api/studentsApi';
 import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule, } from '../../api/schedulesApi';
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
@@ -589,6 +589,14 @@ const hydratePaymentList = (rows) => {
   }));
 };
 
+const isTuitionFeeType = (feeType) => String(feeType || '').trim().toLowerCase() === 'tuition fee';
+
+const bonusRowKey = (row) => {
+  const id = row.commissionDetailId ?? row.CommissionDetailId;
+  if (id) return `id:${id}`;
+  return `${row.installmentNo ?? row.displayInstallmentNo}|${String(row.feeType || '').trim().toLowerCase()}`;
+};
+
 const buildChangeSnapshot = (list, history) =>
   JSON.stringify({
     list: (list || []).map((x) => ({
@@ -607,13 +615,14 @@ const buildChangeSnapshot = (list, history) =>
     })),
   });
 
-const buildStudentSnapshot = ({ fullName, email, phone, folderNo, leadNo, bonus, bonusType, bonusOption, dueDate }) =>
+const buildStudentSnapshot = ({ fullName, email, phone, folderNo, leadNo, studentIdDisplay, bonus, bonusType, bonusOption, dueDate }) =>
   JSON.stringify({
     fullName: String(fullName ?? '').trim(),
     email: String(email ?? '').trim(),
     phone: String(phone ?? ''),
     folderNo: String(folderNo ?? ''),
     leadNo: String(leadNo ?? ''),
+    studentIdDisplay: String(studentIdDisplay ?? '').trim(),
     bonus: Number(bonus || 0),
     bonusType: bonus > 0 ? String(bonusType ?? '') : '',
     bonusOption: bonus > 0 ? String(bonusOption ?? '') : '',
@@ -637,6 +646,8 @@ export default function NewStudentPage({ basePath }) {
   const [loadError, setLoadError] = useState('');
   const [gstPercentage, setGstPercentage] = useState(0);
   const [bonusApplied, setBonusApplied] = useState(false);
+  const [bonusFromDetail, setBonusFromDetail] = useState(true);
+  const [bonusOverrides, setBonusOverrides] = useState({});
   const [addBonus, setAddBonus] = useState(false);
   const [commissionHistory, setCommissionHistory] = useState([]);
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
@@ -976,12 +987,15 @@ export default function NewStudentPage({ basePath }) {
 
     async function loadData() {
       try {
-        const data = await fetchStudentPaymentDetail(id);
+        const [data, student] = await Promise.all([
+          fetchStudentPaymentDetail(id),
+          fetchStudentById(id),
+        ]);
 
         setForm({
           ...getEmptyForm(basePath),
           studentId: data.studentId,
-          studentIdDisplay: String(data.studentId ?? ''),
+          studentIdDisplay: student.enrollmentNumber || '',
           scheduleId: data.scheduleId,
           assignment: data.assignment ?? data.Assignment ?? '',
           instituteId: String(data.instituteId),
@@ -1030,14 +1044,11 @@ export default function NewStudentPage({ basePath }) {
         const apiInstallmentMap = new Map(
           list.map((x) => [Number(x.apiInstallmentNo), x.installmentNo])
         );
-        // Upfront payment = installment 0 plus every 0.x row (initial Tuition share, split balances).
-        const initialRows = list.filter((x) => {
-          const no = Number(x.installmentNo);
-          return no >= 0 && no < 1;
-        });
-        const initialPaymentTotal = initialRows.length
-          ? round2(initialRows.reduce((sum, x) => sum + Number(x.amount || 0), 0))
-          : '';
+        const storedInitialPayment = data.initialPayment ?? data.InitialPayment;
+        const initialPaymentTotal =
+          storedInitialPayment != null && storedInitialPayment !== ''
+            ? round2(Number(storedInitialPayment))
+            : 0;
 
         setForm((prev) => {
           const next = { ...prev, initialPayment: initialPaymentTotal };
@@ -1061,6 +1072,7 @@ export default function NewStudentPage({ basePath }) {
             phone: data.phone,
             folderNo: data.folderNo,
             leadNo: data.leadNo,
+            studentIdDisplay: student.enrollmentNumber || '',
             bonus: Number(data.bonusAmount || 0),
             bonusType: data.bonusType,
             bonusOption: data.bonusOption,
@@ -1322,7 +1334,33 @@ export default function NewStudentPage({ basePath }) {
   );
 
   const historyRows = useMemo(() => {
-    if (!isEdit) return commissionRows;
+    const applyBonusEdit = (row) => {
+      const feeType = row.feeType ?? row.FeeType;
+      const paid = String(row.commissionHistoryOriginalStatus ?? '').trim().toLowerCase() === 'paid';
+      const baseline = round2(Number(row.bonusAmount ?? row.bonus ?? 0));
+      const next = { ...row, bonusBaseline: baseline };
+      if (paid || row.isBonus || !isTuitionFeeType(feeType)) return next;
+
+      const raw = bonusOverrides[bonusRowKey(row)];
+      if (raw == null || raw === '') return next;
+
+      const bonusAmount = round2(Number(raw) || 0);
+      const commissionAmount = Number(row.commissionAmount ?? row.commission ?? 0);
+      const gstAmount = Number(row.gstAmount ?? row.gst ?? 0);
+      const invoiceAmount = round2(
+        gstInclusive ? commissionAmount + bonusAmount : commissionAmount + gstAmount + bonusAmount
+      );
+
+      return {
+        ...next,
+        bonusAmount,
+        bonus: bonusAmount.toFixed(2),
+        invoiceAmount,
+        invoice: invoiceAmount.toFixed(2),
+      };
+    };
+
+    if (!isEdit) return commissionRows.map(applyBonusEdit);
 
     // Payment rows ke commission (calculated values)
     const calcById = new Map(
@@ -1337,6 +1375,24 @@ export default function NewStudentPage({ basePath }) {
         const isBonus = Number(h.isBonus ?? h.IsBonus ?? 0) === 1;
         const status = h.commissionStatus ?? h.CommissionStatus ?? 'Pending';
 
+        const storedBonus = Number(h.bonusAmount ?? h.BonusAmount ?? 0);
+        const commissionAmount = isBonus
+          ? Number(h.commissionAmount ?? h.CommissionAmount ?? 0)
+          : Number(calc?.commission ?? h.commissionAmount ?? 0);
+        const gstAmount = isBonus
+          ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
+          : Number(calc?.gst ?? h.gstAmount ?? 0);
+        const bonusAmount = isBonus || bonusFromDetail
+          ? storedBonus
+          : Number(calc?.bonus ?? storedBonus);
+        const invoiceAmount = isBonus
+          ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
+          : round2(
+            gstInclusive
+              ? commissionAmount + bonusAmount
+              : commissionAmount + gstAmount + bonusAmount
+          );
+
         return {
           ...h,
           studentPaymentInstallmentId: spiId,
@@ -1347,18 +1403,10 @@ export default function NewStudentPage({ basePath }) {
           dueDate: payment?.dueDate ?? h.dueDate ?? h.DueDate ?? null,
           feesAmount: isBonus ? 0 : Number(calc?.fees ?? h.feesAmount ?? 0),
           paymentStatus: payment?.status ?? h.paymentStatus ?? h.PaymentStatus ?? 'Pending',
-          commissionAmount: isBonus
-            ? Number(h.commissionAmount ?? h.CommissionAmount ?? 0)
-            : Number(calc?.commission ?? h.commissionAmount ?? 0),
-          gstAmount: isBonus
-            ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
-            : Number(calc?.gst ?? h.gstAmount ?? 0),
-          bonusAmount: isBonus
-            ? Number(h.bonusAmount ?? h.BonusAmount ?? 0)
-            : Number(calc?.bonus ?? h.bonusAmount ?? 0),
-          invoiceAmount: isBonus
-            ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
-            : Number(calc?.invoice ?? h.invoiceAmount ?? 0),
+          commissionAmount,
+          gstAmount,
+          bonusAmount,
+          invoiceAmount,
           commissionDetailId: h.commissionDetailId ?? h.CommissionDetailId,
           commissionHistoryOriginalStatus: status,
           commissionStatus: status,
@@ -1416,8 +1464,8 @@ export default function NewStudentPage({ basePath }) {
       )
     );
 
-    return rows;
-  }, [isEdit, paymentList, commissionHistory, commissionRows]);
+    return rows.map(applyBonusEdit);
+  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, gstInclusive, bonusFromDetail]);
 
   const totals = useMemo(
     () => ({
@@ -1455,16 +1503,22 @@ export default function NewStudentPage({ basePath }) {
       phone: form.phone,
       folderNo: form.FolderNo,
       leadNo: form.leadNo,
+      studentIdDisplay: form.studentIdDisplay,
       bonus: addBonus ? Number(form.bonus || 0) : 0,
       bonusType: form.bonusType,
       bonusOption: form.bonusOption,
       dueDate: form.dueDate,
     });
 
+    const bonusEdited = historyRows.some(
+      (row) => round2(row.bonusAmount ?? row.bonus) !== round2(row.bonusBaseline ?? row.bonusAmount ?? row.bonus)
+    );
+
     return (
       studentNow !== savedStudentSnapshot ||
       Number(originalSchedule?.noOfInstallment) !== Number(form.noOfInstallment) ||
-      buildChangeSnapshot(paymentList, commissionHistory) !== savedScheduleSnapshot
+      buildChangeSnapshot(paymentList, commissionHistory) !== savedScheduleSnapshot ||
+      bonusEdited
     );
   }, [
     isEdit,
@@ -1477,6 +1531,7 @@ export default function NewStudentPage({ basePath }) {
     form.phone,
     form.FolderNo,
     form.leadNo,
+    form.studentIdDisplay,
     form.bonus,
     form.bonusType,
     form.bonusOption,
@@ -1484,6 +1539,7 @@ export default function NewStudentPage({ basePath }) {
     form.noOfInstallment,
     originalSchedule,
     addBonus,
+    historyRows,
   ]);
 
   const getPaymentRowKey = (item) => {
@@ -1927,16 +1983,14 @@ export default function NewStudentPage({ basePath }) {
       alert('Please enter Bonus.');
       return;
     }
+    setBonusOverrides({});
+    setBonusFromDetail(false);
     setBonusApplied(true);
   };
 
   const handleCreate = async () => {
     if (submittingRef.current) return;
 
-    if (!isEdit && (!form.initialPayment || Number(form.initialPayment) <= 0)) {
-      setError('Please enter Initial Payment before saving the student.');
-      return;
-    }
 
     if (!isEdit && (!form.courseFee || Number(form.courseFee) <= 0)) {
       setError('Course Fee cannot be zero. Please enter fee details before saving.');
@@ -2034,6 +2088,8 @@ export default function NewStudentPage({ basePath }) {
           originalSchedule.startDate !== form.startDate;
 
         const rowsForSave = scheduleChanged ? paymentList : persistedRows;
+
+        await saveStudentEnrollmentNumber(form.studentId, form);
 
         const result = await updateStudentPaymentSchedule({
           studentId: form.studentId,
@@ -2136,7 +2192,7 @@ export default function NewStudentPage({ basePath }) {
 
         let index = 0;
 
-        for (const row of commissionRows) {
+        for (const row of historyRows) {
           if (isEdit && isPaidLike(row.paymentStatus)) continue;
 
           await createStudentCommissionDetail({
@@ -2195,7 +2251,7 @@ export default function NewStudentPage({ basePath }) {
 
           idByInstallmentNo.set(rowKey(item.installmentNo, item.feeType), newInstallmentId);
 
-          const row = commissionRows.find((x) => isSamePaymentRow(x, item));
+          const row = historyRows.find((x) => isSamePaymentRow(x, item));
 
           if (row) {
             await createStudentCommissionDetail({
@@ -2417,8 +2473,7 @@ export default function NewStudentPage({ basePath }) {
             selectOptions={selectOptions}
             requiredFields={resource.requiredFields}
             disabled={false}
-            disabledFields={isEdit ? ['fullName', 'email', 'studentIdDisplay'] : []}
-            fieldDefsOverride={isEdit ? { studentIdDisplay: { readOnly: true } } : {}}
+            disabledFields={isEdit ? ['fullName', 'email'] : []}
           />
         )}
 
@@ -2956,7 +3011,28 @@ export default function NewStudentPage({ basePath }) {
                             <TableCell>{Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
                             <TableCell>{row.paymentStatus}</TableCell>
                             <TableCell> {Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
-                            <TableCell>{Number(row.bonusAmount ?? row.bonus).toFixed(2)}</TableCell>
+                            <TableCell>
+                              {isTuitionFeeType(row.feeType) &&
+                              String(row.commissionHistoryOriginalStatus ?? '').trim().toLowerCase() !== 'paid' &&
+                              !row.isBonus ? (
+                                <TextField
+                                  size="small"
+                                  value={
+                                    bonusOverrides[bonusRowKey(row)] ??
+                                    Number(row.bonusBaseline ?? row.bonusAmount ?? row.bonus ?? 0).toFixed(2)
+                                  }
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value !== '' && !/^\d*\.?\d{0,2}$/.test(value)) return;
+                                    setBonusOverrides((prev) => ({ ...prev, [bonusRowKey(row)]: value }));
+                                  }}
+                                  inputProps={{ inputMode: 'decimal', style: { textAlign: 'right' } }}
+                                  sx={{ width: 90 }}
+                                />
+                              ) : (
+                                Number(row.bonusAmount ?? row.bonus).toFixed(2)
+                              )}
+                            </TableCell>
                             <TableCell>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
                             <TableCell> {Number(row.invoiceAmount ?? row.invoice).toFixed(2)} </TableCell>
                             <TableCell>
@@ -3087,7 +3163,6 @@ export default function NewStudentPage({ basePath }) {
             (isEdit && !hasChanges) ||
             (isEdit && addBonus && !bonusApplied) ||
             (!isEdit && !visitedTabs.has(2)) ||
-            (!isEdit && (!form.initialPayment || Number(form.initialPayment) <= 0)) ||
             (!isEdit && (!form.courseFee || Number(form.courseFee) <= 0)) ||
             (!isEdit && (!form.noOfInstallment || Number(form.noOfInstallment) <= 0))
           }
