@@ -30,6 +30,10 @@ export function mapInvoiceRow(item) {
     instituteId: item.instituteId ?? item.InstituteId,
     instituteNameRef: item.instituteName ?? item.InstituteName ?? '',
     instituteAddress: item.instituteAddress ?? item.InstituteAddress ?? '',
+    address: item.address ?? item.Address ?? '',
+    city: item.city ?? item.City ?? '',
+    state: item.state ?? item.State ?? '',
+    zipCode: item.zipCode ?? item.ZipCode ?? '',
     invoiceStatus: item.status ?? item.Status ?? '',
     invoiceMonthYear: item.invoiceMonthYear ?? item.InvoiceMonthYear ?? '',
     totalAmount: formatCurrency(item.totalAmount ?? item.TotalAmount),
@@ -214,15 +218,22 @@ export async function fetchInvoiceLineItems(invoiceId) {
   const list = Array.isArray(data) ? data : [];
   return list.map((item) => {
     const amountValue = Number(item.amount ?? item.Amount ?? 0);
-    return {
+   return {
       id: String(item.lineItemId ?? item.LineItemId),
       studentId: item.studentId ?? item.StudentId,
       studentName: item.studentName ?? item.StudentName ?? '—',
+      enrollmentNo: item.enrollmentNo ?? item.EnrollmentNo ?? '',
       description: item.description ?? item.Description ?? '',
       cricosCode: item.cricosCode ?? item.CricosCode ?? '',
       amount: formatCurrencyAUD(amountValue),
       amountRaw: Number.isFinite(amountValue) ? amountValue : 0,
       bonusAmount: Number(item.bonusAmount ?? item.BonusAmount ?? 0),
+      feesAmount: Number(item.feesAmount ?? item.FeesAmount ?? 0),
+      commissionPercentage: Number(item.commissionPercentage ?? item.CommissionPercentage ?? 0),
+      commissionAmount: Number(  item.commissionAmount ?? item.CommissionAmount ?? 0 ),
+      gstAmount: Number( item.gstAmount ?? item.GSTAmount ?? 0),
+      address: item.address ?? item.Address ?? '',
+      zipCode: item.zipCode ?? item.ZipCode ?? '',
     };
   });
 }

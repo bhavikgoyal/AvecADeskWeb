@@ -5,7 +5,7 @@ import logoSrc from '../assets/avec-global-logo-full.png';
 const COMPANY_ADDRESS = 'Unit 3, 380 Clayton Road, Clayton, Victoria 3168';
 const COMPANY_NAME = 'AVEC GLOBAL GROUP PTY LTD';
 const ABN_NUMBER = '79677235979';
-const AMOUNT_COL_WIDTH = 46;
+const AMOUNT_COL_WIDTH = 56;
 const MARGIN_X = 14;
 const FOOTER_RESERVE = 12;
 const PAGE_BOTTOM_SAFE = 12;
@@ -19,7 +19,11 @@ function formatDate(value) {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const year = d.getFullYear();
+
+  return `${day}/${month}/${year}`;
 }
 
 function formatMoney(value) {
@@ -77,7 +81,7 @@ function numberToWordsAUD(num) {
   const amount = Number(num) || 0;
   const dollars = Math.floor(amount);
   const cents = Math.round((amount - dollars) * 100);
-  let words = `${integerToWords(dollars)} Dollars`;
+  let words = `${integerToWords(dollars)}`;
   if (cents > 0) words += ` and ${integerToWords(cents)} Cents`;
   return `${words} Only`;
 }
@@ -125,12 +129,10 @@ function drawFallbackLogo(doc, x, y, size = 22) {
   doc.triangle(x + size * 0.58, y + size * 0.32, x + size * 0.8, y + size * 0.55, x + size * 0.58, y + size, 'F');
 }
 
-/** Full AVEC GLOBAL logo (icon + name + taglines) centered; ABN below */
 async function drawLetterhead(doc) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const centerX = pageWidth / 2;
   const top = 8;
-  // Full lockup is wider than icon-only logo
   const logoWidth = 58;
 
   const logo = await loadLogoAsset();
@@ -176,7 +178,6 @@ function drawPageNumber(doc, pageNumber, totalPages) {
   doc.setTextColor(0, 0, 0);
 }
 
-/** Company name and address stay at opposite sides of the page footer. */
 function drawAddressFooter(doc) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -195,21 +196,42 @@ function drawAddressFooter(doc) {
   doc.setTextColor(0, 0, 0);
 }
 
-function drawInfoBox(doc, invoice, startY) {
+function instituteAddressLines(invoice, lineItems = []) {
+  const source = (lineItems || []).find((item) => {
+    const street = safeText(item.address || item.Address);
+    const zip = safeText(item.zipCode || item.ZipCode);
+    return (street && street !== '—') || (zip && zip !== '—');
+  }) || {};
+
+  const street = safeText(
+    invoice.address || invoice.Address || source.address || source.Address
+  ).replace(/,\s*$/, '');
+  const zip = safeText(
+    invoice.zipCode || invoice.ZipCode || source.zipCode || source.ZipCode
+  );
+
+  const lines = [];
+  if (street && street !== '—') lines.push(zip && zip !== '—' ? `${street},` : street);
+  if (zip && zip !== '—') lines.push(zip);
+  return lines;
+}
+
+function drawInfoBox(doc, invoice, startY, lineItems = []) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const boxWidth = pageWidth - MARGIN_X * 2;
   const colSplit = MARGIN_X + boxWidth - AMOUNT_COL_WIDTH;
   const leftWidth = colSplit - MARGIN_X - 6;
   const lineHeight = 4.5;
-  const invoiceValueX = colSplit + 26;
-  const invoiceValueWidth = MARGIN_X + boxWidth - 3 - invoiceValueX;
+  const invoiceValueWidth = AMOUNT_COL_WIDTH - 6 - 24; 
 
   const instituteName = safeText(invoice.instituteNameRef || invoice.instituteName);
-  const instituteAddress = safeText(invoice.instituteAddress);
+  const addressParts = instituteAddressLines(invoice, lineItems);
 
-  doc.setFontSize(9.5);
+  doc.setFontSize(11);
+  doc.setFont('times', 'bold');
   const nameLines = doc.splitTextToSize(instituteName, leftWidth);
-  const addressLines = instituteAddress ? doc.splitTextToSize(instituteAddress, leftWidth) : [];
+  doc.setFont('times', 'normal');
+  const addressLines = addressParts.flatMap((line) => doc.splitTextToSize(line, leftWidth));
   const invoiceLines = doc.splitTextToSize(safeText(invoice.invoiceNumber), invoiceValueWidth);
 
   const contentLineCount = 1 + nameLines.length + addressLines.length;
@@ -224,36 +246,56 @@ function drawInfoBox(doc, invoice, startY) {
   doc.line(colSplit, startY, colSplit, startY + boxHeight);
 
   let ty = startY + 5.5;
-  doc.setFont(undefined, 'bold');
+  doc.setFont('times', 'normal');
   doc.setTextColor(0, 0, 0);
   doc.text('To,', MARGIN_X + 3, ty);
   ty += lineHeight;
 
-  doc.setFont(undefined, 'normal');
+  doc.setFont('times', 'bold');
   nameLines.forEach((line) => {
     doc.text(line, MARGIN_X + 3, ty);
     ty += lineHeight;
   });
+  doc.setFont('times', 'normal');
   addressLines.forEach((line) => {
     doc.text(line, MARGIN_X + 3, ty);
     ty += lineHeight;
   });
 
-  doc.setFont(undefined, 'bold');
-  doc.text('Date:', colSplit + 3, startY + 7);
-  doc.setFont(undefined, 'normal');
-  doc.text(formatDate(invoice.createdAtRaw || invoice.createdAt), colSplit + 22, startY + 7);
+
+  const rightEdgeX = MARGIN_X + boxWidth - 3; 
+  const gap = 2;                              
+
+  doc.setFont('times', 'bold');
+  const labelWidth = doc.getTextWidth('Invoice No:');
+
+  doc.setFont('times', 'normal');
+  const dateText = formatDate(invoice.createdAtRaw || invoice.createdAt);
+  const maxValueWidth = Math.max(
+    doc.getTextWidth(dateText),
+    ...invoiceLines.map((l) => doc.getTextWidth(l))
+  );
+
+  const blockWidth = labelWidth + gap + maxValueWidth;
+  const labelX = rightEdgeX - blockWidth;
+  const valueX = labelX + labelWidth + gap;
 
   doc.setFont(undefined, 'bold');
-  doc.text('Invoice No:', colSplit + 3, startY + 14);
+  doc.text('Date:', labelX, startY + 7);
+
   doc.setFont(undefined, 'normal');
-  let invoiceY = startY + 14;
+  doc.text(dateText, valueX, startY + 7);
+
+  doc.setFont(undefined, 'bold');
+  doc.text('Invoice No:', labelX, startY + 12);
+
+  doc.setFont(undefined, 'normal');
+  let invoiceY = startY + 12;
   invoiceLines.forEach((line) => {
-    doc.text(line, invoiceValueX, invoiceY);
+    doc.text(line, valueX, invoiceY);
     invoiceY += lineHeight;
   });
 
-  // Tight gap between To box and particulars table
   return startY + boxHeight + 3;
 }
 
@@ -285,7 +327,7 @@ function drawTableHeader(doc, y, geo) {
   doc.line(xAmount, y, xAmount, y + headerHeight);
 
   doc.setFont(undefined, 'bold');
-  doc.setFontSize(9.5);
+  doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
   doc.text('Sr. No', MARGIN_X + colSr / 2, y + 5.5, { align: 'center' });
   doc.text('PARTICULARS', xPart + colPart / 2, y + 5.5, { align: 'center' });
@@ -294,7 +336,6 @@ function drawTableHeader(doc, y, geo) {
   return y + headerHeight;
 }
 
-/** One-time section title — not repeated per student row */
 function drawEducationCommissionHeader(doc, y, geo) {
   const { tableWidth, xPart, xAmount, colPart } = geo;
   const rowHeight = 8;
@@ -306,41 +347,75 @@ function drawEducationCommissionHeader(doc, y, geo) {
   doc.line(xAmount, y, xAmount, y + rowHeight);
 
   doc.setFont(undefined, 'bold');
-  doc.setFontSize(9.5);
+  doc.setFontSize(11);
   doc.text('Education Commission', xPart + 3, y + 5.5);
 
   return y + rowHeight;
 }
 
+
 function buildItemLines(doc, item, colPart) {
   const parsed = parseDescription(item.description);
   const cricos = safeText(item.cricosCode);
+
   const courseText = cricos
-    ? `${safeText(parsed.course)} (CRICOS: ${cricos})`
+    ? `${safeText(parsed.course)} (${cricos})`
     : safeText(parsed.course);
 
-  const lines = [];
-  lines.push(`Student Name: ${safeText(item.studentName)}`);
-  if (item.studentId) lines.push(`Student Id: ${safeText(item.studentId)}`);
-  lines.push(`Course: ${courseText}`);
+  const feesAmount = Number(
+    item.feesAmount ?? item.FeesAmount ?? 0
+  );
 
-  const amountVal = Number(item.amountRaw ?? item.amount ?? 0);
-  const feesRaw = Number(String(parsed.fees).replace(/[^0-9.-]/g, ''));
-  const feesText = safeText(parsed.fees) || formatMoney(amountVal);
-  let feesLine = `Fees: ${feesText}`;
-  if (feesRaw > 0 && amountVal > 0) {
-    const pct = (amountVal / feesRaw) * 100;
-    feesLine += ` (Commission Rate: ${pct.toFixed(2)}%)`;
+  const commissionPercentage = Number(
+    item.commissionPercentage ??
+    item.CommissionPercentage ??
+    0
+  );
+
+  const amountVal = Number(
+    ((feesAmount * commissionPercentage) / 100).toFixed(2)
+  );
+
+  const enrollmentNo = safeText(
+    item.enrollmentNo ?? item.EnrollmentNo
+  );
+
+  const lines = [
+    'Education Commission',
+    '',
+    `Student Name: ${safeText(item.studentName)}`,
+  ];
+
+  if (enrollmentNo) {
+    lines.push(`Student Id: ${enrollmentNo}`);
   }
-  lines.push(feesLine);
 
-  const wrapped = lines.flatMap((line) => doc.splitTextToSize(line, colPart - 6));
-  const lineHeight = 4.3;
-  const padding = 5;
-  const rowHeight = Math.max(wrapped.length * lineHeight + padding, 18);
+  lines.push(`Course Details: ${courseText}`);
+  lines.push(
+    `Fees: $ ${formatMoney(feesAmount)} * ${commissionPercentage}/100`
+  );
 
-  return { wrapped, amountVal, rowHeight, lineHeight };
+  doc.setFont('times', 'normal');
+  doc.setFontSize(12);
+  const wrapped = lines.flatMap((line) =>
+    line === '' ? [''] : doc.splitTextToSize(line, colPart - 6)
+  );
+
+  const lineHeight = 5.4;
+  const padding = 12;
+  const rowHeight = Math.max(
+    wrapped.length * lineHeight + padding,
+    34
+  );
+
+  return {
+    wrapped,
+    amountVal,
+    rowHeight,
+    lineHeight,
+  };
 }
+
 
 function drawItemRow(doc, y, geo, srNo, itemLines) {
   const { tableWidth, colSr, colAmount, xPart, xAmount } = geo;
@@ -352,73 +427,136 @@ function drawItemRow(doc, y, geo, srNo, itemLines) {
   doc.line(xPart, y, xPart, y + rowHeight);
   doc.line(xAmount, y, xAmount, y + rowHeight);
 
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(9.5);
-  doc.text(String(srNo), MARGIN_X + colSr / 2, y + 7, { align: 'center' });
+  doc.setFont('times', 'normal');
+  doc.setFontSize(12);
+  doc.text(`${srNo}.`, MARGIN_X + colSr / 2, y + rowHeight / 2, { align: 'center' });
 
-  let ty = y + 6;
+  let ty = y + 8;
   wrapped.forEach((line) => {
     doc.text(line, xPart + 3, ty);
     ty += lineHeight;
   });
 
-  doc.text(formatMoney(amountVal), xAmount + colAmount - 3, y + 7, { align: 'right' });
+  doc.text(formatMoney(amountVal), xAmount + colAmount - 3, y + rowHeight / 2, { align: 'right' });
 
   return y + rowHeight;
 }
 
-function drawTotals(doc, invoice, geo, startY,lineItems = []) {
-  const { xPart, xAmount, colAmount, tableWidth } = geo;
+
+function drawTotals(doc, invoice, geo, startY, lineItems = []) {
+  const { xAmount, colAmount, tableWidth } = geo;
   const rowHeight = 7;
   let y = startY;
 
-  const total = Number(invoice.totalAmountRaw ?? invoice.totalAmount ?? 0);
-  const bonus = lineItems.reduce((sum, item) => { return sum + Number(  item.bonusAmountRaw ??  item.bonusAmount ?? item.BonusAmount ?? 0 ); }, 0);
-  const gstPercent = invoice.gstPercent != null ? Number(invoice.gstPercent) : 0;
-  const gstAmount = (total * gstPercent) / 100;
-  const grandTotal = total + bonus + gstAmount;
+  const total = Number(
+    lineItems.reduce((sum, item) => {
+      const fees = Number(
+        item.feesAmount ?? item.FeesAmount ?? 0
+      );
+
+      const percentage = Number(
+        item.commissionPercentage ??
+        item.CommissionPercentage ??
+        0
+      );
+
+      return sum + (fees * percentage) / 100;
+    }, 0).toFixed(2)
+  );
+
+  const bonus = Number(
+    lineItems.reduce(
+      (sum, item) =>
+        sum +
+        Number(
+          item.bonusAmountRaw ??
+          item.bonusAmount ??
+          item.BonusAmount ??
+          0
+        ),
+      0
+    ).toFixed(2)
+  );
+
+  const gstAmount = Number(
+    lineItems.reduce(
+      (sum, item) =>
+        sum +
+        Number(item.gstAmount ?? item.GSTAmount ?? 0),
+      0
+    ).toFixed(2)
+  );
+
+  const grandTotal = Number(
+    (total + bonus + gstAmount).toFixed(2)
+  );
+
   const drawRow = (label, value) => {
     doc.setDrawColor(0);
+    doc.setLineWidth(0.3);
+
     doc.rect(MARGIN_X, y, tableWidth, rowHeight);
-    doc.line(xPart, y, xPart, y + rowHeight);
     doc.line(xAmount, y, xAmount, y + rowHeight);
-    doc.setFont(undefined, 'bold');
-    doc.setFontSize(9.5);
-    doc.text(label, xAmount - 3, y + 5, { align: 'right' });
-    doc.text(`AUD ${formatMoney(value)}`, xAmount + colAmount - 3, y + 5, { align: 'right' });
+
+    doc.setFont('times', 'bold');
+    doc.setFontSize(11);
+
+    doc.text(label, xAmount - 3, y + 5, {
+      align: 'right',
+    });
+
+    doc.text(
+      `AUD ${formatMoney(value)}`,
+      xAmount + colAmount - 3,
+      y + 5,
+      { align: 'right' }
+    );
+
     y += rowHeight;
   };
 
   drawRow('TOTAL', total);
-  drawRow('BONUS', bonus);
-  drawRow(`GST ${gstPercent ? `${gstPercent}%` : '%'}`, gstAmount);
+
+  if (bonus > 0) {
+    drawRow('BONUS', bonus);
+  }
+
+  drawRow('GST', gstAmount);
   drawRow('GRAND TOTAL', grandTotal);
 
   doc.rect(MARGIN_X, y, tableWidth, rowHeight);
-  doc.setFont(undefined, 'bold');
-  doc.setFontSize(9.5);
+
+  doc.setFont('times', 'bold');
+  doc.setFontSize(12);
   doc.text('In Words:', MARGIN_X + 3, y + 5);
-  doc.setFont(undefined, 'normal');
-  doc.text(numberToWordsAUD(grandTotal), MARGIN_X + 25, y + 5);
+
+  doc.setFont('times', 'normal');
+  doc.setFontSize(12);
+  doc.text(
+    numberToWordsAUD(grandTotal),
+    MARGIN_X + 25,
+    y + 5
+  );
+
   y += rowHeight;
 
-  return y + 4;
+  return y + 16;
 }
 
-/** Tighter spacing; address removed (moved under bank block) */
+
 function drawBankDetails(doc, startY) {
   let y = startY;
 
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('times', 'bold');
+  doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.text('Bank Details', MARGIN_X, y);
   doc.setLineWidth(0.4);
-  doc.line(MARGIN_X, y + 1, MARGIN_X + 24, y + 1);
-  y += 4.5;
+  doc.line(MARGIN_X, y + 1.2, MARGIN_X + doc.getTextWidth('Bank Details'), y + 1.2);
+  y += 6;
 
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('times', 'normal');
+  doc.setFontSize(12);
   const lines = [
     'Account Name: AVEC GLOBAL GROUP PTY LTD',
     'BSB: 063-549',
@@ -426,7 +564,7 @@ function drawBankDetails(doc, startY) {
   ];
   lines.forEach((line) => {
     doc.text(line, MARGIN_X, y);
-    y += 3.6;
+    y += 5.2;
   });
 
   return y;
@@ -436,14 +574,9 @@ function pageContentBottom(doc) {
   return doc.internal.pageSize.getHeight() - PAGE_BOTTOM_SAFE - FOOTER_RESERVE;
 }
 
-/**
- * Draw one invoice, continuing Sr. No. across pages/invoices.
- * Education Commission header only once (first page of this invoice section).
- */
 async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
   const {
     startSrNo = 1,
-    showEducationHeader = true,
     pageNumberStart = 1,
     totalPagesHint = null,
   } = options;
@@ -452,16 +585,10 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
   const rows = lineItems.length ? lineItems : [{}];
   let srNo = startSrNo;
   let pageNumber = pageNumberStart;
-  let educationHeaderDrawn = false;
 
   let y = await drawLetterhead(doc);
-  y = drawInfoBox(doc, invoice, y);
+  y = drawInfoBox(doc, invoice, y, lineItems);
   y = drawTableHeader(doc, y, geo);
-
-  if (showEducationHeader) {
-    y = drawEducationCommissionHeader(doc, y, geo);
-    educationHeaderDrawn = true;
-  }
 
   for (let idx = 0; idx < rows.length; idx += 1) {
     const itemLines = buildItemLines(doc, rows[idx], geo.colPart);
@@ -473,34 +600,43 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
       doc.addPage();
       pageNumber += 1;
       y = await drawLetterhead(doc);
-      y = drawInfoBox(doc, invoice, y);
+      y = drawInfoBox(doc, invoice, y, lineItems);
       y = drawTableHeader(doc, y, geo);
-      // Education Commission does NOT repeat on continuation pages
+     
     }
 
     y = drawItemRow(doc, y, geo, srNo, itemLines);
     srNo += 1;
   }
 
-  const totalsBlock = 7 * 3 + 7 + 6 + 18;
+  const hasBonus = lineItems.some(
+    item =>
+      Number(
+        item.bonusAmountRaw ??
+        item.bonusAmount ??
+        item.BonusAmount ??
+        0
+      ) > 0
+  );
+
+  const totalsBlock = (hasBonus ? 4 : 3) * 7 + 7 + 16 + 26;
   if (y + totalsBlock > pageContentBottom(doc)) {
     drawAddressFooter(doc);
     drawPageNumber(doc, pageNumber, totalPagesHint);
     doc.addPage();
     pageNumber += 1;
     y = await drawLetterhead(doc);
-    y = drawInfoBox(doc, invoice, y);
+    y = drawInfoBox(doc, invoice, y, lineItems);
   }
 
- y = drawTotals(doc, invoice, geo, y, lineItems);
+  y = drawTotals(doc, invoice, geo, y, lineItems);
   drawBankDetails(doc, y);
   drawAddressFooter(doc);
   drawPageNumber(doc, pageNumber, totalPagesHint);
 
-  return { nextSrNo: srNo, lastPageNumber: pageNumber, educationHeaderDrawn };
+  return { nextSrNo: srNo, lastPageNumber: pageNumber };
 }
 
-/** Build one invoice PDF blob (does not download). */
 export async function buildInvoicePdf(invoice, lineItems = []) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   await drawInvoiceSection(doc, invoice, lineItems, {
@@ -535,23 +671,19 @@ export async function exportInvoicePdf(invoice, lineItems = []) {
   saveAs(blob, fileName);
 }
 
-/**
- * Never merges invoices into one PDF — each invoice downloads as its own .pdf file.
- */
 export async function exportInvoicesPdf(items = []) {
   if (!items.length) return;
 
   const files = [];
   for (let i = 0; i < items.length; i += 1) {
     const { invoice, lineItems = [] } = items[i] || {};
-    // eslint-disable-next-line no-await-in-loop
+    
     files.push(await buildInvoicePdf(invoice, lineItems));
   }
 
   for (let i = 0; i < files.length; i += 1) {
     triggerPdfDownload(files[i].blob, files[i].fileName);
     if (i < files.length - 1) {
-      // eslint-disable-next-line no-await-in-loop
       await delay(1500);
     }
   }

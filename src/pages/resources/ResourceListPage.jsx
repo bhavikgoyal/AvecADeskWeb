@@ -921,6 +921,7 @@ const handleExportInvoicesPdf = useCallback(async () => {
   try {
     setError('');
     await downloadInvoiceDocuments(selectedIds);
+    setSelectedIds([]);
   } catch (err) {
     setError(err.message || 'Failed to download invoice PDF(s).');
   }
