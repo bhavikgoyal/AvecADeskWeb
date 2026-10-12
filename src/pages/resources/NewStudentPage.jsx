@@ -14,10 +14,10 @@ import { fetchStudentContracts, createStudentContract, updateStudentContract, de
 import { fetchUniqueInstituteNames, getCampusesForInstitute, getUniqueInstituteNames, normalizeInstituteName, resolveScrappingId, } from '../../api/institutesScrappingApi';
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
 import { createStudentWithPaymentSchedule, fetchStudentById, fetchStudentPaymentDetail, saveStudentEnrollmentNumber } from '../../api/studentsApi';
-import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule, } from '../../api/schedulesApi';
-import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
+import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule, clearInstallmentDocument, } from '../../api/schedulesApi';
+import { DateTextField, FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
-import { formatDateDisplay } from '../../utils/dateFormat';
+import { formatDateDisplay, toIsoDateString } from '../../utils/dateFormat';
 
 const EPSILON = 0.01;
 const CONTRACT_STATUS_OPTIONS = ['Active', 'Inactive', 'Expired', 'Draft'];
@@ -69,6 +69,19 @@ const isPaidLike = (status) =>
   status === 'PaidByCollege' ||
   status === 'PaidByStudent';
 
+const normalizeCommissionStatus = (value) => {
+  const status = String(value ?? '').trim();
+  if (!status) return 'Pending';
+  if (status.toLowerCase() === 'paid') return 'Received';
+  return status;
+};
+
+const isCommissionReceived = (value) =>
+  normalizeCommissionStatus(value).toLowerCase() === 'received';
+
+const isCommissionPending = (value) =>
+  normalizeCommissionStatus(value).toLowerCase() === 'pending';
+
 const shownPaidAmount = (row) => {
   const paid = Number(row?.paidAmount || 0);
   if (paid > 0) return paid;
@@ -91,7 +104,7 @@ const isCourseCompleteStudent = (courseFee, payments, commissions) => {
   if (details.length === 0) return false;
 
   return details.every(
-    (row) => String(row.commissionStatus ?? row.CommissionStatus ?? '').trim().toLowerCase() === 'paid'
+    (row) => isCommissionReceived(row.commissionStatus ?? row.CommissionStatus)
   );
 };
 
@@ -194,6 +207,7 @@ const shiftByFrequency = (baseDate, frequency, periods) => {
   const date = new Date(baseDate);
   if (frequency === 'Monthly') date.setMonth(date.getMonth() + periods);
   else if (frequency === 'Quarterly') date.setMonth(date.getMonth() + periods * 3);
+  else if (frequency === 'HalfYearly') date.setMonth(date.getMonth() + periods * 6);
   return date;
 };
 
@@ -229,6 +243,14 @@ const isSameFeeType = (a, b) => (a.feeType ?? null) === (b.feeType ?? null);
 const isScheduledInstallment = (row) => {
   const n = Number(row?.installmentNo);
   return Number.isFinite(n) && n >= 1 && Math.abs(n - Math.round(n)) < 1e-6;
+};
+
+// A partial split creates 5.1. That child keeps commission, but not the installment bonus.
+const isSplitInstallment = (row) => {
+  if (!row) return false;
+  if (row.parentInstallmentNo != null || row.parentInstallmentId != null) return true;
+  const n = Number(row.installmentNo ?? row.apiInstallmentNo);
+  return Number.isFinite(n) && Math.abs(n - Math.round(n)) > 1e-6;
 };
 
 const feeRemainderPoolCents = (list, item) => {
@@ -269,8 +291,31 @@ const createFeePoolCents = (list, item) => {
     pool += toCents(row.amount);
     followers += 1;
   }
-  return followers > 0 ? pool : Number.MAX_SAFE_INTEGER;
+  if (followers > 0) return pool;
+  if (isInitialNonTuitionRow(list[currentIndex])) {
+    return pool + splitChildIndexes(list, list[currentIndex]).reduce(
+      (sum, i) => sum + toCents(list[i].amount),
+      0
+    );
+  }
+  return Number.MAX_SAFE_INTEGER;
 };
+
+const isInitialNonTuitionRow = (row) =>
+  Boolean(row?.isInitialPayment) &&
+  String(row?.feeType || '').trim().toLowerCase() === 'non-tuition fee';
+
+const splitChildIndexes = (list, parent) =>
+  (list || []).reduce((indexes, row, index) => {
+    if (
+      row.parentInstallmentNo != null &&
+      String(row.parentInstallmentNo) === String(parent.installmentNo) &&
+      isSameFeeType(row, parent)
+    ) {
+      indexes.push(index);
+    }
+    return indexes;
+  }, []);
 
 const isInitialGroupRow = (row) =>
   Boolean(row?.isInitialPayment) || !isScheduledInstallment(row);
@@ -642,6 +687,8 @@ export default function NewStudentPage({ basePath }) {
   const [bonusOverrides, setBonusOverrides] = useState({});
   const [addBonus, setAddBonus] = useState(false);
   const [commissionHistory, setCommissionHistory] = useState([]);
+  const [commissionStatusOverrides, setCommissionStatusOverrides] = useState({});
+  const [receivedDateOverrides, setReceivedDateOverrides] = useState({});
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
   const [originalSchedule, setOriginalSchedule] = useState(null);
   const [installmentCountDraft, setInstallmentCountDraft] = useState('');
@@ -649,6 +696,7 @@ export default function NewStudentPage({ basePath }) {
   const [feeDraft, setFeeDraft] = useState(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmTargetInstallment, setConfirmTargetInstallment] = useState(null);
+  const [unsavedStudentDocIds, setUnsavedStudentDocIds] = useState(() => new Set());
   const [instituteLocked, setInstituteLocked] = useState(false);
   const [savedScheduleSnapshot, setSavedScheduleSnapshot] = useState(null);
   const [savedStudentSnapshot, setSavedStudentSnapshot] = useState(null);
@@ -664,6 +712,7 @@ export default function NewStudentPage({ basePath }) {
   const [contractForm, setContractForm] = useState(getEmptyContractForm());
   const [contractSaving, setContractSaving] = useState(false);
   const [contractUploading, setContractUploading] = useState(false);
+  const [studentReloadKey, setStudentReloadKey] = useState(0);
 
   const submittingRef = useRef(false);
   const manualDueDatesRef = useRef(new Map());
@@ -1089,7 +1138,7 @@ export default function NewStudentPage({ basePath }) {
     }
 
     loadData();
-  }, [id, isEdit, basePath]);
+  }, [id, isEdit, basePath, studentReloadKey]);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -1287,7 +1336,7 @@ export default function NewStudentPage({ basePath }) {
         let bonus = 0;
 
         const isTuitionFee = feeTypeKey === 'tuition fee';
-        if (isTuitionFee && addBonus && bonusApplied && applyBonus) {
+        if (isTuitionFee && addBonus && bonusApplied && applyBonus && !isSplitInstallment(item)) {
           if (form.bonusType === 'Percentage') {
             bonus = round2((rawCommission * Number(form.bonus || 0)) / 100);
           } else if (form.bonusType === 'Fixed') {
@@ -1327,7 +1376,7 @@ export default function NewStudentPage({ basePath }) {
   const historyRows = useMemo(() => {
     const applyBonusEdit = (row) => {
       const feeType = row.feeType ?? row.FeeType;
-      const paid = String(row.commissionHistoryOriginalStatus ?? '').trim().toLowerCase() === 'paid';
+      const paid = isCommissionReceived(row.commissionHistoryOriginalStatus);
       const baseline = round2(Number(row.bonusAmount ?? row.bonus ?? 0));
       const next = { ...row, bonusBaseline: baseline };
       if (paid || row.isBonus || !isTuitionFeeType(feeType)) return next;
@@ -1363,7 +1412,14 @@ export default function NewStudentPage({ basePath }) {
         const payment = paymentList.find((p) => Number(p.studentPaymentInstallmentId) === spiId);
         const calc = calcById.get(spiId);
         const isBonus = Number(h.isBonus ?? h.IsBonus ?? 0) === 1;
-        const status = h.commissionStatus ?? h.CommissionStatus ?? 'Pending';
+        const status = normalizeCommissionStatus(
+          commissionStatusOverrides[
+            `id:${h.commissionDetailId ?? h.CommissionDetailId ?? ''}|spi:${spiId}|${h.installmentNo}`
+          ] ??
+          h.commissionStatus ??
+          h.CommissionStatus ??
+          'Pending'
+        );
 
         const storedBonus = Number(h.bonusAmount ?? h.BonusAmount ?? 0);
         const commissionAmount = isBonus
@@ -1372,9 +1428,12 @@ export default function NewStudentPage({ basePath }) {
         const gstAmount = isBonus
           ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
           : Number(calc?.gst ?? h.gstAmount ?? 0);
-        const bonusAmount = isBonus || bonusFromDetail
-          ? storedBonus
-          : Number(calc?.bonus ?? storedBonus);
+        const splitChild = !isBonus && isSplitInstallment(payment || { installmentNo: h.installmentNo });
+        const bonusAmount = splitChild
+          ? 0
+          : isBonus || bonusFromDetail
+            ? storedBonus
+            : Number(calc?.bonus ?? storedBonus);
         const invoiceAmount = isBonus
           ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
           : round2(
@@ -1382,6 +1441,14 @@ export default function NewStudentPage({ basePath }) {
               ? commissionAmount + bonusAmount
               : commissionAmount + gstAmount + bonusAmount
           );
+
+        const receivedDateKey = bonusRowKey({
+          commissionDetailId: h.commissionDetailId ?? h.CommissionDetailId,
+          installmentNo: h.installmentNo,
+          feeType: payment?.feeType ?? h.feeType ?? h.FeeType,
+        });
+        const storedReceivedDate = h.receivedDate ?? h.ReceivedDate ?? '';
+        const receivedDate = receivedDateOverrides[receivedDateKey] ?? toIsoDateString(storedReceivedDate);
 
         return {
           ...h,
@@ -1397,13 +1464,17 @@ export default function NewStudentPage({ basePath }) {
           gstAmount,
           bonusAmount,
           invoiceAmount,
+          receivedDate,
+          savedReceivedDate: toIsoDateString(storedReceivedDate),
           commissionDetailId: h.commissionDetailId ?? h.CommissionDetailId,
-          commissionHistoryOriginalStatus: status,
+          commissionHistoryOriginalStatus: normalizeCommissionStatus(
+            h.commissionHistoryOriginalStatus ?? h.commissionStatus ?? h.CommissionStatus
+          ),
           commissionStatus: status,
         };
       })
       .filter((row) => {
-        const paid = String(row.commissionHistoryOriginalStatus || '').trim().toLowerCase() === 'paid';
+        const paid = isCommissionReceived(row.commissionHistoryOriginalStatus);
         const initial = Number(row.installmentNo) < 1;
         if (paid || initial || row.isBonus) return true;
         return paymentList.some(
@@ -1425,6 +1496,11 @@ export default function NewStudentPage({ basePath }) {
       if (seen.has(key)) return;
       if (id && rows.some((r) => Number(r.studentPaymentInstallmentId) === id)) return;
 
+      const extraStatus = normalizeCommissionStatus(
+        commissionStatusOverrides[
+          `id:|spi:${calc.studentPaymentInstallmentId ?? ''}|${calc.installmentNo}`
+        ] ?? 'Pending'
+      );
       const extra = {
         studentPaymentInstallmentId: calc.studentPaymentInstallmentId,
         installmentNo: calc.installmentNo,
@@ -1437,7 +1513,8 @@ export default function NewStudentPage({ basePath }) {
         gstAmount: Number(calc.gst || 0),
         bonusAmount: Number(calc.bonus || 0),
         invoiceAmount: Number(calc.invoice || 0),
-        commissionStatus: 'Pending',
+        receivedDate: receivedDateOverrides[bonusRowKey(calc)] ?? '',
+        commissionStatus: extraStatus,
         commissionHistoryOriginalStatus: 'Pending',
       };
 
@@ -1465,7 +1542,7 @@ export default function NewStudentPage({ basePath }) {
     );
 
     return rows.map(applyBonusEdit);
-  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, gstInclusive, bonusFromDetail]);
+  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides]);
 
   const totals = useMemo(
     () => ({
@@ -1597,9 +1674,24 @@ export default function NewStudentPage({ basePath }) {
     return isPaidLike(prevStatus) || prevStatus === 'Partial';
   };
 
+  const lastConfirmedIndex = paymentList.reduce(
+    (last, row, index) => (isPaidLike(row.status) ? index : last),
+    -1
+  );
+
   const isStatusDisabled = (item, groupComplete, isLastOfGroup) => {
     if (item.status === 'Pending' && (!item.originalStatus || item.originalStatus === 'Pending')) {
       return false;
+    }
+
+    const itemIndex = paymentList.indexOf(item);
+    if (
+      isPaidLike(item.status) &&
+      itemIndex >= 0 &&
+      itemIndex < lastConfirmedIndex &&
+      !isRowPastDataEditable(item)
+    ) {
+      return true;
     }
 
     return (
@@ -1615,16 +1707,6 @@ export default function NewStudentPage({ basePath }) {
         item.status !== 'Partial' &&
         !isRowPastDataEditable(item))
     );
-  };
-
-  const canEditCommissionStatus = (row) => {
-    const sortedRows = historyRows;
-    const currentIndex = sortedRows.findIndex((x) => x.commissionDetailId === row.commissionDetailId);
-
-    if (currentIndex <= 0) return true;
-
-    const previous = sortedRows[currentIndex - 1];
-    return String(previous?.commissionStatus ?? '').toLowerCase() === 'paid';
   };
 
   const toggleRowPastData = (item) => {
@@ -1689,6 +1771,45 @@ export default function NewStudentPage({ basePath }) {
           followerIndexes.forEach((index, shareIndex) => {
             updated[index] = setFee(updated[index], shares[shareIndex] ?? 0);
           });
+        } else if (isInitialNonTuitionRow(currentItem)) {
+          const childIndexes = splitChildIndexes(updated, currentItem);
+          const poolCents =
+            toCents(currentItem.amount) +
+            childIndexes.reduce((sum, i) => sum + toCents(updated[i].amount), 0);
+          if (typedCents > poolCents) typedCents = poolCents;
+          const remainderCents = poolCents - typedCents;
+
+          updated[currentIndex] = setFee(currentItem, typedCents);
+
+          if (remainderCents > 0 && childIndexes.length > 0) {
+            const [first, ...rest] = childIndexes;
+            updated[first] = setFee(updated[first], remainderCents);
+            if (rest.length > 0) {
+              const drop = new Set(rest);
+              updated = updated.filter((_, index) => !drop.has(index));
+            }
+          } else if (remainderCents > 0) {
+            const rootNo = Number(currentItem.installmentNo ?? 0);
+            const remainderText = centsToAmount(remainderCents);
+            updated.splice(currentIndex + 1, 0, {
+              installmentNo: Number((rootNo + 0.1).toFixed(2)),
+              parentInstallmentNo: currentItem.installmentNo,
+              parentGroupNo: rootNo,
+              feeType: currentItem.feeType,
+              dueDate: currentItem.dueDate,
+              amount: remainderText,
+              paidAmount: '0.00',
+              balance: remainderText,
+              status: 'Pending',
+              originalStatus: 'Pending',
+              isInitialPayment: false,
+              originalAmount: Number(remainderText),
+            });
+          } else if (childIndexes.length > 0) {
+            const drop = new Set(childIndexes);
+            updated = updated.filter((_, index) => !drop.has(index));
+          }
+          return updated;
         }
 
         updated[currentIndex] = setFee(currentItem, typedCents);
@@ -1830,6 +1951,22 @@ export default function NewStudentPage({ basePath }) {
   };
 
   const handleStatusChange = (item, value) => {
+    const installmentId = item.studentPaymentInstallmentId;
+    const dropUnsavedReceipt =
+      item.status === 'ConfirmedByStudent' &&
+      value !== 'ConfirmedByStudent' &&
+      installmentId &&
+      unsavedStudentDocIds.has(installmentId);
+
+    if (dropUnsavedReceipt) {
+      setUnsavedStudentDocIds((prev) => {
+        const next = new Set(prev);
+        next.delete(installmentId);
+        return next;
+      });
+      clearInstallmentDocument(installmentId).catch(() => {});
+    }
+
     if (value === 'ConfirmedByStudent') {
       setConfirmTargetInstallment(item);
       setConfirmDialogOpen(true);
@@ -1853,6 +1990,7 @@ export default function NewStudentPage({ basePath }) {
           paidAmount: isPaid ? paidLikeAmount : isPartial ? x.paidAmount || '0.00' : '0.00',
           balance: isPaid ? '0.00' : isPartial ? x.balance : x.amount,
           paidDate: isPaid || isPartial ? x.paidDate || todayIso() : null,
+          ...(dropUnsavedReceipt ? { documentUrl: null, installmentImage: null } : {}),
         };
       });
 
@@ -1914,18 +2052,44 @@ export default function NewStudentPage({ basePath }) {
 
   const handleCommissionStatusChange = (row, value) => {
     const currentCommissionDetailId = Number(row.commissionDetailId ?? row.CommissionDetailId);
+    const overrideKey = `id:${row.commissionDetailId ?? ''}|spi:${row.studentPaymentInstallmentId ?? ''}|${row.installmentNo}`;
+    setCommissionStatusOverrides((prev) => ({ ...prev, [overrideKey]: value }));
+
+    if (value === 'Received') {
+      const dateKey = bonusRowKey(row);
+      setReceivedDateOverrides((prev) => {
+        if (prev[dateKey]) return prev;
+        if (toIsoDateString(row.receivedDate)) return prev;
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        return { ...prev, [dateKey]: today };
+      });
+    }
+
+    if (!Number.isFinite(currentCommissionDetailId) || currentCommissionDetailId <= 0) return;
 
     setCommissionHistory((prev) =>
       prev.map((x) => {
         const commissionDetailId = Number(x.commissionDetailId ?? x.CommissionDetailId);
         return commissionDetailId === currentCommissionDetailId
-          ? { ...x, commissionStatus: value }
+          ? { ...x, commissionStatus: value, CommissionStatus: value }
           : x;
       })
     );
   };
 
   const handleConfirmedByStudent = (installment, documentUrl) => {
+    const installmentId = installment?.studentPaymentInstallmentId;
+    if (installmentId) {
+      setUnsavedStudentDocIds((prev) => {
+        const next = new Set(prev);
+        next.add(installmentId);
+        return next;
+      });
+    }
+
+    let clearUploadedReceipt = false;
+
     setPaymentList((prev) => {
       let updated = prev;
       const leftoverChild = updated.find(
@@ -1941,6 +2105,11 @@ export default function NewStudentPage({ basePath }) {
 
       return updated.map((x) => {
         if (!isSamePaymentRow(x, installment)) return x;
+
+        if (x.status !== 'ConfirmedByStudent') {
+          clearUploadedReceipt = true;
+          return { ...x, documentUrl: null, installmentImage: null };
+        }
 
         const paidLikeAmount = hasSplitChild(updated, x) && Number(x.paidAmount) > 0
           ? x.paidAmount
@@ -1960,6 +2129,10 @@ export default function NewStudentPage({ basePath }) {
         };
       });
     });
+
+    if (clearUploadedReceipt && installmentId) {
+      clearInstallmentDocument(installmentId).catch(() => {});
+    }
 
     setCommissionHistory((prev) =>
       prev.map((x) =>
@@ -2122,7 +2295,7 @@ export default function NewStudentPage({ basePath }) {
             .filter((r) => r.commissionDetailId)
             .map((r) => {
               const isAlreadyPaid =
-                String(r.commissionHistoryOriginalStatus ?? '').trim().toLowerCase() === 'paid';
+                isCommissionReceived(r.commissionHistoryOriginalStatus);
 
               const original = commissionHistory.find(
                 (x) =>
@@ -2133,20 +2306,21 @@ export default function NewStudentPage({ basePath }) {
               const source =
                 isAlreadyPaid && original
                   ? {
-                    commissionAmount: original.commissionAmount,
-                    gstAmount: original.gstAmount,
-                    bonusAmount: original.bonusAmount,
-                    invoiceAmount: original.invoiceAmount,
+                    commissionAmount: original.commissionAmount ?? original.CommissionAmount,
+                    gstAmount: original.gstAmount ?? original.GSTAmount,
+                    bonusAmount: original.bonusAmount ?? original.BonusAmount,
+                    invoiceAmount: original.invoiceAmount ?? original.InvoiceAmount,
                   }
                   : r;
 
               return {
                 CommissionDetailId: r.commissionDetailId,
-                CommissionAmount: Number(source.commissionAmount ?? 0),
-                GSTAmount: Number(source.gstAmount ?? 0),
-                BonusAmount: Number(source.bonusAmount ?? 0),
-                InvoiceAmount: Number(source.invoiceAmount ?? 0),
+                CommissionAmount: round2(source.commissionAmount ?? source.commission),
+                GSTAmount: round2(source.gstAmount ?? source.gst),
+                BonusAmount: round2(source.bonusAmount ?? source.bonus),
+                InvoiceAmount: round2(source.invoiceAmount ?? source.invoice),
                 CommissionStatus: r.commissionStatus ?? 'Pending',
+                ReceivedDate: toIsoDateString(r.receivedDate) || null,
               };
             }),
         });
@@ -2157,6 +2331,8 @@ export default function NewStudentPage({ basePath }) {
 
       if (!isEdit) {
         const installmentIds = [];
+        const createdIdByRow = new Map();
+        const createdRowKey = (installmentNo, feeType) => `${installmentNo}|${feeType ?? ''}`;
 
         for (const item of paymentList) {
           if (isEdit && isPaidLike(item.status)) continue;
@@ -2167,7 +2343,9 @@ export default function NewStudentPage({ basePath }) {
             parentInstallmentId: item.parentInstallmentNo != null
               ? paymentList.find(
                 (x) => x.installmentNo === item.parentInstallmentNo && isSameFeeType(x, item)
-              )?.studentPaymentInstallmentId ?? null
+              )?.studentPaymentInstallmentId ??
+                createdIdByRow.get(createdRowKey(item.parentInstallmentNo, item.feeType)) ??
+                null
               : null,
             dueDate: item.dueDate,
             feesAmount: Number(item.amount),
@@ -2179,9 +2357,10 @@ export default function NewStudentPage({ basePath }) {
             feeType: item.feeType ?? null,
           });
 
-          installmentIds.push(
-            installment.studentPaymentInstallmentId ?? installment.StudentPaymentInstallmentId
-          );
+          const createdId =
+            installment.studentPaymentInstallmentId ?? installment.StudentPaymentInstallmentId;
+          installmentIds.push(createdId);
+          createdIdByRow.set(createdRowKey(item.installmentNo, item.feeType), createdId);
         }
 
         let index = 0;
@@ -2192,13 +2371,13 @@ export default function NewStudentPage({ basePath }) {
           await createStudentCommissionDetail({
             commissionId,
             studentPaymentInstallmentId: installmentIds[index],
-            commissionAmount: Number(row.commission),
-            gstAmount: Number(row.gst),
-            bonusAmount: Number(row.bonus),
-            invoiceAmount: Number(row.invoice),
+            commissionAmount: round2(row.commissionAmount ?? row.commission),
+            gstAmount: round2(row.gstAmount ?? row.gst),
+            bonusAmount: round2(row.bonusAmount ?? row.bonus),
+            invoiceAmount: round2(row.invoiceAmount ?? row.invoice),
             invoiceNo: null,
-            receivedDate: null,
-            commissionStatus: row.status,
+            receivedDate: toIsoDateString(row.receivedDate) || null,
+            commissionStatus: row.commissionStatus ?? row.status ?? 'Pending',
             remark: form.remark ?? '',
           });
 
@@ -2250,13 +2429,13 @@ export default function NewStudentPage({ basePath }) {
             await createStudentCommissionDetail({
               commissionId,
               studentPaymentInstallmentId: newInstallmentId,
-              commissionAmount: Number(row.commission),
-              gstAmount: Number(row.gst),
-              bonusAmount: Number(row.bonus),
-              invoiceAmount: Number(row.invoice),
+              commissionAmount: round2(row.commissionAmount ?? row.commission),
+              gstAmount: round2(row.gstAmount ?? row.gst),
+              bonusAmount: round2(row.bonusAmount ?? row.bonus),
+              invoiceAmount: round2(row.invoiceAmount ?? row.invoice),
               invoiceNo: null,
-              receivedDate: null,
-              commissionStatus: row.status,
+              receivedDate: toIsoDateString(row.receivedDate) || null,
+              commissionStatus: row.commissionStatus ?? row.status ?? 'Pending',
               remark: form.remark ?? '',
             });
           }
@@ -2265,15 +2444,25 @@ export default function NewStudentPage({ basePath }) {
 
       alert(isEdit ? 'Student updated successfully.' : 'Student created successfully.');
 
-      setForm(getEmptyForm(basePath));
-      setPaymentList([]);
-      setCourses([]);
-      setBonusApplied(false);
-      setAddBonus(false);
-      setGstPercentage(0);
-      setContracts([]);
-
-      navigate(basePath);
+      if (isEdit) {
+        setBonusOverrides({});
+        setCommissionStatusOverrides({});
+        setReceivedDateOverrides({});
+        setUnsavedStudentDocIds(new Set());
+        setEditPastDataRows(new Set());
+        setEditPastDataAll(false);
+        setFeeDraft(null);
+        setStudentReloadKey((key) => key + 1);
+      } else {
+        setForm(getEmptyForm(basePath));
+        setPaymentList([]);
+        setCourses([]);
+        setBonusApplied(false);
+        setAddBonus(false);
+        setGstPercentage(0);
+        setContracts([]);
+        navigate(basePath);
+      }
     } catch (err) {
       setError(err.message || 'Failed to save student.');
     } finally {
@@ -2717,12 +2906,11 @@ export default function NewStudentPage({ basePath }) {
 
                             <TableCell>
                               {canEditFees(item) ? (
-                                <TextField
+                                <DateTextField
                                   size="small"
-                                  type="date"
                                   value={(item.dueDate || '').slice(0, 10)}
-                                  onChange={(e) => handleDueDateChange(item, e.target.value)}
-                                  sx={{ width: 140 }}
+                                  onChangeValue={(value) => handleDueDateChange(item, value)}
+                                  sx={{ width: 160 }}
                                 />
                               ) : (
                                 formatDateCell(item.dueDate)
@@ -2740,12 +2928,11 @@ export default function NewStudentPage({ basePath }) {
 
                             <TableCell>
                               {canEditPaidFields(item) ? (
-                                <TextField
+                                <DateTextField
                                   size="small"
-                                  type="date"
                                   value={item.paidDate || ''}
-                                  onChange={(e) => handlePaidDateChange(item, e.target.value)}
-                                  sx={{ width: 140 }}
+                                  onChangeValue={(value) => handlePaidDateChange(item, value)}
+                                  sx={{ width: 160 }}
                                 />
                               ) : (
                                 formatDateCell(item.paidDate) || '-'
@@ -2987,6 +3174,7 @@ export default function NewStudentPage({ basePath }) {
                       <TableCell>Bonus</TableCell>
                       <TableCell>GST</TableCell>
                       <TableCell>Invoice</TableCell>
+                      <TableCell>Received Date</TableCell>
                       <TableCell>Status</TableCell>
                     </TableRow>
                   </TableHead>
@@ -3006,7 +3194,7 @@ export default function NewStudentPage({ basePath }) {
                             <TableCell> {Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
                             <TableCell>
                               {isTuitionFeeType(row.feeType) &&
-                                String(row.commissionHistoryOriginalStatus ?? '').trim().toLowerCase() !== 'paid' &&
+                                isCommissionPending(row.commissionStatus ?? row.commissionHistoryOriginalStatus) &&
                                 !row.isBonus ? (
                                 <TextField
                                   size="small"
@@ -3030,20 +3218,35 @@ export default function NewStudentPage({ basePath }) {
                             <TableCell> {Number(row.invoiceAmount ?? row.invoice).toFixed(2)} </TableCell>
                             <TableCell>
                               {isEdit ? (
+                                <DateTextField
+                                  size="small"
+                                  disabled={isCommissionReceived(row.commissionHistoryOriginalStatus) && Boolean(row.savedReceivedDate)}
+                                  value={toIsoDateString(row.receivedDate) || ''}
+                                  onChangeValue={(value) => {
+                                    setReceivedDateOverrides((prev) => ({
+                                      ...prev,
+                                      [bonusRowKey(row)]: value,
+                                    }));
+                                  }}
+                                  sx={{ width: 160 }}
+                                />
+                              ) : (
+                                formatDateCell(row.receivedDate)
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {isEdit ? (
                                 <Select
                                   size="small"
-                                  value={row.commissionStatus ?? 'Pending'}
-                                  disabled={
-                                    String(row.commissionHistoryOriginalStatus ?? '')
-                                      .trim()
-                                      .toLowerCase() === 'paid'
-                                  }
+                                  value={normalizeCommissionStatus(row.commissionStatus)}
+                                  disabled={isCommissionReceived(row.commissionStatus ?? row.commissionHistoryOriginalStatus)}
                                   onChange={(e) => handleCommissionStatusChange(row, e.target.value)}
                                   MenuProps={menuProps}
                                   sx={commissionSelectSx}
                                 >
                                   <MenuItem value="Pending">Pending</MenuItem>
-                                  <MenuItem value="Paid" disabled={!canEditCommissionStatus(row)}> Paid </MenuItem>
+                                  <MenuItem value="Received">Received</MenuItem>
+                                  <MenuItem value="Invoiced">Invoiced</MenuItem>
                                 </Select>
                               ) : (
                                 row.commissionStatus ?? 'Pending'
@@ -3061,10 +3264,11 @@ export default function NewStudentPage({ basePath }) {
                           <TableCell> <b>{totals.gst.toFixed(2)}</b> </TableCell>
                           <TableCell> <b>{totals.invoice.toFixed(2)}</b> </TableCell>
                           <TableCell />
+                          <TableCell />
                         </TableRow>
                       </>
                     ) : (
-                      <TableRow> <TableCell colSpan={10} align="center"> No Commission History </TableCell> </TableRow>
+                      <TableRow> <TableCell colSpan={11} align="center"> No Commission History </TableCell> </TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -3239,11 +3443,11 @@ export default function NewStudentPage({ basePath }) {
                   >
                     Start date
                   </Typography>
-                  <TextField
+                  <DateTextField
                     fullWidth
-                    type="date" size="small"
+                    size="small"
                     value={contractForm.startDate || ''}
-                    onChange={(e) => updateContractField('startDate', e.target.value)}
+                    onChangeValue={(value) => updateContractField('startDate', value)}
                     disabled={contractSaving}
                   />
                 </Box>
@@ -3255,11 +3459,11 @@ export default function NewStudentPage({ basePath }) {
                   >
                     End date
                   </Typography>
-                  <TextField
+                  <DateTextField
                     fullWidth
-                    type="date" size="small"
+                    size="small"
                     value={contractForm.endDate || ''}
-                    onChange={(e) => updateContractField('endDate', e.target.value)}
+                    onChangeValue={(value) => updateContractField('endDate', value)}
                     disabled={contractSaving}
                   />
                 </Box>

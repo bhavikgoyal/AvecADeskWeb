@@ -6,15 +6,15 @@ import {
 import ResponsiveTable from '../ResponsiveTable';
 import {
   fetchInvoiceById, fetchInvoiceLineItems,
-  approveInvoice, rejectInvoice, submitInvoice, updateInvoiceLineItemAmounts,
+  approveInvoice, rejectInvoice, updateInvoiceLineItemAmounts,
 } from '../../api/invoicesApi';
 
-const BASE_STATUS_OPTIONS = ['Pending', 'Invoiced', 'Paid', 'Rejected'];
+const STATUS_OPTIONS = ['Received', 'Rejected'];
 
 function normalizeStatusLabel(rawStatus) {
   if (!rawStatus) return '';
   const s = rawStatus.trim().toLowerCase();
-  if (s === 'approved' || s === 'paid') return 'Paid';
+  if (s === 'approved' || s === 'paid' || s === 'received') return 'Received';
   if (s === 'pending' || s === 'draft') return 'Pending';
   if (s === 'invoiced' || s === 'pendingapproval') return 'Invoiced';
   if (s === 'rejected') return 'Rejected';
@@ -43,7 +43,8 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
         if (cancelled) return;
         setInvoice(inv);
         setLineItems(items);
-        setStatus(normalizeStatusLabel(inv.invoiceStatus));
+        const loadedStatus = normalizeStatusLabel(inv.invoiceStatus);
+        setStatus(STATUS_OPTIONS.includes(loadedStatus) ? loadedStatus : '');
         const seeded = {};
         items.forEach((item) => {
           seeded[item.id] = String(item.amountRaw ?? 0);
@@ -64,19 +65,8 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
 
   const statusOptions = useMemo(() => {
     const current = normalizeStatusLabel(invoice?.invoiceStatus);
-
-    if (current === 'Paid') {
-      return ['Paid'];
-    }
-
-    if (current === 'Rejected') {
-      return ['Rejected', 'Pending'];
-    }
-
-    if (current && !BASE_STATUS_OPTIONS.includes(current)) {
-      return [current, ...BASE_STATUS_OPTIONS];
-    }
-    return BASE_STATUS_OPTIONS;
+    if (current === 'Received') return ['Received'];
+    return STATUS_OPTIONS;
   }, [invoice]);
 
   const currentNormalizedStatus = normalizeStatusLabel(invoice?.invoiceStatus);
@@ -138,9 +128,9 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
   };
 
   const handleSave = async () => {
-    if (!invoiceId || !status) return;
+    if (!invoiceId) return;
 
-    const statusChanged = status !== currentNormalizedStatus;
+    const statusChanged = Boolean(status) && status !== currentNormalizedStatus;
 
     if (!statusChanged && !(isAmountEditable && hasAmountChanges)) {
       handleClose();
@@ -176,9 +166,8 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
       }
 
       if (statusChanged) {
-        if (status === 'Paid') await approveInvoice(invoiceId);
+        if (status === 'Received') await approveInvoice(invoiceId);
         else if (status === 'Rejected') await rejectInvoice(invoiceId, rejectionReason.trim());
-        else if (status === 'Invoiced') await submitInvoice(invoiceId);
       }
 
       onUpdated?.();
@@ -300,14 +289,15 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
                   label="Invoice Status"
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  disabled={saving}
+                  disabled={saving || currentNormalizedStatus === 'Received'}
+                  SelectProps={{
+                    displayEmpty: true,
+                    renderValue: (value) => value || currentNormalizedStatus || 'Select status',
+                  }}
+                  InputLabelProps={{ shrink: true }}
                 >
                   {statusOptions.map((opt) => (
-                    <MenuItem
-                      key={opt}
-                      value={opt}
-                      disabled={opt === 'Pending' && currentNormalizedStatus !== 'Pending'}
-                    >
+                    <MenuItem key={opt} value={opt}>
                       {opt}
                     </MenuItem>
                   ))}
@@ -353,7 +343,12 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={saving || loading || !status || currentNormalizedStatus === 'Paid'}
+          disabled={
+            saving ||
+            loading ||
+            currentNormalizedStatus === 'Received' ||
+            (!status && !hasAmountChanges)
+          }
           sx={{ textTransform: 'none', bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' }, fontWeight: 600 }}
         >
           {saving ? 'Saving...' : 'Save Status'}

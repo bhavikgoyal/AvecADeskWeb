@@ -314,6 +314,21 @@ export async function uploadInstallmentDocument({
     );
   }
 }
+export async function clearInstallmentDocument(studentPaymentInstallmentId) {
+  try {
+    const { data } = await axiosClient.post(
+      '/api/schedules/ClearInstallmentDocument',
+      { studentPaymentInstallmentId }
+    );
+    return data;
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(err, 'Failed to remove the document.'),
+      { cause: err }
+    );
+  }
+}
+
 export async function confirmInstallmentByStudent(
   studentPaymentInstallmentId
 ) {

@@ -270,7 +270,7 @@ function drawInfoBox(doc, invoice, startY, lineItems = []) {
   const labelWidth = doc.getTextWidth('Invoice No:');
 
   doc.setFont('times', 'normal');
-  const dateText = formatDate(invoice.createdAtRaw || invoice.createdAt);
+  const dateText = formatDate(new Date());
   const maxValueWidth = Math.max(
     doc.getTextWidth(dateText),
     ...invoiceLines.map((l) => doc.getTextWidth(l))
@@ -429,15 +429,18 @@ function drawItemRow(doc, y, geo, srNo, itemLines) {
 
   doc.setFont('times', 'normal');
   doc.setFontSize(12);
-  doc.text(`${srNo}.`, MARGIN_X + colSr / 2, y + rowHeight / 2, { align: 'center' });
 
-  let ty = y + 8;
-  wrapped.forEach((line) => {
-    doc.text(line, xPart + 3, ty);
-    ty += lineHeight;
+  const textTop = y + 8;
+  const studentLineIndex = wrapped.findIndex((line) => String(line).startsWith('Student Name'));
+  const alignY = textTop + (studentLineIndex >= 0 ? studentLineIndex : 0) * lineHeight;
+
+  doc.text(`${srNo}.`, MARGIN_X + colSr / 2, alignY, { align: 'center' });
+
+  wrapped.forEach((line, index) => {
+    doc.text(line, xPart + 3, textTop + index * lineHeight);
   });
 
-  doc.text(formatMoney(amountVal), xAmount + colAmount - 3, y + rowHeight / 2, { align: 'right' });
+  doc.text(formatMoney(amountVal), xAmount + colAmount - 3, alignY, { align: 'right' });
 
   return y + rowHeight;
 }

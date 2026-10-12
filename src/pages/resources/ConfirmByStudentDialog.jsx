@@ -103,6 +103,7 @@ export default function ConfirmByStudentDialog({
       }
 
       setDocumentUrl(uploadedUrl);
+      onConfirmed?.(installment, uploadedUrl);
     } catch (err) {
       setError(err?.message || 'Failed to upload document.');
     } finally {
