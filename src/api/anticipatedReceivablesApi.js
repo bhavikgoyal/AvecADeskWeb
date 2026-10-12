@@ -243,6 +243,144 @@ export function buildAnticipatedReceivablesMatrix(rows, range = buildReceivables
   };
 }
 
+function buildMonthsBetween(startDate, endDate) {
+  const current = startOfMonth(new Date());
+  const start = startOfMonth(startDate);
+  const end = startOfMonth(endDate);
+  const months = [];
+  for (let d = start; d <= end; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+    months.push({
+      key: monthKey(d),
+      label: monthLabel(d),
+      year: d.getFullYear(),
+      month: d.getMonth(),
+      isCurrent: monthKey(d) === monthKey(current),
+      isFuture: d > current,
+    });
+  }
+  return months;
+}
+
+function parseReportMonth(value) {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})/.exec(String(value));
+  if (match) return new Date(Number(match[1]), Number(match[2]) - 1, 1);
+  return ensureDate(value);
+}
+
+function reportCellStatus({ amount, overdue, received }) {
+  if (overdue > 0) return 'overdue';
+  if (received > 0 && received >= amount) return 'paid';
+  return 'anticipated';
+}
+
+const REPORT_TAB_FIELDS = {
+  all: 'amount',
+  overdue: 'overdue',
+  received: 'received',
+};
+
+const REPORT_TAB_STATUS = {
+  overdue: 'overdue',
+  received: 'paid',
+};
+
+/**
+ * Builds one college x month matrix per tab from SP_StudentCommissionDetail_ReceivableReport:
+ * All = Amount, Overdue = TotalOverDueAmount, Received = TotalReceivedAmount.
+ */
+export async function fetchCommissionReceivableMatrices(filters = {}) {
+  const { data } = await axiosClient.get('/api/receivables/commission-receivable-report', {
+    params: { reportType: 'All' },
+  });
+
+  const from = filters.fromDate ? parseReportMonth(filters.fromDate) : null;
+  const to = filters.toDate ? parseReportMonth(filters.toDate) : null;
+  const instituteId = filters.instituteId ? String(filters.instituteId) : '';
+
+  const rows = asArray(data)
+    .map((row) => {
+      const reportMonth = parseReportMonth(row.reportMonth ?? row.ReportMonth);
+      return {
+        scrappingId: String(row.scrappingId ?? row.ScrappingId ?? ''),
+        collegeName: resolveCollegeName(row),
+        reportMonth,
+        amount: Number(row.amount ?? row.Amount ?? 0) || 0,
+        overdue: Number(row.totalOverDueAmount ?? row.TotalOverDueAmount ?? 0) || 0,
+        received: Number(row.totalReceivedAmount ?? row.TotalReceivedAmount ?? 0) || 0,
+      };
+    })
+    .filter((row) => {
+      if (!row.reportMonth) return false;
+      if (from && row.reportMonth < from) return false;
+      if (to && row.reportMonth > to) return false;
+      if (instituteId && row.scrappingId !== instituteId) return false;
+      return true;
+    });
+
+  const defaultRange = buildReceivablesMonthRange();
+  let rangeStart = from || parseReportMonth(defaultRange.fromDate);
+  let rangeEnd = to || parseReportMonth(defaultRange.toDate);
+  if (!from || !to) {
+    for (const row of rows) {
+      if (!from && row.reportMonth < rangeStart) rangeStart = row.reportMonth;
+      if (!to && row.reportMonth > rangeEnd) rangeEnd = row.reportMonth;
+    }
+  }
+  const months = buildMonthsBetween(rangeStart, rangeEnd);
+  const fromDate = toIsoDate(startOfMonth(rangeStart));
+  const toDate = toIsoDate(endOfMonth(rangeEnd));
+  const titleYears = `${months[0]?.year ?? ''} - ${months[months.length - 1]?.year ?? ''}`;
+
+  const buildMatrix = (tab) => {
+    const field = REPORT_TAB_FIELDS[tab];
+    const byCollege = new Map();
+
+    for (const row of rows) {
+      const value = row[field];
+      if (!value) continue;
+      const key = monthKey(row.reportMonth);
+      if (!byCollege.has(row.collegeName)) {
+        byCollege.set(row.collegeName, { collegeName: row.collegeName, cells: {} });
+      }
+      const cells = byCollege.get(row.collegeName).cells;
+      const cell = cells[key] || { amount: 0, overdue: 0, received: 0, total: 0 };
+      cell.amount += value;
+      cell.total += row.amount;
+      cell.overdue += row.overdue;
+      cell.received += row.received;
+      cells[key] = cell;
+    }
+
+    const colleges = Array.from(byCollege.values())
+      .map((college) => {
+        const cells = {};
+        for (const [key, cell] of Object.entries(college.cells)) {
+          cells[key] = {
+            ...cell,
+            status: REPORT_TAB_STATUS[tab]
+              || reportCellStatus({ amount: cell.total, overdue: cell.overdue, received: cell.received }),
+          };
+        }
+        return { collegeName: college.collegeName, cells };
+      })
+      .sort((a, b) => a.collegeName.localeCompare(b.collegeName));
+
+    const totals = {};
+    for (const m of months) {
+      totals[m.key] = colleges.reduce((sum, c) => sum + (Number(c.cells[m.key]?.amount) || 0), 0);
+    }
+
+    return { title: `Estimated ${titleYears}`, months, fromDate, toDate, colleges, totals };
+  };
+
+  return {
+    all: buildMatrix('all'),
+    overdue: buildMatrix('overdue'),
+    received: buildMatrix('received'),
+  };
+}
+
 export async function fetchAnticipatedReceivablesMatrix(filters = {}) {
   const range = buildReceivablesMonthRange();
   const params = {
