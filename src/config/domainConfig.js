@@ -108,7 +108,8 @@ agent: {
     label: 'Frequency', type: 'radio', grid: grid.half,
     options: [
       { value: 'Monthly', label: 'Monthly' },
-      { value: 'Quarterly', label: 'Quarterly' }],
+      { value: 'Quarterly', label: 'Quarterly' },
+      { value: 'HalfYearly', label: 'Half Yearly' }],
   },
   startDate: { label: 'Installment Start Date', type: 'date', grid: grid.half, },
 courseStartDate: { label: 'Course Start Date', type: 'date', grid: grid.half },

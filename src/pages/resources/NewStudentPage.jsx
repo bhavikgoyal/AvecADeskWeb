@@ -14,7 +14,7 @@ import { fetchStudentContracts, createStudentContract, updateStudentContract, de
 import { fetchUniqueInstituteNames, getCampusesForInstitute, getUniqueInstituteNames, normalizeInstituteName, resolveScrappingId, } from '../../api/institutesScrappingApi';
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
 import { createStudentWithPaymentSchedule, fetchStudentById, fetchStudentPaymentDetail, saveStudentEnrollmentNumber } from '../../api/studentsApi';
-import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule, } from '../../api/schedulesApi';
+import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule, clearInstallmentDocument, } from '../../api/schedulesApi';
 import { FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
 import { formatDateDisplay } from '../../utils/dateFormat';
@@ -194,6 +194,7 @@ const shiftByFrequency = (baseDate, frequency, periods) => {
   const date = new Date(baseDate);
   if (frequency === 'Monthly') date.setMonth(date.getMonth() + periods);
   else if (frequency === 'Quarterly') date.setMonth(date.getMonth() + periods * 3);
+  else if (frequency === 'HalfYearly') date.setMonth(date.getMonth() + periods * 6);
   return date;
 };
 
@@ -229,6 +230,14 @@ const isSameFeeType = (a, b) => (a.feeType ?? null) === (b.feeType ?? null);
 const isScheduledInstallment = (row) => {
   const n = Number(row?.installmentNo);
   return Number.isFinite(n) && n >= 1 && Math.abs(n - Math.round(n)) < 1e-6;
+};
+
+// A partial split creates 5.1. That child keeps commission, but not the installment bonus.
+const isSplitInstallment = (row) => {
+  if (!row) return false;
+  if (row.parentInstallmentNo != null || row.parentInstallmentId != null) return true;
+  const n = Number(row.installmentNo ?? row.apiInstallmentNo);
+  return Number.isFinite(n) && Math.abs(n - Math.round(n)) > 1e-6;
 };
 
 const feeRemainderPoolCents = (list, item) => {
@@ -642,6 +651,7 @@ export default function NewStudentPage({ basePath }) {
   const [bonusOverrides, setBonusOverrides] = useState({});
   const [addBonus, setAddBonus] = useState(false);
   const [commissionHistory, setCommissionHistory] = useState([]);
+  const [commissionStatusOverrides, setCommissionStatusOverrides] = useState({});
   const [originalPaymentList, setOriginalPaymentList] = useState([]);
   const [originalSchedule, setOriginalSchedule] = useState(null);
   const [installmentCountDraft, setInstallmentCountDraft] = useState('');
@@ -649,6 +659,7 @@ export default function NewStudentPage({ basePath }) {
   const [feeDraft, setFeeDraft] = useState(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmTargetInstallment, setConfirmTargetInstallment] = useState(null);
+  const [unsavedStudentDocIds, setUnsavedStudentDocIds] = useState(() => new Set());
   const [instituteLocked, setInstituteLocked] = useState(false);
   const [savedScheduleSnapshot, setSavedScheduleSnapshot] = useState(null);
   const [savedStudentSnapshot, setSavedStudentSnapshot] = useState(null);
@@ -1287,7 +1298,7 @@ export default function NewStudentPage({ basePath }) {
         let bonus = 0;
 
         const isTuitionFee = feeTypeKey === 'tuition fee';
-        if (isTuitionFee && addBonus && bonusApplied && applyBonus) {
+        if (isTuitionFee && addBonus && bonusApplied && applyBonus && !isSplitInstallment(item)) {
           if (form.bonusType === 'Percentage') {
             bonus = round2((rawCommission * Number(form.bonus || 0)) / 100);
           } else if (form.bonusType === 'Fixed') {
@@ -1363,7 +1374,13 @@ export default function NewStudentPage({ basePath }) {
         const payment = paymentList.find((p) => Number(p.studentPaymentInstallmentId) === spiId);
         const calc = calcById.get(spiId);
         const isBonus = Number(h.isBonus ?? h.IsBonus ?? 0) === 1;
-        const status = h.commissionStatus ?? h.CommissionStatus ?? 'Pending';
+        const status =
+          commissionStatusOverrides[
+            `id:${h.commissionDetailId ?? h.CommissionDetailId ?? ''}|spi:${spiId}|${h.installmentNo}`
+          ] ??
+          h.commissionStatus ??
+          h.CommissionStatus ??
+          'Pending';
 
         const storedBonus = Number(h.bonusAmount ?? h.BonusAmount ?? 0);
         const commissionAmount = isBonus
@@ -1372,9 +1389,12 @@ export default function NewStudentPage({ basePath }) {
         const gstAmount = isBonus
           ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
           : Number(calc?.gst ?? h.gstAmount ?? 0);
-        const bonusAmount = isBonus || bonusFromDetail
-          ? storedBonus
-          : Number(calc?.bonus ?? storedBonus);
+        const splitChild = !isBonus && isSplitInstallment(payment || { installmentNo: h.installmentNo });
+        const bonusAmount = splitChild
+          ? 0
+          : isBonus || bonusFromDetail
+            ? storedBonus
+            : Number(calc?.bonus ?? storedBonus);
         const invoiceAmount = isBonus
           ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
           : round2(
@@ -1425,6 +1445,10 @@ export default function NewStudentPage({ basePath }) {
       if (seen.has(key)) return;
       if (id && rows.some((r) => Number(r.studentPaymentInstallmentId) === id)) return;
 
+      const extraStatus =
+        commissionStatusOverrides[
+          `id:|spi:${calc.studentPaymentInstallmentId ?? ''}|${calc.installmentNo}`
+        ] ?? 'Pending';
       const extra = {
         studentPaymentInstallmentId: calc.studentPaymentInstallmentId,
         installmentNo: calc.installmentNo,
@@ -1437,8 +1461,8 @@ export default function NewStudentPage({ basePath }) {
         gstAmount: Number(calc.gst || 0),
         bonusAmount: Number(calc.bonus || 0),
         invoiceAmount: Number(calc.invoice || 0),
-        commissionStatus: 'Pending',
-        commissionHistoryOriginalStatus: 'Pending',
+        commissionStatus: extraStatus,
+        commissionHistoryOriginalStatus: extraStatus,
       };
 
       const at = rows.findIndex((r) => Number(r.installmentNo) > Number(extra.installmentNo));
@@ -1465,7 +1489,7 @@ export default function NewStudentPage({ basePath }) {
     );
 
     return rows.map(applyBonusEdit);
-  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, gstInclusive, bonusFromDetail]);
+  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, gstInclusive, bonusFromDetail, commissionStatusOverrides]);
 
   const totals = useMemo(
     () => ({
@@ -1618,13 +1642,14 @@ export default function NewStudentPage({ basePath }) {
   };
 
   const canEditCommissionStatus = (row) => {
-    const sortedRows = historyRows;
-    const currentIndex = sortedRows.findIndex((x) => x.commissionDetailId === row.commissionDetailId);
+    const rowKey = (item) =>
+      `${item.commissionDetailId ?? ''}|${item.studentPaymentInstallmentId ?? ''}|${item.displayInstallmentNo ?? item.installmentNo}|${item.feeType ?? ''}`;
+    const currentIndex = historyRows.findIndex((x) => rowKey(x) === rowKey(row));
 
     if (currentIndex <= 0) return true;
 
-    const previous = sortedRows[currentIndex - 1];
-    return String(previous?.commissionStatus ?? '').toLowerCase() === 'paid';
+    const previous = historyRows[currentIndex - 1];
+    return String(previous?.commissionStatus ?? '').trim().toLowerCase() === 'paid';
   };
 
   const toggleRowPastData = (item) => {
@@ -1830,6 +1855,22 @@ export default function NewStudentPage({ basePath }) {
   };
 
   const handleStatusChange = (item, value) => {
+    const installmentId = item.studentPaymentInstallmentId;
+    const dropUnsavedReceipt =
+      item.status === 'ConfirmedByStudent' &&
+      value !== 'ConfirmedByStudent' &&
+      installmentId &&
+      unsavedStudentDocIds.has(installmentId);
+
+    if (dropUnsavedReceipt) {
+      setUnsavedStudentDocIds((prev) => {
+        const next = new Set(prev);
+        next.delete(installmentId);
+        return next;
+      });
+      clearInstallmentDocument(installmentId).catch(() => {});
+    }
+
     if (value === 'ConfirmedByStudent') {
       setConfirmTargetInstallment(item);
       setConfirmDialogOpen(true);
@@ -1853,6 +1894,7 @@ export default function NewStudentPage({ basePath }) {
           paidAmount: isPaid ? paidLikeAmount : isPartial ? x.paidAmount || '0.00' : '0.00',
           balance: isPaid ? '0.00' : isPartial ? x.balance : x.amount,
           paidDate: isPaid || isPartial ? x.paidDate || todayIso() : null,
+          ...(dropUnsavedReceipt ? { documentUrl: null, installmentImage: null } : {}),
         };
       });
 
@@ -1914,18 +1956,33 @@ export default function NewStudentPage({ basePath }) {
 
   const handleCommissionStatusChange = (row, value) => {
     const currentCommissionDetailId = Number(row.commissionDetailId ?? row.CommissionDetailId);
+    const overrideKey = `id:${row.commissionDetailId ?? ''}|spi:${row.studentPaymentInstallmentId ?? ''}|${row.installmentNo}`;
+    setCommissionStatusOverrides((prev) => ({ ...prev, [overrideKey]: value }));
+
+    if (!Number.isFinite(currentCommissionDetailId) || currentCommissionDetailId <= 0) return;
 
     setCommissionHistory((prev) =>
       prev.map((x) => {
         const commissionDetailId = Number(x.commissionDetailId ?? x.CommissionDetailId);
         return commissionDetailId === currentCommissionDetailId
-          ? { ...x, commissionStatus: value }
+          ? { ...x, commissionStatus: value, CommissionStatus: value }
           : x;
       })
     );
   };
 
   const handleConfirmedByStudent = (installment, documentUrl) => {
+    const installmentId = installment?.studentPaymentInstallmentId;
+    if (installmentId) {
+      setUnsavedStudentDocIds((prev) => {
+        const next = new Set(prev);
+        next.add(installmentId);
+        return next;
+      });
+    }
+
+    let clearUploadedReceipt = false;
+
     setPaymentList((prev) => {
       let updated = prev;
       const leftoverChild = updated.find(
@@ -1941,6 +1998,11 @@ export default function NewStudentPage({ basePath }) {
 
       return updated.map((x) => {
         if (!isSamePaymentRow(x, installment)) return x;
+
+        if (x.status !== 'ConfirmedByStudent') {
+          clearUploadedReceipt = true;
+          return { ...x, documentUrl: null, installmentImage: null };
+        }
 
         const paidLikeAmount = hasSplitChild(updated, x) && Number(x.paidAmount) > 0
           ? x.paidAmount
@@ -1960,6 +2022,10 @@ export default function NewStudentPage({ basePath }) {
         };
       });
     });
+
+    if (clearUploadedReceipt && installmentId) {
+      clearInstallmentDocument(installmentId).catch(() => {});
+    }
 
     setCommissionHistory((prev) =>
       prev.map((x) =>
@@ -2133,19 +2199,19 @@ export default function NewStudentPage({ basePath }) {
               const source =
                 isAlreadyPaid && original
                   ? {
-                    commissionAmount: original.commissionAmount,
-                    gstAmount: original.gstAmount,
-                    bonusAmount: original.bonusAmount,
-                    invoiceAmount: original.invoiceAmount,
+                    commissionAmount: original.commissionAmount ?? original.CommissionAmount,
+                    gstAmount: original.gstAmount ?? original.GSTAmount,
+                    bonusAmount: original.bonusAmount ?? original.BonusAmount,
+                    invoiceAmount: original.invoiceAmount ?? original.InvoiceAmount,
                   }
                   : r;
 
               return {
                 CommissionDetailId: r.commissionDetailId,
-                CommissionAmount: Number(source.commissionAmount ?? 0),
-                GSTAmount: Number(source.gstAmount ?? 0),
-                BonusAmount: Number(source.bonusAmount ?? 0),
-                InvoiceAmount: Number(source.invoiceAmount ?? 0),
+                CommissionAmount: round2(source.commissionAmount ?? source.commission),
+                GSTAmount: round2(source.gstAmount ?? source.gst),
+                BonusAmount: round2(source.bonusAmount ?? source.bonus),
+                InvoiceAmount: round2(source.invoiceAmount ?? source.invoice),
                 CommissionStatus: r.commissionStatus ?? 'Pending',
               };
             }),
@@ -2192,13 +2258,13 @@ export default function NewStudentPage({ basePath }) {
           await createStudentCommissionDetail({
             commissionId,
             studentPaymentInstallmentId: installmentIds[index],
-            commissionAmount: Number(row.commission),
-            gstAmount: Number(row.gst),
-            bonusAmount: Number(row.bonus),
-            invoiceAmount: Number(row.invoice),
+            commissionAmount: round2(row.commissionAmount ?? row.commission),
+            gstAmount: round2(row.gstAmount ?? row.gst),
+            bonusAmount: round2(row.bonusAmount ?? row.bonus),
+            invoiceAmount: round2(row.invoiceAmount ?? row.invoice),
             invoiceNo: null,
             receivedDate: null,
-            commissionStatus: row.status,
+            commissionStatus: row.commissionStatus ?? row.status ?? 'Pending',
             remark: form.remark ?? '',
           });
 
@@ -2250,13 +2316,13 @@ export default function NewStudentPage({ basePath }) {
             await createStudentCommissionDetail({
               commissionId,
               studentPaymentInstallmentId: newInstallmentId,
-              commissionAmount: Number(row.commission),
-              gstAmount: Number(row.gst),
-              bonusAmount: Number(row.bonus),
-              invoiceAmount: Number(row.invoice),
+              commissionAmount: round2(row.commissionAmount ?? row.commission),
+              gstAmount: round2(row.gstAmount ?? row.gst),
+              bonusAmount: round2(row.bonusAmount ?? row.bonus),
+              invoiceAmount: round2(row.invoiceAmount ?? row.invoice),
               invoiceNo: null,
               receivedDate: null,
-              commissionStatus: row.status,
+              commissionStatus: row.commissionStatus ?? row.status ?? 'Pending',
               remark: form.remark ?? '',
             });
           }
@@ -3006,7 +3072,7 @@ export default function NewStudentPage({ basePath }) {
                             <TableCell> {Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
                             <TableCell>
                               {isTuitionFeeType(row.feeType) &&
-                                String(row.commissionHistoryOriginalStatus ?? '').trim().toLowerCase() !== 'paid' &&
+                                String(row.commissionStatus ?? row.commissionHistoryOriginalStatus ?? '').trim().toLowerCase() !== 'paid' &&
                                 !row.isBonus ? (
                                 <TextField
                                   size="small"
@@ -3034,7 +3100,7 @@ export default function NewStudentPage({ basePath }) {
                                   size="small"
                                   value={row.commissionStatus ?? 'Pending'}
                                   disabled={
-                                    String(row.commissionHistoryOriginalStatus ?? '')
+                                    String(row.commissionStatus ?? row.commissionHistoryOriginalStatus ?? '')
                                       .trim()
                                       .toLowerCase() === 'paid'
                                   }
