@@ -17,7 +17,7 @@ import {
 import DownloadIcon from '@mui/icons-material/Download';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TableChartIcon from '@mui/icons-material/TableChart';
-import { fetchAnticipatedReceivablesMatrix } from '../../api/anticipatedReceivablesApi';
+import { fetchCommissionReceivableMatrices } from '../../api/anticipatedReceivablesApi';
 import { fetchInstitutesForReceivables, fetchStudentsLookup } from '../../api/lookupApi';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -34,8 +34,8 @@ const COLORS = {
   stickyBg: '#ffffff',
 };
 
-const TAB_STATUS = ['anticipated', 'overdue', 'paid'];
-const TAB_NAMES = ['anticipated', 'overdue', 'received'];
+const TAB_KEYS = ['all', 'overdue', 'received'];
+const TAB_NAMES = ['all', 'overdue', 'received'];
 
 function fmtMoney(amount) {
   if (amount == null) return '—';
@@ -108,46 +108,14 @@ function cellStyles(status) {
   return { ...base, bgcolor: '#fff', color: '#999' };
 }
 
-function filterMatrixByStatus(matrix, statusFilter) {
-  if (!matrix) return null;
-  if (!statusFilter) return matrix;
-
-  const colleges = [];
-  const totals = {};
-  for (const m of matrix.months) totals[m.key] = 0;
-
-  for (const college of matrix.colleges || []) {
-    const cells = {};
-    let hasAny = false;
-    for (const m of matrix.months) {
-      const cell = college.cells?.[m.key];
-      if (!cell || cell.status !== statusFilter || !cell.amount) continue;
-      cells[m.key] = cell;
-      totals[m.key] += Number(cell.amount) || 0;
-      hasAny = true;
-    }
-    if (hasAny) colleges.push({ ...college, cells });
-  }
-
-  return { ...matrix, colleges, totals };
-}
-
 function summarizeMatrix(matrix) {
-  const summary = {
-    anticipated: { amount: 0, count: 0 },
-    overdue: { amount: 0, count: 0 },
-    paid: { amount: 0, count: 0 },
-  };
-  if (!matrix?.colleges) return summary;
-
-  for (const college of matrix.colleges) {
+  const summary = { amount: 0, count: 0 };
+  for (const college of matrix?.colleges || []) {
     for (const cell of Object.values(college.cells || {})) {
-      const status = cell?.status;
-      if (!status || !summary[status]) continue;
-      const amount = Number(cell.amount) || 0;
+      const amount = Number(cell?.amount) || 0;
       if (!amount) continue;
-      summary[status].amount += amount;
-      summary[status].count += 1;
+      summary.amount += amount;
+      summary.count += 1;
     }
   }
   return summary;
@@ -219,10 +187,12 @@ function MonthGrid({ matrix, loading }) {
   const tableScrollRef = useRef(null);
 
   useEffect(() => {
-    if (!loading && matrix && tableScrollRef.current) {
-      tableScrollRef.current.scrollLeft =
-        tableScrollRef.current.scrollWidth;
-    }
+    const container = tableScrollRef.current;
+    if (loading || !matrix || !container) return;
+    const currentTh = container.querySelector('th[data-current="true"]');
+    container.scrollLeft = currentTh
+      ? Math.max(currentTh.offsetLeft - 240, 0)
+      : container.scrollWidth;
   }, [loading, matrix]);
 
   if (loading) {
@@ -286,6 +256,7 @@ function MonthGrid({ matrix, loading }) {
                 <Box
                   component="th"
                   key={m.key}
+                  data-current={m.isCurrent ? 'true' : undefined}
                   sx={{
                     position: 'sticky',
                     top: 0,
@@ -430,7 +401,7 @@ export default function AnticipatedReceivables1Page() {
     instituteId: '',
     studentId: '',
   });
-  const [matrix, setMatrix] = useState(null);
+  const [matrices, setMatrices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -452,10 +423,10 @@ export default function AnticipatedReceivables1Page() {
       if (appliedFilters.toDate) f.toDate = appliedFilters.toDate;
       if (appliedFilters.instituteId) f.instituteId = appliedFilters.instituteId;
       if (appliedFilters.studentId) f.studentId = appliedFilters.studentId;
-      const data = await fetchAnticipatedReceivablesMatrix(f);
-      setMatrix(data);
+      const data = await fetchCommissionReceivableMatrices(f);
+      setMatrices(data);
     } catch (err) {
-      setMatrix(null);
+      setMatrices(null);
       setError(err?.message || 'Failed to load receivables data.');
     } finally {
       setLoading(false);
@@ -466,12 +437,13 @@ export default function AnticipatedReceivables1Page() {
     load();
   }, [load]);
 
-  const summary = useMemo(() => summarizeMatrix(matrix), [matrix]);
+  const summary = useMemo(() => ({
+    all: summarizeMatrix(matrices?.all),
+    overdue: summarizeMatrix(matrices?.overdue),
+    received: summarizeMatrix(matrices?.received),
+  }), [matrices]);
 
-  const viewMatrix = useMemo(() => {
-    if (tab === 0) return matrix;
-    return filterMatrixByStatus(matrix, TAB_STATUS[tab]);
-  }, [matrix, tab]);
+  const viewMatrix = matrices?.[TAB_KEYS[tab]] ?? null;
 
   const handleFilterChange = (field) => (e) =>
     setFilters((prev) => ({ ...prev, [field]: e.target.value }));
@@ -586,7 +558,7 @@ export default function AnticipatedReceivables1Page() {
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 All
-                <Chip label={summary.anticipated.count} size="small" sx={{ height: 18, fontSize: 11 }} />
+                <Chip label={summary.all.count} size="small" sx={{ height: 18, fontSize: 11 }} />
               </Box>
             }
           />
@@ -608,7 +580,7 @@ export default function AnticipatedReceivables1Page() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 Received
                 <Chip
-                  label={summary.paid.count}
+                  label={summary.received.count}
                   size="small"
                   color="success"
                   sx={{ height: 18, fontSize: 11 }}
