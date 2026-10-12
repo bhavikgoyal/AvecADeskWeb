@@ -67,6 +67,7 @@ export function mapPaidStudentRow(item) {
     bonusAmount: formatCurrency(bonusRaw),
     bonusAmountRaw: Number.isFinite(bonusRaw) ? bonusRaw : 0,
     paymentStatus: item.paymentStatus ?? item.PaymentStatus ?? '',
+    commissionStatus: item.commissionStatus ?? item.CommissionStatus ?? '',
     commissionDetailId: item.commissionDetailId ?? item.CommissionDetailId,
     studentPaymentInstallmentId: item.studentPaymentInstallmentId ?? item.StudentPaymentInstallmentId,
     isBonus: Boolean(item.isBonus ?? item.IsBonus ?? false),

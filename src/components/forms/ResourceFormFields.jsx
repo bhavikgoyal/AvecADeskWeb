@@ -58,7 +58,6 @@ const dateFieldProps = {
   InputLabelProps: { shrink: true },
   slotProps: {
     inputLabel: { shrink: true },
-    htmlInput: { placeholder: '' },
   },
 };
 

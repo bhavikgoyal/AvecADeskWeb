@@ -147,10 +147,11 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
     };
   }, [open, resolvedInstituteId, campus, now]);
 
-  const isPaidRow = useCallback(
-    (row) => String(row?.paymentStatus ?? '').trim().toLowerCase() !== 'pending',
-    [],
-  );
+  const isPaidRow = useCallback((row) => {
+    const status = String(row?.commissionStatus ?? '').trim().toLowerCase();
+    if (!status) return true;
+    return status === 'pending';
+  }, []);
 
   const paidStudents = useMemo(
     () => students.filter(isPaidRow),
@@ -305,11 +306,11 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         (x) => Number(editedInvoiceAmts[x.id] ?? x.invoiceAmountRaw ?? 0));
 
       const result = await generateMonthlyInvoice({
-        year: now.getFullYear(),
-        month: now.getMonth() + 1,
         instituteId: Number(resolvedInstituteId),
         campus,
-        installmentIds: selectedPaid.map((s) => s.id),
+        installmentIds: selectedPaid
+          .map((s) => Number(s.studentPaymentInstallmentId))
+          .filter((id) => Number.isFinite(id) && id > 0),
         commissionDetailId,
         bonusAmount,
         invoiceAmounts,
@@ -319,7 +320,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         setError(
           result?.message ||
             result?.Message ||
-            `No paid installments were invoiced for ${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()}.`
+            'No installments were invoiced.'
         );
         return;
       }
@@ -356,7 +357,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
           title={
             isPaidRow(row)
               ? 'Checked rows can edit Invoice/ bonus Amt and will be included in the invoice'
-              : 'Pending installments are not included in the invoice.'
+              : 'Only commission status Pending is included in the invoice.'
           }
         >
           <span>
@@ -553,8 +554,8 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
                 variant="caption"
                 sx={{ color: 'var(--muted)', display: 'block', mb: 1 }}
               >
-                Installments for this institute and campus are listed. Pending installments are not
-                shown. Checked rows are included in the invoice
+                Only confirmed installments whose commission status is Pending are listed. Checked rows are
+                included in the invoice
                 {selectedPaidCount > 0
                   ? ` (${selectedPaidCount} selected)`
                   : ''}
