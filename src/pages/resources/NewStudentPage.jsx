@@ -141,6 +141,22 @@ const splitCents = (totalCents, count) => {
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
+const localTodayIso = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+const isNonTuitionFeeRow = (row) =>
+  String(row?.feeType ?? row?.FeeType ?? '').trim().toLowerCase() === 'non-tuition fee';
+
+const newCommissionStatusFields = (row) =>
+  isNonTuitionFeeRow(row)
+    ? { receivedDate: toIsoDateString(row.receivedDate) || localTodayIso(), commissionStatus: 'Received' }
+    : {
+      receivedDate: toIsoDateString(row.receivedDate) || null,
+      commissionStatus: row.commissionStatus ?? row.status ?? 'Pending',
+    };
+
 const toIsoDate = (date) => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -1421,20 +1437,25 @@ export default function NewStudentPage({ basePath }) {
           'Pending'
         );
 
+        const isInvoicedUpdate =
+          h.isInvoicedUpdate === true || Number(h.isInvoicedUpdate ?? h.IsInvoicedUpdate ?? 0) === 1;
+        const useStoredAmounts = isBonus || isInvoicedUpdate;
         const storedBonus = Number(h.bonusAmount ?? h.BonusAmount ?? 0);
-        const commissionAmount = isBonus
+        const commissionAmount = useStoredAmounts
           ? Number(h.commissionAmount ?? h.CommissionAmount ?? 0)
           : Number(calc?.commission ?? h.commissionAmount ?? 0);
-        const gstAmount = isBonus
+        const gstAmount = useStoredAmounts
           ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
           : Number(calc?.gst ?? h.gstAmount ?? 0);
         const splitChild = !isBonus && isSplitInstallment(payment || { installmentNo: h.installmentNo });
-        const bonusAmount = splitChild
-          ? 0
-          : isBonus || bonusFromDetail
-            ? storedBonus
-            : Number(calc?.bonus ?? storedBonus);
-        const invoiceAmount = isBonus
+        const bonusAmount = isInvoicedUpdate
+          ? storedBonus
+          : splitChild
+            ? 0
+            : isBonus || bonusFromDetail
+              ? storedBonus
+              : Number(calc?.bonus ?? storedBonus);
+        const invoiceAmount = useStoredAmounts
           ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
           : round2(
             gstInclusive
@@ -1457,6 +1478,7 @@ export default function NewStudentPage({ basePath }) {
           displayInstallmentNo: h.installmentNo,
           feeType: payment?.feeType ?? h.feeType ?? h.FeeType ?? null,
           isBonus,
+          isInvoicedUpdate,
           dueDate: payment?.dueDate ?? h.dueDate ?? h.DueDate ?? null,
           feesAmount: isBonus ? 0 : Number(calc?.fees ?? h.feesAmount ?? 0),
           paymentStatus: payment?.status ?? h.paymentStatus ?? h.PaymentStatus ?? 'Pending',
@@ -1544,19 +1566,25 @@ export default function NewStudentPage({ basePath }) {
     return rows.map(applyBonusEdit);
   }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides]);
 
+  const visibleHistoryRows = useMemo(
+    () =>
+      historyRows.filter((row) => !isNonTuitionFeeRow(row)),
+    [historyRows]
+  );
+
   const totals = useMemo(
     () => ({
-      fees: round2(historyRows.reduce((sum, x) => sum + Number(x.feesAmount ?? x.fees ?? 0), 0)),
+      fees: round2(visibleHistoryRows.reduce((sum, x) => sum + Number(x.feesAmount ?? x.fees ?? 0), 0)),
       commission: round2(
-        historyRows.reduce((sum, x) => sum + Number(x.commissionAmount ?? x.commission ?? 0), 0)
+        visibleHistoryRows.reduce((sum, x) => sum + Number(x.commissionAmount ?? x.commission ?? 0), 0)
       ),
-      gst: round2(historyRows.reduce((sum, x) => sum + Number(x.gstAmount ?? x.gst ?? 0), 0)),
-      bonus: round2(historyRows.reduce((sum, x) => sum + Number(x.bonusAmount ?? x.bonus ?? 0), 0)),
+      gst: round2(visibleHistoryRows.reduce((sum, x) => sum + Number(x.gstAmount ?? x.gst ?? 0), 0)),
+      bonus: round2(visibleHistoryRows.reduce((sum, x) => sum + Number(x.bonusAmount ?? x.bonus ?? 0), 0)),
       invoice: round2(
-        historyRows.reduce((sum, x) => sum + Number(x.invoiceAmount ?? x.invoice ?? 0), 0)
+        visibleHistoryRows.reduce((sum, x) => sum + Number(x.invoiceAmount ?? x.invoice ?? 0), 0)
       ),
     }),
-    [historyRows]
+    [visibleHistoryRows]
   );
 
   const paymentTotals = useMemo(() => {
@@ -2376,8 +2404,7 @@ export default function NewStudentPage({ basePath }) {
             bonusAmount: round2(row.bonusAmount ?? row.bonus),
             invoiceAmount: round2(row.invoiceAmount ?? row.invoice),
             invoiceNo: null,
-            receivedDate: toIsoDateString(row.receivedDate) || null,
-            commissionStatus: row.commissionStatus ?? row.status ?? 'Pending',
+            ...newCommissionStatusFields(row),
             remark: form.remark ?? '',
           });
 
@@ -2434,8 +2461,7 @@ export default function NewStudentPage({ basePath }) {
               bonusAmount: round2(row.bonusAmount ?? row.bonus),
               invoiceAmount: round2(row.invoiceAmount ?? row.invoice),
               invoiceNo: null,
-              receivedDate: toIsoDateString(row.receivedDate) || null,
-              commissionStatus: row.commissionStatus ?? row.status ?? 'Pending',
+              ...newCommissionStatusFields(row),
               remark: form.remark ?? '',
             });
           }
@@ -3180,9 +3206,9 @@ export default function NewStudentPage({ basePath }) {
                   </TableHead>
 
                   <TableBody>
-                    {historyRows.length > 0 ? (
+                    {visibleHistoryRows.length > 0 ? (
                       <>
-                        {historyRows.map((row, index) => (
+                        {visibleHistoryRows.map((row, index) => (
                           <TableRow
                             key={`${row.studentPaymentInstallmentId ?? row.installmentNo}-${row.feeType}-${index}`}
                           >
@@ -3256,8 +3282,8 @@ export default function NewStudentPage({ basePath }) {
                         ))}
 
                         <TableRow sx={{ backgroundColor: '#f5f7fb' }}>
-                          <TableCell colSpan={3}> <b>Total</b>    </TableCell>
-                          <TableCell> <b>{totals.fees.toFixed(2)}</b> </TableCell>
+                          <TableCell colSpan={4}> <b>Total</b>    </TableCell>
+                          {/* <TableCell> <b>{totals.fees.toFixed(2)}</b> </TableCell> */}
                           <TableCell />
                           <TableCell>  <b>{totals.commission.toFixed(2)}</b> </TableCell>
                           <TableCell>  <b>{totals.bonus.toFixed(2)}</b> </TableCell>

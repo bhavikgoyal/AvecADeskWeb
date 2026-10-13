@@ -354,6 +354,19 @@ function drawEducationCommissionHeader(doc, y, geo) {
 }
 
 
+function isInvoicedUpdateItem(item) {
+  return Boolean(item?.isInvoicedUpdate ?? item?.IsInvoicedUpdate ?? false);
+}
+
+function itemCommissionAmount(item) {
+  if (isInvoicedUpdateItem(item)) {
+    return Number(item.commissionAmount ?? item.CommissionAmount ?? 0);
+  }
+  const fees = Number(item.feesAmount ?? item.FeesAmount ?? 0);
+  const percentage = Number(item.commissionPercentage ?? item.CommissionPercentage ?? 0);
+  return (fees * percentage) / 100;
+}
+
 function buildItemLines(doc, item, colPart) {
   const parsed = parseDescription(item.description);
   const cricos = safeText(item.cricosCode);
@@ -372,9 +385,7 @@ function buildItemLines(doc, item, colPart) {
     0
   );
 
-  const amountVal = Number(
-    ((feesAmount * commissionPercentage) / 100).toFixed(2)
-  );
+  const amountVal = Number(itemCommissionAmount(item).toFixed(2));
 
   const enrollmentNo = safeText(
     item.enrollmentNo ?? item.EnrollmentNo
@@ -391,9 +402,11 @@ function buildItemLines(doc, item, colPart) {
   }
 
   lines.push(`Course Details: ${courseText}`);
-  lines.push(
-    `Fees: $ ${formatMoney(feesAmount)} * ${commissionPercentage}/100`
-  );
+  if (!isInvoicedUpdateItem(item)) {
+    lines.push(
+      `Fees: $ ${formatMoney(feesAmount)} * ${commissionPercentage}/100`
+    );
+  }
 
   doc.setFont('times', 'normal');
   doc.setFontSize(12);
@@ -452,19 +465,7 @@ function drawTotals(doc, invoice, geo, startY, lineItems = []) {
   let y = startY;
 
   const total = Number(
-    lineItems.reduce((sum, item) => {
-      const fees = Number(
-        item.feesAmount ?? item.FeesAmount ?? 0
-      );
-
-      const percentage = Number(
-        item.commissionPercentage ??
-        item.CommissionPercentage ??
-        0
-      );
-
-      return sum + (fees * percentage) / 100;
-    }, 0).toFixed(2)
+    lineItems.reduce((sum, item) => sum + itemCommissionAmount(item), 0).toFixed(2)
   );
 
   const bonus = Number(

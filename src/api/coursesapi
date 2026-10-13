@@ -238,7 +238,7 @@ export function getEmptyCourseForm(instituteId) {
     isApproved: false,
     isActive: true,
     isAIFetched: false,
-     enrollmentFee: '',   
+    enrollmentFee: '',   
     materialFee: '',  
     tuitionFee: '',    
     oshcFee: '',  

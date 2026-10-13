@@ -151,8 +151,21 @@ export async function fetchPaidStudentsForInvoice({ year, month, instituteId, ca
 }
 
 
-export async function generateMonthlyInvoice({ year, month, instituteId, campus, installmentIds, commissionDetailId, bonusAmount, invoiceAmounts, } = {}) {
+export async function fetchNextInvoiceNumber() {
+  const { data } = await axiosClient.get('/api/invoices/next-number');
+  return String(data?.invoiceNumber ?? data?.InvoiceNumber ?? '');
+}
+
+export async function checkInvoiceNumberExists(invoiceNumber) {
+  const { data } = await axiosClient.get('/api/invoices/number-exists', {
+    params: { invoiceNumber },
+  });
+  return Boolean(data?.exists ?? data?.Exists ?? false);
+}
+
+export async function generateMonthlyInvoice({ year, month, instituteId, campus, installmentIds, commissionDetailId, bonusAmount, invoiceAmounts, invoiceNumber, } = {}) {
   const body = {};
+  if (invoiceNumber && String(invoiceNumber).trim()) body.invoiceNumber = String(invoiceNumber).trim();
   if (year != null) body.year = year;
   if (month != null) body.month = month;
   if (instituteId != null) body.instituteId = instituteId;
@@ -206,6 +219,7 @@ export async function fetchInvoiceLineItems(invoiceId) {
       commissionPercentage: Number(item.commissionPercentage ?? item.CommissionPercentage ?? 0),
       commissionAmount: Number(  item.commissionAmount ?? item.CommissionAmount ?? 0 ),
       gstAmount: Number( item.gstAmount ?? item.GSTAmount ?? 0),
+      isInvoicedUpdate: Boolean(item.isInvoicedUpdate ?? item.IsInvoicedUpdate ?? false),
       address: item.address ?? item.Address ?? '',
       zipCode: item.zipCode ?? item.ZipCode ?? '',
     };

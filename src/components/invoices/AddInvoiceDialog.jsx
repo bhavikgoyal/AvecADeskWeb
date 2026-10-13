@@ -4,7 +4,10 @@ import {  Alert,  Box,  Button,  Checkbox,  CircularProgress,  Dialog,  DialogAc
 import ResponsiveTable from '../ResponsiveTable';
 import { fetchUniqueInstituteNames, getCampusesForInstitute, getUniqueInstituteNames, resolveScrappingId, } from '../../api/institutesScrappingApi';
 import { fetchPaidStudentsForInvoice, generateMonthlyInvoice, updateInstallmentFeesAndInvoiceAmounts, insertBonusInstallments,
+  fetchNextInvoiceNumber, checkInvoiceNumberExists,
 } from '../../api/invoicesApi';
+
+const INVOICE_NUMBER_TAKEN = 'Invoice number already taken.';
 
 function isValidAmountInput(value) {
   return value === '' || /^\d*\.?\d{0,2}$/.test(value);
@@ -25,6 +28,9 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceNumberError, setInvoiceNumberError] = useState('');
+  const [checkingInvoiceNumber, setCheckingInvoiceNumber] = useState(false);
 
   const getDisplayInstallmentNo = (row, rows) => {
     if (!row.isBonus) {
@@ -64,6 +70,8 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
     setError('');
     setGenerating(false);
     setEditedBonuses({});
+    setInvoiceNumber('');
+    setInvoiceNumberError('');
   }, []);
 
   useEffect(() => {
@@ -147,6 +155,49 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
     };
   }, [open, resolvedInstituteId, campus, now]);
 
+  useEffect(() => {
+    if (!open || !resolvedInstituteId || !campus) {
+      setInvoiceNumber('');
+      setInvoiceNumberError('');
+      return undefined;
+    }
+
+    let cancelled = false;
+    fetchNextInvoiceNumber()
+      .then((next) => {
+        if (cancelled) return;
+        setInvoiceNumber(next);
+        setInvoiceNumberError('');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setInvoiceNumberError(err.message || 'Failed to load next invoice number.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, resolvedInstituteId, campus]);
+
+  const validateInvoiceNumber = async (value = invoiceNumber) => {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed) {
+      setInvoiceNumberError('Invoice number is required.');
+      return false;
+    }
+    setCheckingInvoiceNumber(true);
+    try {
+      const taken = await checkInvoiceNumberExists(trimmed);
+      setInvoiceNumberError(taken ? INVOICE_NUMBER_TAKEN : '');
+      return !taken;
+    } catch (err) {
+      setInvoiceNumberError(err.message || 'Failed to check invoice number.');
+      return false;
+    } finally {
+      setCheckingInvoiceNumber(false);
+    }
+  };
+
   const isPaidRow = useCallback((row) => {
     const status = String(row?.commissionStatus ?? '').trim().toLowerCase();
     if (!status) return true;
@@ -220,7 +271,11 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
       [rowId]: value,
     }));
   };
-  const canGenerate = Boolean(resolvedInstituteId && campus) && selectedPaidCount > 0;
+  const canGenerate =
+    Boolean(resolvedInstituteId && campus) &&
+    selectedPaidCount > 0 &&
+    Boolean(invoiceNumber.trim()) &&
+    !invoiceNumberError;
 
   const handleClose = () => {
     if (generating) return;
@@ -242,6 +297,8 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
     setGenerating(true);
     setError('');
     try {
+      if (!(await validateInvoiceNumber())) return;
+
       const selectedPaid = paidStudents.filter((s) => selectedIds.includes(s.id));
 
       const amountUpdates = selectedPaid
@@ -295,15 +352,18 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
           bonusUpdates
         );
       }
+      if (amountUpdates.length > 0) {
+        await updateInstallmentFeesAndInvoiceAmounts(amountUpdates);
+      }
       const commissionDetailId = selectedPaid
         .map((x) => Number(x.commissionDetailId))
         .filter((x) => Number.isFinite(x) && x > 0);
 
       const bonusAmount = selectedPaid.map(
-        (x) => Number(editedBonuses[x.id] || x.bonusAmount || 0));
+        (x) => Number(editedBonuses[x.id] ?? x.bonusAmountRaw ?? 0) || 0);
 
       const invoiceAmounts = selectedPaid.map(
-        (x) => Number(editedInvoiceAmts[x.id] ?? x.invoiceAmountRaw ?? 0));
+        (x) => Number(editedInvoiceAmts[x.id] ?? x.invoiceAmountRaw ?? 0) || 0);
 
       const result = await generateMonthlyInvoice({
         instituteId: Number(resolvedInstituteId),
@@ -314,6 +374,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         commissionDetailId,
         bonusAmount,
         invoiceAmounts,
+        invoiceNumber: invoiceNumber.trim(),
       });
       const created = result?.invoices ?? result?.Invoices ?? [];
       if (!created.length) {
@@ -329,11 +390,12 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
       onClose?.();
     } catch (err) {
       const apiMessage = err.response?.data;
-      setError(
+      const message =
         typeof apiMessage === 'string'
           ? apiMessage
-          : apiMessage?.message || err.message || 'Failed to generate invoice.',
-      );
+          : apiMessage?.message || err.message || 'Failed to generate invoice.';
+      if (message === INVOICE_NUMBER_TAKEN) setInvoiceNumberError(message);
+      else setError(message);
     } finally {
       setGenerating(false);
     }
@@ -544,6 +606,23 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
               ))}
             </TextField>
           </Stack>
+
+          {resolvedInstituteId && campus && (
+            <TextField
+              label="Invoice No"
+              value={invoiceNumber}
+              onChange={(e) => {
+                setInvoiceNumber(e.target.value);
+                setInvoiceNumberError('');
+              }}
+              onBlur={() => validateInvoiceNumber()}
+              disabled={generating}
+              error={Boolean(invoiceNumberError)}
+              helperText={invoiceNumberError || (checkingInvoiceNumber ? 'Checking...' : ' ')}
+              inputProps={{ maxLength: 50 }}
+              sx={{ maxWidth: { sm: 'calc(50% - 8px)' } }}
+            />
+          )}
 
           {resolvedInstituteId && campus && (
             <Box>
