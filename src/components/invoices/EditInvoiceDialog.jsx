@@ -65,11 +65,13 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
 
   const statusOptions = useMemo(() => {
     const current = normalizeStatusLabel(invoice?.invoiceStatus);
-    if (current === 'Received') return ['Received'];
+    if (current === 'Received' || current === 'Rejected') return [current];
     return STATUS_OPTIONS;
   }, [invoice]);
 
   const currentNormalizedStatus = normalizeStatusLabel(invoice?.invoiceStatus);
+  const isStatusLocked =
+    currentNormalizedStatus === 'Received' || currentNormalizedStatus === 'Rejected';
   const isAmountEditable = currentNormalizedStatus === 'Pending';
   const canSelectRows = isAmountEditable;
 
@@ -289,7 +291,7 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
                   label="Invoice Status"
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  disabled={saving || currentNormalizedStatus === 'Received'}
+                  disabled={saving || isStatusLocked}
                   SelectProps={{
                     displayEmpty: true,
                     renderValue: (value) => value || currentNormalizedStatus || 'Select status',
@@ -346,7 +348,7 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
           disabled={
             saving ||
             loading ||
-            currentNormalizedStatus === 'Received' ||
+            isStatusLocked ||
             (!status && !hasAmountChanges)
           }
           sx={{ textTransform: 'none', bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' }, fontWeight: 600 }}
