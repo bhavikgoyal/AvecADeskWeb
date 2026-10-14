@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions,
-  DialogContent, DialogTitle, MenuItem, Stack, TextField, Tooltip, Typography,
+  Alert, Box, Button, CircularProgress, Dialog, DialogActions,
+  DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
 import ResponsiveTable from '../ResponsiveTable';
 import {
   fetchInvoiceById, fetchInvoiceLineItems,
-  approveInvoice, rejectInvoice, updateInvoiceLineItemAmounts,
+  approveInvoice, rejectInvoice,
 } from '../../api/invoicesApi';
 
 const STATUS_OPTIONS = ['Received', 'Rejected'];
@@ -29,8 +29,6 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
   const [lineItems, setLineItems] = useState([]);
   const [status, setStatus] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
-  const [editedAmounts, setEditedAmounts] = useState({});
-  const [selectedIds, setSelectedIds] = useState([]);
 
   useEffect(() => {
     if (!open || !invoiceId) return undefined;
@@ -45,12 +43,6 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
         setLineItems(items);
         const loadedStatus = normalizeStatusLabel(inv.invoiceStatus);
         setStatus(STATUS_OPTIONS.includes(loadedStatus) ? loadedStatus : '');
-        const seeded = {};
-        items.forEach((item) => {
-          seeded[item.id] = String(item.amountRaw ?? 0);
-        });
-        setEditedAmounts(seeded);
-        setSelectedIds([]);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -72,50 +64,6 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
   const currentNormalizedStatus = normalizeStatusLabel(invoice?.invoiceStatus);
   const isStatusLocked =
     currentNormalizedStatus === 'Received' || currentNormalizedStatus === 'Rejected';
-  const isAmountEditable = currentNormalizedStatus === 'Pending';
-  const canSelectRows = isAmountEditable;
-
-  const selectedCount = useMemo(
-    () => selectedIds.filter((id) => lineItems.some((item) => item.id === id)).length,
-    [selectedIds, lineItems],
-  );
-
-  const allSelected =
-    lineItems.length > 0 && selectedCount === lineItems.length && canSelectRows;
-  const someSelected = selectedCount > 0 && !allSelected;
-
-  const hasAmountChanges = useMemo(() => {
-    if (!isAmountEditable) return false;
-    return lineItems.some((item) => {
-      if (!selectedIds.includes(item.id)) return false;
-      const edited = editedAmounts[item.id];
-      if (edited === undefined) return false;
-      const num = Number(edited);
-      if (!Number.isFinite(num)) return false;
-      return num !== Number(item.amountRaw ?? 0);
-    });
-  }, [lineItems, editedAmounts, isAmountEditable, selectedIds]);
-
-  const handleAmountChange = (lineItemId, value) => {
-    if (value !== '' && !/^\d*\.?\d{0,2}$/.test(value)) return;
-    setEditedAmounts((prev) => ({ ...prev, [lineItemId]: value }));
-  };
-
-  const toggleRow = (rowId) => {
-    if (!canSelectRows) return;
-    setSelectedIds((prev) =>
-      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId],
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (!canSelectRows) return;
-    if (allSelected) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(lineItems.map((item) => item.id));
-    }
-  };
 
   const handleClose = () => {
     if (saving) return;
@@ -123,8 +71,6 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
     setLineItems([]);
     setStatus('');
     setRejectionReason('');
-    setEditedAmounts({});
-    setSelectedIds([]);
     setError('');
     onClose?.();
   };
@@ -133,8 +79,7 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
     if (!invoiceId) return;
 
     const statusChanged = Boolean(status) && status !== currentNormalizedStatus;
-
-    if (!statusChanged && !(isAmountEditable && hasAmountChanges)) {
+    if (!statusChanged) {
       handleClose();
       return;
     }
@@ -147,30 +92,8 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
     setSaving(true);
     setError('');
     try {
-      if (isAmountEditable && hasAmountChanges) {
-        const changedItems = lineItems
-          .filter((item) => {
-            if (!selectedIds.includes(item.id)) return false;
-            const edited = editedAmounts[item.id];
-            if (edited === undefined) return false;
-            const num = Number(edited);
-            return Number.isFinite(num) && num !== Number(item.amountRaw ?? 0);
-          })
-          .map((item) => ({
-            lineItemId: item.id,
-            amount: Number(editedAmounts[item.id]),
-          }));
-
-        if (changedItems.length > 0) {
-          const updatedInvoice = await updateInvoiceLineItemAmounts(invoiceId, changedItems);
-          setInvoice(updatedInvoice);
-        }
-      }
-
-      if (statusChanged) {
-        if (status === 'Received') await approveInvoice(invoiceId);
-        else if (status === 'Rejected') await rejectInvoice(invoiceId, rejectionReason.trim());
-      }
+      if (status === 'Received') await approveInvoice(invoiceId);
+      else if (status === 'Rejected') await rejectInvoice(invoiceId, rejectionReason.trim());
 
       onUpdated?.();
       handleClose();
@@ -183,38 +106,6 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
   };
 
   const columns = [
-    {
-      id: 'select',
-      label: (
-        <Checkbox
-          size="small"
-          checked={allSelected}
-          indeterminate={someSelected}
-          onChange={toggleSelectAll}
-          disabled={!canSelectRows || saving || lineItems.length === 0}
-        />
-      ),
-      field: 'select',
-      headerSx: { width: 48 },
-      render: (row) => (
-        <Tooltip
-          title={
-            canSelectRows
-              ? 'Check this row to edit Amount'
-              : 'Amount can only be edited while invoice status is Pending'
-          }
-        >
-          <span>
-            <Checkbox
-              size="small"
-              checked={selectedIds.includes(row.id)}
-              onChange={() => toggleRow(row.id)}
-              disabled={!canSelectRows || saving}
-            />
-          </span>
-        </Tooltip>
-      ),
-    },
     { id: 'studentName', label: 'Student', field: 'studentName', headerSx: { width: 130 } },
     {
       id: 'description',
@@ -229,25 +120,6 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
       align: 'right',
       headerSx: { width: 110, whiteSpace: 'nowrap' },
       cellSx: { width: 110, whiteSpace: 'nowrap' },
-      render: (row) => {
-        const rowChecked = selectedIds.includes(row.id);
-        if (isAmountEditable && rowChecked) {
-          return (
-            <TextField
-              size="small"
-              value={editedAmounts[row.id] ?? ''}
-              onChange={(e) => handleAmountChange(row.id, e.target.value)}
-              disabled={saving}
-              inputProps={{
-                inputMode: 'decimal',
-                style: { textAlign: 'right' },
-              }}
-              sx={{ width: 120 }}
-            />
-          );
-        }
-        return row.amount;
-      },
     },
     {
   id: 'bonus',
@@ -322,7 +194,6 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
                   Students on this invoice
-                  {selectedCount > 0 ? ` (${selectedCount} selected for amount edit)` : ''}
                 </Typography>
                 {lineItems.length === 0 ? (
                   <Alert severity="info">No student details found for this invoice.</Alert>
@@ -345,12 +216,7 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={
-            saving ||
-            loading ||
-            isStatusLocked ||
-            (!status && !hasAmountChanges)
-          }
+          disabled={saving || loading || isStatusLocked || !status}
           sx={{ textTransform: 'none', bgcolor: 'var(--primary)', '&:hover': { bgcolor: 'var(--primary-dark)' }, fontWeight: 600 }}
         >
           {saving ? 'Saving...' : 'Save Status'}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -12,7 +13,6 @@ import {
   DialogTitle,
   FormControlLabel,
   Link,
-  MenuItem,
   Paper,
   Stack,
   Tab,
@@ -36,12 +36,9 @@ import {
   listContainedButtonSx,
   listOutlinedButtonSx,
   listSearchFieldSx,
-  listSelectFieldSx,
-  listSelectProps,
   listToolbarActionsSx,
   listToolbarRowSx,
   listToolbarSearchGroupSx,
-  LIST_FILTER_ALL,
 } from '../../components/forms';
 import {
   resourceTableBodyCellSx,
@@ -730,32 +727,21 @@ const handleViewCredentials = (event, row) => {
                 }}
               >
                 <Box sx={listToolbarSearchGroupSx}>
-                 <TextField
-                select
-                size="small"
-                value={instituteNameFilter || LIST_FILTER_ALL}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setInstituteNameFilter(next === LIST_FILTER_ALL ? '' : next);
-                  setPage(0);
-                }}
-                SelectProps={{
-                  ...listSelectProps('All Institutes'),
-                  renderValue: (selected) => {
-                    if (!selected || selected === LIST_FILTER_ALL) return 'All Institutes';
-                    return selected;
-                  },
-                }}
-                disabled={listLoading}
-                sx={listSelectFieldSx(Boolean(instituteNameFilter))}
-              >
-                <MenuItem value={LIST_FILTER_ALL}>All Institutes</MenuItem>
-                {instituteNameOptions.map((name) => (
-                  <MenuItem key={name} value={name}>
-                    {name}
-                  </MenuItem>
-                ))}
-              </TextField>
+                <Autocomplete
+                  size="small"
+                  options={instituteNameOptions}
+                  value={instituteNameFilter || null}
+                  onChange={(_, next) => {
+                    setInstituteNameFilter(next || '');
+                    setPage(0);
+                  }}
+                  disabled={listLoading}
+                  noOptionsText="No institutes found"
+                  sx={{ ...listSearchFieldSx, width: { xs: '100%', md: 320 } }}
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="All Institutes" />
+                  )}
+                />
                 </Box>
                 <Box sx={listToolbarActionsSx}>
                   <Button

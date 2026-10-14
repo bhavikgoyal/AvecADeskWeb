@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Alert,
+  Autocomplete,
    Badge,
   Box,
   Button,
@@ -24,7 +25,7 @@ import { deleteStudent, fetchEnrolmentRows, fetchStudentRows } from '../../api/s
 import { deleteVendor, fetchVendorRows } from '../../api/vendorsApi';
 import { getEmailTemplates, deleteEmailTemplate } from '../../api/EmailtemplatesApi';
 import { downloadInvoiceDocument, fetchInvoices } from '../../api/invoicesApi';
-import { listOutlinedButtonSx, listSearchFieldSx, listSelectFieldSx, listSelectProps, LIST_FILTER_ALL  } from '../../components/forms';
+import { listOutlinedButtonSx, listSearchFieldSx, listSelectFieldSx } from '../../components/forms';
 import AddInvoiceDialog from '../../components/invoices/AddInvoiceDialog';
 import PageShell from '../../components/PageShell';
 import ResponsiveTable from '../../components/ResponsiveTable';
@@ -925,36 +926,18 @@ const handleExportInvoicesPdf = useCallback(async () => {
           <Box
             sx={{ width: 280, minWidth: 280, maxWidth: 280, flexShrink: 0, }}
           >
-            <TextField
-              select
+            <Autocomplete
               fullWidth
               size="small"
-              value={instituteFilter || LIST_FILTER_ALL}
-              onChange={(e) => {
-                const next = e.target.value;
-                setCourseInstituteFilter(next === LIST_FILTER_ALL ? '' : next);
-              }}
-              SelectProps={{
-                ...listSelectProps('All Institutes'),
-                renderValue: (selected) => {
-                  if (!selected || selected === LIST_FILTER_ALL) {
-                    return 'All Institutes';
-                  }
-
-                  return selected;
-                },
-              }}
-              sx={{
-                ...listSelectFieldSx(Boolean(instituteFilter)),
-                width: '100%',
-                '& .MuiSelect-select': { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', },
-              }}
-            >
-              <MenuItem value={LIST_FILTER_ALL}>  All Institutes  </MenuItem>
-              {courseInstituteOptions.map((institute) => (
-                <MenuItem key={institute} value={institute}> {institute} </MenuItem>
-              ))}
-            </TextField>
+              options={courseInstituteOptions}
+              value={instituteFilter || null}
+              onChange={(_, next) => setCourseInstituteFilter(next || '')}
+              noOptionsText="No institutes found"
+              sx={{ ...listSearchFieldSx, width: '100%', maxWidth: '100%' }}
+              renderInput={(params) => (
+                <TextField {...params} placeholder="All Institutes" />
+              )}
+            />
           </Box>
 
           <Box sx={{ width: 260, flexShrink: 0 }}>
