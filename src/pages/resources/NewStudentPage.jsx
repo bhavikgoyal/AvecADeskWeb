@@ -333,6 +333,50 @@ const splitChildIndexes = (list, parent) =>
     return indexes;
   }, []);
 
+const editFeeFollowerIndexes = (list, currentIndex) => {
+  const feeType = String(list[currentIndex]?.feeType || '').trim().toLowerCase();
+  const indexes = [];
+  for (let i = currentIndex + 1; i < list.length; i += 1) {
+    const row = list[i];
+    if (String(row.feeType || '').trim().toLowerCase() !== feeType) continue;
+    if (!isScheduledInstallment(row) || row.isInitialPayment) continue;
+    if (isPaidLike(row.status) || row.status === 'Partial') continue;
+    indexes.push(i);
+  }
+  return indexes;
+};
+
+const editFeeMaxCents = (list, item) => {
+  const currentIndex = (list || []).findIndex(
+    (x) =>
+      String(x.installmentNo) === String(item.installmentNo) &&
+      String(x.feeType).toLowerCase() === String(item.feeType).toLowerCase()
+  );
+  if (currentIndex < 0) return toCents(item?.amount);
+  return (
+    feeRemainderPoolCents(list, item) +
+    editFeeFollowerIndexes(list, currentIndex).reduce((sum, i) => sum + toCents(list[i].amount), 0)
+  );
+};
+
+const takeEvenlyCents = (amounts, takeCents) => {
+  const result = [...amounts];
+  let remaining = takeCents;
+  let active = result.map((_, i) => i).filter((i) => result[i] > 0);
+  while (remaining > 0 && active.length > 0) {
+    const shares = splitCents(remaining, active.length);
+    const next = [];
+    active.forEach((i, k) => {
+      const take = Math.min(result[i], shares[k]);
+      result[i] -= take;
+      remaining -= take;
+      if (result[i] > 0) next.push(i);
+    });
+    active = next;
+  }
+  return result;
+};
+
 const isInitialGroupRow = (row) =>
   Boolean(row?.isInitialPayment) || !isScheduledInstallment(row);
 
@@ -1028,7 +1072,10 @@ export default function NewStudentPage({ basePath }) {
   const selectOptions = useMemo(
     () => ({
       instituteId: instituteSelectOptions,
-      courseId: courses.map((item) => ({ value: item.courseId, label: item.courseName })),
+      courseId: courses.map((item) => ({
+        value: item.courseId,
+        label: [String(item.level ?? '').trim(), item.courseName].filter(Boolean).join(' - '),
+      })),
       campusname: campusOptions.map((c) => ({ value: c, label: c })),
     }),
     [instituteSelectOptions, courses, campusOptions]
@@ -1430,7 +1477,7 @@ export default function NewStudentPage({ basePath }) {
         const isBonus = Number(h.isBonus ?? h.IsBonus ?? 0) === 1;
         const status = normalizeCommissionStatus(
           commissionStatusOverrides[
-            `id:${h.commissionDetailId ?? h.CommissionDetailId ?? ''}|spi:${spiId}|${h.installmentNo}`
+          `id:${h.commissionDetailId ?? h.CommissionDetailId ?? ''}|spi:${spiId}|${h.installmentNo}`
           ] ??
           h.commissionStatus ??
           h.CommissionStatus ??
@@ -1474,7 +1521,7 @@ export default function NewStudentPage({ basePath }) {
         return {
           ...h,
           studentPaymentInstallmentId: spiId,
-          installmentNo: h.installmentNo,                
+          installmentNo: h.installmentNo,
           displayInstallmentNo: h.installmentNo,
           feeType: payment?.feeType ?? h.feeType ?? h.FeeType ?? null,
           isBonus,
@@ -1520,7 +1567,7 @@ export default function NewStudentPage({ basePath }) {
 
       const extraStatus = normalizeCommissionStatus(
         commissionStatusOverrides[
-          `id:|spi:${calc.studentPaymentInstallmentId ?? ''}|${calc.installmentNo}`
+        `id:|spi:${calc.studentPaymentInstallmentId ?? ''}|${calc.installmentNo}`
         ] ?? 'Pending'
       );
       const extra = {
@@ -1673,6 +1720,10 @@ export default function NewStudentPage({ basePath }) {
   const canEditPaidFields = (item) => {
     if (!isEdit) return false;
     if (!item.studentPaymentInstallmentId) return true;
+
+    const statusChanged =
+      item.status !== 'Pending' && item.status !== (item.originalStatus || 'Pending');
+    if (statusChanged) return true;
 
     if (isConfirmedByCollege(item)) { return isRowPastDataEditable(item); }
     if (isPersistedPartial(item)) { return isRowPastDataEditable(item); }
@@ -1853,12 +1904,67 @@ export default function NewStudentPage({ basePath }) {
         childIndexes.push(i);
       }
 
-      const poolCents =
-        toCents(currentItem.amount) +
-        childIndexes.reduce((sum, i) => sum + toCents(updated[i].amount), 0);
+      // Snapshot taken on the first edit so every keystroke recalculates from the same baseline.
+      const feeEditBase = currentItem.feeEditBase ?? {
+        poolCents:
+          toCents(currentItem.amount) +
+          childIndexes.reduce((sum, i) => sum + toCents(updated[i].amount), 0),
+        followers: Object.fromEntries(
+          editFeeFollowerIndexes(updated, currentIndex).map((i) => [
+            getPaymentRowKey(updated[i]),
+            toCents(updated[i].amount),
+          ])
+        ),
+      };
+      updated = updated.map((row, index) =>
+        index !== currentIndex && row.feeEditBase ? { ...row, feeEditBase: undefined } : row
+      );
+
+      const followerKeys = Object.keys(feeEditBase.followers);
+      const followerBaseCents = followerKeys.reduce((sum, key) => sum + feeEditBase.followers[key], 0);
+      const setFollowerAmounts = (centsByKey) => {
+        updated = updated.map((row) => {
+          const key = getPaymentRowKey(row);
+          if (!(key in centsByKey)) return row;
+          const amount = centsToAmount(centsByKey[key]);
+          return { ...row, amount, balance: amount, originalAmount: Number(amount) };
+        });
+      };
+
+      const poolCents = feeEditBase.poolCents;
       let typedCents = toCents(value);
-      if (typedCents > poolCents) typedCents = poolCents;
+      if (typedCents > poolCents + followerBaseCents) typedCents = poolCents + followerBaseCents;
       if (typedCents < 0) typedCents = 0;
+
+      if (typedCents > poolCents) {
+        const remaining = takeEvenlyCents(
+          followerKeys.map((key) => feeEditBase.followers[key]),
+          typedCents - poolCents
+        );
+        setFollowerAmounts(Object.fromEntries(followerKeys.map((key, i) => [key, remaining[i]])));
+
+        const amount = centsToAmount(typedCents);
+        const keepPartial = currentItem.status === 'Partial' && !currentItem.autoPartial;
+        updated[currentIndex] = {
+          ...currentItem,
+          feeEditBase,
+          amount,
+          originalAmount: Number(amount),
+          balance: keepPartial ? '0.00' : amount,
+          ...(keepPartial ? { paidAmount: amount } : {}),
+          ...(currentItem.autoPartial
+            ? { status: 'Pending', paidAmount: '0.00', paidDate: null, autoPartial: false }
+            : {}),
+        };
+
+        if (childIndexes.length > 0) {
+          const drop = new Set(childIndexes);
+          updated = updated.filter((_, index) => !drop.has(index));
+        }
+        return updated;
+      }
+
+      setFollowerAmounts(feeEditBase.followers);
 
       const cappedAmount = centsToAmount(typedCents);
       const reduced = typedCents < poolCents;
@@ -1889,6 +1995,7 @@ export default function NewStudentPage({ basePath }) {
 
       updated[currentIndex] = {
         ...currentItem,
+        feeEditBase,
         amount: cappedAmount,
         originalAmount: Number(centsToAmount(poolCents)),
         balance: nextBalance,
@@ -1992,7 +2099,7 @@ export default function NewStudentPage({ basePath }) {
         next.delete(installmentId);
         return next;
       });
-      clearInstallmentDocument(installmentId).catch(() => {});
+      clearInstallmentDocument(installmentId).catch(() => { });
     }
 
     if (value === 'ConfirmedByStudent') {
@@ -2159,7 +2266,7 @@ export default function NewStudentPage({ basePath }) {
     });
 
     if (clearUploadedReceipt && installmentId) {
-      clearInstallmentDocument(installmentId).catch(() => {});
+      clearInstallmentDocument(installmentId).catch(() => { });
     }
 
     setCommissionHistory((prev) =>
@@ -2372,8 +2479,8 @@ export default function NewStudentPage({ basePath }) {
               ? paymentList.find(
                 (x) => x.installmentNo === item.parentInstallmentNo && isSameFeeType(x, item)
               )?.studentPaymentInstallmentId ??
-                createdIdByRow.get(createdRowKey(item.parentInstallmentNo, item.feeType)) ??
-                null
+              createdIdByRow.get(createdRowKey(item.parentInstallmentNo, item.feeType)) ??
+              null
               : null,
             dueDate: item.dueDate,
             feesAmount: Number(item.amount),
@@ -2881,7 +2988,7 @@ export default function NewStudentPage({ basePath }) {
                                       key: getPaymentRowKey(item),
                                       text: String(item.amount ?? ''),
                                       maxCents: isEdit
-                                        ? feeRemainderPoolCents(paymentList, item)
+                                        ? editFeeMaxCents(paymentList, item)
                                         : createFeePoolCents(paymentList, item),
                                     });
                                     e.target.select();
@@ -2895,7 +3002,7 @@ export default function NewStudentPage({ basePath }) {
                                       feeDraft?.key === rowKey
                                         ? feeDraft.maxCents
                                         : isEdit
-                                          ? feeRemainderPoolCents(paymentList, item)
+                                          ? editFeeMaxCents(paymentList, item)
                                           : createFeePoolCents(paymentList, item);
                                     const text =
                                       next !== '' && toCents(next) > maxCents
@@ -3272,7 +3379,7 @@ export default function NewStudentPage({ basePath }) {
                                 >
                                   <MenuItem value="Pending">Pending</MenuItem>
                                   <MenuItem value="Received">Received</MenuItem>
-                                  <MenuItem value="Invoiced">Invoiced</MenuItem>
+                                  <MenuItem value="Invoiced" disabled>Invoiced</MenuItem>
                                 </Select>
                               ) : (
                                 row.commissionStatus ?? 'Pending'
