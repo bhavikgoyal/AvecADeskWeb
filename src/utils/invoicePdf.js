@@ -367,46 +367,67 @@ function itemCommissionAmount(item) {
   return (fees * percentage) / 100;
 }
 
-function buildItemLines(doc, item, colPart) {
+function itemCourseText(item) {
   const parsed = parseDescription(item.description);
   const cricos = safeText(item.cricosCode);
-
-  const courseText = cricos
+  return cricos
     ? `${safeText(parsed.course)} (${cricos})`
     : safeText(parsed.course);
+}
 
-  const feesAmount = Number(
-    item.feesAmount ?? item.FeesAmount ?? 0
-  );
-
-  const commissionPercentage = Number(
-    item.commissionPercentage ??
-    item.CommissionPercentage ??
-    0
-  );
-
+function itemFeesLine(item) {
+  const feesAmount = Number(item.feesAmount ?? item.FeesAmount ?? 0);
   const amountVal = Number(itemCommissionAmount(item).toFixed(2));
+  // Edited commissions show the effective rate that yields the edited amount.
+  const displayPercentage = isInvoicedUpdateItem(item)
+    ? (feesAmount > 0 ? Number(((amountVal / feesAmount) * 100).toFixed(2)) : null)
+    : Number(item.commissionPercentage ?? item.CommissionPercentage ?? 0);
+  if (displayPercentage == null) return null;
+  return `Fees: $ ${formatMoney(feesAmount)} * ${displayPercentage}/100`;
+}
+
+function groupLineItemsByStudent(items) {
+  const groups = [];
+  const byKey = new Map();
+  items.forEach((item) => {
+    const studentKey = item.studentId ?? item.StudentId ?? safeText(item.studentName);
+    const key = `${studentKey}|${itemCourseText(item)}`;
+    if (!byKey.has(key)) {
+      const group = [];
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    byKey.get(key).push(item);
+  });
+  return groups;
+}
+
+function buildItemLines(doc, group, colPart, showHeading = true) {
+  const items = Array.isArray(group) ? group : [group];
+  const first = items[0] || {};
+
+  const amountVal = Number(
+    items.reduce((sum, item) => sum + Number(itemCommissionAmount(item).toFixed(2)), 0).toFixed(2)
+  );
 
   const enrollmentNo = safeText(
-    item.enrollmentNo ?? item.EnrollmentNo
+    first.enrollmentNo ?? first.EnrollmentNo
   );
 
   const lines = [
-    'Education Commission',
-    '',
-    `Student Name: ${safeText(item.studentName)}`,
+    ...(showHeading ? ['Education Commission', ''] : []),
+    `Student Name: ${safeText(first.studentName)}`,
   ];
 
   if (enrollmentNo) {
     lines.push(`Student Id: ${enrollmentNo}`);
   }
 
-  lines.push(`Course Details: ${courseText}`);
-  if (!isInvoicedUpdateItem(item)) {
-    lines.push(
-      `Fees: $ ${formatMoney(feesAmount)} * ${commissionPercentage}/100`
-    );
-  }
+  lines.push(`Course Details: ${itemCourseText(first)}`);
+  items.forEach((item) => {
+    const feesLine = itemFeesLine(item);
+    if (feesLine) lines.push(feesLine);
+  });
 
   doc.setFont('times', 'normal');
   doc.setFontSize(12);
@@ -415,35 +436,37 @@ function buildItemLines(doc, item, colPart) {
   );
 
   const lineHeight = 5.4;
-  const padding = 12;
-  const rowHeight = Math.max(
-    wrapped.length * lineHeight + padding,
-    34
-  );
+  // textOffset is the first baseline; together with bottomPadding it leaves about one blank line between students.
+  const textOffset = showHeading ? 8 : 6;
+  const bottomPadding = 4;
+  const rowHeight = textOffset + (wrapped.length - 1) * lineHeight + bottomPadding;
 
   return {
     wrapped,
     amountVal,
     rowHeight,
     lineHeight,
+    textOffset,
   };
 }
 
 
 function drawItemRow(doc, y, geo, srNo, itemLines) {
   const { tableWidth, colSr, colAmount, xPart, xAmount } = geo;
-  const { wrapped, amountVal, rowHeight, lineHeight } = itemLines;
+  const { wrapped, amountVal, rowHeight, lineHeight, textOffset } = itemLines;
 
+  // Only vertical borders: consecutive items share one box, closed by drawTableBottom.
   doc.setDrawColor(0);
   doc.setLineWidth(0.3);
-  doc.rect(MARGIN_X, y, tableWidth, rowHeight);
+  doc.line(MARGIN_X, y, MARGIN_X, y + rowHeight);
   doc.line(xPart, y, xPart, y + rowHeight);
   doc.line(xAmount, y, xAmount, y + rowHeight);
+  doc.line(MARGIN_X + tableWidth, y, MARGIN_X + tableWidth, y + rowHeight);
 
   doc.setFont('times', 'normal');
   doc.setFontSize(12);
 
-  const textTop = y + 8;
+  const textTop = y + textOffset;
   const studentLineIndex = wrapped.findIndex((line) => String(line).startsWith('Student Name'));
   const alignY = textTop + (studentLineIndex >= 0 ? studentLineIndex : 0) * lineHeight;
 
@@ -456,6 +479,12 @@ function drawItemRow(doc, y, geo, srNo, itemLines) {
   doc.text(formatMoney(amountVal), xAmount + colAmount - 3, alignY, { align: 'right' });
 
   return y + rowHeight;
+}
+
+function drawTableBottom(doc, y, geo) {
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.3);
+  doc.line(MARGIN_X, y, MARGIN_X + geo.tableWidth, y);
 }
 
 
@@ -586,7 +615,7 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
   } = options;
 
   const geo = getTableGeometry(doc);
-  const rows = lineItems.length ? lineItems : [{}];
+  const rows = lineItems.length ? groupLineItemsByStudent(lineItems) : [[{}]];
   let srNo = startSrNo;
   let pageNumber = pageNumberStart;
 
@@ -594,11 +623,13 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
   y = drawInfoBox(doc, invoice, y, lineItems);
   y = drawTableHeader(doc, y, geo);
 
+  let firstOnPage = true;
   for (let idx = 0; idx < rows.length; idx += 1) {
-    const itemLines = buildItemLines(doc, rows[idx], geo.colPart);
+    let itemLines = buildItemLines(doc, rows[idx], geo.colPart, firstOnPage);
     const needed = itemLines.rowHeight + 2;
 
-    if (y + needed > pageContentBottom(doc) - 40) {
+    if (!firstOnPage && y + needed > pageContentBottom(doc) - 40) {
+      drawTableBottom(doc, y, geo);
       drawAddressFooter(doc);
       drawPageNumber(doc, pageNumber, totalPagesHint);
       doc.addPage();
@@ -606,12 +637,14 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
       y = await drawLetterhead(doc);
       y = drawInfoBox(doc, invoice, y, lineItems);
       y = drawTableHeader(doc, y, geo);
-     
+      itemLines = buildItemLines(doc, rows[idx], geo.colPart, true);
     }
 
     y = drawItemRow(doc, y, geo, srNo, itemLines);
+    firstOnPage = false;
     srNo += 1;
   }
+  drawTableBottom(doc, y, geo);
 
   const hasBonus = lineItems.some(
     item =>

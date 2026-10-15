@@ -49,6 +49,12 @@ export function mapPaidStudentRow(item) {
   const feesRaw = Number(item.feesAmount ?? item.FeesAmount ?? 0);
   const invoiceRaw = Number(item.invoiceAmount ?? item.InvoiceAmount ?? 0);
   const bonusRaw = Number(item.bonusAmount ?? item.BonusAmount ?? 0);
+  const gstRaw = Number(item.gstAmount ?? item.GSTAmount ?? item.GstAmount ?? 0) || 0;
+  const invoiceSafe = Number.isFinite(invoiceRaw) ? invoiceRaw : 0;
+  // InvoiceAmount (bonus excluded) is Commission + GST, except GST-inclusive rows where it equals Commission.
+  const commissionField = Number(item.commissionAmount ?? item.CommissionAmount ?? 0) || 0;
+  const gstInclusive = gstRaw !== 0 && Math.abs(invoiceSafe - commissionField) < 0.01;
+  const commissionRaw = Number((gstInclusive ? invoiceSafe : invoiceSafe - gstRaw).toFixed(2));
   return {
     id: String(item.commissionDetailId ?? item.CommissionDetailId ?? item.studentPaymentInstallmentId ?? item.StudentPaymentInstallmentId ?? item.studentId),
     studentId: item.studentId ?? item.StudentId,
@@ -63,7 +69,12 @@ export function mapPaidStudentRow(item) {
     feesAmount: formatCurrency(feesRaw),
     feesAmountRaw: Number.isFinite(feesRaw) ? feesRaw : 0,
     invoiceAmount: formatCurrency(invoiceRaw),
-    invoiceAmountRaw: Number.isFinite(invoiceRaw) ? invoiceRaw : 0,
+    invoiceAmountRaw: invoiceSafe,
+    commissionAmount: formatCurrency(commissionRaw),
+    commissionAmountRaw: commissionRaw,
+    gstAmount: formatCurrency(gstRaw),
+    gstAmountRaw: gstRaw,
+    gstInclusive,
     bonusAmount: formatCurrency(bonusRaw),
     bonusAmountRaw: Number.isFinite(bonusRaw) ? bonusRaw : 0,
     paymentStatus: item.paymentStatus ?? item.PaymentStatus ?? '',
