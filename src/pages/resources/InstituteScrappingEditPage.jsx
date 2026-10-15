@@ -26,6 +26,7 @@ import { useAuth } from '../../hooks/useAuth';
 import InstituteContactDetailsPanel from '../../components/institutes/InstituteContactDetailsPanel';
 import InstituteContractPanel from '../../components/institutes/InstituteContractPanel';
 import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
+import InstituteCampusesEditor from '../../components/institutes/InstituteCampusesEditor';
 import FormContentSkeleton from '../../components/FormContentSkeleton';
 import { canViewCredentials } from '../../utils/rbac';
 import {
@@ -180,7 +181,12 @@ useEffect(() => {
               onChange={updateField}
               disabled={saving || deleting}
               requiredFields={MANUAL_REQUIRED_FIELDS}
-              fieldDefsOverride={{ campus: { type: 'text' } }}
+            />
+
+            <InstituteCampusesEditor
+              campuses={form.campuses}
+              onChange={(next) => updateField('campuses', next)}
+              disabled={saving || deleting}
             />
 
             <Stack

@@ -59,6 +59,7 @@ export default function ResponsiveTable({
   tableMinWidth,
   showInvoiceTotal = false,
   totalInvoiceAmount = 0,
+  totalGstAmount = null,
 }) {
   const theme = useTheme();
   const cardBreakpoint =
@@ -323,7 +324,9 @@ if (column.field === 'programLogo') {
                 >
                   {column.id === 'invoiceAmount'
                     ? `Total: ${Number(totalInvoiceAmount || 0).toFixed(2)}`
-                    : ''}
+                    : column.id === 'gstAmount' && totalGstAmount != null
+                      ? `GST: ${Number(totalGstAmount || 0).toFixed(2)}`
+                      : ''}
                 </TableCell>
               ))}
             </TableRow>

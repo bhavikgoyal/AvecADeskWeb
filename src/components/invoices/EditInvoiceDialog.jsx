@@ -43,6 +43,7 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
         setLineItems(items);
         const loadedStatus = normalizeStatusLabel(inv.invoiceStatus);
         setStatus(STATUS_OPTIONS.includes(loadedStatus) ? loadedStatus : '');
+        setRejectionReason(inv.rejectionReason || '');
       })
       .catch((err) => {
         if (cancelled) return;
@@ -184,10 +185,10 @@ export default function EditInvoiceDialog({ open, invoiceId, onClose, onUpdated 
                   label="Rejection Reason"
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  disabled={saving}
+                  disabled={saving || isStatusLocked}
                   multiline
                   minRows={2}
-                  required
+                  required={!isStatusLocked}
                 />
               )}
 

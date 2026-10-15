@@ -68,6 +68,7 @@ import { fetchCourseList } from '../../api/coursesApi';
 import InstituteContactDetailsPanel from '../../components/institutes/InstituteContactDetailsPanel';
 import InstituteContractPanel from '../../components/institutes/InstituteContractPanel';
 import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
+import InstituteCampusesEditor from '../../components/institutes/InstituteCampusesEditor';
 import {
   AUTO_FORM_SECTIONS,
   AUTO_REQUIRED_FIELDS,
@@ -955,8 +956,15 @@ const handleViewCredentials = (event, row) => {
                 onChange={updateManualField}
                 disabled={manualSaving || !!createdInstituteId}
                 requiredFields={activeRequiredFields}
-                fieldDefsOverride={{ campus: { type: 'text' } }}
               />
+
+              {!manualForm.autoDataCollection && (
+                <InstituteCampusesEditor
+                  campuses={manualForm.campuses || []}
+                  onChange={(next) => updateManualField('campuses', next)}
+                  disabled={manualSaving || !!createdInstituteId}
+                />
+              )}
             </>
           )}
 

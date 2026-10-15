@@ -1,5 +1,19 @@
 import axiosClient from './axiosClient';
 
+function normalizeCampus(raw) {
+  const campusId = raw.campusId ?? raw.CampusId ?? null;
+  return {
+    key: campusId ? `id-${campusId}` : `new-${Math.random().toString(36).slice(2)}`,
+    campusId,
+    campus: raw.campus ?? raw.Campus ?? '',
+    country: raw.country ?? raw.Country ?? '',
+    city: raw.city ?? raw.City ?? '',
+    state: raw.state ?? raw.State ?? '',
+    zipCode: raw.zipCode ?? raw.ZipCode ?? '',
+    address: raw.address ?? raw.Address ?? '',
+  };
+}
+
 function normalizeRecord(raw) {
   return {
     scrappingId: raw.scrappingId ?? raw.ScrappingId,
@@ -23,6 +37,7 @@ function normalizeRecord(raw) {
     city: raw.city ?? raw.City ?? '',
     zipCode: raw.zipCode ?? raw.ZipCode ?? '',
     address: raw.address ?? raw.Address ?? '',
+    campuses: (raw.campuses ?? raw.Campuses ?? []).map(normalizeCampus),
     description: raw.description ?? raw.Description ?? '',
     countryRanking: raw.countryRanking ?? raw.CountryRanking ?? '',
     scholarshipsDetails: raw.scholarshipsDetails ?? raw.ScholarshipsDetails ?? '',
@@ -51,20 +66,29 @@ function toRequestBody(form) {
 }
 
 function toManualRequestBody(form) {
+  const clean = (value) => String(value ?? '').trim() || null;
+  const campuses = (form.campuses || [])
+    .map((c) => ({
+      campusId: c.campusId || null,
+      campus: clean(c.campus),
+      country: clean(c.country),
+      city: clean(c.city),
+      state: clean(c.state),
+      zipCode: clean(c.zipCode),
+      address: clean(c.address),
+    }))
+    .filter((c) => c.campus);
+
   return {
     instituteName: form.instituteName || null,
     websiteURL: form.websiteUrl || null,
-    campus: form.campus || null,
-    state: form.state || null,
+    campus: campuses[0]?.campus || null,
     name: form.name || null,
     logo: form.logo || null,
-    country: form.country || null,
-    city: form.city || null,
-    zipCode: form.zipCode || null,
-    address: form.address || null,
     description: form.description || null,
     countryRanking: form.countryRanking || null,
     scholarshipsDetails: form.scholarshipsDetails || null,
+    campuses,
   };
 }
 
@@ -72,17 +96,12 @@ function getEmptyManualForm() {
   return {
     instituteName: '',
     websiteUrl: '',
-    campus: '',
-    state: '',
     name: '',
     logo: '',
-    country: '',
-    city: '',
-    zipCode: '',
-    address: '',
     description: '',
     countryRanking: '',
     scholarshipsDetails: '',
+    campuses: [],
   };
 }
 

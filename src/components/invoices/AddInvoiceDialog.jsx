@@ -13,6 +13,13 @@ function isValidAmountInput(value) {
   return value === '' || /^\d*\.?\d{0,2}$/.test(value);
 }
 
+// The API stores InvoiceAmount as Commission + GST (GST already inside commission for inclusive rows).
+function toInvoiceAmount(row, commissionValue) {
+  const commission = Number(commissionValue) || 0;
+  const gst = row.gstInclusive ? 0 : Number(row.gstAmountRaw || 0);
+  return Number((commission + gst).toFixed(2));
+}
+
 export default function AddInvoiceDialog({ open,onClose, onGenerated, initialInstituteName = '',
   initialCampus = '',  lockInstitute = false,}) {
   const now = useMemo(() => new Date(), []);
@@ -131,7 +138,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         const bonusSeed = {};
         rows.forEach((row) => {
           feesSeed[row.id] = String(row.feesAmountRaw ?? 0);
-          invoiceSeed[row.id] = String(row.invoiceAmountRaw ?? 0);
+          invoiceSeed[row.id] = String(row.commissionAmountRaw ?? 0);
           bonusSeed[row.id] = String(row.bonusAmountRaw ?? 0);
         });
         setEditedFees(feesSeed);
@@ -228,15 +235,29 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
       (total, row) => total + Number(editedInvoiceAmts[row.id] || 0), 0 );
     }, [students, selectedIds, editedInvoiceAmts]);
 
+  const totalGstAmount = useMemo(
+    () => students
+      .filter((row) => selectedIds.includes(row.id))
+      .reduce((total, row) => total + Number(row.gstAmountRaw || 0), 0),
+    [students, selectedIds],
+  );
+
   const allPaidSelected = paidStudents.length > 0 && selectedPaidCount === paidStudents.length;
   const somePaidSelected = selectedPaidCount > 0 && !allPaidSelected;
 
+  const resetRowEdits = (rows) => {
+    const reset = (prev, getValue) => {
+      const next = { ...prev };
+      rows.forEach((row) => { next[row.id] = String(getValue(row) ?? 0); });
+      return next;
+    };
+    setEditedFees((prev) => reset(prev, (row) => row.feesAmountRaw));
+    setEditedInvoiceAmts((prev) => reset(prev, (row) => row.commissionAmountRaw));
+    setEditedBonuses((prev) => reset(prev, (row) => row.bonusAmountRaw));
+  };
+
   const toggleRow = (row) => {
-    console.log("Selected Row:", {
-      id: row.id,
-      studentPaymentInstallmentId: row.studentPaymentInstallmentId,
-      installmentNo: row.installmentNo,
-    });
+    if (selectedIds.includes(row.id)) resetRowEdits([row]);
 
     setSelectedIds((prev) =>
       prev.includes(row.id)
@@ -247,6 +268,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
 
   const toggleSelectAll = () => {
     if (allPaidSelected) {
+      resetRowEdits(paidStudents);
       setSelectedIds((prev) =>
         prev.filter((id) => !paidStudents.some((s) => s.id === id)),
       );
@@ -304,9 +326,9 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
       const amountUpdates = selectedPaid
         .map((row) => {
           const feesNum = Number(editedFees[row.id]);
-          const invoiceNum = Number(editedInvoiceAmts[row.id]);
+          const commissionNum = Number(editedInvoiceAmts[row.id]);
           const feesChanged = Number.isFinite(feesNum) && feesNum !== Number(row.feesAmountRaw ?? 0);
-          const invoiceChanged = Number.isFinite(invoiceNum) && invoiceNum !== Number(row.invoiceAmountRaw ?? 0);
+          const invoiceChanged = Number.isFinite(commissionNum) && commissionNum !== Number(row.commissionAmountRaw ?? 0);
 
           if (!feesChanged && !invoiceChanged) return null;
 
@@ -314,7 +336,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
             installmentId: Number(row.studentPaymentInstallmentId),
             commissionDetailId: Number(row.commissionDetailId),
             feesAmount: feesChanged ? feesNum : null,
-            invoiceAmount: invoiceChanged ? invoiceNum : null,
+            invoiceAmount: invoiceChanged ? toInvoiceAmount(row, commissionNum) : null,
           };
         })
         .filter(Boolean);
@@ -363,7 +385,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         (x) => Number(editedBonuses[x.id] ?? x.bonusAmountRaw ?? 0) || 0);
 
       const invoiceAmounts = selectedPaid.map(
-        (x) => Number(editedInvoiceAmts[x.id] ?? x.invoiceAmountRaw ?? 0) || 0);
+        (x) => toInvoiceAmount(x, editedInvoiceAmts[x.id] ?? x.commissionAmountRaw ?? 0));
 
       const result = await generateMonthlyInvoice({
         instituteId: Number(resolvedInstituteId),
@@ -504,7 +526,8 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
                 style: { textAlign: 'center' },
               }}
               sx={{
-                width: 120,
+                width: 110,
+                mr: 1,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '4px',
                 },
@@ -512,8 +535,20 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
             />
           );
         }
-        return row.invoiceAmount;
+        return row.commissionAmount;
       },
+    },
+    {
+      id: 'gstAmount',
+      label: 'GST',
+      field: 'gstAmount',
+      render: (row) => (
+        <Tooltip title={row.gstInclusive ? 'GST is included in the commission' : ''}>
+          <Box component="span" sx={{ display: 'inline-block', minWidth: 80, pl: 2, whiteSpace: 'nowrap' }}>
+            {row.gstAmount}{row.gstInclusive ? ' (incl.)' : ''}
+          </Box>
+        </Tooltip>
+      ),
     },
     {
       id: 'bonus',
@@ -536,8 +571,8 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
                 style: { textAlign: 'center' },
               }}
               sx={{
-                width: 110,
-                ml: 1,
+                width: 100,
+                mr: 1,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '4px',
                 },
@@ -549,7 +584,19 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
         return row.bonusAmount ?? '-';
       },
     },
-    { id: 'paymentStatus', label: 'Status', field: 'paymentStatus' },
+    {
+      id: 'paymentStatus',
+      label: 'Status',
+      field: 'paymentStatus',
+      render: (row) => (
+        <Box
+          component="span"
+          sx={{ display: 'inline-block', pl: 1, maxWidth: 110, whiteSpace: 'normal', lineHeight: 1.4 }}
+        >
+          {String(row.paymentStatus || '-').replace(/([a-z])([A-Z])/g, '$1\u200B$2')}
+        </Box>
+      ),
+    },
   ];
 
   return (
@@ -657,6 +704,7 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
                   alwaysTable
                   showInvoiceTotal
                   totalInvoiceAmount={totalInvoiceAmount}
+                  totalGstAmount={totalGstAmount}
                   sx={{
                     maxHeight: 560,
                     overflowY: 'auto',

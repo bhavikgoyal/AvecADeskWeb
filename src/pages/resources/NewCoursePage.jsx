@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams  } from 'react-router-dom';
 import {  Alert,  Paper,  Box,  TextField, Table,  TableBody,  TableCell,  TableContainer,  TableHead,  TableRow, InputAdornment,} from '@mui/material';
 import { createCourse, fetchCourseById, updateCourse } from '../../api/coursesApi';
-import { fetchUniqueInstituteNames,normalizeInstituteName} from '../../api/institutesScrappingApi';
+import {
+  fetchUniqueInstituteNames,
+  getCampusesForInstitute,
+  normalizeInstituteName,
+  resolveScrappingId,
+} from '../../api/institutesScrappingApi';
 import { FormActions, FormPageLayout, FormSectionsLayout,  FormSection,formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig } from '../../config/resourceConfig';
 import FormContentSkeleton from '../../components/FormContentSkeleton';
@@ -138,7 +143,6 @@ export default function NewCoursePage({ basePath = '/courses' }) {
 
           if (matchedRow) {
             courseForm.instituteId = matchedRow.name;
-            courseForm.campus = String(matchedRow.id);
           }
 
           setForm(courseForm);
@@ -234,14 +238,12 @@ useEffect(() => {
   const hasChanges = originalForm !== null && JSON.stringify(form) !== JSON.stringify(originalForm);
 
   const buildSubmissionPayload = () => {
-    const matchedRow =
-      instituteRows.find((item) => String(item.id) === String(form.campus)) ||
-      instituteRows.find((item) => item.name === form.instituteId);
+    const scrappingId = resolveScrappingId(instituteRows, form.instituteId, form.campus);
 
     return {
       ...form,
-      instituteId: matchedRow ? matchedRow.id : form.instituteId,
-      campus: matchedRow ? (matchedRow.campusname || '') : form.campus,
+      instituteId: scrappingId ? Number(scrappingId) : form.instituteId,
+      campus: String(form.campus || '').trim(),
       enrollmentFee: Number(form.enrollmentFee || 0),
       materialFee: Number(form.materialFee || 0),
       tuitionFee: Number(form.tuitionFee || 0),
@@ -299,17 +301,18 @@ useEffect(() => {
     ...uniqueInstituteNames.map((name) => ({ value: name, label: name })),
   ];
 
+  const instituteCampuses = getCampusesForInstitute(instituteRows, form.instituteId);
+  const currentCampus = String(form.campus || '').trim();
+  if (currentCampus && !instituteCampuses.includes(currentCampus)) {
+    instituteCampuses.unshift(currentCampus);
+  }
+
   const campusOptions = [
     {
       value: '',
       label: form.instituteId ? 'Please select campus' : 'Select institute first',
     },
-    ...instituteRows
-      .filter((item) => item.name === form.instituteId)
-      .map((item) => ({
-        value: String(item.id),
-        label: item.campusname || 'Main Campus',
-      })),
+    ...instituteCampuses.map((name) => ({ value: name, label: name })),
   ];
 
   
