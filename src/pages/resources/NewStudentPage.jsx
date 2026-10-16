@@ -1399,10 +1399,10 @@ export default function NewStudentPage({ basePath }) {
         let bonus = 0;
 
         const isTuitionFee = feeTypeKey === 'tuition fee';
-        if (isTuitionFee && addBonus && bonusApplied && applyBonus && !isSplitInstallment(item)) {
+        if (isTuitionFee && addBonus && bonusApplied && applyBonus) {
           if (form.bonusType === 'Percentage') {
             bonus = round2((rawCommission * Number(form.bonus || 0)) / 100);
-          } else if (form.bonusType === 'Fixed') {
+          } else if (form.bonusType === 'Fixed' && !isSplitInstallment(item)) {
             bonus = round2(form.bonus);
           }
         }
@@ -1495,13 +1495,18 @@ export default function NewStudentPage({ basePath }) {
           ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
           : Number(calc?.gst ?? h.gstAmount ?? 0);
         const splitChild = !isBonus && isSplitInstallment(payment || { installmentNo: h.installmentNo });
-        const bonusAmount = isInvoicedUpdate
+        const isPercentageBonus = String(form.bonusType || '').toLowerCase() === 'percentage';
+      const bonusAmount = isInvoicedUpdate
           ? storedBonus
-          : splitChild
-            ? 0
-            : isBonus || bonusFromDetail
-              ? storedBonus
-              : Number(calc?.bonus ?? storedBonus);
+          : isBonus
+            ? storedBonus
+            : isPercentageBonus && calc
+              ? Number(calc.bonus ?? 0)
+              : splitChild
+                ? 0
+                : bonusFromDetail
+                  ? storedBonus
+                  : Number(calc?.bonus ?? storedBonus);
         const invoiceAmount = useStoredAmounts
           ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
           : round2(
@@ -1611,7 +1616,7 @@ export default function NewStudentPage({ basePath }) {
     );
 
     return rows.map(applyBonusEdit);
-  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides]);
+  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides, form.bonusType]);
 
   const visibleHistoryRows = useMemo(
     () =>
