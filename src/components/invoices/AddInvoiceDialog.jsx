@@ -542,9 +542,11 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
       id: 'gstAmount',
       label: 'GST',
       field: 'gstAmount',
+      headerSx: { pl: 5 },
+      cellSx: { pl: 5 },
       render: (row) => (
         <Tooltip title={row.gstInclusive ? 'GST is included in the commission' : ''}>
-          <Box component="span" sx={{ display: 'inline-block', minWidth: 80, pl: 2, whiteSpace: 'nowrap' }}>
+          <Box component="span" sx={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
             {row.gstAmount}{row.gstInclusive ? ' (incl.)' : ''}
           </Box>
         </Tooltip>
