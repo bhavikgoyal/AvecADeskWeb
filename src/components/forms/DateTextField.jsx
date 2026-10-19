@@ -32,9 +32,14 @@ export default function DateTextField({
   InputProps,
   slotProps,
   disabled,
+  minDate,
+  maxDate,
   ...props
 }) {
   const isoValue = toIsoDateString(value);
+  const minIso = toIsoDateString(minDate) || undefined;
+  const maxIso = toIsoDateString(maxDate) || undefined;
+  const isInRange = (iso) => (!minIso || iso >= minIso) && (!maxIso || iso <= maxIso);
   const [text, setText] = useState(() => isoToDisplay(isoValue));
   const [syncedIso, setSyncedIso] = useState(isoValue);
   const pickerRef = useRef(null);
@@ -55,11 +60,12 @@ export default function DateTextField({
     }
 
     const nextIso = displayToIso(masked);
-    if (nextIso) onChangeValue?.(nextIso);
+    if (nextIso && isInRange(nextIso)) onChangeValue?.(nextIso);
   };
 
   const handleBlur = (event) => {
-    if (text && !displayToIso(text)) {
+    const typedIso = displayToIso(text);
+    if (text && (!typedIso || !isInRange(typedIso))) {
       setText(isoToDisplay(isoValue));
     }
     props.onBlur?.(event);
@@ -89,7 +95,13 @@ export default function DateTextField({
         tabIndex={-1}
         aria-hidden="true"
         value={isoValue}
-        onChange={(event) => onChangeValue?.(event.target.value || '')}
+        min={minIso}
+        max={maxIso}
+        onChange={(event) => {
+          const next = event.target.value || '';
+          if (next && !isInRange(next)) return;
+          onChangeValue?.(next);
+        }}
         style={{
           position: 'absolute',
           right: 0,

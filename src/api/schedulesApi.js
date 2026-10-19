@@ -248,6 +248,37 @@ export async function updateStudentPaymentSchedule(request) {
   }
 }
 
+export async function fetchStudentCancelList() {
+  try {
+    const { data } = await axiosClient.get('/api/schedules/GetStudentCancelList');
+
+    return (data || []).map((item) => ({
+      scheduleId: item.scheduleId ?? item.ScheduleId,
+      studentId: item.studentId ?? item.StudentId,
+      studentName: item.studentName ?? item.StudentName,
+      studentCreatedAt: (item.studentCreatedAt ?? item.StudentCreatedAt) ? String(item.studentCreatedAt ?? item.StudentCreatedAt) : null,
+      instituteName: item.instituteName ?? item.InstituteName,
+      courseName: item.courseName ?? item.CourseName,
+      totalCourseFee: item.totalCourseFee ?? item.TotalCourseFee ?? 0,
+      noOfInstallments: item.noOfInstallments ?? item.NoOfInstallments ?? 0,
+      totalInstallments: item.totalInstallments ?? item.TotalInstallments ?? 0,
+      paidInstallments: item.paidInstallments ?? item.PaidInstallments ?? 0,
+      collectedAmount: item.collectedAmount ?? item.CollectedAmount ?? 0,
+      balanceAmount: item.balanceAmount ?? item.BalanceAmount ?? 0,
+      installmentAmount: item.installmentAmount ?? item.InstallmentAmount ?? 0,
+      nextDueDate: item.nextDueDate ?? item.NextDueDate ?? null,
+      paymentStatus: item.paymentStatus ?? item.PaymentStatus ?? 'Cancelled',
+      cancelDate: item.cancelDate ?? item.CancelDate ?? null,
+      cancelReason: item.cancelReason ?? item.CancelReason ?? '',
+    }));
+  } catch (err) {
+    throw new Error(
+      extractErrorMessage(err, 'Failed to fetch cancelled student list.'),
+      { cause: err }
+    );
+  }
+}
+
 export async function fetchStudentCourseCompleteList(studentId) {
   try {
     const params = {};

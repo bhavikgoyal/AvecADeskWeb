@@ -74,6 +74,7 @@ export function mapPaidStudentRow(item) {
     commissionAmountRaw: commissionRaw,
     gstAmount: formatCurrency(gstRaw),
     gstAmountRaw: gstRaw,
+    gstPercentage: Number(item.gstPercentage ?? item.GSTPercentage ?? item.GstPercentage ?? 10) || 0,
     gstInclusive,
     bonusAmount: formatCurrency(bonusRaw),
     bonusAmountRaw: Number.isFinite(bonusRaw) ? bonusRaw : 0,

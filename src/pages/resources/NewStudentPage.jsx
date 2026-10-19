@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import {
   Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem, TextField, Dialog, DialogTitle,
-  DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel, Switch, Tabs, Tab
+  DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel, Switch, Tabs, Tab, Tooltip, Collapse
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
@@ -13,7 +13,7 @@ import { fetchCoursesByScrappingId } from '../../api/coursesApi';
 import { fetchStudentContracts, createStudentContract, updateStudentContract, deleteStudentContract, uploadStudentContractFile, } from '../../api/studentContractsApi';
 import { fetchUniqueInstituteNames, getCampusesForInstitute, getUniqueInstituteNames, normalizeInstituteName, resolveScrappingId, } from '../../api/institutesScrappingApi';
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
-import { createStudentWithPaymentSchedule, fetchStudentById, fetchStudentPaymentDetail, saveStudentEnrollmentNumber } from '../../api/studentsApi';
+import { createStudentWithPaymentSchedule, fetchStudentById, fetchStudentCancelDetail, fetchStudentPaymentDetail, saveStudentCancelDetail, saveStudentEnrollmentNumber } from '../../api/studentsApi';
 import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule, clearInstallmentDocument, } from '../../api/schedulesApi';
 import { DateTextField, FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
@@ -141,9 +141,23 @@ const splitCents = (totalCents, count) => {
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
+const nextDayIso = (iso) => {
+  const [year, month, day] = String(iso).slice(0, 10).split('-').map(Number);
+  if (!year || !month || !day) return undefined;
+  const next = new Date(year, month - 1, day + 1);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
+};
+
 const localTodayIso = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+const CANCEL_DETAILS_SECTION = {
+  title: 'Cancel Details',
+  description: 'Mark the student inactive and record the cancellation.',
+  fields: ['studentIsActive', 'activeDate', 'cancelDate', 'cancelReason'],
 };
 
 const isNonTuitionFeeRow = (row) =>
@@ -316,6 +330,9 @@ const createFeePoolCents = (list, item) => {
   }
   return Number.MAX_SAFE_INTEGER;
 };
+
+const isCreateLastFeeRow = (list, item) =>
+  createFeePoolCents(list, item) === Number.MAX_SAFE_INTEGER;
 
 const isInitialNonTuitionRow = (row) =>
   Boolean(row?.isInitialPayment) &&
@@ -762,6 +779,18 @@ export default function NewStudentPage({ basePath }) {
   const [savedStudentSnapshot, setSavedStudentSnapshot] = useState(null);
   const [gstInclusive, setGstInclusive] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [cancelDetails, setCancelDetails] = useState({ studentIsActive: true, cancelDate: '', cancelReason: '', activeDate: '' });
+  const [originalCancelDetails, setOriginalCancelDetails] = useState(null);
+  const [showCancelDetails, setShowCancelDetails] = useState(false);
+  const updateCancelDetails = (field, value) => {
+    setCancelDetails((prev) => ({ ...prev, [field]: value }));
+    setError('');
+  };
+  const cancelDetailsChanged =
+    originalCancelDetails !== null &&
+    JSON.stringify(cancelDetails) !== JSON.stringify(originalCancelDetails);
+  const isCancelledStudent = isEdit && originalCancelDetails?.studentIsActive === false;
+  const canEditActiveDate = cancelDetails.studentIsActive;
   const [visitedTabs, setVisitedTabs] = useState(() => new Set([0]));
   const [editPastDataAll, setEditPastDataAll] = useState(false);
   const [editPastDataRows, setEditPastDataRows] = useState(() => new Set());
@@ -1085,6 +1114,20 @@ export default function NewStudentPage({ basePath }) {
     ...base,
     instituteId: resolvedScrappingId ? Number(resolvedScrappingId) : base.instituteId,
   });
+
+  useEffect(() => {
+    if (!isEdit || !/^\d+$/.test(String(id || ''))) return undefined;
+    let cancelled = false;
+    fetchStudentCancelDetail(id)
+      .then((detail) => {
+        if (cancelled) return;
+        setCancelDetails(detail);
+        setOriginalCancelDetails(detail);
+        setShowCancelDetails(detail.studentIsActive === false);
+      })
+      .catch((err) => console.warn('Failed to load cancel details', err));
+    return () => { cancelled = true; };
+  }, [id, isEdit, studentReloadKey]);
 
   useEffect(() => {
     if (!isEdit || !/^\d+$/.test(String(id || ''))) return;
@@ -1755,7 +1798,7 @@ export default function NewStudentPage({ basePath }) {
     if (index === 0) return true;
 
     const prevStatus = paymentList[index - 1]?.status;
-    return isPaidLike(prevStatus) || prevStatus === 'Partial';
+    return isPaidLike(prevStatus);
   };
 
   const lastConfirmedIndex = paymentList.reduce(
@@ -1795,6 +1838,15 @@ export default function NewStudentPage({ basePath }) {
 
   const toggleRowPastData = (item) => {
     const rowKey = getPaymentRowKey(item);
+    const willCheck = !editPastDataRows.has(rowKey);
+
+    if (willCheck && item.status === 'Pending') {
+      const rowIndex = paymentList.findIndex((x) => isSamePaymentRow(x, item));
+      if (rowIndex >= 0 && !canEditStatus(rowIndex)) {
+        setError('Previous installment must be fully paid before this installment can be confirmed.');
+        return;
+      }
+    }
 
     setEditPastDataRows((prev) => {
       const next = new Set(prev);
@@ -1807,6 +1859,13 @@ export default function NewStudentPage({ basePath }) {
 
       return next;
     });
+
+    // Ticking "Paid" marks the row as confirmed by the college; unticking puts it back to Pending.
+    if (willCheck && item.status === 'Pending') {
+      handleStatusChange(item, 'ConfirmedByCollege');
+    } else if (!willCheck && item.status === 'ConfirmedByCollege' && (item.originalStatus || 'Pending') === 'Pending') {
+      handleStatusChange(item, 'Pending');
+    }
   };
 
   const handleFeeAmountChange = (item, value) => {
@@ -1855,6 +1914,8 @@ export default function NewStudentPage({ basePath }) {
           followerIndexes.forEach((index, shareIndex) => {
             updated[index] = setFee(updated[index], shares[shareIndex] ?? 0);
           });
+          updated[currentIndex] = setFee(currentItem, typedCents);
+          return updated;
         } else if (isInitialNonTuitionRow(currentItem)) {
           const childIndexes = splitChildIndexes(updated, currentItem);
           const poolCents =
@@ -1896,8 +1957,7 @@ export default function NewStudentPage({ basePath }) {
           return updated;
         }
 
-        updated[currentIndex] = setFee(currentItem, typedCents);
-        return updated;
+        return prev;
       }
 
       const currentFeeType = String(currentItem.feeType || '').trim().toLowerCase();
@@ -2112,6 +2172,18 @@ export default function NewStudentPage({ basePath }) {
       setConfirmDialogOpen(true);
     }
 
+    if (value === 'Pending') {
+      const rowIndex = paymentList.findIndex((x) => isSamePaymentRow(x, item));
+      const laterKeys = paymentList.slice(rowIndex + 1).map(getPaymentRowKey);
+      if (rowIndex >= 0 && laterKeys.length > 0) {
+        setEditPastDataRows((prev) => {
+          const next = new Set(prev);
+          laterKeys.forEach((key) => next.delete(key));
+          return next;
+        });
+      }
+    }
+
     setPaymentList((prev) => {
       let updated = prev.map((x) => {
         if (!isSamePaymentRow(x, item)) return x;
@@ -2169,6 +2241,11 @@ export default function NewStudentPage({ basePath }) {
             };
           });
         }
+      }
+
+      // Back to Pending: later installments cannot stay paid/partial ahead of this one.
+      if (value === 'Pending') {
+        updated = pendingRowsBelow(updated, item);
       }
 
       return updated;
@@ -2298,6 +2375,57 @@ export default function NewStudentPage({ basePath }) {
 
   const handleCreate = async () => {
     if (submittingRef.current) return;
+
+    if (isEdit && cancelDetailsChanged && !cancelDetails.studentIsActive && !cancelDetails.cancelDate) {
+      setError('Please enter Cancel Date to mark the student inactive.');
+      setShowCancelDetails(true);
+      return;
+    }
+
+    if (isEdit && cancelDetailsChanged && !cancelDetails.studentIsActive && !String(cancelDetails.cancelReason ?? '').trim()) {
+      setError('Please enter Reason to mark the student inactive.');
+      setShowCancelDetails(true);
+      return;
+    }
+
+    if (isEdit && isCancelledStudent && cancelDetails.studentIsActive && !cancelDetails.activeDate) {
+      setError('Please enter Active Date to re-activate the student.');
+      setShowCancelDetails(true);
+      return;
+    }
+
+    if (isEdit && cancelDetailsChanged) {
+      if (!cancelDetails.studentIsActive && cancelDetails.cancelDate && cancelDetails.cancelDate > localTodayIso()) {
+        setError('Cancel Date cannot be a future date.');
+        setShowCancelDetails(true);
+        return;
+      }
+      const cancelledOn = originalCancelDetails?.cancelDate;
+      if (isCancelledStudent && cancelDetails.studentIsActive && cancelledOn && cancelDetails.activeDate <= cancelledOn) {
+        setError('Active Date must be after the Cancel Date.');
+        setShowCancelDetails(true);
+        return;
+      }
+    }
+   if (isEdit && (isCancelledStudent || (cancelDetailsChanged && !hasChanges))) {
+      if (!cancelDetailsChanged) return;
+      submittingRef.current = true;
+      setSubmitting(true);
+      setError('');
+      try {
+        const savedCancel = await saveStudentCancelDetail(form.studentId, cancelDetails);
+        setCancelDetails(savedCancel);
+        setOriginalCancelDetails(savedCancel);
+        alert('Student updated successfully.');
+      } catch (err) {
+        const apiMessage = err.response?.data;
+        setError(typeof apiMessage === 'string' ? apiMessage : err.message || 'Failed to save cancel details.');
+      } finally {
+        submittingRef.current = false;
+        setSubmitting(false);
+      }
+      return;
+    }
 
 
     if (!isEdit && (!form.courseFee || Number(form.courseFee) <= 0)) {
@@ -2580,6 +2708,12 @@ export default function NewStudentPage({ basePath }) {
         }
       }
 
+      if (isEdit && cancelDetailsChanged) {
+        const savedCancel = await saveStudentCancelDetail(form.studentId, cancelDetails);
+        setCancelDetails(savedCancel);
+        setOriginalCancelDetails(savedCancel);
+      }
+
       alert(isEdit ? 'Student updated successfully.' : 'Student created successfully.');
 
       if (isEdit) {
@@ -2785,18 +2919,88 @@ export default function NewStudentPage({ basePath }) {
           <Tab label="Offer Letter" sx={tabSx} />
         </Tabs>
 
-        {activeTab === 0 && (
-          <FormSectionsLayout
-            sections={[resource.sections[0]]}
-            form={form}
-            onChange={updateField}
-            selectOptions={selectOptions}
-            requiredFields={resource.requiredFields}
-            disabled={false}
-            disabledFields={isEdit ? ['fullName', 'email'] : []}
-          />
+        {isCancelledStudent && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            This student is cancelled. Only Cancel Details can be changed. Set Status to Active to edit other details.
+          </Alert>
         )}
 
+        {activeTab === 0 && (
+          <>
+            <FormSectionsLayout
+              sections={[resource.sections[0]]}
+              form={form}
+              onChange={updateField}
+              selectOptions={selectOptions}
+              requiredFields={resource.requiredFields}
+              disabled={isCancelledStudent}
+              disabledFields={isCancelledStudent ? [] : isEdit ? ['fullName', 'email'] : []}
+            />
+
+            {isEdit && (
+              <Box sx={{ mt: { xs: 1.25, md: 1.5 } }}>
+                <FormControlLabel
+                  sx={{ m: 0, mb: showCancelDetails ? 1 : 0 }}
+                  control={
+                    <Switch
+                      size="small"
+                      checked={showCancelDetails}
+                      onChange={(e) => setShowCancelDetails(e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Typography sx={{ ml: 0.75, fontSize: '0.875rem', fontWeight: 700 }}>
+                      Cancel Details
+                    </Typography>
+                  }
+                />
+
+                <Collapse in={showCancelDetails} unmountOnExit>
+                  <FormSectionsLayout
+                    sections={[CANCEL_DETAILS_SECTION]}
+                    form={cancelDetails}
+                    onChange={updateCancelDetails}
+                    fieldDefsOverride={{
+                      studentIsActive: { type: 'switch', label: 'Status', onLabel: 'Active', offLabel: 'Inactive', grid: { xs: 12, md: 'auto' }, spacingRight: 10 },
+                      activeDate: {
+                        type: 'date',
+                        label: 'Active Date',
+                        readOnly: !canEditActiveDate,
+                        grid: { xs: 12, md: 3 },
+                        minDate: isCancelledStudent && originalCancelDetails?.cancelDate
+                          ? nextDayIso(originalCancelDetails.cancelDate)
+                          : undefined,
+                        helperText: isCancelledStudent && cancelDetails.studentIsActive && originalCancelDetails?.cancelDate
+                          ? `Must be after ${formatDateDisplay(originalCancelDetails.cancelDate)}`
+                          : undefined,
+                      },
+                      cancelDate: { type: 'date', label: 'Cancel Date', readOnly: cancelDetails.studentIsActive, grid: { xs: 12, md: 3 }, maxDate: localTodayIso() },
+                      cancelReason: { type: 'textarea', label: 'Reason', readOnly: cancelDetails.studentIsActive, required: !cancelDetails.studentIsActive },
+                    }}
+                  />
+                </Collapse>
+              </Box>
+            )}
+          </>
+        )}
+
+        <Box
+          component="fieldset"
+          disabled={isCancelledStudent}
+          sx={{
+            border: 0,
+            p: 0,
+            m: 0,
+            minWidth: 0,
+            ...(isCancelledStudent
+              ? {
+                  '& .MuiInputBase-root, & .MuiSelect-select, & .MuiCheckbox-root, & .MuiSwitch-root, & .MuiIconButton-root, & .MuiButton-root, & .MuiRadio-root':
+                    { pointerEvents: 'none' },
+                  '& .MuiInputBase-root, & .MuiSelect-select': { bgcolor: 'action.hover' },
+                }
+              : {}),
+          }}
+        >
         {activeTab === 1 && (
           <>
             <FormSectionsLayout
@@ -2979,7 +3183,7 @@ export default function NewStudentPage({ basePath }) {
                             <TableCell>{item.feeType || '-'}</TableCell>
 
                             <TableCell>
-                              {canEditFees(item) ? (
+                              {canEditFees(item) && (isEdit || !isCreateLastFeeRow(paymentList, item)) ? (
                                 <TextField
                                   size="small"
                                   type="text"
@@ -3059,7 +3263,7 @@ export default function NewStudentPage({ basePath }) {
                               <Checkbox
                                 size="small"
                                 checked={isRowPastDataEditable(item)}
-                                disabled={!isEdit || editPastDataAll || item.status !== "Pending"}
+                                disabled={!isEdit || editPastDataAll || (item.status !== "Pending" && !isRowPastDataEditable(item))}
                                 onChange={() => toggleRowPastData(item)}
                               />
                             </TableCell>
@@ -3329,7 +3533,29 @@ export default function NewStudentPage({ basePath }) {
                             <TableCell>{formatDateCell(row.dueDate ?? row.feesDate)}</TableCell>
                             <TableCell>{Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
                             <TableCell>{row.paymentStatus}</TableCell>
-                            <TableCell> {Number(row.commissionAmount ?? row.commission).toFixed(2)}</TableCell>
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                              {Number(row.commissionAmount ?? row.commission).toFixed(2)}
+                              {row.isInvoicedUpdate && (
+                                <Tooltip title="Commission edited while invoicing">
+                                  <Box
+                                    component="span"
+                                    sx={{
+                                      ml: 0.75,
+                                      px: 0.6,
+                                      py: 0.1,
+                                      borderRadius: 0.75,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: '#fff',
+                                      bgcolor: 'warning.main',
+                                      cursor: 'default',
+                                    }}
+                                  >
+                                    E
+                                  </Box>
+                                </Tooltip>
+                              )}
+                            </TableCell>
                             <TableCell>
                               {isTuitionFeeType(row.feeType) &&
                                 isCommissionPending(row.commissionStatus ?? row.commissionHistoryOriginalStatus) &&
@@ -3476,6 +3702,7 @@ export default function NewStudentPage({ basePath }) {
             </TableContainer>
           </Paper>
         )}
+        </Box>
 
         <Box sx={{ mt: 4 }} />
 
@@ -3492,15 +3719,15 @@ export default function NewStudentPage({ basePath }) {
             ? isEdit ? 'Updating...' : 'Saving...'
             : isEdit ? 'Update Student' : 'Save Student'
           }
-          submitDisabled={
+          submitDisabled={isCancelledStudent ? submitting || !cancelDetailsChanged : (
             !isFormValid(resource, form) ||
             submitting ||
-            (isEdit && !hasChanges) ||
+            (isEdit && !hasChanges && !cancelDetailsChanged) ||
             (isEdit && addBonus && !bonusApplied) ||
             (!isEdit && !visitedTabs.has(2)) ||
             (!isEdit && (!form.courseFee || Number(form.courseFee) <= 0)) ||
             (!isEdit && (!form.noOfInstallment || Number(form.noOfInstallment) <= 0))
-          }
+          )}
         />
 
         <ConfirmByStudentDialog

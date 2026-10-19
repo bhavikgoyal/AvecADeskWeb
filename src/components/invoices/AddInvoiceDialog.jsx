@@ -13,11 +13,21 @@ function isValidAmountInput(value) {
   return value === '' || /^\d*\.?\d{0,2}$/.test(value);
 }
 
+const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+function gstForCommission(row, commissionValue) {
+  const commission = Number(commissionValue) || 0;
+  if (commission === Number(row.commissionAmountRaw || 0)) return Number(row.gstAmountRaw || 0);
+  if (!Number(row.gstAmountRaw || 0)) return 0;
+  const pct = Number(row.gstPercentage || 0);
+  if (row.gstInclusive) return round2(commission - (commission * 100) / (100 + pct));
+  return round2((commission * pct) / 100);
+}
+
 // The API stores InvoiceAmount as Commission + GST (GST already inside commission for inclusive rows).
 function toInvoiceAmount(row, commissionValue) {
   const commission = Number(commissionValue) || 0;
-  const gst = row.gstInclusive ? 0 : Number(row.gstAmountRaw || 0);
-  return Number((commission + gst).toFixed(2));
+  const gst = row.gstInclusive ? 0 : gstForCommission(row, commission);
+  return round2(commission + gst);
 }
 
 export default function AddInvoiceDialog({ open,onClose, onGenerated, initialInstituteName = '',
@@ -238,8 +248,11 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
   const totalGstAmount = useMemo(
     () => students
       .filter((row) => selectedIds.includes(row.id))
-      .reduce((total, row) => total + Number(row.gstAmountRaw || 0), 0),
-    [students, selectedIds],
+      .reduce(
+        (total, row) => total + gstForCommission(row, editedInvoiceAmts[row.id] ?? row.commissionAmountRaw),
+        0,
+      ),
+    [students, selectedIds, editedInvoiceAmts],
   );
 
   const allPaidSelected = paidStudents.length > 0 && selectedPaidCount === paidStudents.length;
@@ -544,13 +557,20 @@ export default function AddInvoiceDialog({ open,onClose, onGenerated, initialIns
       field: 'gstAmount',
       headerSx: { pl: 5 },
       cellSx: { pl: 5 },
-      render: (row) => (
-        <Tooltip title={row.gstInclusive ? 'GST is included in the commission' : ''}>
-          <Box component="span" sx={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
-            {row.gstAmount}{row.gstInclusive ? ' (incl.)' : ''}
-          </Box>
-        </Tooltip>
-      ),
+      render: (row) => {
+        const checked = selectedIds.includes(row.id);
+        const gst = checked
+          ? gstForCommission(row, editedInvoiceAmts[row.id] ?? row.commissionAmountRaw)
+          : Number(row.gstAmountRaw || 0);
+        return (
+          <Tooltip title={row.gstInclusive ? 'GST is included in the commission' : ''}>
+            <Box component="span" sx={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
+              {gst.toLocaleString('en-AU', { style: 'currency', currency: 'AUD' })}
+              {row.gstInclusive ? ' (incl.)' : ''}
+            </Box>
+          </Tooltip>
+        );
+      },
     },
     {
       id: 'bonus',

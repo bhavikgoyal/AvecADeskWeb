@@ -291,7 +291,9 @@ const REPORT_TAB_STATUS = {
  */
 export async function fetchCommissionReceivableMatrices(filters = {}) {
   const { data } = await axiosClient.get('/api/receivables/commission-receivable-report', {
-    params: { reportType: 'All' },
+    params: { reportType: 'All',
+      ...(filters.studentId ? { studentId: Number(filters.studentId) } : {}),
+    },
   });
 
   const from = filters.fromDate ? parseReportMonth(filters.fromDate) : null;

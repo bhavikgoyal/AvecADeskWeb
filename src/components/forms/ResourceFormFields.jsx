@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
-import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLabel, MenuItem, Select, TextField,Typography ,Radio,RadioGroup,InputAdornment } from '@mui/material';
+import { Box,Button, Checkbox, FormControl,FormLabel, FormControlLabel, InputLabel, MenuItem, Select, Switch, TextField,Typography ,Radio,RadioGroup,InputAdornment } from '@mui/material';
 import { Fragment } from 'react';
 import { FIELD_DEFS } from '../../config/resourceConfig';
 import DateTextField from './DateTextField';
@@ -286,6 +286,40 @@ export default function ResourceFormFields({
         </FormGridItem>
       );
     }
+    if (def.type === 'switch') {
+      const checked = form[fieldName] === true;
+      return (
+        <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
+          <Box sx={{ display: 'flex', alignItems: 'center', height: 40, gap: 1, mr: def.spacingRight ?? 3 }}>
+            <Typography sx={{ fontSize: '0.875rem', color: 'var(--muted)' }}>{def.label}</Typography>
+            <FormControlLabel
+              sx={{ m: 0 }}
+              control={
+                <Switch
+                  size="small"
+                  color="success"
+                  checked={checked}
+                  onChange={(event) => onChange(fieldName, event.target.checked)}
+                  disabled={isFieldDisabled}
+                />
+              }
+              label={
+                <Typography
+                  sx={{
+                    ml: 0.5,
+                    fontSize: '0.875rem',
+                    fontWeight: 700,
+                    color: checked ? 'success.main' : 'error.main',
+                  }}
+                >
+                  {checked ? def.onLabel || 'Yes' : def.offLabel || 'No'}
+                </Typography>
+              }
+            />
+          </Box>
+        </FormGridItem>
+      );
+    }
     if (def.type === 'radio') {
   return (
     <FormGridItem key={fieldName} size={resolveFieldGrid(def, compact)}>
@@ -335,6 +369,9 @@ export default function ResourceFormFields({
             required={isRequired}
             value={form[fieldName] ?? ''}
             onChangeValue={(value) => onChange(fieldName, value)}
+            minDate={def.minDate}
+            maxDate={def.maxDate}
+            helperText={def.helperText}
             disabled={isFieldDisabled}
             InputProps={{
               readOnly: isFieldDisabled,
