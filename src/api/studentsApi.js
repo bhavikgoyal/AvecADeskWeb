@@ -379,6 +379,31 @@ export async function saveStudentEnrollmentNumber(studentId, form) {
   return normalizeStudent(data);
 }
 
+function mapCancelDetail(data = {}) {
+  return {
+    studentIsActive: (data.isActive ?? data.IsActive ?? true) !== false,
+    cancelDate: String(data.cancelDate ?? data.CancelDate ?? '').slice(0, 10),
+    cancelReason: data.cancelReason ?? data.CancelReason ?? '',
+    activeDate: String(data.activeDate ?? data.ActiveDate ?? '').slice(0, 10),
+  };
+}
+
+export async function fetchStudentCancelDetail(studentId) {
+  const { data } = await axiosClient.get(`/api/students/${studentId}/cancel-detail`);
+  return mapCancelDetail(data);
+}
+
+export async function saveStudentCancelDetail(studentId, detail) {
+  const isActive = detail.studentIsActive !== false;
+  const { data } = await axiosClient.post(`/api/students/${studentId}/cancel-detail`, {
+    isActive,
+    cancelDate: isActive ? null : detail.cancelDate || null,
+    cancelReason: isActive ? null : String(detail.cancelReason ?? '').trim() || null,
+    activeDate: isActive ? detail.activeDate || null : null,
+  });
+  return mapCancelDetail(data);
+}
+
 export async function fetchStudentPaymentDetail(studentId) {
   const { data } = await axiosClient.get(
     `/api/students/GetStudentPaymentDetail/${studentId}`

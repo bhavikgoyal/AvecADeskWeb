@@ -27,7 +27,7 @@ import {
   listToolbarRowSx,
   LIST_FILTER_ALL,
 } from "../../components/forms";
-import { fetchStudentPaymentScheduleList, fetchStudentCourseCompleteList, formatCurrency, formatDisplayDate } from "../../api/schedulesApi";
+import { fetchStudentPaymentScheduleList, fetchStudentCourseCompleteList, fetchStudentCancelList, formatCurrency, formatDisplayDate } from "../../api/schedulesApi";
 
 const INSTITUTE_SCRAPPING_BASE_PATH = "/institutes-scrapping";
 
@@ -79,6 +79,10 @@ const fromInstitute =
   const [completeLoading, setCompleteLoading] = useState(false);
   const [completePage, setCompletePage] = useState(0);
   const [completeRowsPerPage, setCompleteRowsPerPage] = useState(10);
+  const [cancelRows, setCancelRows] = useState([]);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelPage, setCancelPage] = useState(0);
+  const [cancelRowsPerPage, setCancelRowsPerPage] = useState(10);
   const initParams = new URLSearchParams(location.search);
   const initCurrent = initParams.has("currentMonth") || initParams.get("currentMonth") === "true";
   const [currentMonthOnly, setCurrentMonthOnly] = useState(initCurrent);
@@ -133,12 +137,20 @@ const fromInstitute =
     try {
       const { nextMonth } = parseFilterFromUrl();
 
-      const result = await fetchStudentPaymentScheduleList(
-        undefined,
-        nextMonth
-      );
+      const studentSearchText = studentNameFilter.trim();
+      const [result, completed, cancelledList] = await Promise.all([
+        fetchStudentPaymentScheduleList(undefined, nextMonth),
+        studentSearchText ? fetchStudentCourseCompleteList().catch(() => []) : Promise.resolve([]),
+        studentSearchText ? fetchStudentCancelList().catch(() => []) : Promise.resolve([]),
+      ]);
 
-      let filteredResult = result || [];
+      const seenSchedules = new Set();
+      let filteredResult = [...(result || []), ...(completed || []), ...(cancelledList || [])].filter((item) => {
+        const key = String(item.scheduleId);
+        if (seenSchedules.has(key)) return false;
+        seenSchedules.add(key);
+        return true;
+      });
       if (selectedInstituteKey) {
         filteredResult = filteredResult.filter(
           (item) =>
@@ -205,11 +217,23 @@ const fromInstitute =
     try {
       const studentId = studentFilterValue ? Number(studentFilterValue) : undefined;
       const data = await fetchStudentCourseCompleteList(studentId);
-      const filteredData = selectedInstituteKey
+      let filteredData = selectedInstituteKey
         ? (data || []).filter(
           (item) => normalizeInstituteName(item.instituteName) === selectedInstituteKey,
         )
         : (data || []);
+      const instituteSearch = instituteFilter.trim().toLowerCase();
+      if (instituteSearch) {
+        filteredData = filteredData.filter((item) =>
+          String(item.instituteName || '').toLowerCase().includes(instituteSearch),
+        );
+      }
+      const studentSearch = studentNameFilter.trim().toLowerCase();
+      if (studentSearch) {
+        filteredData = filteredData.filter((item) =>
+          String(item.studentName || '').toLowerCase().includes(studentSearch),
+        );
+      }
       setCompleteRows(filteredData);
     } catch (err) {
       setCompleteRows([]);
@@ -217,11 +241,44 @@ const fromInstitute =
     } finally {
       setCompleteLoading(false);
     }
-  }, [selectedInstituteKey]);
+  }, [selectedInstituteKey, instituteFilter, studentNameFilter]);
 
   useEffect(() => {
     if (activeTab === 1) loadComplete(studentFilter);
   }, [activeTab, studentFilter, loadComplete]);
+
+  const loadCancelled = useCallback(async () => {
+    setCancelLoading(true);
+    try {
+      let data = (await fetchStudentCancelList()) || [];
+      if (selectedInstituteKey) {
+        data = data.filter((item) => normalizeInstituteName(item.instituteName) === selectedInstituteKey);
+      }
+      const instituteSearch = instituteFilter.trim().toLowerCase();
+      if (instituteSearch) {
+        data = data.filter((item) => String(item.instituteName || '').toLowerCase().includes(instituteSearch));
+      }
+      const studentSearch = studentNameFilter.trim().toLowerCase();
+      if (studentSearch) {
+        data = data.filter((item) => String(item.studentName || '').toLowerCase().includes(studentSearch));
+      }
+      setCancelRows(data);
+    } catch (err) {
+      setCancelRows([]);
+      setError(err.message || 'Failed to load cancelled students.');
+    } finally {
+      setCancelLoading(false);
+    }
+  }, [selectedInstituteKey, instituteFilter, studentNameFilter]);
+
+  useEffect(() => {
+    if (activeTab === 2) loadCancelled();
+  }, [activeTab, loadCancelled]);
+
+  const cancelPaginatedRows = useMemo(
+    () => cancelRows.slice(cancelPage * cancelRowsPerPage, cancelPage * cancelRowsPerPage + cancelRowsPerPage),
+    [cancelRows, cancelPage, cancelRowsPerPage],
+  );
 
   useEffect(() => {
     if (activeTab === 1) {
@@ -286,6 +343,28 @@ const fromInstitute =
       }
     });
   }, [resource, navigate]);
+
+  const cancelColumns = useMemo(() => {
+    const base = columns.filter((column) => !['nextDueDate', 'installmentAmount'].includes(column.field));
+    const statusIndex = base.findIndex((column) => column.field === 'paymentStatus');
+    const extra = [
+      {
+        id: 'cancelDate',
+        field: 'cancelDate',
+        label: 'Cancel Date',
+        render: (row) => (row.cancelDate ? formatDisplayDate(row.cancelDate) : '-'),
+      },
+      {
+        id: 'cancelReason',
+        field: 'cancelReason',
+        label: 'Reason',
+        cellSx: { whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 240 },
+        render: (row) => row.cancelReason || '-',
+      },
+    ];
+    const at = statusIndex >= 0 ? statusIndex : base.length;
+    return [...base.slice(0, at), ...extra, ...base.slice(at)];
+  }, [columns]);
 
   const handleRowClick = useCallback((row) => navigate(`/students/${row.studentId}`), [navigate]);
  const instituteOptions = useMemo(() => {
@@ -375,6 +454,8 @@ const fromInstitute =
               onChange={(e) => {
                 setStudentNameFilter(e.target.value);
                 setPage(0);
+                setCompletePage(0);
+                setCancelPage(0);
               }}
               sx={listSelectFieldSx(Boolean(studentNameFilter))}
             />
@@ -428,6 +509,7 @@ const fromInstitute =
         >
           <Tab label="Current" sx={{ textTransform: 'uppercase', fontWeight: 800, minHeight: 48, px: 3 }} />
           <Tab label="Complete" sx={{ textTransform: 'uppercase', fontWeight: 800, minHeight: 48, px: 3 }} />
+          <Tab label="Cancelled" sx={{ textTransform: 'uppercase', fontWeight: 800, minHeight: 48, px: 3 }} />
         </Tabs>
 
         {activeTab === 0 && (
@@ -473,6 +555,31 @@ const fromInstitute =
                   onPageChange={(_e, p) => setCompletePage(p)}
                   rowsPerPage={completeRowsPerPage}
                   onRowsPerPageChange={(e) => { setCompleteRowsPerPage(parseInt(e.target.value, 10)); setCompletePage(0); }}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                />
+              </>
+            )}
+          </Box>
+        )}
+
+        {activeTab === 2 && (
+          <Box>
+            {cancelLoading ? (
+              <TableContentSkeleton rows={6} columns={[{ id: 'student', label: 'Student', flex: 1.2 }, { id: 'institute', label: 'Institute', flex: 1.6 }, { id: 'course', label: 'Course', flex: 1.3 }, { id: 'totalFee', label: 'Total Fee', flex: 0.8 }, { id: 'cancelDate', label: 'Cancel Date', flex: 0.9 }, { id: 'reason', label: 'Reason', flex: 1.4 }, { id: 'status', label: 'Status', flex: 0.7 }]} />
+            ) : cancelRows.length === 0 ? (
+              <Box sx={{ py: 6, textAlign: 'center' }}>
+                <Typography color="text.secondary">No cancelled students found.</Typography>
+              </Box>
+            ) : (
+              <>
+                <ResponsiveTable variant="resource" alwaysTable rows={cancelPaginatedRows} columns={cancelColumns} getRowKey={(row) => row.scheduleId} onRowClick={handleRowClick} />
+                <TablePagination
+                  component="div"
+                  count={cancelRows.length}
+                  page={cancelPage}
+                  onPageChange={(_e, p) => setCancelPage(p)}
+                  rowsPerPage={cancelRowsPerPage}
+                  onRowsPerPageChange={(e) => { setCancelRowsPerPage(parseInt(e.target.value, 10)); setCancelPage(0); }}
                   rowsPerPageOptions={[5, 10, 25, 50]}
                 />
               </>

@@ -375,15 +375,20 @@ function itemCourseText(item) {
     : safeText(parsed.course);
 }
 
-function itemFeesLine(item) {
-  const feesAmount = Number(item.feesAmount ?? item.FeesAmount ?? 0);
-  const amountVal = Number(itemCommissionAmount(item).toFixed(2));
-  // Edited commissions show the effective rate that yields the edited amount.
-  const displayPercentage = isInvoicedUpdateItem(item)
-    ? (feesAmount > 0 ? Number(((amountVal / feesAmount) * 100).toFixed(2)) : null)
-    : Number(item.commissionPercentage ?? item.CommissionPercentage ?? 0);
-  if (displayPercentage == null) return null;
-  return `Fees: $ ${formatMoney(feesAmount)} * ${displayPercentage}/100`;
+function groupFeesLine(items, amountVal) {
+  const totalFees = Number(
+    items.reduce((sum, item) => sum + Number(item.feesAmount ?? item.FeesAmount ?? 0), 0).toFixed(2)
+  );
+  if (totalFees <= 0) return null;
+
+  const rates = items.map((item) => Number(item.commissionPercentage ?? item.CommissionPercentage ?? 0));
+  const sameUneditedRate =
+    items.every((item) => !isInvoicedUpdateItem(item)) && rates.every((rate) => rate === rates[0]);
+  const displayPercentage = sameUneditedRate
+    ? rates[0]
+    : Number(((amountVal / totalFees) * 100).toFixed(2));
+
+  return `Fees: $ ${formatMoney(totalFees)} * ${displayPercentage}/100`;
 }
 
 function groupLineItemsByStudent(items) {
@@ -424,10 +429,8 @@ function buildItemLines(doc, group, colPart, showHeading = true) {
   }
 
   lines.push(`Course Details: ${itemCourseText(first)}`);
-  items.forEach((item) => {
-    const feesLine = itemFeesLine(item);
-    if (feesLine) lines.push(feesLine);
-  });
+  const feesLine = groupFeesLine(items, amountVal);
+  if (feesLine) lines.push(feesLine);
 
   doc.setFont('times', 'normal');
   doc.setFontSize(12);
