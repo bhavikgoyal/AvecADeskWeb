@@ -60,7 +60,7 @@ export async function updateInstituteContact(instituteId, contactId, form) {
 }
 
 export async function deleteInstituteContact(instituteId, contactId) {
-  await axiosClient.delete(`/api/institutes/${instituteId}/contacts/${contactId}`);
+  await axiosClient.post(`/api/institutes/${instituteId}/contacts/${contactId}/delete`);
 }
 
 
@@ -123,7 +123,7 @@ export async function updateInstituteContract(instituteId, contractId, form) {
 }
 
 export async function deleteInstituteContract(instituteId, contractId) {
-  await axiosClient.delete(`/api/institutes/${instituteId}/contracts/${contractId}`);
+  await axiosClient.post(`/api/institutes/${instituteId}/contracts/${contractId}/delete`);
 }
 
 function normalizeCredential(raw) {
@@ -189,7 +189,7 @@ export async function updateInstituteCredential(instituteId, credentialId, form)
 }
 
 export async function deleteInstituteCredential(instituteId, credentialId) {
-  await axiosClient.delete(`/api/institutes/${instituteId}/credentials/${credentialId}`);
+  await axiosClient.post(`/api/institutes/${instituteId}/credentials/${credentialId}/delete`);
 }
 
 export async function uploadInstituteContractFile(instituteId, file) {
