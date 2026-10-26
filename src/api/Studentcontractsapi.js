@@ -46,7 +46,7 @@ export async function updateStudentContract(contractId, contract) {
 }
 
 export async function deleteStudentContract(contractId, studentId) {
-  const { data } = await axiosClient.delete(`${API_BASE(studentId)}/${contractId}`);
+  const { data } = await axiosClient.post(`${API_BASE(studentId)}/${contractId}/delete`);
   return data;
 }
 
