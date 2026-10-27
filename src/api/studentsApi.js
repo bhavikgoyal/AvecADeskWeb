@@ -452,6 +452,7 @@ export async function fetchStudentPaymentDetail(studentId) {
     gstAmount: data.gstAmount ?? data.GSTAmount,
     bonusAmount: data.bonusAmount ?? data.BonusAmount,
     dueDate: data.dueDate ?? data.DueDate,
+    dueDays: data.dueDays ?? data.DueDays ?? null,
     remark: data.remark ?? data.Remark,
 
     scheduleId: data.scheduleId ?? data.ScheduleId,

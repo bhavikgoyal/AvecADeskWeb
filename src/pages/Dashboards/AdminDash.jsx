@@ -11,16 +11,19 @@ import { fetchStudentPaymentInstallments } from '../../api/Receivablesapi';
 import { fetchAllStudents } from '../../api/studentsApi';
 import GroupedBarChartCard from '../../components/charts/GroupedBarChartCard';
 import StatCard from '../../components/StatCard';
+import WelcomeCard from '../../components/WelcomeCard';
+import { useAuth } from '../../hooks/useAuth';
 import { CHART_COLORS } from '../../theme/chartTheme';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Grid, Paper, Typography, Button } from '@mui/material';
-import { ResponsiveContainer, BarChart, Bar,LineChart, Line, Tooltip, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar,LineChart, Line, Tooltip, CartesianGrid, XAxis, YAxis, Legend } from 'recharts';
 import { fetchWeekChecklistStats } from '../../utils/checklistStats';
 import { fetchMonthRevenueDashboard } from '../../api/Receivablesapi';
 import { fetchInvoicesWithMonthlyTotals, fetchNextMonthInvoiceTotal } from '../../api/invoicesApi';
 import { fetchVendorRows } from '../../api/vendorsApi';
 import AnticipatedReceivables1Page from '../anticipatedReceivables1/AnticipatedReceivables1Page';
+import { fetchMonthlyPaidDueTotals } from '../../api/anticipatedReceivablesApi';
 const kpiStats = [
   {
     label: 'Open tasks',
@@ -34,6 +37,7 @@ const kpiStats = [
 ];
 export default function AdminDash() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const now = useMemo(() => new Date(), []);
   const [nextMonthInvoiceTotal, setNextMonthInvoiceTotal] = useState(0);
   const [vendorStats, setVendorStats] = useState({
@@ -110,6 +114,15 @@ export default function AdminDash() {
     }).catch(() => { });
     return () => { mounted = false; };
   }, []);
+  const [monthlyPaidDue, setMonthlyPaidDue] = useState({});
+  useEffect(() => {
+    let mounted = true;
+    fetchMonthlyPaidDueTotals()
+      .then((totals) => { if (mounted) setMonthlyPaidDue(totals || {}); })
+      .catch(() => { });
+    return () => { mounted = false; };
+  }, []);
+
   const [monthRevenue, setMonthRevenue] = useState(null);
   useEffect(() => {
     let mounted = true;
@@ -330,167 +343,45 @@ export default function AdminDash() {
     }
     return [{ name: label, v: total }, { name: label, v: total }];
   }, [monthRevenue, invoiceTotals]);
+
+  const paymentOverviewData = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 12 }, (_, index) => {
+      const date = new Date(today.getFullYear(), today.getMonth() - 11 + index, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const totals = monthlyPaidDue[key] || { paid: 0, due: 0 };
+      return {
+        name: `${date.toLocaleString('en-US', { month: 'short' })}-${String(date.getFullYear()).slice(-2)}`,
+        paid: Number(totals.paid.toFixed(2)),
+        due: Number(totals.due.toFixed(2)),
+      };
+    });
+  }, [monthlyPaidDue]);
+  const welcomeFooterStats = (() => {
+    const current = paymentOverviewData[paymentOverviewData.length - 1] || { paid: 0, due: 0 };
+    const fmt = (n) => `$${Number(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1;
+    return [
+      { label: 'This Month Paid', value: fmt(current.paid), path: `/invoices?view=paid&year=${y}&month=${m}` },
+      { label: 'This Month Due', value: fmt(current.due), path: `/invoices?view=due&year=${y}&month=${m}` },
+    ];
+  })();
+
   return (
     <>
-      <DashboardTemplate
-        welcomeFooterStats={(() => {
-          if (invoiceTotals) {
-            const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = now.getMonth() + 1;
-            return [
-              { label: 'This Month Paid', value: fmt(invoiceTotals.thisMonth?.paid ?? 0), path: `/invoices?view=paid&year=${y}&month=${m}` },
-              { label: 'This Month Due', value: fmt(invoiceTotals.thisMonth?.due ?? 0), path: `/invoices?view=due&year=${y}&month=${m}` },
-            ];
-          }
-          const rows = Array.isArray(monthRevenue) ? monthRevenue : (monthRevenue?.installments || []);
-          const now = new Date();
-          const cur = new Date(now.getFullYear(), now.getMonth(), 1);
-          const buckets = { cur: { paid: 0, due: 0 } };
-          for (const it of rows) {
-            const due = it.dueDate ? new Date(it.dueDate) : null;
-            if (!due) continue;
-            if (due.getFullYear() === cur.getFullYear() && due.getMonth() === cur.getMonth()) {
-              const comm = Number(it.commissionAmount ?? it.commission?.amount ?? 0) || 0;
-              const bonus = Number(it.bonusAmount ?? it.bonus?.amount ?? 0) || 0;
-              const amount = comm + bonus;
-              const status = (it.commissionStatus || it.paymentStatus || '').toString().toLowerCase();
-              if (status === 'paid') buckets.cur.paid += amount; else buckets.cur.due += amount;
-            }
-          }
-          const fmt = (n) => `$${Number(n || 0).toLocaleString()}`;
-          const now2 = new Date();
-          const y2 = now2.getFullYear();
-          const m2 = now2.getMonth() + 1;
-          return [
-            { label: 'This Month Paid', value: fmt(buckets.cur.paid), path: `/invoices?view=paid&year=${y2}&month=${m2}` },
-            { label: 'This Month Due', value: fmt(buckets.cur.due), path: `/invoices?view=due&year=${y2}&month=${m2}` },
-          ];
-        })()}
-        kpiStats={[
-          {
-            label: 'Receivables',
-            value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`,
-            sparklineData: receivablesSpark.length ? receivablesSpark : buildSparkline(4),
-            sparklineFormatter: (v) => `$${Number(v || 0).toLocaleString()}`,
-            chart: (
-              <Box sx={{ height: 44, mt: 0.25 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={(receivablesSpark.length ? receivablesSpark : [{ name: '', paid: 0, due: 0 }, { name: '', paid: 0, due: 0 }])} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
-                    <XAxis dataKey="name" tick={false} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0, (dataMax) => Math.max(1, Math.ceil((Number(dataMax) || 0) * 1.05))]} hide />
-                    <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--card-border)', fontSize: 12 }} formatter={(v, name) => [`$${Number(v).toLocaleString()}`, name]} />
-                    <Line type="monotone" dataKey="paid" stroke={CHART_COLORS.teal} strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="due" stroke={CHART_COLORS.danger} strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Box>
-            ),
-            icon: <PaymentsIcon />,
-            color: 'var(--teal)',
-            footer: [{ label: 'Paid', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`, sub: 'This month' }, { label: 'Due', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.due || 0).toLocaleString()}` : `$${Number(dueThisMonth || 0).toLocaleString()}`, sub: 'Current' }],
-          }
-        ]}
-        showSnapshot={false}
-        showQuickInsights={false}
-        showUpcoming={false}
-        showCharts={false}
-        showMiniStats={false}
-        showTable={false}
-        rightExtra={null}
-        tableBasePath="/invoices"
-        miniStats={[]}
-        activity={[]}
-        upcomingItems={[]}
-        areaChartData={revenueTrend}
-      />
-    <Box sx={{ mt: 1.5, width: '100%', minHeight: 280 }}>
-      <Paper
-        elevation={0}
-        sx={{
-          border: '1px solid var(--card-border)',
-          borderRadius: 3,
-          p: { xs: 1.5, md: 2 },
-        }}
-      >
-    <Typography
-      sx={{
-        fontWeight: 700,
-        color: 'var(--text)',
-        fontSize: '0.95rem',
-        mb: 2,
-      }}
-    >
-      Payment Overview - Last 12 Months
-    </Typography>
-
-      <Box sx={{ width: '100%', height: 320 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={(() => {
-              const rows = Array.isArray(monthRevenue)? monthRevenue   : monthRevenue?.installments || [];
-              const months = Array.from({ length: 12 }, (_, index) => {
-              const date = new Date(now.getFullYear(), now.getMonth() - 11 + index,1);
-
-                return {
-                  name: date.toLocaleString('en-US', {month: 'short',
-                  }),year: date.getFullYear(),month: date.getMonth(),
-                  paid: 0,due: 0,
-                };
-              });
-
-              rows.forEach((item) => {const dueDate = item.dueDate? new Date(item.dueDate): null;
-                if (!dueDate) return;
-                const month = months.find((m) => m.year === dueDate.getFullYear() && m.month === dueDate.getMonth() );
-                if (!month) return;
-                const commission =Number(item.commissionAmount ??item.commission?.amount ??0) || 0;
-                const bonus =Number(item.bonusAmount ??item.bonus?.amount ??0) || 0;
-                const amount = commission + bonus;
-                const status = (item.commissionStatus ||item.paymentStatus ||'').toString().toLowerCase();
-                if (status === 'paid') {
-                  month.paid += amount;
-                } else {
-                  month.due += amount;
-                }
-              });
-
-              if (invoiceTotals?.thisMonth) {const currentMonth = months[months.length - 1];
-                currentMonth.paid = Number(invoiceTotals.thisMonth.paid || 0);
-                currentMonth.due = Number(invoiceTotals.thisMonth.due || 0);
-              }
-             
-              if (invoiceTotals?.lastMonth) {const previousMonth = months[months.length - 2];
-                previousMonth.paid = Number(invoiceTotals.lastMonth.paid || 0);
-                previousMonth.due = Number(invoiceTotals.lastMonth.due || 0);
-              }
-              return months;
-            })()}
-            margin={{top: 10,right: 20,left: 10,bottom: 5,}}
-            barCategoryGap="20%"
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke={CHART_COLORS.grid}
-              vertical={false}
-            />
-
-            <XAxis dataKey="name" axisLine={false} tickLine={false}tick={{ fontSize: 12 }}  />
-            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(value) => `$${Number(value).toLocaleString()}` } />
-            <Tooltip
-              contentStyle={{ borderRadius: 8,border: '1px solid var(--card-border)',fontSize: 12, }}
-              formatter={(value, name) => [ `$${Number(value).toLocaleString()}`,name,]}
-            />
-            <Bar dataKey="paid" name="Paid" fill={CHART_COLORS.teal} radius={[4, 4, 0, 0]} barSize={18}/>
-            <Bar dataKey="due" name="Due" fill={CHART_COLORS.danger} radius={[4, 4, 0, 0]} barSize={18}/>
-          </BarChart>
-        </ResponsiveContainer>
-      </Box>
-    </Paper>
-        <Box sx={{ mt: 1.5 }}>
+      <Box sx={{ mt: 1.5 }}>
           <Grid container spacing={1.25} sx={{ alignItems: 'stretch' }}>
-            <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+            <Grid size={{ xs: 12, sm: 6, lg: 3 }} sx={{ display: 'flex', minWidth: 0 }}>
+              <WelcomeCard
+                userName={user?.name}
+                avatar={user?.avatar}
+                footerStats={welcomeFooterStats}
+                sx={{ maxWidth: 'none', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, lg: 3 }} sx={{ display: 'flex', minWidth: 0 }}>
               <StatCard
                 label="Currently Active Vendors"
                 value={vendorStats.loggedInToday.toLocaleString()}
@@ -517,7 +408,7 @@ export default function AdminDash() {
                 sx={{ flex: 1, width: '100%' }}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+            <Grid size={{ xs: 12, sm: 6, lg: 3 }} sx={{ display: 'flex', minWidth: 0 }}>
               <StatCard
                 label="Total students"
                 value={studentStats.total.toLocaleString()}
@@ -535,7 +426,7 @@ export default function AdminDash() {
                 sx={{ flex: 1, width: '100%' }}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 4 }} sx={{ display: 'flex' }}>
+            <Grid size={{ xs: 12, sm: 6, lg: 3 }} sx={{ display: 'flex', minWidth: 0 }}>
               <StatCard
                 label="Total Vendors"
                 value={vendorStats.total.toLocaleString()}
@@ -574,6 +465,93 @@ export default function AdminDash() {
             </Grid>
           </Grid>
         </Box>
+      <DashboardTemplate
+        showWelcome={false}
+        // kpiStats={[
+        //   {
+        //     label: 'Receivables',
+        //     value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`,
+        //     sparklineData: receivablesSpark.length ? receivablesSpark : buildSparkline(4),
+        //     sparklineFormatter: (v) => `$${Number(v || 0).toLocaleString()}`,
+        //     chart: (
+        //       <Box sx={{ height: 44, mt: 0.25 }}>
+        //         <ResponsiveContainer width="100%" height="100%">
+        //           <LineChart data={(receivablesSpark.length ? receivablesSpark : [{ name: '', paid: 0, due: 0 }, { name: '', paid: 0, due: 0 }])} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
+        //             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+        //             <XAxis dataKey="name" tick={false} axisLine={false} tickLine={false} />
+        //             <YAxis domain={[0, (dataMax) => Math.max(1, Math.ceil((Number(dataMax) || 0) * 1.05))]} hide />
+        //             <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--card-border)', fontSize: 12 }} formatter={(v, name) => [`$${Number(v).toLocaleString()}`, name]} />
+        //             <Line type="monotone" dataKey="paid" stroke={CHART_COLORS.teal} strokeWidth={2} dot={false} />
+        //             <Line type="monotone" dataKey="due" stroke={CHART_COLORS.danger} strokeWidth={2} dot={false} />
+        //           </LineChart>
+        //         </ResponsiveContainer>
+        //       </Box>
+        //     ),
+        //     icon: <PaymentsIcon />,
+        //     color: 'var(--teal)',
+        //     footer: [{ label: 'Paid', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`, sub: 'This month' }, { label: 'Due', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.due || 0).toLocaleString()}` : `$${Number(dueThisMonth || 0).toLocaleString()}`, sub: 'Current' }],
+        //   }
+        // ]}
+        showSnapshot={false}
+        showQuickInsights={false}
+        showUpcoming={false}
+        showCharts={false}
+        showMiniStats={false}
+        showTable={false}
+        rightExtra={null}
+        tableBasePath="/invoices"
+        miniStats={[]}
+        activity={[]}
+        upcomingItems={[]}
+        areaChartData={revenueTrend}
+      />
+    <Box sx={{ mt: 1.5, width: '100%', minHeight: 280 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          border: '1px solid var(--card-border)',
+          borderRadius: 3,
+          p: { xs: 1.5, md: 2 },
+        }}
+      >
+    <Typography
+      sx={{
+        fontWeight: 700,
+        color: 'var(--text)',
+        fontSize: '0.95rem',
+        mb: 2,
+      }}
+    >
+      Payment Overview - Last 12 Months
+    </Typography>
+
+      <Box sx={{ width: '100%', height: 320 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={paymentOverviewData}
+            margin={{top: 10,right: 20,left: 10,bottom: 5,}}
+            barCategoryGap="20%"
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke={CHART_COLORS.grid}
+              vertical={false}
+            />
+
+            <XAxis dataKey="name" axisLine={false} tickLine={false}tick={{ fontSize: 12 }}  />
+            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(value) => `$${Number(value).toLocaleString()}` } />
+            <Tooltip
+              contentStyle={{ borderRadius: 8,border: '1px solid var(--card-border)',fontSize: 12, }}
+              formatter={(value, name) => [ `$${Number(value).toLocaleString()}`,name,]}
+            />
+            <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ fontSize: 12, paddingBottom: 8 }} />
+            <Bar dataKey="paid" name="Paid" fill={CHART_COLORS.teal} radius={[4, 4, 0, 0]} barSize={18}/>
+            <Bar dataKey="due" name="Due" fill={CHART_COLORS.danger} radius={[4, 4, 0, 0]} barSize={18}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </Box>
+    </Paper>
+      
       </Box>
         <Box sx={{ mt: 1.5, width: '100%' }}>
         <AnticipatedReceivables1Page />

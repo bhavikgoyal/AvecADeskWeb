@@ -53,6 +53,72 @@ function fmtCell(value) {
   }).format(Number(value));
 }
 
+function CollegeSummaryTable({ rows, loading }) {
+  const totals = rows.reduce(
+    (sum, row) => ({
+      total: sum.total + row.total,
+      received: sum.received + row.received,
+      due: sum.due + row.due,
+    }),
+    { total: 0, received: 0, due: 0 },
+  );
+
+  const cellSx = { border: `1px solid ${COLORS.border}`, px: 1.5, py: 0.75, fontSize: 12, whiteSpace: 'nowrap' };
+  const headSx = { ...cellSx, bgcolor: COLORS.headerBg, fontWeight: 800, color: '#000', textTransform: 'uppercase', fontSize: 11 };
+  const nameSx = { ...cellSx, fontWeight: 700, color: '#000' };
+  const amountSx = { ...cellSx, textAlign: 'right' };
+
+  return (
+    <Box
+      sx={{bgcolor: 'background.paper',borderRadius: 2,border: '1px solid',borderColor: 'divider',
+        p: 2,mb: 3,}}>
+      <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', mb: 1.5 }}>College Summary</Typography>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      ) : rows.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No data.</Typography>
+      ) : (
+        <Box sx={{ overflowX: 'auto' }}>
+          <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 520 }}>
+            <thead>
+              <tr>
+                <Box component="th" sx={{ ...headSx, textAlign: 'left' }}>College Name</Box>
+                <Box component="th" sx={{ ...headSx, textAlign: 'right' }}>Total</Box>
+                <Box component="th" sx={{ ...headSx, textAlign: 'right' }}>Received</Box>
+                <Box component="th" sx={{ ...headSx, textAlign: 'right' }}>Due</Box>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.collegeName}>
+                  <Box component="td" sx={nameSx}>{row.collegeName}</Box>
+                  <Box component="td" sx={amountSx}>{fmtMoney(row.total)}</Box>
+                  <Box component="td" sx={{ ...amountSx, bgcolor: row.received ? COLORS.paidBg : undefined }}>
+                    {fmtMoney(row.received)}
+                  </Box>
+                  <Box component="td" sx={{ ...amountSx, color: row.due ? COLORS.overdueText : undefined }}>
+                    {fmtMoney(row.due)}
+                  </Box>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <Box component="td" sx={{ ...nameSx, bgcolor: COLORS.totalBg, fontWeight: 800 }}>TOTAL</Box>
+                <Box component="td" sx={{ ...amountSx, bgcolor: COLORS.totalBg, fontWeight: 700 }}>{fmtMoney(totals.total)}</Box>
+                <Box component="td" sx={{ ...amountSx, bgcolor: COLORS.totalBg, fontWeight: 700 }}>{fmtMoney(totals.received)}</Box>
+                <Box component="td" sx={{ ...amountSx, bgcolor: COLORS.totalBg, fontWeight: 700 }}>{fmtMoney(totals.due)}</Box>
+              </tr>
+            </tfoot>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 function StatCard({ label, amount, count, color }) {
   return (
     <Box
@@ -540,6 +606,8 @@ export default function AnticipatedReceivables1Page() {
           Reset
         </Button>
       </Box>
+
+      <CollegeSummaryTable rows={matrices?.collegeSummary || []} loading={loading} />
 
       <Box
         sx={{

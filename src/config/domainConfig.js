@@ -31,6 +31,7 @@ export const DOMAIN_FIELD_DEFS = {
   secondaryColor: { label: 'Secondary color', type: 'text', grid: grid.half },
   logoUrl: { label: 'Logo URL', type: 'text', grid: grid.half },
   dueDate: { label: 'Due date', type: 'date', grid: grid.half },
+  dueDays: { label: 'Due Days',type: 'select', options: Array.from({ length: 100 }, (_, i) => String(i + 1)),grid: grid.half,},
   websiteUrl: { label: 'Website URL', type: 'text', grid: grid.half },
   city: { label: 'City', type: 'text', grid: grid.third },
   state: { label: 'State', type: 'text', grid: grid.third },
@@ -393,7 +394,7 @@ export const DOMAIN_RESOURCES = {
        'courseDurationWeeks',                                          
       'frequency', 'startDate', 'courseStartDate', 'courseEndDate',
     ], },
-      { title: 'Commission', description: 'Commission & GST information.', fields: ['agent','commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'dueDate', 'remark',] },
+      { title: 'Commission', description: 'Commission & GST information.', fields: ['agent','commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'dueDays', 'remark',] },
       { title: 'Bonus', description: 'Bonus details.', fields: ['bonusOption', 'bonusType', 'bonus',] },
     ],
 
@@ -417,7 +418,7 @@ export const DOMAIN_RESOURCES = {
       amountDue: '', amountPaid: '', paymentStatus: 'Pending', startDate: '',
       assignment: '',
       commissionPercentage: '', gstPercentage: '', bonus: '',
-      commissionAmount: '', gstAmount: '', invoiceAmount: '', dueDate: '', remark: '',
+      commissionAmount: '', gstAmount: '', invoiceAmount: '', dueDate: '', dueDays: '', remark: '',
     }),
   },
   invoices: {

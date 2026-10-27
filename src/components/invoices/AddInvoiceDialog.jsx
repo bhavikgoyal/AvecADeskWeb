@@ -23,7 +23,6 @@ function gstForCommission(row, commissionValue) {
   return round2((commission * pct) / 100);
 }
 
-// The API stores InvoiceAmount as Commission + GST (GST already inside commission for inclusive rows).
 function toInvoiceAmount(row, commissionValue) {
   const commission = Number(commissionValue) || 0;
   const gst = row.gstInclusive ? 0 : gstForCommission(row, commission);

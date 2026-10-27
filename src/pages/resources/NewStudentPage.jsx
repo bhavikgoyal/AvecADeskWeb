@@ -729,7 +729,7 @@ const buildChangeSnapshot = (list, history) =>
     })),
   });
 
-const buildStudentSnapshot = ({ fullName, email, phone, folderNo, leadNo, studentIdDisplay, bonus, bonusType, bonusOption, dueDate }) =>
+const buildStudentSnapshot = ({ fullName, email, phone, folderNo, leadNo, studentIdDisplay, bonus, bonusType, bonusOption, dueDate, dueDays }) =>
   JSON.stringify({
     fullName: String(fullName ?? '').trim(),
     email: String(email ?? '').trim(),
@@ -741,6 +741,7 @@ const buildStudentSnapshot = ({ fullName, email, phone, folderNo, leadNo, studen
     bonusType: bonus > 0 ? String(bonusType ?? '') : '',
     bonusOption: bonus > 0 ? String(bonusOption ?? '') : '',
     dueDate: String(dueDate ?? '').slice(0, 10),
+    dueDays: dueDays == null || dueDays === '' ? '' : String(dueDays),
   });
 
 export default function NewStudentPage({ basePath }) {
@@ -762,6 +763,7 @@ export default function NewStudentPage({ basePath }) {
   const [bonusApplied, setBonusApplied] = useState(false);
   const [bonusFromDetail, setBonusFromDetail] = useState(true);
   const [bonusOverrides, setBonusOverrides] = useState({});
+  const [commissionOverrides, setCommissionOverrides] = useState({});
   const [addBonus, setAddBonus] = useState(false);
   const [commissionHistory, setCommissionHistory] = useState([]);
   const [commissionStatusOverrides, setCommissionStatusOverrides] = useState({});
@@ -1162,6 +1164,7 @@ export default function NewStudentPage({ basePath }) {
           gstAmount: data.gstAmount,
           bonus: data.bonusAmount,
           dueDate: data.dueDate?.substring(0, 10),
+          dueDays: data.dueDays != null ? String(data.dueDays) : '',
           courseFee: data.totalCourseFee,
           amountDue: data.totalCourseFee,
           enrollmentFee: data.enrollmentFee ?? '',
@@ -1224,6 +1227,7 @@ export default function NewStudentPage({ basePath }) {
             bonusType: data.bonusType,
             bonusOption: data.bonusOption,
             dueDate: data.dueDate,
+            dueDays: data.dueDays,
           })
         );
 
@@ -1397,6 +1401,11 @@ export default function NewStudentPage({ basePath }) {
     if (loadError) setLoadError('');
   };
 
+  // VoE + BD students get a fixed commission per installment instead of fee x %.
+  const isFixedCommission =
+    String(form.coeVoe || '').trim().toLowerCase() === 'voe' &&
+    String(form.serviceTypeStudent || '').trim().toLowerCase() === 'bd';
+
   const commissionRows = useMemo(
     () =>
       paymentList.map((item) => {
@@ -1484,15 +1493,22 @@ export default function NewStudentPage({ basePath }) {
       const feeType = row.feeType ?? row.FeeType;
       const paid = isCommissionReceived(row.commissionHistoryOriginalStatus);
       const baseline = round2(Number(row.bonusAmount ?? row.bonus ?? 0));
-      const next = { ...row, bonusBaseline: baseline };
+      const commissionBaseline = round2(Number(row.commissionAmount ?? row.commission ?? 0));
+      const next = { ...row, bonusBaseline: baseline, commissionBaseline };
       if (paid || row.isBonus || !isTuitionFeeType(feeType)) return next;
 
-      const raw = bonusOverrides[bonusRowKey(row)];
-      if (raw == null || raw === '') return next;
+      const rawBonus = bonusOverrides[bonusRowKey(row)];
+      const rawCommission = isFixedCommission ? commissionOverrides[bonusRowKey(row)] : undefined;
+      const hasBonusEdit = rawBonus != null && rawBonus !== '';
+      const hasCommissionEdit = rawCommission != null && rawCommission !== '';
+      if (!hasBonusEdit && !hasCommissionEdit) return next;
 
-      const bonusAmount = round2(Number(raw) || 0);
-      const commissionAmount = Number(row.commissionAmount ?? row.commission ?? 0);
-      const gstAmount = Number(row.gstAmount ?? row.gst ?? 0);
+      const bonusAmount = hasBonusEdit ? round2(Number(rawBonus) || 0) : baseline;
+      const commissionAmount = hasCommissionEdit ? round2(Number(rawCommission) || 0) : commissionBaseline;
+      const gstPct = Number(form.gstPercentage || 0);
+      const gstAmount = hasCommissionEdit
+        ? round2(gstInclusive ? commissionAmount - commissionAmount / (1 + gstPct / 100) : (commissionAmount * gstPct) / 100)
+        : Number(row.gstAmount ?? row.gst ?? 0);
       const invoiceAmount = round2(
         gstInclusive ? commissionAmount + bonusAmount : commissionAmount + gstAmount + bonusAmount
       );
@@ -1501,6 +1517,10 @@ export default function NewStudentPage({ basePath }) {
         ...next,
         bonusAmount,
         bonus: bonusAmount.toFixed(2),
+        commissionAmount,
+        commission: commissionAmount.toFixed(2),
+        gstAmount,
+        gst: gstAmount.toFixed(2),
         invoiceAmount,
         invoice: invoiceAmount.toFixed(2),
       };
@@ -1529,7 +1549,7 @@ export default function NewStudentPage({ basePath }) {
 
         const isInvoicedUpdate =
           h.isInvoicedUpdate === true || Number(h.isInvoicedUpdate ?? h.IsInvoicedUpdate ?? 0) === 1;
-        const useStoredAmounts = isBonus || isInvoicedUpdate;
+        const useStoredAmounts = isBonus || isInvoicedUpdate || isFixedCommission;
         const storedBonus = Number(h.bonusAmount ?? h.BonusAmount ?? 0);
         const commissionAmount = useStoredAmounts
           ? Number(h.commissionAmount ?? h.CommissionAmount ?? 0)
@@ -1539,7 +1559,7 @@ export default function NewStudentPage({ basePath }) {
           : Number(calc?.gst ?? h.gstAmount ?? 0);
         const splitChild = !isBonus && isSplitInstallment(payment || { installmentNo: h.installmentNo });
         const isPercentageBonus = String(form.bonusType || '').toLowerCase() === 'percentage';
-      const bonusAmount = isInvoicedUpdate
+      const bonusAmount = isInvoicedUpdate || isFixedCommission
           ? storedBonus
           : isBonus
             ? storedBonus
@@ -1659,7 +1679,7 @@ export default function NewStudentPage({ basePath }) {
     );
 
     return rows.map(applyBonusEdit);
-  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides, form.bonusType]);
+  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, commissionOverrides, isFixedCommission, form.gstPercentage, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides, form.bonusType]);
 
   const visibleHistoryRows = useMemo(
     () =>
@@ -1708,10 +1728,13 @@ export default function NewStudentPage({ basePath }) {
       bonusType: form.bonusType,
       bonusOption: form.bonusOption,
       dueDate: form.dueDate,
+      dueDays: form.dueDays,
     });
 
     const bonusEdited = historyRows.some(
-      (row) => round2(row.bonusAmount ?? row.bonus) !== round2(row.bonusBaseline ?? row.bonusAmount ?? row.bonus)
+      (row) =>
+        round2(row.bonusAmount ?? row.bonus) !== round2(row.bonusBaseline ?? row.bonusAmount ?? row.bonus) ||
+        round2(row.commissionAmount ?? row.commission) !== round2(row.commissionBaseline ?? row.commissionAmount ?? row.commission)
     );
 
     return (
@@ -1736,6 +1759,7 @@ export default function NewStudentPage({ basePath }) {
     form.bonusType,
     form.bonusOption,
     form.dueDate,
+    form.dueDays,
     form.noOfInstallment,
     originalSchedule,
     addBonus,
@@ -2492,6 +2516,7 @@ export default function NewStudentPage({ basePath }) {
           bonusType: addBonus ? form.bonusType : null,
           bonusOption: addBonus ? form.bonusOption : null,
           dueDate: form.dueDate || null,
+          dueDays: form.dueDays ? Number(form.dueDays) : null,
         });
 
         commissionId = commission.commissionId ?? commission.CommissionId;
@@ -2540,6 +2565,7 @@ export default function NewStudentPage({ basePath }) {
           bonusType: addBonus ? form.bonusType ?? null : null,
           bonusOption: addBonus ? form.bonusOption ?? null : null,
           dueDate: form.dueDate || null,
+          dueDays: form.dueDays ? Number(form.dueDays) : null,
           paymentList: rowsForSave.map((x) => ({
             studentPaymentInstallmentId: x.studentPaymentInstallmentId || 0,
             installmentNo: String(x.installmentNo ?? x.apiInstallmentNo ?? ''),
@@ -2718,6 +2744,7 @@ export default function NewStudentPage({ basePath }) {
 
       if (isEdit) {
         setBonusOverrides({});
+        setCommissionOverrides({});
         setCommissionStatusOverrides({});
         setReceivedDateOverrides({});
         setUnsavedStudentDocIds(new Set());
@@ -3444,7 +3471,7 @@ export default function NewStudentPage({ basePath }) {
               selectOptions={selectOptions}
               requiredFields={resource.requiredFields}
               disabled={isEdit}
-              disabledFields={['dueDate']}
+              disabledFields={['dueDate', 'dueDays']}
             />
 
             <Box sx={{ height: 24 }} />
@@ -3508,7 +3535,7 @@ export default function NewStudentPage({ basePath }) {
                   <TableHead sx={{ '& .MuiTableCell-root': { fontWeight: 700 } }}>
                     <TableRow>
                       <TableCell>Installment</TableCell>
-                      <TableCell>Fee Type</TableCell>
+                      {/* <TableCell>Fee Type</TableCell> */}
                       <TableCell>Fees Date</TableCell>
                       <TableCell>Fees</TableCell>
                       <TableCell>Payment Status</TableCell>
@@ -3529,12 +3556,33 @@ export default function NewStudentPage({ basePath }) {
                             key={`${row.studentPaymentInstallmentId ?? row.installmentNo}-${row.feeType}-${index}`}
                           >
                             <TableCell>{row.displayInstallmentNo ?? row.installmentNo}</TableCell>
-                            <TableCell>{row.feeType || '-'}</TableCell>
+                            {/* <TableCell>{row.feeType || '-'}</TableCell> */}
                             <TableCell>{formatDateCell(row.dueDate ?? row.feesDate)}</TableCell>
                             <TableCell>{Number(row.feesAmount ?? row.fees).toFixed(2)}</TableCell>
                             <TableCell>{row.paymentStatus}</TableCell>
                             <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                              {Number(row.commissionAmount ?? row.commission).toFixed(2)}
+                              {isFixedCommission &&
+                                isTuitionFeeType(row.feeType) &&
+                                isCommissionPending(row.commissionStatus ?? row.commissionHistoryOriginalStatus) &&
+                                !row.isBonus &&
+                                !row.isInvoicedUpdate ? (
+                                <TextField
+                                  size="small"
+                                  value={
+                                    commissionOverrides[bonusRowKey(row)] ??
+                                    Number(row.commissionBaseline ?? row.commissionAmount ?? row.commission ?? 0).toFixed(2)
+                                  }
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value !== '' && !/^\d*\.?\d{0,2}$/.test(value)) return;
+                                    setCommissionOverrides((prev) => ({ ...prev, [bonusRowKey(row)]: value }));
+                                  }}
+                                  inputProps={{ inputMode: 'decimal', style: { textAlign: 'right' } }}
+                                  sx={{ width: 100 }}
+                                />
+                              ) : (
+                                Number(row.commissionAmount ?? row.commission).toFixed(2)
+                              )}
                               {row.isInvoicedUpdate && (
                                 <Tooltip title="Commission edited while invoicing">
                                   <Box
