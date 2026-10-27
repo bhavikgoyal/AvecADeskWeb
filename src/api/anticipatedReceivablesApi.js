@@ -337,9 +337,10 @@ export async function fetchCommissionReceivableMatrices(filters = {}) {
   const buildMatrix = (tab) => {
     const field = REPORT_TAB_FIELDS[tab];
     const byCollege = new Map();
+    const isAllTab = tab === 'all';
 
     for (const row of rows) {
-      const value = row[field];
+      const value = isAllTab ? Math.max(row.amount - row.overdue, 0) : row[field];
       if (!value) continue;
       const key = monthKey(row.reportMonth);
       if (!byCollege.has(row.collegeName)) {
@@ -348,8 +349,8 @@ export async function fetchCommissionReceivableMatrices(filters = {}) {
       const cells = byCollege.get(row.collegeName).cells;
       const cell = cells[key] || { amount: 0, overdue: 0, received: 0, total: 0 };
       cell.amount += value;
-      cell.total += row.amount;
-      cell.overdue += row.overdue;
+      cell.total += isAllTab ? value : row.amount;
+      cell.overdue += isAllTab ? 0 : row.overdue;
       cell.received += row.received;
       cells[key] = cell;
     }
@@ -375,12 +376,42 @@ export async function fetchCommissionReceivableMatrices(filters = {}) {
 
     return { title: `Estimated ${titleYears}`, months, fromDate, toDate, colleges, totals };
   };
+  const byCollege = new Map();
+  for (const row of rows) {
+    const entry = byCollege.get(row.collegeName) || { collegeName: row.collegeName, total: 0, received: 0, due: 0 };
+    entry.total += row.amount;
+    entry.received += row.received;
+    entry.due += row.amount - row.received;
+    byCollege.set(row.collegeName, entry);
+  }
+  const collegeSummary = Array.from(byCollege.values())
+    .filter((c) => c.total || c.received || c.due)
+    .sort((a, b) => a.collegeName.localeCompare(b.collegeName));
 
   return {
     all: buildMatrix('all'),
     overdue: buildMatrix('overdue'),
     received: buildMatrix('received'),
+    collegeSummary,
   };
+}
+
+export async function fetchMonthlyPaidDueTotals() {
+  const { data } = await axiosClient.get('/api/receivables/commission-receivable-report', {
+    params: { reportType: 'All' },
+  });
+
+  const totals = {};
+  for (const row of asArray(data)) {
+    const reportMonth = parseReportMonth(row.reportMonth ?? row.ReportMonth);
+    if (!reportMonth) continue;
+    const key = monthKey(reportMonth);
+    const entry = totals[key] || { paid: 0, due: 0 };
+    entry.paid += Number(row.totalReceivedAmount ?? row.TotalReceivedAmount ?? 0) || 0;
+    entry.due += Number(row.totalDueAmount ?? row.TotalDueAmount ?? 0) || 0;
+    totals[key] = entry;
+  }
+  return totals;
 }
 
 export async function fetchAnticipatedReceivablesMatrix(filters = {}) {

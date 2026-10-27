@@ -2,7 +2,7 @@ import { Avatar, Box, Divider, Grid, Paper, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import TrendBadge from './TrendBadge';
 
-export default function WelcomeCard({ userName = 'User', subtitle, avatar, footerStats = [] }) {
+export default function WelcomeCard({ userName = 'User', subtitle, avatar, footerStats = [], sx }) {
   const navigate = useNavigate();
   const handleClick = (stat) => {
     if (stat?.path) navigate(stat.path);
@@ -10,7 +10,7 @@ export default function WelcomeCard({ userName = 'User', subtitle, avatar, foote
   };
 
   return (
-    <Paper elevation={0} className="dashboard-card welcome-card" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+<Paper elevation={0}  className="dashboard-card welcome-card"  sx={{  borderRadius: 2,overflow: 'hidden',  width: '100%',  maxWidth: 450, ...sx }}>
       <Box sx={{ p: { xs: 1.5, md: 1.75 }, display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
         <Avatar
           src={avatar}

@@ -2,7 +2,6 @@ import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import logoSrc from '../assets/avec-global-logo-full.png';
 
-const COMPANY_ADDRESS = 'Unit 3, 380 Clayton Road, Clayton, Victoria 3168';
 const COMPANY_NAME = 'AVEC GLOBAL GROUP PTY LTD';
 const ABN_NUMBER = '79677235979';
 const AMOUNT_COL_WIDTH = 56;
@@ -129,42 +128,62 @@ function drawFallbackLogo(doc, x, y, size = 22) {
   doc.triangle(x + size * 0.58, y + size * 0.32, x + size * 0.8, y + size * 0.55, x + size * 0.58, y + size, 'F');
 }
 
+const COMPANY_EMAIL = 'account@avec-global.com';
+const COMPANY_PHONE = '+61 3 9034 6484';
+const LETTERHEAD_FONT = 'times';
+const LETTERHEAD_FONT_SIZE = 10;
+
 async function drawLetterhead(doc) {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const centerX = pageWidth / 2;
-  const top = 8;
-  const logoWidth = 58;
+  const leftX = MARGIN_X;
+  const rightX = pageWidth - MARGIN_X;
+  const top = 10;
+  const logoWidth = 50;
 
   const logo = await loadLogoAsset();
-  let y = top;
+  const logoHeight = logo ? logoWidth * (logo.height / logo.width) : 24;
 
+  const detailLines = [
+    { text: COMPANY_NAME, bold: true },
+    { text: `ABN: ${ABN_NUMBER}` },
+    { text: `Email: ${COMPANY_EMAIL}` },
+    { text: `Phone: ${COMPANY_PHONE}` },
+  ];
+  const lineHeight = 5;
+  const blockHeight = (detailLines.length - 1) * lineHeight;
+
+  // Centre the logo and the text block against each other.
+  const headerHeight = Math.max(logoHeight, blockHeight + 4);
+  const logoY = top + (headerHeight - logoHeight) / 2;
   if (logo) {
-    const logoHeight = logoWidth * (logo.height / logo.width);
-    doc.addImage(logo.dataUrl, 'PNG', centerX - logoWidth / 2, y, logoWidth, logoHeight);
-    y += logoHeight + 3;
+    doc.addImage(logo.dataUrl, 'PNG', leftX, logoY, logoWidth, logoHeight);
   } else {
-    drawFallbackLogo(doc, centerX - 10, y, 20);
-    y += 24;
-    doc.setFontSize(13);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(30, 86, 168);
-    doc.text('AVEC GLOBAL', centerX, y, { align: 'center' });
-    y += 5;
+    drawFallbackLogo(doc, leftX + 14, logoY, 22);
   }
 
-  doc.setFontSize(8.5);
-  doc.setFont(undefined, 'normal');
-  doc.setTextColor(30, 100, 200);
-  doc.text(`ABN Number: ${ABN_NUMBER}`, centerX, y, { align: 'center' });
-  y += 8.5;
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(LETTERHEAD_FONT_SIZE);
+  let y = top + (headerHeight - blockHeight) / 2 + 1.5;
+  detailLines.forEach((line) => {
+    doc.setFont(LETTERHEAD_FONT, line.bold ? 'bold' : 'normal');
+    doc.text(line.text, rightX, y, { align: 'right' });
+    y += lineHeight;
+  });
+
+  const contentBottom = top + headerHeight;
+  const titleY = contentBottom + 8;
+
+  doc.setFont('times', 'bold');
+  doc.setFontSize(14);
+  doc.text('TAX INVOICE', pageWidth / 2, titleY, {
+    align: 'center',
+  });
 
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(16);
-  doc.setFont(undefined, 'bold');
-  doc.text('TAX INVOICE', centerX, y, { align: 'center' });
 
-  return y + 4;
+  return titleY + 5;
 }
+
 
 function drawPageNumber(doc, pageNumber, totalPages) {
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -192,28 +211,32 @@ function drawAddressFooter(doc) {
   doc.setFont(undefined, 'normal');
   doc.setTextColor(80, 80, 80);
   doc.text(COMPANY_NAME, MARGIN_X, textY);
-  doc.text(COMPANY_ADDRESS, pageWidth - MARGIN_X, textY, { align: 'right' });
   doc.setTextColor(0, 0, 0);
 }
 
 function instituteAddressLines(invoice, lineItems = []) {
   const source = (lineItems || []).find((item) => {
     const street = safeText(item.address || item.Address);
+    const campus = safeText(item.campus || item.Campus);
     const zip = safeText(item.zipCode || item.ZipCode);
-    return (street && street !== '—') || (zip && zip !== '—');
+    return (street && street !== '—') || (campus && campus !== '—') || (zip && zip !== '—');
   }) || {};
 
-  const street = safeText(
-    invoice.address || invoice.Address || source.address || source.Address
-  ).replace(/,\s*$/, '');
-  const zip = safeText(
-    invoice.zipCode || invoice.ZipCode || source.zipCode || source.ZipCode
-  );
+  const street = safeText(invoice.address || invoice.Address || source.address || source.Address ).replace(/,\s*$/, '');
+  const campus  = safeText( invoice.campus  || invoice.campus  || source.campus  || source.campus);
+  const zip = safeText( invoice.zipCode || invoice.ZipCode || source.zipCode || source.ZipCode);
 
   const lines = [];
   if (street && street !== '—') lines.push(zip && zip !== '—' ? `${street},` : street);
-  if (zip && zip !== '—') lines.push(zip);
-  return lines;
+ const campusAndZip = [campus, zip]
+  .filter(value => value && value !== '—')
+  .join(', ');
+
+if (campusAndZip) {
+  lines.push(campusAndZip);
+}
+
+return lines;
 }
 
 function drawInfoBox(doc, invoice, startY, lineItems = []) {

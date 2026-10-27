@@ -25,6 +25,15 @@ const displayToIso = (text) => {
   return toIsoDateString(`${day}-${month}-${year}`);
 };
 
+const completePartialDate = (text, currentIso) => {
+  const match = String(text || '').match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{0,4}))?$/);
+  if (!match) return '';
+  const [, day, month, year] = match;
+  const fallbackYear = String(currentIso || '').slice(0, 4) || String(new Date().getFullYear());
+  const fullYear = year && year.length === 4 ? year : fallbackYear;
+  return toIsoDateString(`${day.padStart(2, '0')}-${month.padStart(2, '0')}-${fullYear}`);
+};
+
 export default function DateTextField({
   value,
   onChangeValue,
@@ -51,8 +60,22 @@ export default function DateTextField({
   }
 
   const handleTextChange = (event) => {
-    const masked = maskDisplayInput(event.target.value);
+    const input = event.target;
+    const raw = input.value;
+    const masked = maskDisplayInput(raw);
     setText(masked);
+
+   const caret = input.selectionStart ?? raw.length;
+    const digitsBeforeCaret = raw.slice(0, caret).replace(/\D/g, '').length;
+    let nextCaret = 0;
+    let seen = 0;
+    while (nextCaret < masked.length && seen < digitsBeforeCaret) {
+      if (/\d/.test(masked[nextCaret])) seen += 1;
+      nextCaret += 1;
+    }
+    requestAnimationFrame(() => {
+      if (document.activeElement === input) input.setSelectionRange(nextCaret, nextCaret);
+    });
 
     if (masked === '') {
       onChangeValue?.('');
@@ -64,11 +87,22 @@ export default function DateTextField({
   };
 
   const handleBlur = (event) => {
-    const typedIso = displayToIso(text);
+    const typedIso = displayToIso(text) || completePartialDate(text, isoValue);
     if (text && (!typedIso || !isInRange(typedIso))) {
       setText(isoToDisplay(isoValue));
+    } else if (typedIso && typedIso !== isoValue) {
+      setText(isoToDisplay(typedIso));
+     onChangeValue?.(typedIso);
     }
     props.onBlur?.(event);
+  };
+
+  const handlePickerChange = (event) => {
+    const next = event.target.value || '';
+    if (next && !isInRange(next)) return;
+    setText(isoToDisplay(next));
+    setSyncedIso(next);
+    onChangeValue?.(next);
   };
 
   const openPicker = () => {
@@ -97,11 +131,7 @@ export default function DateTextField({
         value={isoValue}
         min={minIso}
         max={maxIso}
-        onChange={(event) => {
-          const next = event.target.value || '';
-          if (next && !isInRange(next)) return;
-          onChangeValue?.(next);
-        }}
+        onChange={handlePickerChange}
         style={{
           position: 'absolute',
           right: 0,

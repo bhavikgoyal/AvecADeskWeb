@@ -234,6 +234,7 @@ export async function fetchInvoiceLineItems(invoiceId) {
       isInvoicedUpdate: Boolean(item.isInvoicedUpdate ?? item.IsInvoicedUpdate ?? false),
       address: item.address ?? item.Address ?? '',
       zipCode: item.zipCode ?? item.ZipCode ?? '',
+      campus: item.campus ?? item.campus ?? '',
     };
   });
 }

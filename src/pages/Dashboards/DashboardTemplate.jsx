@@ -49,6 +49,7 @@ export default function DashboardTemplate({
   showCharts = true,
   showMiniStats = true,
   showTable = true,
+  showWelcome = true,
   rightExtra = null,
   children = null,
 }) {
@@ -92,12 +93,14 @@ export default function DashboardTemplate({
       <Grid container spacing={{ xs: 1, md: 1.25 }} sx={{ mb: { xs: 1.25, md: 1.5 }, alignItems: 'stretch' }}>
         <Grid size={{ xs: 12, lg: 7 }} sx={{ display: 'flex' }}>
           <Stack spacing={1.25} sx={{ flex: 1, width: '100%', height: '100%' }}>
-            <WelcomeCard
-              userName={user?.name}
-              avatar={user?.avatar}
-              subtitle={welcomeSubtitle || subtitle}
-              footerStats={welcomeFooterStats}
-            />
+            {showWelcome && (
+              <WelcomeCard
+                userName={user?.name}
+                avatar={user?.avatar}
+                subtitle={welcomeSubtitle || subtitle}
+                footerStats={welcomeFooterStats}
+              />
+            )}
 
             {secondaryKpis.length > 0 && (
               <Grid container spacing={1.25}>
