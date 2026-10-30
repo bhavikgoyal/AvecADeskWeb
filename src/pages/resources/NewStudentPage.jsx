@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import {
   Alert, Box, Paper, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Typography, Button, Select, MenuItem, TextField, Dialog, DialogTitle,
-  DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel, Switch, Tabs, Tab, Tooltip, Collapse
+  DialogContent, DialogContentText, DialogActions, IconButton, InputAdornment, Checkbox, FormControlLabel, Switch, Tabs, Tab, Tooltip, Collapse
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
@@ -81,6 +81,10 @@ const isCommissionReceived = (value) =>
 
 const isCommissionPending = (value) =>
   normalizeCommissionStatus(value).toLowerCase() === 'pending';
+
+const isVoeBdStudent = (coeVoe, serviceType) =>
+  String(coeVoe || '').trim().toLowerCase() === 'voe' &&
+  String(serviceType || '').trim().toLowerCase() === 'bd';
 
 const shownPaidAmount = (row) => {
   const paid = Number(row?.paidAmount || 0);
@@ -780,6 +784,9 @@ export default function NewStudentPage({ basePath }) {
   const [savedScheduleSnapshot, setSavedScheduleSnapshot] = useState(null);
   const [savedStudentSnapshot, setSavedStudentSnapshot] = useState(null);
   const [gstInclusive, setGstInclusive] = useState(false);
+  const [savedCommission, setSavedCommission] = useState(null);
+  const [commissionPctUnlocked, setCommissionPctUnlocked] = useState(false);
+  const [commissionPctConfirmOpen, setCommissionPctConfirmOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [cancelDetails, setCancelDetails] = useState({ studentIsActive: true, cancelDate: '', cancelReason: '', activeDate: '' });
   const [originalCancelDetails, setOriginalCancelDetails] = useState(null);
@@ -821,7 +828,10 @@ export default function NewStudentPage({ basePath }) {
     const installmentFee = installments > 0 ? remainingFee / installments : remainingFee;
     const tuitionShare = fee > 0 && tuitionFee > 0 ? installmentFee * (tuitionFee / fee) : installmentFee;
 
-    const rawCommission = (tuitionShare * Number(next.commissionPercentage || 0)) / 100;
+    const isFixedType = next.commissionType === 'Fixed';
+    const rawCommission = isFixedType
+      ? Number(next.commissionAmount || 0)
+      : (tuitionShare * Number(next.commissionPercentage || 0)) / 100;
     const gstPct = Number(next.gstPercentage || 0);
 
     let gst;
@@ -831,7 +841,7 @@ export default function NewStudentPage({ basePath }) {
       gst = (rawCommission * gstPct) / 100;
     }
 
-    next.commissionAmount = rawCommission.toFixed(2);
+    if (!isFixedType) next.commissionAmount = rawCommission.toFixed(2);
     next.gstAmount = gst.toFixed(2);
     next.invoiceAmount = gstInclusive
       ? rawCommission.toFixed(2)
@@ -1141,6 +1151,12 @@ export default function NewStudentPage({ basePath }) {
           fetchStudentById(id),
         ]);
 
+        const commissionType =
+          data.commissionType || (isVoeBdStudent(data.coeVoe, data.serviceType) ? 'Fixed' : 'Percentage');
+        const isFixedType = commissionType === 'Fixed';
+        const loadedCommissionPct = isFixedType ? 0 : Number(data.commissionPercentage ?? 0);
+        const loadedFixedAmount = round2(Number(data.studentCommissionAmount ?? data.commissionAmount ?? 0));
+
         setForm({
           ...getEmptyForm(basePath),
           studentId: data.studentId,
@@ -1160,7 +1176,8 @@ export default function NewStudentPage({ basePath }) {
           agent: data.agent ?? '',
           courseStartDate: data.courseStartDate?.substring(0, 10),
           courseEndDate: data.courseEndDate?.substring(0, 10),
-          commissionAmount: data.commissionAmount,
+          commissionType,
+          commissionAmount: isFixedType ? loadedFixedAmount : data.commissionAmount,
           gstAmount: data.gstAmount,
           bonus: data.bonusAmount,
           dueDate: data.dueDate?.substring(0, 10),
@@ -1174,7 +1191,7 @@ export default function NewStudentPage({ basePath }) {
           frequency: data.frequency,
           startDate: data.firstDueDate?.substring(0, 10),
           noOfInstallment: Number(data.noOfInstallments),
-          commissionPercentage: data.commissionPercentage,
+          commissionPercentage: loadedCommissionPct,
           gstPercentage: data.gstPercentage,
           bonusType: data.bonusType,
           bonusOption: data.bonusOption,
@@ -1189,6 +1206,12 @@ export default function NewStudentPage({ basePath }) {
           frequency: data.frequency,
           startDate: data.firstDueDate?.substring(0, 10),
         });
+        setSavedCommission({
+          type: commissionType,
+          percentage: round2(loadedCommissionPct),
+          amount: isFixedType ? loadedFixedAmount : 0,
+        });
+        setCommissionPctUnlocked(false);
 
         const list = hydratePaymentList(data.studentPaymentList || []);
         const apiInstallmentMap = new Map(
@@ -1317,7 +1340,7 @@ export default function NewStudentPage({ basePath }) {
         next.courseDurationWeeks = durationToWeeks(selectedCourse?.duration);
         next.commissionRate = Number(selectedCourse?.commissionRate ?? 0);
         next.rateType = selectedCourse?.rateType ?? '';
-        next.commissionPercentage = Number(next.commissionRate ?? 0);
+        next.commissionPercentage = next.commissionType === 'Fixed' ? 0 : Number(next.commissionRate ?? 0);
         next.gstPercentage = Number(gstPercentage || 0);
         next.courseStartDate = next.startDate || next.courseStartDate || '';
         next.courseEndDate = computeCourseEndDate(next.courseStartDate, selectedCourse?.duration);
@@ -1348,12 +1371,25 @@ export default function NewStudentPage({ basePath }) {
         next.courseEndDate = computeCourseEndDateFromWeeks(next.courseStartDate, value);
       }
 
+      if (field === 'commissionType' && value !== prev.commissionType) {
+        if (value === 'Fixed') {
+          next.commissionPercentage = 0;
+          next.commissionAmount = isEdit && savedCommission?.type === 'Fixed' ? savedCommission.amount : 0;
+        } else {
+          next.commissionPercentage = isEdit
+            ? (savedCommission?.type === 'Percentage' ? savedCommission.percentage : 0)
+            : Number(prev.commissionRate || 0);
+        }
+      }
+
       if (
         field === 'courseId' ||
         field === 'courseFee' ||
         field === 'noOfInstallment' ||
         field === 'initialPayment' ||
         field === 'commissionPercentage' ||
+        field === 'commissionType' ||
+        field === 'commissionAmount' ||
         field === 'gstPercentage' ||
         FEE_COMPONENT_FIELDS.includes(field)
       ) {
@@ -1397,14 +1433,25 @@ export default function NewStudentPage({ basePath }) {
       return next;
     });
 
+    if (field === 'commissionType' || field === 'commissionAmount' || field === 'commissionPercentage') {
+      setCommissionOverrides({});
+    }
+
     if (error) setError('');
     if (loadError) setLoadError('');
   };
 
-  // VoE + BD students get a fixed commission per installment instead of fee x %.
+  // Commission column is editable per installment for Fixed commission type and for VoE + BD students.
+  const isFixedCommissionType = form.commissionType === 'Fixed';
   const isFixedCommission =
-    String(form.coeVoe || '').trim().toLowerCase() === 'voe' &&
-    String(form.serviceTypeStudent || '').trim().toLowerCase() === 'bd';
+    isFixedCommissionType || isVoeBdStudent(form.coeVoe, form.serviceTypeStudent);
+
+  const commissionSettingsChanged =
+    isEdit &&
+    savedCommission != null &&
+    (String(form.commissionType || 'Percentage') !== savedCommission.type ||
+      round2(Number(form.commissionPercentage || 0)) !== savedCommission.percentage ||
+      (isFixedCommissionType && round2(Number(form.commissionAmount || 0)) !== savedCommission.amount));
 
   const commissionRows = useMemo(
     () =>
@@ -1420,7 +1467,11 @@ export default function NewStudentPage({ basePath }) {
           : Number(item.installmentNo) !== 0;
 
         if (isCommissionable) {
-          rawCommission = (fees * Number(form.commissionPercentage || 0)) / 100;
+          if (isFixedCommissionType) {
+            rawCommission = isSplitInstallment(item) ? 0 : Number(form.commissionAmount || 0);
+          } else {
+            rawCommission = (fees * Number(form.commissionPercentage || 0)) / 100;
+          }
           const gstPct = Number(form.gstPercentage || 0);
 
           if (gstInclusive) {
@@ -1478,6 +1529,8 @@ export default function NewStudentPage({ basePath }) {
     [
       paymentList,
       form.commissionPercentage,
+      form.commissionAmount,
+      isFixedCommissionType,
       form.gstPercentage,
       form.bonus,
       form.bonusType,
@@ -1549,7 +1602,10 @@ export default function NewStudentPage({ basePath }) {
 
         const isInvoicedUpdate =
           h.isInvoicedUpdate === true || Number(h.isInvoicedUpdate ?? h.IsInvoicedUpdate ?? 0) === 1;
-        const useStoredAmounts = isBonus || isInvoicedUpdate || isFixedCommission;
+        const lockedBySettingsEdit =
+          commissionSettingsChanged && !isCommissionPending(h.commissionStatus ?? h.CommissionStatus);
+        const keepFixedAmounts = isFixedCommission && !commissionSettingsChanged;
+        const useStoredAmounts = isBonus || isInvoicedUpdate || keepFixedAmounts || lockedBySettingsEdit;
         const storedBonus = Number(h.bonusAmount ?? h.BonusAmount ?? 0);
         const commissionAmount = useStoredAmounts
           ? Number(h.commissionAmount ?? h.CommissionAmount ?? 0)
@@ -1559,7 +1615,7 @@ export default function NewStudentPage({ basePath }) {
           : Number(calc?.gst ?? h.gstAmount ?? 0);
         const splitChild = !isBonus && isSplitInstallment(payment || { installmentNo: h.installmentNo });
         const isPercentageBonus = String(form.bonusType || '').toLowerCase() === 'percentage';
-      const bonusAmount = isInvoicedUpdate || isFixedCommission
+      const bonusAmount = isInvoicedUpdate || keepFixedAmounts || lockedBySettingsEdit
           ? storedBonus
           : isBonus
             ? storedBonus
@@ -1679,7 +1735,7 @@ export default function NewStudentPage({ basePath }) {
     );
 
     return rows.map(applyBonusEdit);
-  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, commissionOverrides, isFixedCommission, form.gstPercentage, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides, form.bonusType]);
+  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, commissionOverrides, isFixedCommission, form.gstPercentage, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides, form.bonusType, commissionSettingsChanged]);
 
   const visibleHistoryRows = useMemo(
     () =>
@@ -1741,9 +1797,11 @@ export default function NewStudentPage({ basePath }) {
       studentNow !== savedStudentSnapshot ||
       Number(originalSchedule?.noOfInstallment) !== Number(form.noOfInstallment) ||
       buildChangeSnapshot(paymentList, commissionHistory) !== savedScheduleSnapshot ||
-      bonusEdited
+      bonusEdited ||
+      commissionSettingsChanged
     );
   }, [
+    commissionSettingsChanged,
     isEdit,
     savedScheduleSnapshot,
     savedStudentSnapshot,
@@ -2462,6 +2520,18 @@ export default function NewStudentPage({ basePath }) {
       return;
     }
 
+    const commissionPctValue = isFixedCommissionType ? 0 : Number(form.commissionPercentage || 0);
+    const commissionAmountValue = Number(form.commissionAmount || 0);
+    const validateCommission = !isEdit || commissionSettingsChanged;
+    if (validateCommission && !isFixedCommissionType && (Number.isNaN(commissionPctValue) || commissionPctValue < 0 || commissionPctValue > 100)) {
+      setError('Commission % must be between 0 and 100.');
+      return;
+    }
+    if (validateCommission && isFixedCommissionType && (Number.isNaN(commissionAmountValue) || commissionAmountValue < 0)) {
+      setError('Commission Amount must be zero or greater.');
+      return;
+    }
+
     const invalidPartialRow = paymentList.find((x) => {
       if (x.status !== 'Partial') return false;
       if (!x.paidAmount || Number(x.paidAmount) <= 0) return true;
@@ -2508,7 +2578,8 @@ export default function NewStudentPage({ basePath }) {
 
         const commission = await createStudentCommission({
           scheduleId,
-          commissionPercentage: Number(form.commissionPercentage),
+          commissionType: form.commissionType || 'Percentage',
+          commissionPercentage: commissionPctValue,
           gstPercentage: Number(form.gstPercentage),
           commissionAmount: Number(form.commissionAmount || 0),
           gstAmount: Number(form.gstAmount || 0),
@@ -2566,6 +2637,10 @@ export default function NewStudentPage({ basePath }) {
           bonusOption: addBonus ? form.bonusOption ?? null : null,
           dueDate: form.dueDate || null,
           dueDays: form.dueDays ? Number(form.dueDays) : null,
+          commissionPercentage: commissionSettingsChanged ? commissionPctValue : null,
+          commissionType: commissionSettingsChanged ? form.commissionType || 'Percentage' : null,
+          commissionAmount: commissionSettingsChanged ? round2(commissionAmountValue) : null,
+          gstAmount: commissionSettingsChanged ? round2(Number(form.gstAmount || 0)) : null,
           paymentList: rowsForSave.map((x) => ({
             studentPaymentInstallmentId: x.studentPaymentInstallmentId || 0,
             installmentNo: String(x.installmentNo ?? x.apiInstallmentNo ?? ''),
@@ -3471,8 +3546,49 @@ export default function NewStudentPage({ basePath }) {
               selectOptions={selectOptions}
               requiredFields={resource.requiredFields}
               disabled={isEdit}
-              disabledFields={['dueDate', 'dueDays']}
+              disabledFields={
+                commissionPctUnlocked
+                  ? ['dueDate', 'dueDays', 'commissionType', 'commissionPercentage', 'commissionAmount']
+                  : ['dueDate', 'dueDays']
+              }
+              fieldDefsOverride={{
+                commissionPercentage: {
+                  readOnly: isFixedCommissionType,
+                  endAdornment:
+                    isEdit && !commissionPctUnlocked && !isCancelledStudent ? (
+                      <InputAdornment position="end">
+                        <Tooltip title="Edit Commission">
+                          <IconButton size="small" onClick={() => setCommissionPctConfirmOpen(true)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ) : undefined,
+                },
+                commissionAmount: { readOnly: !isFixedCommissionType },
+              }}
             />
+
+            <Dialog open={commissionPctConfirmOpen} onClose={() => setCommissionPctConfirmOpen(false)} maxWidth="xs" fullWidth>
+              <DialogTitle>Edit Commission</DialogTitle>
+              <DialogContent>
+                <DialogContentText>
+                  Are you sure you want to edit the Commission? Pending commission rows will be recalculated.
+                </DialogContentText>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setCommissionPctConfirmOpen(false)}>No</Button>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    setCommissionPctUnlocked(true);
+                    setCommissionPctConfirmOpen(false);
+                  }}
+                >
+                  Yes
+                </Button>
+              </DialogActions>
+            </Dialog>
 
             <Box sx={{ height: 24 }} />
 
@@ -3626,8 +3742,8 @@ export default function NewStudentPage({ basePath }) {
                                 Number(row.bonusAmount ?? row.bonus).toFixed(2)
                               )}
                             </TableCell>
-                            <TableCell>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
-                            <TableCell> {Number(row.invoiceAmount ?? row.invoice).toFixed(2)} </TableCell>
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{Number(row.gstAmount ?? row.gst).toFixed(2)}</TableCell>
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{Number(row.invoiceAmount ?? row.invoice).toFixed(2)}</TableCell>
                             <TableCell>
                               {isEdit ? (
                                 <DateTextField
@@ -3667,10 +3783,9 @@ export default function NewStudentPage({ basePath }) {
                           </TableRow>
                         ))}
 
-                        <TableRow sx={{ backgroundColor: '#f5f7fb' }}>
+                        <TableRow sx={{ backgroundColor: '#f5f7fb', '& .MuiTableCell-root': { whiteSpace: 'nowrap' } }}>
                           <TableCell colSpan={4}> <b>Total</b>    </TableCell>
                           {/* <TableCell> <b>{totals.fees.toFixed(2)}</b> </TableCell> */}
-                          <TableCell />
                           <TableCell>  <b>{totals.commission.toFixed(2)}</b> </TableCell>
                           <TableCell>  <b>{totals.bonus.toFixed(2)}</b> </TableCell>
                           <TableCell> <b>{totals.gst.toFixed(2)}</b> </TableCell>
@@ -3680,7 +3795,7 @@ export default function NewStudentPage({ basePath }) {
                         </TableRow>
                       </>
                     ) : (
-                      <TableRow> <TableCell colSpan={11} align="center"> No Commission History </TableCell> </TableRow>
+                      <TableRow> <TableCell colSpan={10} align="center"> No Commission History </TableCell> </TableRow>
                     )}
                   </TableBody>
                 </Table>

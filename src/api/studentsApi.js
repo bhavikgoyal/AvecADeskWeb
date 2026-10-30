@@ -467,6 +467,8 @@ export async function fetchStudentPaymentDetail(studentId) {
     initialPayment: data.initialPayment ?? data.InitialPayment ?? null,        
     commissionId: data.commissionId ?? data.CommissionId,
     commissionPercentage: data.commissionPercentage ?? data.CommissionPercentage,
+    commissionType: data.commissionType ?? data.CommissionType ?? null,
+    studentCommissionAmount: data.studentCommissionAmount ?? data.StudentCommissionAmount ?? null,
     gstPercentage: data.gstPercentage ?? data.GSTPercentage,
     bonusType: data.bonusType ?? data.BonusType,
     bonusOption: data.bonusOption ?? data.BonusOption,
