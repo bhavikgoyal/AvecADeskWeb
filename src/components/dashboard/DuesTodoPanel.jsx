@@ -17,8 +17,10 @@ import {
 } from '@mui/material';
 import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
 import { dismissDuesTodoItem, getDuesTodoItems } from '../../api/cardApi';
+import { useVisibleRowsMaxHeight } from '../../hooks/useVisibleRowsMaxHeight';
 
 export const OVERDUE_TASKS_PATH = '/dashboard/overdue-tasks';
+const VISIBLE_TASK_ROWS = 5;
 
 // Same cell borders as the College Summary table.
 export const BORDER = '#d0d0d0';
@@ -50,6 +52,7 @@ export default function DuesTodoPanel() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tableScrollRef, maxHeight] = useVisibleRowsMaxHeight(VISIBLE_TASK_ROWS, rows, loading);
 
   useEffect(() => {
     let mounted = true;
@@ -151,7 +154,7 @@ export default function DuesTodoPanel() {
         <Typography variant="body2" sx={{ py: 1, color: 'var(--muted)' }}>No pending tasks.</Typography>
       ) : (
         <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <TableContainer sx={{ flex: 1, maxHeight: { xs: 300, lg: 'none' }, overflow: 'auto', border: `1px solid ${BORDER}` }}>
+        <TableContainer ref={tableScrollRef} sx={{ flex: 1, maxHeight, overflow: 'auto', border: `1px solid ${BORDER}` }}>
           <Table size="small" stickyHeader sx={{ tableLayout: 'fixed', borderCollapse: 'collapse' }}>
             <colgroup>
               <col style={{ width: 40 }} />
