@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState,useRef,} from 'react';
+import { useCallback, useEffect, useMemo, useState,} from 'react';
 import {
   Alert,
   Box,
@@ -20,6 +20,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import { fetchCommissionReceivableMatrices } from '../../api/anticipatedReceivablesApi';
 import { fetchInstitutesForReceivables, fetchStudentsLookup } from '../../api/lookupApi';
+import { useVisibleRowsMaxHeight } from '../../hooks/useVisibleRowsMaxHeight';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -37,6 +38,7 @@ const COLORS = {
 
 const TAB_KEYS = ['all', 'overdue', 'received'];
 const TAB_NAMES = ['all', 'overdue', 'received'];
+const VISIBLE_COLLEGE_ROWS = 5;
 
 function fmtMoney(amount) {
   if (amount == null) return '—';
@@ -64,10 +66,13 @@ function CollegeSummaryTable({ rows, loading, compact = false }) {
     { total: 0, received: 0, due: 0 },
   );
 
+  const [scrollRef, maxHeight] = useVisibleRowsMaxHeight(VISIBLE_COLLEGE_ROWS, rows, loading);
+
   const cellSx = { border: `1px solid ${COLORS.border}`, px: 1.5, py: 0.75, fontSize: 12, whiteSpace: 'nowrap' };
-  const headSx = { ...cellSx, bgcolor: COLORS.headerBg, fontWeight: 800, color: '#000', textTransform: 'uppercase', fontSize: 11 };
+  const headSx = { ...cellSx, bgcolor: COLORS.headerBg, fontWeight: 800, color: '#000', textTransform: 'uppercase', fontSize: 11, position: 'sticky', top: 0, zIndex: 1 };
   const nameSx = { ...cellSx, fontWeight: 700, color: '#000' };
   const amountSx = { ...cellSx, textAlign: 'right' };
+  const totalSx = { bgcolor: COLORS.totalBg, position: 'sticky', bottom: 0, zIndex: 1 };
 
   return (
     <Box
@@ -81,7 +86,7 @@ function CollegeSummaryTable({ rows, loading, compact = false }) {
       ) : rows.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No data.</Typography>
       ) : (
-        <Box sx={{ overflowX: 'auto' }}>
+        <Box ref={scrollRef} sx={{ overflow: 'auto', maxHeight }}>
           <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: compact ? 0 : 520 }}>
             <thead>
               <tr>
@@ -107,10 +112,10 @@ function CollegeSummaryTable({ rows, loading, compact = false }) {
             </tbody>
             <tfoot>
               <tr>
-                <Box component="td" sx={{ ...nameSx, bgcolor: COLORS.totalBg, fontWeight: 800 }}>TOTAL</Box>
-                <Box component="td" sx={{ ...amountSx, bgcolor: COLORS.totalBg, fontWeight: 700 }}>{fmtMoney(totals.total)}</Box>
-                <Box component="td" sx={{ ...amountSx, bgcolor: COLORS.totalBg, fontWeight: 700 }}>{fmtMoney(totals.received)}</Box>
-                <Box component="td" sx={{ ...amountSx, bgcolor: COLORS.totalBg, fontWeight: 700 }}>{fmtMoney(totals.due)}</Box>
+                <Box component="td" sx={{ ...nameSx, ...totalSx, fontWeight: 800 }}>TOTAL</Box>
+                <Box component="td" sx={{ ...amountSx, ...totalSx, fontWeight: 700 }}>{fmtMoney(totals.total)}</Box>
+                <Box component="td" sx={{ ...amountSx, ...totalSx, fontWeight: 700 }}>{fmtMoney(totals.received)}</Box>
+                <Box component="td" sx={{ ...amountSx, ...totalSx, fontWeight: 700 }}>{fmtMoney(totals.due)}</Box>
               </tr>
             </tfoot>
           </Box>
@@ -251,7 +256,7 @@ function exportPdf(rows, headers, filename, title) {
 }
 
 function MonthGrid({ matrix, loading }) {
-  const tableScrollRef = useRef(null);
+  const [tableScrollRef, maxHeight] = useVisibleRowsMaxHeight(VISIBLE_COLLEGE_ROWS, matrix, loading);
 
   useEffect(() => {
     const container = tableScrollRef.current;
@@ -260,7 +265,7 @@ function MonthGrid({ matrix, loading }) {
     container.scrollLeft = currentTh
       ? Math.max(currentTh.offsetLeft - 240, 0)
       : container.scrollWidth;
-  }, [loading, matrix]);
+  }, [loading, matrix, tableScrollRef]);
 
   if (loading) {
     return (
@@ -287,7 +292,7 @@ function MonthGrid({ matrix, loading }) {
         bgcolor: '#fff',
       }}
     >
-      <Box  ref={tableScrollRef} sx={{ overflowX: 'auto', maxHeight: 'calc(100vh - 420px)', overflowY: 'auto' }}>
+      <Box ref={tableScrollRef} sx={{ overflow: 'auto', maxHeight }}>
         <Box
           component="table"
           sx={{
@@ -409,7 +414,8 @@ function MonthGrid({ matrix, loading }) {
                 sx={{
                   position: 'sticky',
                   left: 0,
-                  zIndex: 1,
+                  bottom: 0,
+                  zIndex: 3,
                   minWidth: 240,
                   border: `1px solid ${COLORS.border}`,
                   bgcolor: COLORS.totalBg,
@@ -428,6 +434,9 @@ function MonthGrid({ matrix, loading }) {
                     component="td"
                     key={`total-${m.key}`}
                     sx={{
+                      position: 'sticky',
+                      bottom: 0,
+                      zIndex: 2,
                       border: `1px solid ${COLORS.border}`,
                       bgcolor: COLORS.totalBg,
                       px: 0.75,

@@ -86,6 +86,13 @@ const isVoeBdStudent = (coeVoe, serviceType) =>
   String(coeVoe || '').trim().toLowerCase() === 'voe' &&
   String(serviceType || '').trim().toLowerCase() === 'bd';
 
+const isGstExemptStudent = (coeVoe, serviceType) =>
+  String(coeVoe || '').trim().toLowerCase() === 'voe' ||
+  String(serviceType || '').trim().toLowerCase() === 'bd';
+
+const effectiveGstPct = (data) =>
+  isGstExemptStudent(data.coeVoe, data.serviceTypeStudent) ? 0 : Number(data.gstPercentage || 0);
+
 const shownPaidAmount = (row) => {
   const paid = Number(row?.paidAmount || 0);
   if (paid > 0) return paid;
@@ -832,7 +839,7 @@ export default function NewStudentPage({ basePath }) {
     const rawCommission = isFixedType
       ? Number(next.commissionAmount || 0)
       : (tuitionShare * Number(next.commissionPercentage || 0)) / 100;
-    const gstPct = Number(next.gstPercentage || 0);
+    const gstPct = effectiveGstPct(next);
 
     let gst;
     if (gstInclusive) {
@@ -1382,6 +1389,18 @@ export default function NewStudentPage({ basePath }) {
         }
       }
 
+      // New VoE or BD students default to a Fixed commission.
+      if (
+        !isEdit &&
+        (field === 'coeVoe' || field === 'serviceTypeStudent') &&
+        isGstExemptStudent(next.coeVoe, next.serviceTypeStudent) &&
+        next.commissionType !== 'Fixed'
+      ) {
+        next.commissionType = 'Fixed';
+        next.commissionPercentage = 0;
+        next.commissionAmount = 0;
+      }
+
       if (
         field === 'courseId' ||
         field === 'courseFee' ||
@@ -1391,6 +1410,8 @@ export default function NewStudentPage({ basePath }) {
         field === 'commissionType' ||
         field === 'commissionAmount' ||
         field === 'gstPercentage' ||
+        field === 'coeVoe' ||
+        field === 'serviceTypeStudent' ||
         FEE_COMPONENT_FIELDS.includes(field)
       ) {
         if (field === 'commissionPercentage') next.commissionPercentage = Number(value || 0);
@@ -1445,6 +1466,8 @@ export default function NewStudentPage({ basePath }) {
   const isFixedCommissionType = form.commissionType === 'Fixed';
   const isFixedCommission =
     isFixedCommissionType || isVoeBdStudent(form.coeVoe, form.serviceTypeStudent);
+  const formGstExempt = isGstExemptStudent(form.coeVoe, form.serviceTypeStudent);
+  const formGstPct = formGstExempt ? 0 : Number(form.gstPercentage || 0);
 
   const commissionSettingsChanged =
     isEdit &&
@@ -1472,7 +1495,7 @@ export default function NewStudentPage({ basePath }) {
           } else {
             rawCommission = (fees * Number(form.commissionPercentage || 0)) / 100;
           }
-          const gstPct = Number(form.gstPercentage || 0);
+          const gstPct = formGstPct;
 
           if (gstInclusive) {
             gst = rawCommission - rawCommission / (1 + gstPct / 100);
@@ -1531,7 +1554,7 @@ export default function NewStudentPage({ basePath }) {
       form.commissionPercentage,
       form.commissionAmount,
       isFixedCommissionType,
-      form.gstPercentage,
+      formGstPct,
       form.bonus,
       form.bonusType,
       form.bonusOption,
@@ -1558,7 +1581,7 @@ export default function NewStudentPage({ basePath }) {
 
       const bonusAmount = hasBonusEdit ? round2(Number(rawBonus) || 0) : baseline;
       const commissionAmount = hasCommissionEdit ? round2(Number(rawCommission) || 0) : commissionBaseline;
-      const gstPct = Number(form.gstPercentage || 0);
+      const gstPct = formGstPct;
       const gstAmount = hasCommissionEdit
         ? round2(gstInclusive ? commissionAmount - commissionAmount / (1 + gstPct / 100) : (commissionAmount * gstPct) / 100)
         : Number(row.gstAmount ?? row.gst ?? 0);
@@ -1606,13 +1629,21 @@ export default function NewStudentPage({ basePath }) {
           commissionSettingsChanged && !isCommissionPending(h.commissionStatus ?? h.CommissionStatus);
         const keepFixedAmounts = isFixedCommission && !commissionSettingsChanged;
         const useStoredAmounts = isBonus || isInvoicedUpdate || keepFixedAmounts || lockedBySettingsEdit;
+        // Already invoiced or received rows keep the GST they were billed with.
+        const dropGst =
+          formGstExempt &&
+          !isBonus &&
+          !isInvoicedUpdate &&
+          isCommissionPending(h.commissionHistoryOriginalStatus ?? h.commissionStatus ?? h.CommissionStatus);
         const storedBonus = Number(h.bonusAmount ?? h.BonusAmount ?? 0);
         const commissionAmount = useStoredAmounts
           ? Number(h.commissionAmount ?? h.CommissionAmount ?? 0)
           : Number(calc?.commission ?? h.commissionAmount ?? 0);
-        const gstAmount = useStoredAmounts
-          ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
-          : Number(calc?.gst ?? h.gstAmount ?? 0);
+        const gstAmount = dropGst
+          ? 0
+          : useStoredAmounts
+            ? Number(h.gstAmount ?? h.GSTAmount ?? 0)
+            : Number(calc?.gst ?? h.gstAmount ?? 0);
         const splitChild = !isBonus && isSplitInstallment(payment || { installmentNo: h.installmentNo });
         const isPercentageBonus = String(form.bonusType || '').toLowerCase() === 'percentage';
       const bonusAmount = isInvoicedUpdate || keepFixedAmounts || lockedBySettingsEdit
@@ -1626,7 +1657,7 @@ export default function NewStudentPage({ basePath }) {
                 : bonusFromDetail
                   ? storedBonus
                   : Number(calc?.bonus ?? storedBonus);
-        const invoiceAmount = useStoredAmounts
+        const invoiceAmount = useStoredAmounts && !dropGst
           ? Number(h.invoiceAmount ?? h.InvoiceAmount ?? 0)
           : round2(
             gstInclusive
@@ -1735,7 +1766,7 @@ export default function NewStudentPage({ basePath }) {
     );
 
     return rows.map(applyBonusEdit);
-  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, commissionOverrides, isFixedCommission, form.gstPercentage, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides, form.bonusType, commissionSettingsChanged]);
+  }, [isEdit, paymentList, commissionHistory, commissionRows, bonusOverrides, commissionOverrides, isFixedCommission, formGstPct, formGstExempt, gstInclusive, bonusFromDetail, commissionStatusOverrides, receivedDateOverrides, form.bonusType, commissionSettingsChanged]);
 
   const visibleHistoryRows = useMemo(
     () =>
@@ -3541,7 +3572,7 @@ export default function NewStudentPage({ basePath }) {
           <>
             <FormSectionsLayout
               sections={[resource.sections[2]]}
-              form={form}
+              form={formGstExempt ? { ...form, gstPercentage: 0, gstAmount: 0 } : form}
               onChange={updateField}
               selectOptions={selectOptions}
               requiredFields={resource.requiredFields}
