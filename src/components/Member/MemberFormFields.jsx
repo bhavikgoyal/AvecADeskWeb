@@ -89,11 +89,69 @@ function MemberSelectField({ name, label, value, onChange, error, required, opti
   );
 }
 
+function MemberMultiSelectField({ name, label, value = [], onChange, options, placeholder }) {
+  const labelId = `${name}-label`;
+  const selected = value.map(String);
+
+  return (
+    <FormGridItem size={compactFieldGrid}>
+      <FormControl {...fieldProps}>
+        <InputLabel id={labelId} shrink>
+          {label}
+        </InputLabel>
+        <Select
+          multiple
+          labelId={labelId}
+          name={name}
+          label={label}
+          value={selected}
+          onChange={(event) => {
+            const next = event.target.value;
+            onChange(typeof next === 'string' ? next.split(',') : next);
+          }}
+          displayEmpty
+          MenuProps={selectMenuProps}
+          renderValue={(ids) => {
+            if (!ids.length) {
+              return (
+                <Box component="span" sx={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
+                  {placeholder}
+                </Box>
+              );
+            }
+            return ids
+              .map((id) => options.find((option) => String(option.value) === id)?.label || id)
+              .join(', ');
+          }}
+        >
+          {options.map((option) => (
+            <MenuItem
+              key={option.value}
+              value={String(option.value)}
+              title={option.label}
+              // Shared select menu styles make items display:block, which pushes the label under the checkbox.
+              sx={{ display: 'flex !important', alignItems: 'center', gap: 1 }}
+            >
+              <Checkbox size="small" checked={selected.includes(String(option.value))} sx={{ p: 0.25, flexShrink: 0 }} />
+              <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {option.label}
+              </Box>
+            </MenuItem>
+          ))}
+        </Select>
+        <FormHelperText sx={{ minHeight: 20, m: 0, mt: 0.5 }}>{' '}</FormHelperText>
+      </FormControl>
+    </FormGridItem>
+  );
+}
+
 export default function MemberFormFields({
   form,
   errors = {},
   companies = [],
   roles = [],
+  boards = [],
+  onBoardsChange,
   onChange,
   onPhoneChange,
   onImageChange,
@@ -112,6 +170,11 @@ export default function MemberFormFields({
   const roleOptions = roles.map((role) => ({
     value: role.id,
     label: role.name,
+  }));
+
+  const boardOptions = boards.map((board) => ({
+    value: board.boardID ?? board.BoardID,
+    label: board.boardName ?? board.BoardName,
   }));
 
   return (
@@ -213,7 +276,7 @@ export default function MemberFormFields({
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', minWidth: 0 }}>
-        <FormSection title="Organization" description="Company and role assignment." divider={false} fill>
+        <FormSection title="Organization" description="Company, role and board access." divider={false} fill>
           <MemberSelectField
             name="companiesId"
             label="Company"
@@ -234,6 +297,16 @@ export default function MemberFormFields({
             options={roleOptions}
             placeholder="Select role"
           />
+          {onBoardsChange && (
+            <MemberMultiSelectField
+              name="boardIds"
+              label="Board access"
+              value={form.boardIds}
+              onChange={onBoardsChange}
+              options={boardOptions}
+              placeholder="Select boards"
+            />
+          )}
         </FormSection>
       </Grid>
 

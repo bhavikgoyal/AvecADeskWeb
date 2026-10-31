@@ -24,6 +24,7 @@ import { fetchInvoicesWithMonthlyTotals, fetchNextMonthInvoiceTotal } from '../.
 import { fetchVendorRows } from '../../api/vendorsApi';
 import AnticipatedReceivables1Page from '../anticipatedReceivables1/AnticipatedReceivables1Page';
 import { fetchMonthlyPaidDueTotals } from '../../api/anticipatedReceivablesApi';
+import DuesTodoPanel from '../../components/dashboard/DuesTodoPanel';
 const kpiStats = [
   {
     label: 'Open tasks',
@@ -554,7 +555,7 @@ export default function AdminDash() {
       
       </Box>
         <Box sx={{ mt: 1.5, width: '100%' }}>
-        <AnticipatedReceivables1Page />
+        <AnticipatedReceivables1Page summaryAside={<DuesTodoPanel />} />
       </Box>
     </>
   );

@@ -12,7 +12,6 @@ import {
 } from "../../api/checklistApi";
 import {
   updateCard,
-  getUsers,
   getBoards,
   getCardMembers,
   addCardMember,
@@ -59,7 +58,7 @@ import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubble";
 import HistoryIcon from "@mui/icons-material/History";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import * as cardApiAll from "../../api/cardApi";
-import { getMembers } from "../../api/membersApi";
+import { getMembersCached } from "../../api/membersApi";
 import {
   BORDER,
   BRAND,
@@ -555,41 +554,33 @@ export default function CardDetailModal({
 
   useEffect(() => {
     let isMounted = true;
-    const fetchData = async () => {
-      const [
-        checklistData,
-        memberData,
-        userData,
-        labelData,
-        boardData,
-        allMembersData,
-      ] = await Promise.allSettled([
-        getChecklists(card.cardID),
-        getCardMembers(card.cardID),
-        getUsers(),
-        getBoardLabelsForCard(card.cardID),
-        getBoards(),
-        getMembers(),
-      ]);
-      if (!isMounted) return;
-      const valueOf = (result) =>
-        result.status === "fulfilled" && Array.isArray(result.value)
-          ? result.value
-          : [];
-      [checklistData, memberData, userData, labelData]
-        .filter((r) => r.status === "rejected")
-        .forEach((r) =>
-          console.error("Failed to load card detail data", r.reason),
-        );
-      setChecklists(valueOf(checklistData));
-      setMembers(valueOf(memberData));
-      setUsers(valueOf(userData));
-      setBoardLabels(valueOf(labelData));
-      setBoards(valueOf(boardData));
-      setAllMembers(valueOf(allMembersData));
-      setLabelsLoading(false);
-    };
-    fetchData();
+    // Each section renders as soon as its own request returns, so the heavy users list
+    // (base64 avatars) no longer holds back checklists and members.
+    const load = (request, apply, label) =>
+      request()
+        .then((value) => {
+          if (isMounted) apply(Array.isArray(value) ? value : []);
+        })
+        .catch((err) => {
+          console.error(`Failed to load card ${label}`, err);
+          if (isMounted) apply([]);
+        });
+
+    load(() => getChecklists(card.cardID), setChecklists, "checklists");
+    load(() => getCardMembers(card.cardID), setMembers, "members");
+    load(() => getBoards(), setBoards, "boards");
+    load(() => getBoardLabelsForCard(card.cardID), setBoardLabels, "labels").finally(() => {
+      if (isMounted) setLabelsLoading(false);
+    });
+    load(
+      () => getMembersCached(),
+      (list) => {
+        setUsers(list);
+        setAllMembers(list);
+      },
+      "users",
+    );
+
     return () => {
       isMounted = false;
     };

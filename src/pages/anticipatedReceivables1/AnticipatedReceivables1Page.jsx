@@ -6,6 +6,7 @@ import {
   Chip,
   CircularProgress,
   FormControl,
+  Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -53,7 +54,7 @@ function fmtCell(value) {
   }).format(Number(value));
 }
 
-function CollegeSummaryTable({ rows, loading }) {
+function CollegeSummaryTable({ rows, loading, compact = false }) {
   const totals = rows.reduce(
     (sum, row) => ({
       total: sum.total + row.total,
@@ -71,7 +72,7 @@ function CollegeSummaryTable({ rows, loading }) {
   return (
     <Box
       sx={{bgcolor: 'background.paper',borderRadius: 2,border: '1px solid',borderColor: 'divider',
-        p: 2,mb: 3,}}>
+        p: compact ? 1.5 : 2, mb: compact ? 0 : 3, boxSizing: 'border-box'}}>
       <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', mb: 1.5 }}>College Summary</Typography>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
@@ -81,7 +82,7 @@ function CollegeSummaryTable({ rows, loading }) {
         <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No data.</Typography>
       ) : (
         <Box sx={{ overflowX: 'auto' }}>
-          <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 520 }}>
+          <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: compact ? 0 : 520 }}>
             <thead>
               <tr>
                 <Box component="th" sx={{ ...headSx, textAlign: 'left' }}>College Name</Box>
@@ -451,7 +452,7 @@ function MonthGrid({ matrix, loading }) {
   );
 }
 
-export default function AnticipatedReceivables1Page() {
+export default function AnticipatedReceivables1Page({ summaryAside = null }) {
   const [tab, setTab] = useState(0);
   const [institutes, setInstitutes] = useState([]);
   const [students, setStudents] = useState([]);
@@ -607,7 +608,21 @@ export default function AnticipatedReceivables1Page() {
         </Button>
       </Box>
 
-      <CollegeSummaryTable rows={matrices?.collegeSummary || []} loading={loading} />
+      {summaryAside ? (
+        <Grid container spacing={1.5} sx={{ mb: 3, alignItems: 'stretch' }}>
+          <Grid size={{ xs: 12, lg: 6 }} sx={{ minWidth: 0 }}>
+            <CollegeSummaryTable rows={matrices?.collegeSummary || []} loading={loading} compact />
+          </Grid>
+          {/* Absolutely filled on wide screens so the row height comes from College Summary alone. */}
+          <Grid size={{ xs: 12, lg: 6 }} sx={{ minWidth: 0, position: { lg: 'relative' }, minHeight: { xs: 0, lg: 200 } }}>
+            <Box sx={{ position: { lg: 'absolute' }, inset: { lg: 0 }, display: 'flex' }}>
+              {summaryAside}
+            </Box>
+          </Grid>
+        </Grid>
+      ) : (
+        <CollegeSummaryTable rows={matrices?.collegeSummary || []} loading={loading} />
+      )}
 
       <Box
         sx={{

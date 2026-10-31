@@ -16,6 +16,16 @@ export async function getMyBoardCards(filters = {}) {
   return response.data;
 }
 
+export async function getDuesTodoItems(scope = 'previous') {
+  const response = await axiosClient.get('/api/reminders/dues-todo', { params: { scope } });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function dismissDuesTodoItem(itemName, cardDate) {
+  const response = await axiosClient.post('/api/reminders/dues-todo/dismiss', { itemName, cardDate });
+  return response.data;
+}
+
 export async function createCard(payload) {
   const response = await axiosClient.post('/api/Card/create', payload);
   return response.data;

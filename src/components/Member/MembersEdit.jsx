@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Paper } from '@mui/material';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { updateMember, getRoles, getCompanies } from '../../api/membersApi';
+import { updateMember, getRoles, getCompanies, getAllBoards, getMemberBoardAccess } from '../../api/membersApi';
 import { FormActions, FormPageLayout, formPaperSx } from '../forms';
 import FormContentSkeleton from '../FormContentSkeleton';
 import MemberFormFields from './MemberFormFields';
@@ -15,6 +15,9 @@ export default function MembersEdit() {
 
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [boards, setBoards] = useState([]);
+  // Board access is only sent on save once the current access loaded, so a failed load can't wipe it.
+  const [boardAccessLoaded, setBoardAccessLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
@@ -32,6 +35,7 @@ export default function MembersEdit() {
     AvatarBase64: '',
     Password: '',
     ConfirmPassword: '',
+    BoardIds: [],
   });
 
   useEffect(() => {
@@ -70,7 +74,25 @@ export default function MembersEdit() {
       }
     };
     loadLookups();
+    getAllBoards()
+      .then(setBoards)
+      .catch((err) => console.error('Failed to load boards:', err));
   }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    let mounted = true;
+    getMemberBoardAccess(id)
+      .then((access) => {
+        if (!mounted) return;
+        setForm((prev) => ({ ...prev, BoardIds: access.map((a) => String(a.boardId ?? a.BoardId)) }));
+        setBoardAccessLoaded(true);
+      })
+      .catch((err) => console.error('Failed to load board access:', err));
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
 
   const validate = () => {
     const newErrors = {};
@@ -153,6 +175,7 @@ export default function MembersEdit() {
         ...form,
         ConfirmPassword: undefined,
         Password: form.Password?.trim() ? form.Password : undefined,
+        BoardIds: boardAccessLoaded ? form.BoardIds.map(Number) : undefined,
       });
 
       toast.success('Member updated successfully', {
@@ -184,6 +207,7 @@ export default function MembersEdit() {
     avatarBase64: form.AvatarBase64,
     password: form.Password,
     confirmPassword: form.ConfirmPassword,
+    boardIds: form.BoardIds,
   };
 
   const fieldsErrors = {
@@ -212,6 +236,8 @@ export default function MembersEdit() {
           errors={fieldsErrors}
           companies={companies}
           roles={roles}
+          boards={boards}
+          onBoardsChange={(boardIds) => setForm((prev) => ({ ...prev, BoardIds: boardIds }))}
           onChange={handleChange}
           onPhoneChange={handlePhoneChange}
           onImageChange={handleImage}
