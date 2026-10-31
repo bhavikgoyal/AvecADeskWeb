@@ -424,9 +424,12 @@ export default function ResourceFormFields({
     onChange(fieldName, nextValue);
   }}
   disabled={isFieldDisabled}
-  inputProps={shouldRestrictToTenDigits ? { maxLength: 10, inputMode: 'numeric', pattern: '[0-9]*' } : undefined}
-  InputProps={{
-    readOnly: isFieldDisabled,
+  slotProps={{
+    input: {
+      readOnly: isFieldDisabled,
+      endAdornment: def.endAdornment,
+    },
+    htmlInput: shouldRestrictToTenDigits ? { maxLength: 10, inputMode: 'numeric', pattern: '[0-9]*' } : undefined,
   }}
   sx={{ ...formFieldSx, flex: 1 }}
 />

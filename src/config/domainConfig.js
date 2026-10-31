@@ -135,6 +135,12 @@ courseStartDate: { label: 'Course Start Date', type: 'date', grid: grid.half },
       { value: 'Fixed', label: 'Fixed' },
       { value: 'Percentage', label: 'Percentage' }],
   },
+  commissionType: {
+    label: 'Commission Type', type: 'radio', grid: grid.full,
+    options: [
+      { value: 'Fixed', label: 'Fixed' },
+      { value: 'Percentage', label: 'Percentage' }],
+  },
   totalAmount: { label: 'Total amount', type: 'number', grid: grid.quarter },
   rejectionReason: { label: 'Rejection reason', type: 'textarea', grid: grid.wide },
 
@@ -394,7 +400,7 @@ export const DOMAIN_RESOURCES = {
        'courseDurationWeeks',                                          
       'frequency', 'startDate', 'courseStartDate', 'courseEndDate',
     ], },
-      { title: 'Commission', description: 'Commission & GST information.', fields: ['agent','commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'dueDays', 'remark',] },
+      { title: 'Commission', description: 'Commission & GST information.', fields: ['agent', 'dueDays', 'commissionType', 'commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'remark',] },
       { title: 'Bonus', description: 'Bonus details.', fields: ['bonusOption', 'bonusType', 'bonus',] },
     ],
 
@@ -417,7 +423,7 @@ export const DOMAIN_RESOURCES = {
       courseDurationWeeks: '',
       amountDue: '', amountPaid: '', paymentStatus: 'Pending', startDate: '',
       assignment: '',
-      commissionPercentage: '', gstPercentage: '', bonus: '',
+      commissionType: 'Percentage', commissionPercentage: '', gstPercentage: '', bonus: '',
       commissionAmount: '', gstAmount: '', invoiceAmount: '', dueDate: '', dueDays: '', remark: '',
     }),
   },
