@@ -3670,7 +3670,6 @@ export default function NewStudentPage({ basePath }) {
                         <TableRow sx={{ backgroundColor: '#f5f7fb' }}>
                           <TableCell colSpan={4}> <b>Total</b>    </TableCell>
                           {/* <TableCell> <b>{totals.fees.toFixed(2)}</b> </TableCell> */}
-                          <TableCell />
                           <TableCell>  <b>{totals.commission.toFixed(2)}</b> </TableCell>
                           <TableCell>  <b>{totals.bonus.toFixed(2)}</b> </TableCell>
                           <TableCell> <b>{totals.gst.toFixed(2)}</b> </TableCell>
@@ -3680,7 +3679,7 @@ export default function NewStudentPage({ basePath }) {
                         </TableRow>
                       </>
                     ) : (
-                      <TableRow> <TableCell colSpan={11} align="center"> No Commission History </TableCell> </TableRow>
+                      <TableRow> <TableCell colSpan={10} align="center"> No Commission History </TableCell> </TableRow>
                     )}
                   </TableBody>
                 </Table>

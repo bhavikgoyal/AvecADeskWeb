@@ -140,5 +140,26 @@ export const GET_MENU = (role) => {
     ],
   };
 
+  menus.Admin = menus['Super Admin'];
+
+  menus['Team Leader'] = [
+    {
+      category: 'Tasks',
+      items: [
+        { title: 'Tasks', path: '/tasks', Icon: AssignmentIcon },
+        { title: 'Teams Report', path: '/work-history', Icon: HistoryIcon },
+      ],
+    },
+  ];
+
+  menus.Member = [
+    {
+      category: 'Tasks',
+      items: [
+        { title: 'Tasks', path: '/tasks', Icon: AssignmentIcon },
+      ],
+    },
+  ];
+
   return menus[role] || [];
 };

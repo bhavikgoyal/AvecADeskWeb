@@ -4,14 +4,17 @@ import { Alert, Paper } from '@mui/material';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Session } from '../../utils/session';
-import { createMember, getRoles, getCompanies } from '../../api/membersApi';
+import { createMember, getRoles, getCompanies, getAllBoards } from '../../api/membersApi';
 import { FormActions, FormPageLayout, formPaperSx } from '../forms';
 import MemberFormFields from './MemberFormFields';
+
+const DEFAULT_BOARD_NAME = 'TO DO';
 
 export default function MembersCreate() {
   const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [boards, setBoards] = useState([]);
   const [serverError, setServerError] = useState('');
   const [errors, setErrors] = useState({});
 
@@ -27,6 +30,7 @@ export default function MembersCreate() {
     companiesId: '',
     isActive: true,
     avatarBase64: '',
+    boardIds: [],
   });
 
   useEffect(() => {
@@ -40,6 +44,18 @@ export default function MembersCreate() {
       }
     };
     loadLookups();
+    getAllBoards()
+      .then((list) => {
+        setBoards(list);
+        // Every new member starts with the shared "TO DO" board; it can still be unticked.
+        const defaultIds = list
+          .filter((board) => String(board.boardName ?? board.BoardName ?? '').trim().toUpperCase() === DEFAULT_BOARD_NAME)
+          .map((board) => String(board.boardID ?? board.BoardID));
+        if (defaultIds.length) {
+          setForm((prev) => (prev.boardIds.length ? prev : { ...prev, boardIds: defaultIds }));
+        }
+      })
+      .catch((err) => console.error('Failed to load boards:', err));
   }, []);
 
   const validate = () => {
@@ -108,6 +124,7 @@ export default function MembersCreate() {
       await createMember({
         ...form,
         confirmPassword: undefined,
+        boardIds: form.boardIds.map(Number),
       });
       setTimeout(() => {
         navigate('/Members');
@@ -140,6 +157,8 @@ export default function MembersCreate() {
           errors={errors}
           companies={companies}
           roles={roles}
+          boards={boards}
+          onBoardsChange={(boardIds) => setForm((prev) => ({ ...prev, boardIds }))}
           onChange={handleChange}
           onPhoneChange={handlePhoneChange}
           onImageChange={handleImage}

@@ -1,43 +1,16 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "react-toastify";
 import { DragDropContext } from "@hello-pangea/dnd";
-import {
-  Box,
-  Button,
-  MenuItem,
-  Paper,
-  Skeleton,
-  Stack,
-  TextField,
-} from "@mui/material";
+import { Box,  Button,  MenuItem,  Paper,  Skeleton,  Stack,  TextField,} from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import BoardColumn from "../components/board/BoardColumn";
 import AddCardModal from "../components/board/AddCardModal";
 import CardDetailModal from "../components/board/CardDetailModal";
-import {
-  getBoardCards,
-  getMyBoardCards,
-  getCardStatuses,
-  createCardStatus,
-  moveCardToList,
-  createCard,
-  createBoard,
-  getBoards,
-  updateBoard,
-  getListsByBoardId,
-  getCardsByBoardId,
-  createList,
-  deleteCard,
-  getUsers,
-} from "../api/cardApi";
+import { getBoardCards,  getMyBoardCards,  getCardStatuses,  createCardStatus,  moveCardToList,  createCard,
+  createBoard,  getBoards,  updateBoard,  getListsByBoardId,  getCardsByBoardId,  createList,  deleteCard,} from "../api/cardApi";
 import { useAuth } from "../hooks/useAuth";
-import {
-  listContainedButtonSx,
-  listSearchFieldSx,
-  listSelectFieldSx,
-  listSelectProps,
-  LIST_FILTER_ALL,
-} from "../components/forms";
+import { getMembersCached } from "../api/membersApi";
+import {  listContainedButtonSx,  listSearchFieldSx,  listSelectFieldSx,  listSelectProps,  LIST_FILTER_ALL,} from "../components/forms";
 import AddListComposer from "../components/board/AddListComposer";
 import { useTrelloRefresh } from "../components/board/useTrelloRefresh";
 
@@ -46,7 +19,7 @@ const BOARD_REFRESH_INTERVAL_MS = 30000;
 function BoardCardSkeleton() {
   return (
     <Paper
-      elevation={0}
+      elevation={0}    
       sx={{
         p: 1.25,
         borderRadius: "10px",
@@ -464,7 +437,13 @@ export default function BoardPage() {
   const [selectedBoardName, setSelectedBoardName] = useState("");
   const [selectedBoardId, setSelectedBoardId] = useState(null);
 
-  const [selectedUserId, setSelectedUserId] = useState(null);
+  const loggedInUserId = user?.id != null && user.id !== "" ? String(user.id) : null;
+  // Admin / Super Admin may look at anyone's cards; everyone else only ever sees their own.
+  const canFilterUsers = ["Admin", "Super Admin", "SuperAdmin"].includes(user?.role);
+  const [selectedUserId, setSelectedUserId] = useState(LIST_FILTER_ALL);
+  const effectiveUserId = canFilterUsers
+    ? (selectedUserId === LIST_FILTER_ALL ? undefined : selectedUserId)
+    : (loggedInUserId ?? undefined);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [users, setUsers] = useState([]);
@@ -510,16 +489,25 @@ export default function BoardPage() {
   }, [selectedBoardId]);
 
   useEffect(() => {
-    if (isAccounting) return;
+    if (!canFilterUsers) return;
     (async () => {
       try {
-        const data = await getUsers();
-        setUsers(data);
+        const data = await getMembersCached();
+        setUsers(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to load users:", err);
       }
     })();
-  }, [isAccounting]);
+  }, [canFilterUsers]);
+
+  const userFilterOptions = users
+    .filter((u) => u.isActive !== false)
+    .map((u) => ({
+      id: String(u.userId ?? u.userID),
+      name:
+        `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.userName || `User ${u.userId ?? u.userID}`,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const handleBoardNameSave = useCallback(async () => {
     const newBoardName = boardNameDraft.trim();
@@ -581,7 +569,7 @@ export default function BoardPage() {
   const fetchBoardColumns = useCallback(async () => {
     const filters = {
       searchText,
-      assignedUserId: selectedUserId,
+      assignedUserId: effectiveUserId,
       fromDate: fromDate || undefined,
       toDate: toDate || undefined,
     };
@@ -603,7 +591,7 @@ export default function BoardPage() {
         cards: listCards,
       };
     });
-  }, [selectedBoardId, searchText, selectedUserId, fromDate, toDate]);
+  }, [selectedBoardId, searchText, effectiveUserId, fromDate, toDate]);
 
   const loadBoard = useCallback(async () => {
     if (!selectedBoardId) {
@@ -898,6 +886,38 @@ export default function BoardPage() {
                 }}
               />
               <CreateBoardButton />
+              {canFilterUsers && (
+                <TextField
+                  select
+                  size="small"
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  SelectProps={{
+                    displayEmpty: true,
+                    renderValue: (value) =>
+                      value === LIST_FILTER_ALL
+                        ? "All users"
+                        : userFilterOptions.find((o) => o.id === value)?.name ||
+                          (value === loggedInUserId ? user?.name || "Me" : "User"),
+                    MenuProps: { PaperProps: { sx: { maxHeight: 320 } } },
+                  }}
+                  sx={{
+                    ...listSelectFieldSx(true),
+                    flex: "0 0 180px",
+                    width: 180,
+                    minWidth: 160,
+                    "& .MuiInputBase-root": { height: 40 },
+                  }}
+                >
+                  <MenuItem value={LIST_FILTER_ALL}>All users</MenuItem>
+                  {userFilterOptions.map((option) => (
+                    <MenuItem key={option.id} value={option.id}>
+                      {option.name}
+                      {option.id === loggedInUserId ? " (Me)" : ""}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
             </Box>
             <Box
               sx={{

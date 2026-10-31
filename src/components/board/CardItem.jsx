@@ -22,6 +22,13 @@ function tagStyle(tag) {
   return map[tag] || { bg: '#e5e7eb', color: '#374151' };
 }
 
+function formatLocalDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 function isOverdue(dueDate, checklistCompleted, checklistTotal) {
   if (!dueDate) return false;
   if (checklistTotal > 0 && checklistCompleted === checklistTotal) return false;
@@ -146,7 +153,7 @@ export default function CardItem({ card, index, theme, onDelete, onCardClick }) 
             whiteSpace: 'nowrap',
           }}
         >
-          📅 {new Date(card.dueDate).toISOString().slice(0, 10)}
+          📅 {formatLocalDate(card.dueDate)}
         </span>
       ) : <span />}
 
