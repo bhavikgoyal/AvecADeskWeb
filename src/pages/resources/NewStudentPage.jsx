@@ -86,12 +86,15 @@ const isVoeBdStudent = (coeVoe, serviceType) =>
   String(coeVoe || '').trim().toLowerCase() === 'voe' &&
   String(serviceType || '').trim().toLowerCase() === 'bd';
 
-const isGstExemptStudent = (coeVoe, serviceType) =>
+const isVoeOrBdStudent = (coeVoe, serviceType) =>
   String(coeVoe || '').trim().toLowerCase() === 'voe' ||
   String(serviceType || '').trim().toLowerCase() === 'bd';
 
+// GST applies to Percentage commission only; a Fixed commission amount is GST-free.
+const isGstExemptCommission = (commissionType) => commissionType === 'Fixed';
+
 const effectiveGstPct = (data) =>
-  isGstExemptStudent(data.coeVoe, data.serviceTypeStudent) ? 0 : Number(data.gstPercentage || 0);
+  isGstExemptCommission(data.commissionType) ? 0 : Number(data.gstPercentage || 0);
 
 const shownPaidAmount = (row) => {
   const paid = Number(row?.paidAmount || 0);
@@ -1393,7 +1396,7 @@ export default function NewStudentPage({ basePath }) {
       if (
         !isEdit &&
         (field === 'coeVoe' || field === 'serviceTypeStudent') &&
-        isGstExemptStudent(next.coeVoe, next.serviceTypeStudent) &&
+        isVoeOrBdStudent(next.coeVoe, next.serviceTypeStudent) &&
         next.commissionType !== 'Fixed'
       ) {
         next.commissionType = 'Fixed';
@@ -1466,7 +1469,7 @@ export default function NewStudentPage({ basePath }) {
   const isFixedCommissionType = form.commissionType === 'Fixed';
   const isFixedCommission =
     isFixedCommissionType || isVoeBdStudent(form.coeVoe, form.serviceTypeStudent);
-  const formGstExempt = isGstExemptStudent(form.coeVoe, form.serviceTypeStudent);
+  const formGstExempt = isGstExemptCommission(form.commissionType);
   const formGstPct = formGstExempt ? 0 : Number(form.gstPercentage || 0);
 
   const commissionSettingsChanged =
