@@ -7,7 +7,7 @@ import { fetchUniqueInstituteNames } from '../../api/institutesScrappingApi';
 import InstituteContactDetailsPanel from '../../components/institutes/InstituteContactDetailsPanel';
 import InstituteContractPanel from '../../components/institutes/InstituteContractPanel';
 import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
-import { canViewCredentials } from '../../utils/rbac';
+import { canViewCredentials, canViewInstituteContacts } from '../../utils/rbac';
 import {
   FormActions,
   FormPageLayout,
@@ -29,6 +29,7 @@ export default function InstituteDetailPage({ basePath }) {
   const { id } = useParams();
   const { user } = useAuth();
    const showCredentials = canViewCredentials(user);
+  const showContacts = canViewInstituteContacts(user);
   const resource = getResourceConfig(basePath);
   const [form, setForm] = useState(null);
   const [vendors, setVendors] = useState([]);
@@ -145,12 +146,14 @@ export default function InstituteDetailPage({ basePath }) {
     >
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
-          <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-          <Tab label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-           <Tab label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
-  {canViewCredentials && (
-    <Tab label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
-  )}
+          <Tab value={TAB_DETAILS} label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          {showContacts && (
+            <Tab value={TAB_CONTACT} label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          )}
+          <Tab value={TAB_CONTRACT} label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          {showCredentials && (
+            <Tab value={TAB_CREDENTIALS} label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          )}
         </Tabs>
       </Box>
 
@@ -200,7 +203,7 @@ export default function InstituteDetailPage({ basePath }) {
           </>
         )}
 
-        {activeTab === TAB_CONTACT && (
+        {activeTab === TAB_CONTACT && showContacts && (
           <InstituteContactDetailsPanel instituteId={id} />
         )}
 
@@ -212,7 +215,7 @@ export default function InstituteDetailPage({ basePath }) {
           />
         )}
 
-        {activeTab === TAB_CREDENTIALS && canViewCredentials && (
+        {activeTab === TAB_CREDENTIALS && showCredentials && (
   <InstituteCredentialsPanel instituteId={id} />
 )}
       </Paper>

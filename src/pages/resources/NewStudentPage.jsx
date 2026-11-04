@@ -15,6 +15,7 @@ import { fetchUniqueInstituteNames, getCampusesForInstitute, getUniqueInstituteN
 import ConfirmByStudentDialog from './ConfirmByStudentDialog';
 import { createStudentWithPaymentSchedule, fetchStudentById, fetchStudentCancelDetail, fetchStudentPaymentDetail, saveStudentCancelDetail, saveStudentEnrollmentNumber } from '../../api/studentsApi';
 import { createPaymentSchedule, createStudentPaymentInstallment, createStudentCommission, createStudentCommissionDetail, updateStudentPaymentSchedule, clearInstallmentDocument, } from '../../api/schedulesApi';
+import { DEFAULT_AGENT_NAME, fetchAgentLookup } from '../../api/agentApi';
 import { DateTextField, FormActions, FormPageLayout, FormSectionsLayout, formPaperSx } from '../../components/forms';
 import { getEmptyForm, getResourceConfig, isFormValid } from '../../config/resourceConfig';
 import { formatDateDisplay, toIsoDateString } from '../../utils/dateFormat';
@@ -289,7 +290,6 @@ const isScheduledInstallment = (row) => {
   return Number.isFinite(n) && n >= 1 && Math.abs(n - Math.round(n)) < 1e-6;
 };
 
-// A partial split creates 5.1. That child keeps commission, but not the installment bonus.
 const isSplitInstallment = (row) => {
   if (!row) return false;
   if (row.parentInstallmentNo != null || row.parentInstallmentId != null) return true;
@@ -767,6 +767,7 @@ export default function NewStudentPage({ basePath }) {
   const resource = getResourceConfig(basePath);
 
   const [form, setForm] = useState(() => getEmptyForm(basePath));
+  const [agents, setAgents] = useState([]);
   const [institutes, setInstitutes] = useState([]);
   const [courses, setCourses] = useState([]);
   const [paymentList, setPaymentList] = useState([]);
@@ -1120,6 +1121,19 @@ export default function NewStudentPage({ basePath }) {
     };
   }, [resolvedScrappingId, form.campusname]);
 
+  useEffect(() => {
+    fetchAgentLookup()
+      .then(setAgents)
+      .catch((err) => console.warn('Failed to load agents', err));
+  }, []);
+
+  useEffect(() => {
+    if (isEdit || form.agentId || agents.length === 0) return;
+    const defaultAgent =
+      agents.find((agent) => agent.name.toLowerCase() === DEFAULT_AGENT_NAME.toLowerCase()) || agents[0];
+    setForm((prev) => (prev.agentId ? prev : { ...prev, agentId: String(defaultAgent.id) }));
+  }, [isEdit, agents, form.agentId]);
+
   const selectOptions = useMemo(
     () => ({
       instituteId: instituteSelectOptions,
@@ -1128,8 +1142,15 @@ export default function NewStudentPage({ basePath }) {
         label: [String(item.level ?? '').trim(), item.courseName].filter(Boolean).join(' - '),
       })),
       campusname: campusOptions.map((c) => ({ value: c, label: c })),
+      // A saved agent that was later deactivated/deleted still shows on old students.
+      agentId: [
+        ...agents.map((agent) => ({ value: String(agent.id), label: agent.name })),
+        ...(form.agentId && !agents.some((agent) => String(agent.id) === String(form.agentId))
+          ? [{ value: String(form.agentId), label: form.agentName || `Agent #${form.agentId}` }]
+          : []),
+      ],
     }),
-    [instituteSelectOptions, courses, campusOptions]
+    [instituteSelectOptions, courses, campusOptions, agents, form.agentId, form.agentName]
   );
 
   const buildStudentPayload = (base = form) => ({
@@ -1183,7 +1204,8 @@ export default function NewStudentPage({ basePath }) {
           leadNo: data.leadNo ?? '',
           coeVoe: data.coeVoe ?? '',
           serviceTypeStudent: data.serviceType ?? '',
-          agent: data.agent ?? '',
+          agentId: data.agentId != null ? String(data.agentId) : '',
+          agentName: data.agent ?? '',
           courseStartDate: data.courseStartDate?.substring(0, 10),
           courseEndDate: data.courseEndDate?.substring(0, 10),
           commissionType,
@@ -1392,7 +1414,6 @@ export default function NewStudentPage({ basePath }) {
         }
       }
 
-      // New VoE or BD students default to a Fixed commission.
       if (
         !isEdit &&
         (field === 'coeVoe' || field === 'serviceTypeStudent') &&
@@ -1464,8 +1485,6 @@ export default function NewStudentPage({ basePath }) {
     if (error) setError('');
     if (loadError) setLoadError('');
   };
-
-  // Commission column is editable per installment for Fixed commission type and for VoE + BD students.
   const isFixedCommissionType = form.commissionType === 'Fixed';
   const isFixedCommission =
     isFixedCommissionType || isVoeBdStudent(form.coeVoe, form.serviceTypeStudent);
@@ -1632,7 +1651,7 @@ export default function NewStudentPage({ basePath }) {
           commissionSettingsChanged && !isCommissionPending(h.commissionStatus ?? h.CommissionStatus);
         const keepFixedAmounts = isFixedCommission && !commissionSettingsChanged;
         const useStoredAmounts = isBonus || isInvoicedUpdate || keepFixedAmounts || lockedBySettingsEdit;
-        // Already invoiced or received rows keep the GST they were billed with.
+
         const dropGst =
           formGstExempt &&
           !isBonus &&
@@ -1976,7 +1995,7 @@ export default function NewStudentPage({ basePath }) {
       return next;
     });
 
-    // Ticking "Paid" marks the row as confirmed by the college; unticking puts it back to Pending.
+    
     if (willCheck && item.status === 'Pending') {
       handleStatusChange(item, 'ConfirmedByCollege');
     } else if (!willCheck && item.status === 'ConfirmedByCollege' && (item.originalStatus || 'Pending') === 'Pending') {
@@ -2085,7 +2104,7 @@ export default function NewStudentPage({ basePath }) {
         childIndexes.push(i);
       }
 
-      // Snapshot taken on the first edit so every keystroke recalculates from the same baseline.
+      
       const feeEditBase = currentItem.feeEditBase ?? {
         poolCents:
           toCents(currentItem.amount) +
@@ -2358,8 +2377,7 @@ export default function NewStudentPage({ basePath }) {
           });
         }
       }
-
-      // Back to Pending: later installments cannot stay paid/partial ahead of this one.
+      
       if (value === 'Pending') {
         updated = pendingRowsBelow(updated, item);
       }

@@ -81,10 +81,9 @@ serviceTypeStudent: {
 studentIdDisplay: { label: 'Student ID', type: 'text', grid: grid.half},
 leadNo: { label: 'Lead No', type: 'text', grid: grid.half },
 courseDurationWeeks: { label: 'Course Duration (Weeks)', type: 'number', grid: grid.half },
-agent: {
+agentId: {
   label: 'Agent',
-  type: 'select',
-  options: ['Avec', 'EPA', 'SD', 'PFEC'],
+  type: 'api-select',
   grid: grid.half,
 },
   studentId: { label: 'Select student', type: 'api-select', required: true, grid: grid.full },
@@ -400,7 +399,7 @@ export const DOMAIN_RESOURCES = {
        'courseDurationWeeks',                                          
       'frequency', 'startDate', 'courseStartDate', 'courseEndDate',
     ], },
-      { title: 'Commission', description: 'Commission & GST information.', fields: ['agent', 'dueDays', 'commissionType', 'commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'remark',] },
+      { title: 'Commission', description: 'Commission & GST information.', fields: ['agentId', 'dueDays', 'commissionType', 'commissionPercentage', 'commissionAmount', 'gstPercentage', 'gstAmount', 'remark',] },
       { title: 'Bonus', description: 'Bonus details.', fields: ['bonusOption', 'bonusType', 'bonus',] },
     ],
 
@@ -418,7 +417,7 @@ export const DOMAIN_RESOURCES = {
       enrollmentFee: '', materialFee: '', tuitionFee: '', oshcFee: '', 
       initialPayment: '', 
       noOfInstallment: '', 
-      coeVoe: '', serviceTypeStudent: '', agent: '', 
+      coeVoe: '', serviceTypeStudent: '', agentId: '', 
       studentIdDisplay: '', leadNo: '',
       courseDurationWeeks: '',
       amountDue: '', amountPaid: '', paymentStatus: 'Pending', startDate: '',

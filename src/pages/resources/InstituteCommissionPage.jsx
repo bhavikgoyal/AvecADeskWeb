@@ -490,18 +490,18 @@ export default function InstituteCommissionPage() {
                   ))}
                 </TextField>
 
-               <TextField
-  size="small"
-  fullWidth
-  label="Course Name"
-  placeholder="Enter Course Name"
-  value={selectedCourse || ''}
-  disabled={!selectedInstitute}
-  onChange={(e) => {
-    setSelectedCourse(e.target.value);
-  }}
-  sx={listSelectFieldSx(Boolean(selectedCourse))}
-/>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="Course Name"
+                  placeholder="Enter Course Name"
+                  value={selectedCourse || ''}
+                  disabled={!selectedInstitute}
+                  onChange={(e) => {
+                    setSelectedCourse(e.target.value);
+                  }}
+                  sx={listSelectFieldSx(Boolean(selectedCourse))}
+                />
             </Box>
             <Box sx={listToolbarActionsSx}>
                 <Tooltip title={selectedIds.length === 0 ? 'Select at least one institute' : ''}>

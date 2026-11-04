@@ -33,7 +33,15 @@ const COLORS = {
   overdueText: '#9c0006',
   anticipatedBg: '#bdd7ee',
   totalBg: '#eeeeee',
+  stickyDivider: 'inset -2px 0 0 #7a7a7a',
   stickyBg: '#ffffff',
+};
+
+const MONTH_COL_MIN_WIDTH = 84;
+const monthColWidthSx = {
+  width: `var(--month-col, ${MONTH_COL_MIN_WIDTH}px)`,
+  minWidth: `var(--month-col, ${MONTH_COL_MIN_WIDTH}px)`,
+  maxWidth: `var(--month-col, ${MONTH_COL_MIN_WIDTH}px)`,
 };
 
 const TAB_KEYS = ['all', 'overdue', 'received'];
@@ -68,10 +76,11 @@ function CollegeSummaryTable({ rows, loading, compact = false }) {
 
   const [scrollRef, maxHeight] = useVisibleRowsMaxHeight(VISIBLE_COLLEGE_ROWS, rows, loading);
 
-  const cellSx = { border: `1px solid ${COLORS.border}`, px: 1.5, py: 0.75, fontSize: 12, whiteSpace: 'nowrap' };
-  const headSx = { ...cellSx, bgcolor: COLORS.headerBg, fontWeight: 800, color: '#000', textTransform: 'uppercase', fontSize: 11, position: 'sticky', top: 0, zIndex: 1 };
-  const nameSx = { ...cellSx, fontWeight: 700, color: '#000' };
-  const amountSx = { ...cellSx, textAlign: 'right' };
+  // Long college names wrap and amounts stay on one line, so the table always fits its box (no sideways scroll).
+  const cellSx = { border: `1px solid ${COLORS.border}`, px: { xs: 1, sm: 1.5 }, py: 0.75, fontSize: 12 };
+  const headSx = { ...cellSx, bgcolor: COLORS.headerBg, fontWeight: 800, color: '#000', textTransform: 'uppercase', fontSize: 11, whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 1 };
+  const nameSx = { ...cellSx, fontWeight: 700, color: '#000', whiteSpace: 'normal', overflowWrap: 'anywhere' };
+  const amountSx = { ...cellSx, textAlign: 'right', whiteSpace: 'nowrap', width: '1%' };
   const totalSx = { bgcolor: COLORS.totalBg, position: 'sticky', bottom: 0, zIndex: 1 };
 
   return (
@@ -86,14 +95,14 @@ function CollegeSummaryTable({ rows, loading, compact = false }) {
       ) : rows.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No data.</Typography>
       ) : (
-        <Box ref={scrollRef} sx={{ overflow: 'auto', maxHeight }}>
-          <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: compact ? 0 : 520 }}>
+        <Box ref={scrollRef} sx={{ overflowY: 'auto', overflowX: 'hidden', maxHeight }}>
+          <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
               <tr>
                 <Box component="th" sx={{ ...headSx, textAlign: 'left' }}>College Name</Box>
-                <Box component="th" sx={{ ...headSx, textAlign: 'right' }}>Total</Box>
-                <Box component="th" sx={{ ...headSx, textAlign: 'right' }}>Received</Box>
-                <Box component="th" sx={{ ...headSx, textAlign: 'right' }}>Due</Box>
+                <Box component="th" sx={{ ...headSx, textAlign: 'right', width: '1%' }}>Total</Box>
+                <Box component="th" sx={{ ...headSx, textAlign: 'right', width: '1%' }}>Received</Box>
+                <Box component="th" sx={{ ...headSx, textAlign: 'right', width: '1%' }}>Due</Box>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +174,7 @@ function cellStyles(status) {
     whiteSpace: 'nowrap',
     fontSize: 12,
     fontVariantNumeric: 'tabular-nums',
-    minWidth: 84,
+    ...monthColWidthSx,
   };
 
   if (status === 'paid') {
@@ -260,11 +269,26 @@ function MonthGrid({ matrix, loading }) {
 
   useEffect(() => {
     const container = tableScrollRef.current;
-    if (loading || !matrix || !container) return;
+    if (loading || !matrix || !container) return undefined;
+
+    const fitMonthColumns = () => {
+      const stickyWidth = container.querySelector('th[data-sticky="true"]')?.offsetWidth ?? 240;
+      const available = container.clientWidth - stickyWidth;
+      const count = Math.max(1, Math.floor(available / MONTH_COL_MIN_WIDTH));
+      container.style.setProperty('--month-col', `${available / count}px`);
+      container.style.scrollPaddingLeft = `${stickyWidth}px`;
+      return stickyWidth;
+    };
+
+    const stickyWidth = fitMonthColumns();
     const currentTh = container.querySelector('th[data-current="true"]');
     container.scrollLeft = currentTh
-      ? Math.max(currentTh.offsetLeft - 240, 0)
+      ? Math.max(currentTh.offsetLeft - stickyWidth, 0)
       : container.scrollWidth;
+
+    const observer = new ResizeObserver(fitMonthColumns);
+    observer.observe(container);
+    return () => observer.disconnect();
   }, [loading, matrix, tableScrollRef]);
 
   if (loading) {
@@ -292,7 +316,7 @@ function MonthGrid({ matrix, loading }) {
         bgcolor: '#fff',
       }}
     >
-      <Box ref={tableScrollRef} sx={{ overflow: 'auto', maxHeight }}>
+      <Box ref={tableScrollRef} sx={{ overflow: 'auto', maxHeight, scrollSnapType: 'x mandatory' }}>
         <Box
           component="table"
           sx={{
@@ -306,6 +330,7 @@ function MonthGrid({ matrix, loading }) {
             <tr>
               <Box
                 component="th"
+                data-sticky="true"
                 sx={{
                   position: 'sticky',
                   left: 0,
@@ -313,6 +338,7 @@ function MonthGrid({ matrix, loading }) {
                   zIndex: 3,
                   minWidth: 240,
                   border: `1px solid ${COLORS.border}`,
+                  boxShadow: COLORS.stickyDivider,
                   bgcolor: COLORS.headerBg,
                   px: 1.5,
                   py: 1,
@@ -341,7 +367,8 @@ function MonthGrid({ matrix, loading }) {
                     fontSize: 11,
                     fontWeight: 700,
                     whiteSpace: 'nowrap',
-                    minWidth: 84,
+                    scrollSnapAlign: 'start',
+                    ...monthColWidthSx,
                   }}
                 >
                   {m.label}
@@ -378,6 +405,7 @@ function MonthGrid({ matrix, loading }) {
                       zIndex: 1,
                       minWidth: 240,
                       border: `1px solid ${COLORS.border}`,
+                      boxShadow: COLORS.stickyDivider,
                       bgcolor: COLORS.stickyBg,
                       px: 1.5,
                       py: 0.6,
@@ -418,6 +446,7 @@ function MonthGrid({ matrix, loading }) {
                   zIndex: 3,
                   minWidth: 240,
                   border: `1px solid ${COLORS.border}`,
+                  boxShadow: COLORS.stickyDivider,
                   bgcolor: COLORS.totalBg,
                   px: 1.5,
                   py: 0.85,
@@ -446,7 +475,7 @@ function MonthGrid({ matrix, loading }) {
                       fontWeight: 800,
                       fontVariantNumeric: 'tabular-nums',
                       whiteSpace: 'nowrap',
-                      minWidth: 84,
+                      ...monthColWidthSx,
                     }}
                   >
                     {display || '—'}

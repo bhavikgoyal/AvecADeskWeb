@@ -5,8 +5,6 @@ export const getMembers = async () => {
   return data;
 };
 
-// Users_List carries every user's base64 avatar (several MB), so screens that only need it for
-// lookups (card detail) share one recent response instead of downloading it on every open.
 const MEMBERS_CACHE_TTL_MS = 2 * 60 * 1000;
 let membersCache = { data: null, fetchedAt: 0, pending: null };
 

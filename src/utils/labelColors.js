@@ -1,4 +1,4 @@
-// Trello ka label palette: 10 color families x 3 shades (subtle / normal / bold) = 30 colors
+
 const FAMILIES = [
   { key: 'green', name: 'green', subtle: '#BAF3DB', normal: '#4BCE97', bold: '#1F845A' },
   { key: 'yellow', name: 'yellow', subtle: '#F8E6A0', normal: '#F5CD47', bold: '#946F00' },

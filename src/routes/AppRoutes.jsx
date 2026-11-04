@@ -20,6 +20,7 @@ const UserPortal = lazy(() => import('../pages/UserPortal/UserPortal'));
 const DashboardLayout = lazy(() => import('../layouts/DashboardLayout'));
 const AdminDash = lazy(() => import('../pages/Dashboards/AdminDash'));
 const OverdueTasksPage = lazy(() => import('../pages/Dashboards/OverdueTasksPage'));
+const ProductivityDashboard = lazy(() => import('../pages/Dashboards/ProductivityDashboard'));
 const AccDash = lazy(() => import('../pages/Dashboards/AccDash'));
 const VendorDash = lazy(() => import('../pages/Dashboards/VendorDash'));
 const StudentDash = lazy(() => import('../pages/Dashboards/StudentDash'));
@@ -54,6 +55,8 @@ const AgreementTemplateForm = lazy(() => import('../pages/AgreementTemplate/Agre
 const AgreementTemplateView = lazy(() => import('../pages/AgreementTemplate/AgreementTemplateView'));
 const NewCoursePage = lazy(() => import('../pages/resources/NewCoursePage'));
 const ApplicationDetailPage = lazy(() => import('../pages/resources/ApplicationDetailPage'));
+const MailHistoryPage = lazy(() => import('../pages/MailHistory/MailHistoryPage'));
+const AgentsPage = lazy(() => import('../pages/Agents/AgentsPage'));
 
 const LIST_RESOURCE_PATHS = RESOURCE_PATHS.filter((path) =>
   path !== 'institutes-scrapping' &&
@@ -253,6 +256,7 @@ export default function AppRoutes() {
           <Route path="dashboard/admin" element={<GuardedDashboard path="/dashboard/admin" element={<AdminDash />} />} />
           {/* Not in the sidebar; same access as the admin dashboard it is opened from. */}
           <Route path="dashboard/overdue-tasks" element={<GuardedDashboard path="/dashboard/admin" element={<OverdueTasksPage />} />} />
+          <Route path="dashboard/productivity" element={<GuardedDashboard path="/dashboard/admin" element={<ProductivityDashboard />} />} />
           <Route path="dashboard/accounting" element={<GuardedDashboard path="/dashboard/accounting" element={<AccDash />} />} />
           <Route path="dashboard/admission" element={<GuardedDashboard path="/dashboard/admission" element={<AdmissionDash />} />} />
           <Route path="dashboard/vendor" element={<GuardedDashboard path="/dashboard/vendor" element={<VendorDash />} />} />
@@ -325,6 +329,22 @@ export default function AppRoutes() {
             element={
               <RequireRole path="/reports/student-Inquiry">
                 <StudentApplicationDetailsPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="agents"
+            element={
+              <RequireRole path="/agents">
+                <AgentsPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="mail-history"
+            element={
+              <RequireRole path="/mail-history">
+                <MailHistoryPage />
               </RequireRole>
             }
           />

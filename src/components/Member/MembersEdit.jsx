@@ -16,7 +16,6 @@ export default function MembersEdit() {
   const [roles, setRoles] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [boards, setBoards] = useState([]);
-  // Board access is only sent on save once the current access loaded, so a failed load can't wipe it.
   const [boardAccessLoaded, setBoardAccessLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});

@@ -77,7 +77,7 @@ import {
   INSTITUTE_SCRAPPING_BASE_PATH,
 } from './instituteScrappingFormConfig';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import { canViewCredentials } from '../../utils/rbac';
+import { canViewCredentials, canViewInstituteContacts } from '../../utils/rbac';
 import { useAuth } from '../../hooks/useAuth';
 
 const PENDING_SCRAPES_STORAGE_KEY = 'institutes-scrapping-pending';
@@ -240,6 +240,7 @@ export default function InstituteScrappingPage({ basePath = INSTITUTE_SCRAPPING_
   const isAccounting = user?.role === 'Accounting';
   const isAdmin = user?.role === 'Admin' || user?.role === 'Super Admin';
   const showCredentials = canViewCredentials(user);
+  const showContacts = canViewInstituteContacts(user);
 
   const [success, setSuccess] = useState('');
   const [warning, setWarning] = useState('');
@@ -611,7 +612,7 @@ const handleDialogTabChange = (_event, value) => {
         setSuccess('Institute added successfully. You can add its commission rate below, or add courses later from the Courses page.');
 
         if (newInstituteId) {
-          setActiveDialogTab(1);
+          setActiveDialogTab(showContacts ? 1 : 2);
         } else {
           setAddDialogOpen(false);
         }
@@ -867,7 +868,7 @@ const handleViewCredentials = (event, row) => {
                                         </Button>
                                       </>
                                     )}
-                                    {canViewCredentials && (
+                                    {showCredentials && (
                                       <Button
                                         size="small"
                                         variant="outlined"
@@ -908,11 +909,13 @@ const handleViewCredentials = (event, row) => {
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
           <Tabs value={activeDialogTab} onChange={handleDialogTabChange}>
-            <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-            <Tab label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-            <Tab label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
-            {canViewCredentials && (
-              <Tab label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            <Tab value={0} label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            {showContacts && (
+              <Tab value={1} label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            )}
+            <Tab value={2} label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            {showCredentials && (
+              <Tab value={3} label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
             )}
           </Tabs>
         </Box>
@@ -969,7 +972,7 @@ const handleViewCredentials = (event, row) => {
           )}
 
           {
-          }{activeDialogTab === 1 && (
+          }{activeDialogTab === 1 && showContacts && (
   <InstituteContactDetailsPanel instituteId={createdInstituteId} />
 )}
 
@@ -981,7 +984,7 @@ const handleViewCredentials = (event, row) => {
   />
 )}
 
-{activeDialogTab === 3 && canViewCredentials && (
+{activeDialogTab === 3 && showCredentials && (
   <InstituteCredentialsPanel instituteId={createdInstituteId} />
 )}
         </DialogContent>

@@ -152,7 +152,7 @@ async function drawLetterhead(doc) {
   const lineHeight = 5;
   const blockHeight = (detailLines.length - 1) * lineHeight;
 
-  // Centre the logo and the text block against each other.
+
   const headerHeight = Math.max(logoHeight, blockHeight + 4);
   const logoY = top + (headerHeight - logoHeight) / 2;
   if (logo) {
@@ -462,7 +462,6 @@ function buildItemLines(doc, group, colPart, showHeading = true) {
   );
 
   const lineHeight = 5.4;
-  // textOffset is the first baseline; together with bottomPadding it leaves about one blank line between students.
   const textOffset = showHeading ? 8 : 6;
   const bottomPadding = 4;
   const rowHeight = textOffset + (wrapped.length - 1) * lineHeight + bottomPadding;
@@ -481,7 +480,7 @@ function drawItemRow(doc, y, geo, srNo, itemLines) {
   const { tableWidth, colSr, colAmount, xPart, xAmount } = geo;
   const { wrapped, amountVal, rowHeight, lineHeight, textOffset } = itemLines;
 
-  // Only vertical borders: consecutive items share one box, closed by drawTableBottom.
+  
   doc.setDrawColor(0);
   doc.setLineWidth(0.3);
   doc.line(MARGIN_X, y, MARGIN_X, y + rowHeight);

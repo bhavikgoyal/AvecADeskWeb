@@ -554,8 +554,7 @@ export default function CardDetailModal({
 
   useEffect(() => {
     let isMounted = true;
-    // Each section renders as soon as its own request returns, so the heavy users list
-    // (base64 avatars) no longer holds back checklists and members.
+
     const load = (request, apply, label) =>
       request()
         .then((value) => {

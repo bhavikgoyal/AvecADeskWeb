@@ -22,7 +22,6 @@ import { useVisibleRowsMaxHeight } from '../../hooks/useVisibleRowsMaxHeight';
 export const OVERDUE_TASKS_PATH = '/dashboard/overdue-tasks';
 const VISIBLE_TASK_ROWS = 5;
 
-// Same cell borders as the College Summary table.
 export const BORDER = '#d0d0d0';
 
 export const headCellSx = {
@@ -63,7 +62,6 @@ export default function DuesTodoPanel() {
     return () => { mounted = false; };
   }, []);
 
-  // Hides the task from this panel only; it stays open on the Accounting cards and on View All Tasks.
   const handleDismiss = async (row) => {
     setRows((prev) => prev.filter((r) => r !== row));
     try {
@@ -76,7 +74,6 @@ export default function DuesTodoPanel() {
   };
 
   return (
-    // Same box and title row as College Summary, so the two tables' header rows line up side by side.
     <Paper
       elevation={0}
       sx={{

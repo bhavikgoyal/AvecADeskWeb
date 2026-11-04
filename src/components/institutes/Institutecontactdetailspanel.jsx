@@ -9,6 +9,7 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -30,34 +31,42 @@ import {
   deleteInstituteContact,
   getEmptyContactForm,
 } from '../../api/institutesExtrasApi';
+import { fetchDesignations } from '../../api/designationApi';
 import FormContentSkeleton from '../FormContentSkeleton';
 
 const FIELDS = [
   {
     key: 'contactName',
-    label: 'Contact person name',
+    label: 'Person name',
     placeholder: 'Enter full name',
+    gridSize: 4,
   },
   {
     key: 'designation',
     label: 'Designation',
-    placeholder: 'e.g. Principal, Manager',
+    select: true,
+    gridSize: 4,
   },
   {
     key: 'email',
     label: 'Email',
     placeholder: 'Enter email address',
     inputType: 'email',
+    gridSize: 4,
   },
   {
     key: 'phone',
     label: 'Phone',
-    placeholder: 'Enter phone number',
+    placeholder: 'Enter 10 digit phone number',
+    phone: true,
+    gridSize: 6,
   },
   {
     key: 'alternatePhone',
     label: 'Alternate phone',
-    placeholder: 'Enter alternate phone',
+    placeholder: 'Enter 10 digit alternate phone',
+    phone: true,
+    gridSize: 6,
   },
   {
     key: 'address',
@@ -71,7 +80,7 @@ const FIELDS = [
     label: 'Notes',
     placeholder: 'Add any additional notes...',
     multiline: true,
-    gridSize: 12,
+    gridSize: 6,
   },
 ];
 
@@ -85,6 +94,13 @@ export default function InstituteContactDetailsPanel({ instituteId }) {
   const [form, setForm] = useState(getEmptyContactForm());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [designationOptions, setDesignationOptions] = useState([]);
+
+  useEffect(() => {
+    fetchDesignations()
+      .then((data) => setDesignationOptions(data.map((d) => d.name)))
+      .catch(() => setDesignationOptions([]));
+  }, []);
 
   const loadContacts = async () => {
     if (!instituteId) {
@@ -143,6 +159,14 @@ export default function InstituteContactDetailsPanel({ instituteId }) {
   };
 
   const handleSave = async () => {
+    const invalidPhoneField = FIELDS.find(
+      (field) => field.phone && form[field.key] && !/^\d{10}$/.test(form[field.key]),
+    );
+    if (invalidPhoneField) {
+      setFormError(`${invalidPhoneField.label} must be exactly 10 digits.`);
+      return;
+    }
+
     setSaving(true);
     setFormError('');
 
@@ -366,9 +390,7 @@ export default function InstituteContactDetailsPanel({ instituteId }) {
     <Grid container spacing={2.5}>
       {FIELDS.map((field) => (
         <Grid
-          item
-          xs={12}
-          md={field.gridSize || 6}
+          size={{ xs: 12, sm: field.gridSize || 6 }}
           key={field.key}
         >
           <TextField
@@ -377,17 +399,41 @@ export default function InstituteContactDetailsPanel({ instituteId }) {
             type={field.inputType || 'text'}
             value={form[field.key] || ''}
             onChange={(e) =>
-              updateFormField(field.key, e.target.value)
+              updateFormField(
+                field.key,
+                field.phone
+                  ? e.target.value.replace(/\D/g, '').slice(0, 10)
+                  : e.target.value,
+              )
+            }
+            inputProps={
+              field.phone
+                ? { inputMode: 'numeric', maxLength: 10 }
+                : undefined
             }
             fullWidth
             size="medium"
             variant="outlined"
             multiline={!!field.multiline}
-            minRows={field.multiline ? 3 : undefined}
+            minRows={field.multiline ? 5 : undefined}
+            select={!!field.select}
             disabled={saving}
             InputLabelProps={{
               shrink: true,
             }}
+            SelectProps={
+              field.select
+                ? {
+                    displayEmpty: true,
+                    renderValue: (value) =>
+                      value || (
+                        <Box component="span" sx={{ color: 'text.disabled' }}>
+                          Select designation
+                        </Box>
+                      ),
+                  }
+                : undefined
+            }
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2,
@@ -411,7 +457,19 @@ export default function InstituteContactDetailsPanel({ instituteId }) {
                 fontSize: '0.9rem',
               },
             }}
-          />
+          >
+            {field.select &&
+              [
+                ...designationOptions,
+                ...(form[field.key] && !designationOptions.includes(form[field.key])
+                  ? [form[field.key]]
+                  : []),
+              ].map((option) => (
+                <MenuItem key={option} value={option}>
+                  {option}
+                </MenuItem>
+              ))}
+          </TextField>
         </Grid>
       ))}
     </Grid>
