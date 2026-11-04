@@ -18,12 +18,21 @@ export function canAccessPath(role, path) {
   return getAllowedPaths(role).has(path);
 }
 
-const CREDENTIALS_ROLES = ['Accounting', 'Admin', 'Super Admin', 'SuperAdmin'];
+// Institute credentials and contact details are only for these roles (API enforces the same list).
+const INSTITUTE_PRIVATE_ROLES = ['Accounting', 'Admin', 'Super Admin', 'SuperAdmin'];
 
-export function canViewCredentials(user) {
+function hasInstitutePrivateRole(user) {
   if (!user?.role) return false;
   const normalized = String(user.role).trim().toLowerCase().replace(/\s+/g, '');
-  return CREDENTIALS_ROLES.some(
+  return INSTITUTE_PRIVATE_ROLES.some(
     (role) => role.toLowerCase().replace(/\s+/g, '') === normalized,
   );
+}
+
+export function canViewCredentials(user) {
+  return hasInstitutePrivateRole(user);
+}
+
+export function canViewInstituteContacts(user) {
+  return hasInstitutePrivateRole(user);
 }

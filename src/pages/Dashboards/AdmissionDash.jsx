@@ -118,7 +118,6 @@ export default function AdmissionDash() {
           });
           setNewStudentsList(Array.isArray(studentList) ? studentList : []);
           try {
-            console.log('AdmissionDash student monthlySpark:', monthlyCounts(studentList, 'createdAt', 12, studentDateMapper));
           } catch (e) { }
         }
 

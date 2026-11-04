@@ -389,7 +389,6 @@ export default function MembersTable({ searchQuery = '' }) {
         render: (row) => (
           <MemberActions
             row={row}
-            //onEdit={handleEdit}
             onDelete={handleDelete}
             onResign={handleResign}
           />

@@ -47,7 +47,6 @@ export default function MembersCreate() {
     getAllBoards()
       .then((list) => {
         setBoards(list);
-        // Every new member starts with the shared "TO DO" board; it can still be unticked.
         const defaultIds = list
           .filter((board) => String(board.boardName ?? board.BoardName ?? '').trim().toUpperCase() === DEFAULT_BOARD_NAME)
           .map((board) => String(board.boardID ?? board.BoardID));

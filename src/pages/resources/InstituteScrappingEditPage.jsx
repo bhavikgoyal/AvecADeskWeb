@@ -28,7 +28,7 @@ import InstituteContractPanel from '../../components/institutes/InstituteContrac
 import InstituteCredentialsPanel from '../../components/institutes/InstituteCredentialsPanel';
 import InstituteCampusesEditor from '../../components/institutes/InstituteCampusesEditor';
 import FormContentSkeleton from '../../components/FormContentSkeleton';
-import { canViewCredentials } from '../../utils/rbac';
+import { canViewCredentials, canViewInstituteContacts } from '../../utils/rbac';
 import {
   deleteInstituteScrapping,
   fetchInstituteScrappingById,
@@ -59,6 +59,7 @@ export default function InstituteScrappingEditPage({ basePath = INSTITUTE_SCRAPP
   const location = useLocation();
   const { user } = useAuth();
   const showCredentials = canViewCredentials(user);
+  const showContacts = canViewInstituteContacts(user);
   const [form, setForm] = useState(() => recordToManualForm());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,10 +70,10 @@ export default function InstituteScrappingEditPage({ basePath = INSTITUTE_SCRAPP
     () => TAB_BY_KEY[location.state?.openTab] ?? TAB_DETAILS,
   );
 useEffect(() => {
-  if (activeTab === TAB_CREDENTIALS && !canViewCredentials) {
+  if ((activeTab === TAB_CREDENTIALS && !showCredentials) || (activeTab === TAB_CONTACT && !showContacts)) {
     setActiveTab(TAB_DETAILS);
   }
-}, [activeTab, canViewCredentials]);
+}, [activeTab, showCredentials, showContacts]);
   useEffect(() => {
     let active = true;
 
@@ -157,11 +158,13 @@ useEffect(() => {
     >
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1.5 }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tab label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-          <Tab label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
-          <Tab label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
-          {canViewCredentials && (
-            <Tab label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab value={TAB_DETAILS} label="Institute details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          {showContacts && (
+            <Tab value={TAB_CONTACT} label="Contact details" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          )}
+          <Tab value={TAB_CONTRACT} label="Contract" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          {showCredentials && (
+            <Tab value={TAB_CREDENTIALS} label="Credentials" sx={{ textTransform: 'none', fontWeight: 600 }} />
           )}
         </Tabs>
       </Box>
@@ -228,7 +231,7 @@ useEffect(() => {
           </>
         )}
 
-        {activeTab === TAB_CONTACT && (
+        {activeTab === TAB_CONTACT && showContacts && (
           <InstituteContactDetailsPanel instituteId={id} />
         )}
 
@@ -240,7 +243,7 @@ useEffect(() => {
           />
         )}
 
-        {activeTab === TAB_CREDENTIALS && canViewCredentials && (
+        {activeTab === TAB_CREDENTIALS && showCredentials && (
   <InstituteCredentialsPanel instituteId={id} />
 )}
       </Paper>

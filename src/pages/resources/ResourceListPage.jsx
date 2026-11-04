@@ -371,7 +371,7 @@ if (courseNameFilter.trim()) {
   if (isInvoices) {
   let filtered = rows;
 
-  // Institute filter
+
   if (invoiceInstituteFilter) {
     const target = normalizeInstituteName(invoiceInstituteFilter);
 
@@ -381,7 +381,6 @@ if (courseNameFilter.trim()) {
     );
   }
 
-  // Paid / Due filter
   if (invoiceView) {
     if (invoiceView === 'paid') {
       filtered = filtered.filter((r) => {
@@ -403,8 +402,6 @@ if (courseNameFilter.trim()) {
       });
     }
   }
-
-  // Year + Month filter
   if (invoiceYear || invoiceMonth) {
     filtered = filtered.filter((r) => {
       const dateVal =
@@ -614,7 +611,7 @@ useEffect(() => {
       try {
         window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
       } catch (e) {
-        // ignore
+        
       }
     }
 
@@ -668,7 +665,6 @@ useEffect(() => {
     }
   }, [basePath, isStudents, isEnrolment, isVendors, isInstitutes, isTemplates, isCourses, refreshRows]);
 
-  // ---- Selection (institutes only) ----
 const allSelected = (isInstitutes || isInvoices) && rows.length > 0 && selectedIds.length === rows.length;
 const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !allSelected;
 
@@ -680,7 +676,6 @@ const someSelected = (isInstitutes || isInvoices) && selectedIds.length > 0 && !
     setSelectedIds((prev) => (prev.length === rows.length ? [] : rows.map((r) => r.id)));
   }, [rows]);
 
-  // ---- Commission history (institutes only) ----
   const openHistory = useCallback(async (row) => {
     setHistoryOpen(true);
     setHistoryLoading(true);

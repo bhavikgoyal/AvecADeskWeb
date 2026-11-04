@@ -129,7 +129,6 @@ function MemberMultiSelectField({ name, label, value = [], onChange, options, pl
               key={option.value}
               value={String(option.value)}
               title={option.label}
-              // Shared select menu styles make items display:block, which pushes the label under the checkbox.
               sx={{ display: 'flex !important', alignItems: 'center', gap: 1 }}
             >
               <Checkbox size="small" checked={selected.includes(String(option.value))} sx={{ p: 0.25, flexShrink: 0 }} />

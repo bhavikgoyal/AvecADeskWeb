@@ -25,6 +25,7 @@ import { fetchVendorRows } from '../../api/vendorsApi';
 import AnticipatedReceivables1Page from '../anticipatedReceivables1/AnticipatedReceivables1Page';
 import { fetchMonthlyPaidDueTotals } from '../../api/anticipatedReceivablesApi';
 import DuesTodoPanel from '../../components/dashboard/DuesTodoPanel';
+import ProductivityDashboard from './ProductivityDashboard';
 const kpiStats = [
   {
     label: 'Open tasks',
@@ -468,31 +469,6 @@ export default function AdminDash() {
         </Box>
       <DashboardTemplate
         showWelcome={false}
-        // kpiStats={[
-        //   {
-        //     label: 'Receivables',
-        //     value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`,
-        //     sparklineData: receivablesSpark.length ? receivablesSpark : buildSparkline(4),
-        //     sparklineFormatter: (v) => `$${Number(v || 0).toLocaleString()}`,
-        //     chart: (
-        //       <Box sx={{ height: 44, mt: 0.25 }}>
-        //         <ResponsiveContainer width="100%" height="100%">
-        //           <LineChart data={(receivablesSpark.length ? receivablesSpark : [{ name: '', paid: 0, due: 0 }, { name: '', paid: 0, due: 0 }])} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
-        //             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
-        //             <XAxis dataKey="name" tick={false} axisLine={false} tickLine={false} />
-        //             <YAxis domain={[0, (dataMax) => Math.max(1, Math.ceil((Number(dataMax) || 0) * 1.05))]} hide />
-        //             <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--card-border)', fontSize: 12 }} formatter={(v, name) => [`$${Number(v).toLocaleString()}`, name]} />
-        //             <Line type="monotone" dataKey="paid" stroke={CHART_COLORS.teal} strokeWidth={2} dot={false} />
-        //             <Line type="monotone" dataKey="due" stroke={CHART_COLORS.danger} strokeWidth={2} dot={false} />
-        //           </LineChart>
-        //         </ResponsiveContainer>
-        //       </Box>
-        //     ),
-        //     icon: <PaymentsIcon />,
-        //     color: 'var(--teal)',
-        //     footer: [{ label: 'Paid', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.paid || 0).toLocaleString()}` : `$${Number(paidThisMonth || 0).toLocaleString()}`, sub: 'This month' }, { label: 'Due', value: invoiceTotals ? `$${Number(invoiceTotals.thisMonth?.due || 0).toLocaleString()}` : `$${Number(dueThisMonth || 0).toLocaleString()}`, sub: 'Current' }],
-        //   }
-        // ]}
         showSnapshot={false}
         showQuickInsights={false}
         showUpcoming={false}
@@ -557,6 +533,7 @@ export default function AdminDash() {
         <Box sx={{ mt: 1.5, width: '100%' }}>
         <AnticipatedReceivables1Page summaryAside={<DuesTodoPanel />} />
       </Box>
+      <ProductivityDashboard />
     </>
   );
 }

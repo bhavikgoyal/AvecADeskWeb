@@ -51,7 +51,6 @@ export function mapPaidStudentRow(item) {
   const bonusRaw = Number(item.bonusAmount ?? item.BonusAmount ?? 0);
   const gstRaw = Number(item.gstAmount ?? item.GSTAmount ?? item.GstAmount ?? 0) || 0;
   const invoiceSafe = Number.isFinite(invoiceRaw) ? invoiceRaw : 0;
-  // InvoiceAmount (bonus excluded) is Commission + GST, except GST-inclusive rows where it equals Commission.
   const commissionField = Number(item.commissionAmount ?? item.CommissionAmount ?? 0) || 0;
   const gstInclusive = gstRaw !== 0 && Math.abs(invoiceSafe - commissionField) < 0.01;
   const commissionRaw = Number((gstInclusive ? invoiceSafe : invoiceSafe - gstRaw).toFixed(2));
