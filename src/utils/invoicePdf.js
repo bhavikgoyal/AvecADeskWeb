@@ -222,21 +222,21 @@ function instituteAddressLines(invoice, lineItems = []) {
     return (street && street !== '—') || (campus && campus !== '—') || (zip && zip !== '—');
   }) || {};
 
-  const street = safeText(invoice.address || invoice.Address || source.address || source.Address ).replace(/,\s*$/, '');
-  const campus  = safeText( invoice.campus  || invoice.campus  || source.campus  || source.campus);
-  const zip = safeText( invoice.zipCode || invoice.ZipCode || source.zipCode || source.ZipCode);
+  const street = safeText(invoice.address || invoice.Address || source.address || source.Address).replace(/,\s*$/, '');
+  const campus = safeText(invoice.campus || invoice.campus || source.campus || source.campus);
+  const zip = safeText(invoice.zipCode || invoice.ZipCode || source.zipCode || source.ZipCode);
 
   const lines = [];
   if (street && street !== '—') lines.push(zip && zip !== '—' ? `${street},` : street);
- const campusAndZip = [campus, zip]
-  .filter(value => value && value !== '—')
-  .join(', ');
+  const campusAndZip = [campus, zip]
+    .filter(value => value && value !== '—')
+    .join(', ');
 
-if (campusAndZip) {
-  lines.push(campusAndZip);
-}
+  if (campusAndZip) {
+    lines.push(campusAndZip);
+  }
 
-return lines;
+  return lines;
 }
 
 function drawInfoBox(doc, invoice, startY, lineItems = []) {
@@ -245,7 +245,7 @@ function drawInfoBox(doc, invoice, startY, lineItems = []) {
   const colSplit = MARGIN_X + boxWidth - AMOUNT_COL_WIDTH;
   const leftWidth = colSplit - MARGIN_X - 6;
   const lineHeight = 4.5;
-  const invoiceValueWidth = AMOUNT_COL_WIDTH - 6 - 24; 
+  const invoiceValueWidth = AMOUNT_COL_WIDTH - 6 - 24;
 
   const instituteName = safeText(invoice.instituteNameRef || invoice.instituteName);
   const addressParts = instituteAddressLines(invoice, lineItems);
@@ -286,8 +286,8 @@ function drawInfoBox(doc, invoice, startY, lineItems = []) {
   });
 
 
-  const rightEdgeX = MARGIN_X + boxWidth - 3; 
-  const gap = 2;                              
+  const rightEdgeX = MARGIN_X + boxWidth - 3;
+  const gap = 2;
 
   doc.setFont('times', 'bold');
   const labelWidth = doc.getTextWidth('Invoice No:');
@@ -380,13 +380,34 @@ function drawEducationCommissionHeader(doc, y, geo) {
 function isInvoicedUpdateItem(item) {
   return Boolean(item?.isInvoicedUpdate ?? item?.IsInvoicedUpdate ?? false);
 }
+function isFixedCommissionItem(item) {
+  const type = String(
+    item?.commissionType ?? item?.CommissionType ?? ''
+  ).trim().toLowerCase();
 
+  return type === 'fixed';
+}
 function itemCommissionAmount(item) {
+  const commissionType = String(
+    item.commissionType ?? item.CommissionType ?? ''
+  ).trim().toLowerCase();
+
+  if (commissionType === 'fixed') {
+    return Number(
+      item.commissionAmount ?? item.CommissionAmount ?? 0
+    );
+  }
+
   if (isInvoicedUpdateItem(item)) {
-    return Number(item.commissionAmount ?? item.CommissionAmount ?? 0);
+    return Number(
+      item.commissionAmount ?? item.CommissionAmount ?? 0
+    );
   }
   const fees = Number(item.feesAmount ?? item.FeesAmount ?? 0);
-  const percentage = Number(item.commissionPercentage ?? item.CommissionPercentage ?? 0);
+  const percentage = Number(
+    item.commissionPercentage ?? item.CommissionPercentage ?? 0
+  );
+
   return (fees * percentage) / 100;
 }
 
@@ -452,8 +473,24 @@ function buildItemLines(doc, group, colPart, showHeading = true) {
   }
 
   lines.push(`Course Details: ${itemCourseText(first)}`);
-  const feesLine = groupFeesLine(items, amountVal);
-  if (feesLine) lines.push(feesLine);
+
+  const percentageItems = items.filter(
+    item => !isFixedCommissionItem(item)
+  );
+
+  if (percentageItems.length > 0) {
+    const percentageAmount = percentageItems.reduce(
+      (sum, item) => sum + itemCommissionAmount(item),
+      0
+    );
+
+    const feesLine = groupFeesLine(
+      percentageItems,
+      percentageAmount
+    );
+
+    if (feesLine) lines.push(feesLine);
+  }
 
   doc.setFont('times', 'normal');
   doc.setFontSize(12);
@@ -480,7 +517,7 @@ function drawItemRow(doc, y, geo, srNo, itemLines) {
   const { tableWidth, colSr, colAmount, xPart, xAmount } = geo;
   const { wrapped, amountVal, rowHeight, lineHeight, textOffset } = itemLines;
 
-  
+
   doc.setDrawColor(0);
   doc.setLineWidth(0.3);
   doc.line(MARGIN_X, y, MARGIN_X, y + rowHeight);
@@ -537,12 +574,15 @@ function drawTotals(doc, invoice, geo, startY, lineItems = []) {
   );
 
   const gstAmount = Number(
-    lineItems.reduce(
-      (sum, item) =>
-        sum +
-        Number(item.gstAmount ?? item.GSTAmount ?? 0),
-      0
-    ).toFixed(2)
+    lineItems.reduce((sum, item) => {
+      if (isFixedCommissionItem(item)) {
+        return sum;
+      }
+
+      return sum + Number(
+        item.gstAmount ?? item.GSTAmount ?? 0
+      );
+    }, 0).toFixed(2)
   );
 
   const grandTotal = Number(
@@ -579,7 +619,14 @@ function drawTotals(doc, invoice, geo, startY, lineItems = []) {
     drawRow('BONUS', bonus);
   }
 
-  drawRow('GST', gstAmount);
+  const hasNonFixedCommission = lineItems.some(
+    item => !isFixedCommissionItem(item)
+  );
+
+  if (hasNonFixedCommission) {
+    drawRow('GST', gstAmount);
+  }
+
   drawRow('GRAND TOTAL', grandTotal);
 
   doc.rect(MARGIN_X, y, tableWidth, rowHeight);
@@ -680,8 +727,15 @@ async function drawInvoiceSection(doc, invoice, lineItems, options = {}) {
         0
       ) > 0
   );
+  const hasGstRow = lineItems.some(
+    item => !isFixedCommissionItem(item)
+  );
 
-  const totalsBlock = (hasBonus ? 4 : 3) * 7 + 7 + 16 + 26;
+  const totalsRowCount =
+    2 + (hasBonus ? 1 : 0) + (hasGstRow ? 1 : 0);
+
+  const totalsBlock =
+    totalsRowCount * 7 + 7 + 16 + 26;
   if (y + totalsBlock > pageContentBottom(doc)) {
     drawAddressFooter(doc);
     drawPageNumber(doc, pageNumber, totalPagesHint);
@@ -739,7 +793,7 @@ export async function exportInvoicesPdf(items = []) {
   const files = [];
   for (let i = 0; i < items.length; i += 1) {
     const { invoice, lineItems = [] } = items[i] || {};
-    
+
     files.push(await buildInvoicePdf(invoice, lineItems));
   }
 
