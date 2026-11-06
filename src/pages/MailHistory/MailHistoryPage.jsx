@@ -192,7 +192,7 @@ function MailDetailDialog({ mailId, onClose }) {
             <DetailRow label="Sent by">{mail.sentByUserName || '—'}</DetailRow>
             {mail.attachmentName && <DetailRow label="Attachment">{mail.attachmentName}</DetailRow>}
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 2.5, mb: 1 }}>
+            {/* <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 2.5, mb: 1 }}>
               Mail body
             </Typography>
             {mail.bodyHtml ? (
@@ -207,7 +207,7 @@ function MailDetailDialog({ mailId, onClose }) {
               <Typography variant="body2" sx={{ color: 'var(--muted)' }}>
                 Body is not stored for this mail type (it contains a one-time code or link).
               </Typography>
-            )}
+            )} */}
           </>
         )}
       </DialogContent>

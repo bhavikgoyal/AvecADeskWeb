@@ -234,6 +234,7 @@ export async function fetchInvoiceLineItems(invoiceId) {
       address: item.address ?? item.Address ?? '',
       zipCode: item.zipCode ?? item.ZipCode ?? '',
       campus: item.campus ?? item.campus ?? '',
+      commissionType: item.commissionType ?? item.CommissionType ?? '',
     };
   });
 }
